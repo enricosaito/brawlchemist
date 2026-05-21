@@ -86,15 +86,16 @@ function buildColumns(
       },
     },
     {
-      id: "mains",
-      label: "Mains",
-      width: "92px",
+      id: "main-legend",
+      label: "Main",
+      width: "56px",
+      align: "center",
       render: (r) => (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col items-center gap-1">
           {r.players.map((p) => {
-            const row = playersMap.get(p.id)
-            const ids = row?.mainLegendIds ?? []
-            if (ids.length === 0) {
+            const lid = playersMap.get(p.id)?.topLegendId
+            const slug = lid ? slugForLegendId(lid) : null
+            if (!slug) {
               return (
                 <span
                   key={p.id}
@@ -105,20 +106,12 @@ function buildColumns(
               )
             }
             return (
-              <div key={p.id} className="flex items-center gap-1">
-                {ids.slice(0, 3).map((lid) => {
-                  const slug = slugForLegendId(lid)
-                  if (!slug) return null
-                  return (
-                    <LegendChip
-                      key={lid}
-                      legendId={slug}
-                      size="sm"
-                      showName={false}
-                    />
-                  )
-                })}
-              </div>
+              <LegendChip
+                key={p.id}
+                legendId={slug}
+                size="md"
+                showName={false}
+              />
             )
           })}
         </div>

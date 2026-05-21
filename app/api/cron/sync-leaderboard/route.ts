@@ -67,7 +67,9 @@ export async function GET(req: Request) {
     .flatMap((entry) => entry.players)
     .map((p) => p.id)
 
-  const outcomes = await syncManyPlayers(ids)
+  const force =
+    new URL(req.url).searchParams.get("force") === "1"
+  const outcomes = await syncManyPlayers(ids, { force })
   const summary = {
     synced: outcomes.filter((o) => o.status === "synced").length,
     fresh: outcomes.filter((o) => o.status === "fresh").length,

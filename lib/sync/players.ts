@@ -2,21 +2,22 @@ import "server-only"
 
 import { eq, inArray } from "drizzle-orm"
 import {
-  getPlayerStats,
-  type PlayerStats,
-  type PlayerStatsLegend,
+  getPlayerRanked,
+  type PlayerRanked,
+  type PlayerRankedLegend,
 } from "@/lib/brawlhalla-api"
 import { db } from "@/lib/db"
 import { players, type PlayerRow } from "@/lib/db/schema"
 
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000
 
-function topLegendIds(legendsList: PlayerStatsLegend[], n: number): number[] {
-  return [...legendsList]
-    .filter((l) => typeof l.games === "number" && l.games > 0)
-    .sort((a, b) => b.games - a.games)
-    .slice(0, n)
-    .map((l) => l.legend_id)
+function topRankedLegendId(legends: PlayerRankedLegend[]): number | null {
+  const played = legends.filter(
+    (l) => typeof l.games === "number" && l.games > 0,
+  )
+  if (played.length === 0) return null
+  played.sort((a, b) => b.games - a.games)
+  return played[0].legend_id
 }
 
 function isFresh(row: PlayerRow, ttlMs: number): boolean {
@@ -30,9 +31,9 @@ export interface SyncOutcome {
 }
 
 /**
- * Fetch GetPlayerStats and upsert. Returns `fresh` (no API call made) when the
- * existing row was synced within `ttlMs`, `synced` on successful upsert, or
- * `failed` if the API call errored.
+ * Fetch GetPlayerRanked and upsert. Returns `fresh` (no API call made) when
+ * the existing row was synced within `ttlMs`, `synced` on successful upsert,
+ * or `failed` if the API call errored.
  */
 export async function syncPlayer(
   brawlhallaId: number,
@@ -51,35 +52,29 @@ export async function syncPlayer(
     }
   }
 
-  const result = await getPlayerStats(brawlhallaId)
+  const result = await getPlayerRanked(brawlhallaId)
   if (!result.ok) {
     return { status: "failed", brawlhallaId, error: result.error }
   }
 
-  const stats: PlayerStats = result.data
-  const mainLegendIds = topLegendIds(stats.legends ?? [], 3)
+  const ranked: PlayerRanked = result.data
+  const topLegendId = topRankedLegendId(ranked.legends ?? [])
 
   await db()
     .insert(players)
     .values({
-      brawlhallaId: stats.brawlhalla_id,
-      username: stats.name,
-      level: stats.level ?? null,
-      totalGames: stats.games ?? null,
-      totalWins: stats.wins ?? null,
-      mainLegendIds,
-      statsJson: stats,
+      brawlhallaId: ranked.brawlhalla_id,
+      username: ranked.name,
+      topLegendId,
+      rankedJson: ranked,
       lastSynced: new Date(),
     })
     .onConflictDoUpdate({
       target: players.brawlhallaId,
       set: {
-        username: stats.name,
-        level: stats.level ?? null,
-        totalGames: stats.games ?? null,
-        totalWins: stats.wins ?? null,
-        mainLegendIds,
-        statsJson: stats,
+        username: ranked.name,
+        topLegendId,
+        rankedJson: ranked,
         lastSynced: new Date(),
       },
     })
@@ -94,12 +89,15 @@ export async function syncPlayer(
  */
 export async function syncManyPlayers(
   ids: number[],
-  opts: { ttlMs?: number; delayMs?: number } = {},
+  opts: { ttlMs?: number; delayMs?: number; force?: boolean } = {},
 ): Promise<SyncOutcome[]> {
   const delayMs = opts.delayMs ?? 5000
   const outcomes: SyncOutcome[] = []
   for (let i = 0; i < ids.length; i++) {
-    const outcome = await syncPlayer(ids[i], { ttlMs: opts.ttlMs })
+    const outcome = await syncPlayer(ids[i], {
+      ttlMs: opts.ttlMs,
+      force: opts.force,
+    })
     outcomes.push(outcome)
     // Only pay the rate-limit delay when we actually hit the API.
     if (outcome.status === "synced" && i < ids.length - 1) {
@@ -123,4 +121,3 @@ export async function getPlayersByIds(
     .where(inArray(players.brawlhallaId, ids))
   return new Map(rows.map((r) => [r.brawlhallaId, r]))
 }
-

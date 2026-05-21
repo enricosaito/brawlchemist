@@ -59,29 +59,32 @@ export interface RankedLeaderboard {
 }
 
 /**
- * GetPlayerStats response. Only the fields we surface are typed; the rest of
- * the payload (per-legend deep stats, weapon/gadget breakdowns, etc.) stays as
- * `unknown` and is persisted as jsonb so we don't have to chase the API's
- * occasionally-renamed fields.
+ * GetPlayerRanked response — per-player ranked-season stats. Only the fields
+ * we surface are typed; the rest of the payload (2v2 teams, peak ratings, per-
+ * legend tier strings, etc.) stays as `unknown` and is persisted as jsonb so
+ * we don't have to chase the API's occasionally-renamed fields.
  */
-export interface PlayerStatsLegend {
+export interface PlayerRankedLegend {
   legend_id: number
   legend_name_key: string
   games: number
   wins: number
-  xp: number
-  level: number
+  rating: number
+  peak_rating: number
+  tier: string
   [key: string]: unknown
 }
 
-export interface PlayerStats {
+export interface PlayerRanked {
   brawlhalla_id: number
   name: string
-  xp: number
-  level: number
+  region: string
+  tier: string
+  rating: number
+  peak_rating: number
   games: number
   wins: number
-  legends: PlayerStatsLegend[]
+  legends: PlayerRankedLegend[]
   [key: string]: unknown
 }
 
@@ -154,12 +157,12 @@ export function getRankedLeaderboard(opts: {
   )
 }
 
-export function getPlayerStats(
+export function getPlayerRanked(
   brawlhallaId: number,
-): Promise<ApiResult<PlayerStats>> {
+): Promise<ApiResult<PlayerRanked>> {
   // We bypass the fetch cache here: the sync layer decides freshness via the
   // DB's last_synced column, not the HTTP layer.
-  return apiFetch<PlayerStats>(`/player/${brawlhallaId}/stats`, {}, 0)
+  return apiFetch<PlayerRanked>(`/player/${brawlhallaId}/ranked`, {}, 0)
 }
 
 export interface LegendSummary {

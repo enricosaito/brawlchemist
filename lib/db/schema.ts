@@ -9,21 +9,21 @@ import {
 /**
  * players — one row per Brawlhalla player we've ever enriched.
  *
- * `stats_json` is the raw GetPlayerStats payload as jsonb. We don't enforce a
- * structural type at the DB layer because the API occasionally renames fields
- * and we'd rather keep older payloads parseable than blow up on a schema drift.
- * Hot fields (level, totals, main legends) are denormalized for fast joins
- * against leaderboard responses.
+ * Data here comes from `/player/{id}/ranked` (current ranked-season stats).
+ * `ranked_json` keeps the full payload as jsonb because the API occasionally
+ * renames fields and we'd rather keep older snapshots parseable than blow up
+ * on schema drift. `top_legend_id` is the player's most-played legend in this
+ * ranked season — pre-computed so the leaderboard join stays cheap.
+ *
+ * Lifetime stats (from /player/{id}/stats) will land in a sibling column /
+ * table once player profile pages need them.
  */
 export const players = pgTable("players", {
   brawlhallaId: integer("brawlhalla_id").primaryKey(),
   username: text("username").notNull(),
-  level: integer("level"),
-  totalGames: integer("total_games"),
-  totalWins: integer("total_wins"),
-  /** Top-3 legend IDs sorted by games played, descending. */
-  mainLegendIds: integer("main_legend_ids").array(),
-  statsJson: jsonb("stats_json"),
+  /** Single legend with the most games played in the current ranked season. */
+  topLegendId: integer("top_legend_id"),
+  rankedJson: jsonb("ranked_json"),
   lastSynced: timestamp("last_synced", { withTimezone: true })
     .notNull()
     .defaultNow(),
