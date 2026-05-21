@@ -1,4 +1,4 @@
-import { CURRENT_PATCH, LEGENDS, WEAPON_NAMES } from "@/lib/mock-data"
+import { CURRENT_PATCH, LEGENDS } from "@/lib/mock-data"
 import { formatPercent } from "@/lib/format"
 import { LEGEND_TIER_RANK } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
@@ -19,14 +19,9 @@ export function TopLegendsCard() {
       href="/tier-list"
       viewAllLabel="view full tier list"
       meta={
-        <>
-          <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
-            Patch {CURRENT_PATCH}
-          </span>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            1v1 · last 7d
-          </span>
-        </>
+        <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
+          Patch {CURRENT_PATCH}
+        </span>
       }
     >
       <ol className="divide-y divide-border/60">
@@ -37,12 +32,9 @@ export function TopLegendsCard() {
           >
             <TierLetter tier={legend.tier} />
             <LegendChip legendId={legend.id} size="md" showName={false} />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-sm font-medium">{legend.name}</span>
-              <span className="truncate font-mono text-[10px] text-muted-foreground">
-                {WEAPON_NAMES[legend.weapons[0]]} · {WEAPON_NAMES[legend.weapons[1]]}
-              </span>
-            </div>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              {legend.name}
+            </span>
             <div className="flex flex-col items-end gap-0.5">
               <span className="font-mono text-sm tabular-nums">
                 {formatPercent(legend.winRate)}
