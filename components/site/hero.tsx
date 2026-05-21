@@ -29,7 +29,7 @@ export function Hero() {
         </div>
 
         <h1 className="font-display text-4xl font-semibold tracking-[0.02em] sm:text-5xl md:text-6xl">
-          BRAWL<span className="text-copper">CHEMIST</span>
+          BRAWL<span className="text-tier-s">CHEMIST</span>
         </h1>
 
         <p className="mt-4 max-w-md text-sm text-muted-foreground sm:text-base">

@@ -1,11 +1,13 @@
-import { Activity, Crown, Swords, TrendingUp } from "lucide-react"
-import { META_SNAPSHOT, WEAPON_NAMES, getLegend } from "@/lib/mock-data"
+import { Activity, Crown, Swords, Trophy } from "lucide-react"
+import { META_SNAPSHOT, WEAPONS, WEAPON_NAMES, getLegend } from "@/lib/mock-data"
 import { formatCompact, formatPercent } from "@/lib/format"
-import { Delta } from "./primitives"
 
 export function MetaStrip() {
   const topLegend = getLegend(META_SNAPSHOT.topLegendId)
   const topWeapon = WEAPON_NAMES[META_SNAPSHOT.topWeaponId]
+  const topWeaponPickRate = WEAPONS.find(
+    (w) => w.id === META_SNAPSHOT.topWeaponId,
+  )?.pickRate
 
   const tiles = [
     {
@@ -24,13 +26,16 @@ export function MetaStrip() {
       icon: Swords,
       label: "Top weapon",
       value: topWeapon,
-      hint: `${formatPercent(21.4)} pick`,
+      hint:
+        topWeaponPickRate !== undefined
+          ? `${formatPercent(topWeaponPickRate)} pick`
+          : "",
     },
     {
-      icon: TrendingUp,
-      label: "Avg ELO Δ 24h",
-      value: <Delta value={Math.round(META_SNAPSHOT.averageEloDelta * 10)} />,
-      hint: "across ranked",
+      icon: Trophy,
+      label: "Next major tournament",
+      value: META_SNAPSHOT.nextMajorTournament.name,
+      hint: META_SNAPSHOT.nextMajorTournament.when,
     },
   ]
 
