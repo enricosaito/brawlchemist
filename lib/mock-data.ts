@@ -34,7 +34,7 @@ export const WEAPON_NAMES: Record<WeaponId, string> = {
  */
 const DETAILED_LEGENDS: Legend[] = [
   { id: "cassidy", name: "Cassidy", weapons: ["hammer", "blasters"], tier: "S+", pickRate: 7.8, winRate: 54.2, deltaWR: 1.6, imageUrl: "/assets/legends/cassidy.png" },
-  { id: "tezca", name: "Tezca", weapons: ["gauntlets", "axe"], tier: "S", pickRate: 5.2, winRate: 53.8, deltaWR: 1.1, imageUrl: "/assets/legends/tezca.png" },
+  { id: "tezca", name: "Tezca", weapons: ["gauntlets", "axe"], tier: "S+", pickRate: 5.2, winRate: 53.8, deltaWR: 1.1, imageUrl: "/assets/legends/tezca.png" },
   { id: "caspian", name: "Caspian", weapons: ["katar", "gauntlets"], tier: "S", pickRate: 9.4, winRate: 53.4, deltaWR: 0.8, imageUrl: "/assets/legends/caspian.png" },
   { id: "bodvar", name: "Bödvar", weapons: ["sword", "hammer"], tier: "S", pickRate: 6.1, winRate: 52.5, deltaWR: 0.4, imageUrl: "/assets/legends/bodvar.png" },
   { id: "teros", name: "Teros", weapons: ["hammer", "axe"], tier: "S", pickRate: 4.8, winRate: 51.8, deltaWR: 0.5, imageUrl: "/assets/legends/teros.png" },
@@ -150,13 +150,12 @@ export const WEAPONS: Weapon[] = [
 ]
 
 export const TOP_PLAYERS_1V1: Player[] = [
-  { id: "p1", name: "Phazon", tag: "Phazon#0001", region: "EU", avatarLegendId: "caspian", mainLegendIds: ["caspian", "bodvar", "mirage"], rank: { tier: "Valhallan", division: 1, elo: 2854, peakElo: 2911, delta24h: 23 }, stats: { wins: 612, losses: 311, winRate: 66.3, winStreak: 5 } },
-  { id: "p2", name: "Sandstorm", tag: "Sandstorm#7421", region: "US-E", avatarLegendId: "orion", mainLegendIds: ["orion", "val", "ada"], rank: { tier: "Valhallan", division: 1, elo: 2811, peakElo: 2840, delta24h: -8 }, stats: { wins: 588, losses: 304, winRate: 65.9, winStreak: 0 } },
-  { id: "p3", name: "Boomie", tag: "Boomie#3032", region: "US-E", avatarLegendId: "bodvar", mainLegendIds: ["bodvar", "scarlet"], rank: { tier: "Diamond", division: 5, elo: 2790, peakElo: 2802, delta24h: 14 }, stats: { wins: 502, losses: 268, winRate: 65.2, winStreak: 3 } },
-  { id: "p4", name: "Wisp", tag: "Wisp#1188", region: "SEA", avatarLegendId: "petra", mainLegendIds: ["petra", "ada", "azoth"], rank: { tier: "Diamond", division: 5, elo: 2742, peakElo: 2755, delta24h: 4 }, stats: { wins: 477, losses: 261, winRate: 64.6, winStreak: 0 } },
-  { id: "p5", name: "Diana", tag: "Diana#9119", region: "EU", avatarLegendId: "mirage", mainLegendIds: ["mirage", "orion"], rank: { tier: "Diamond", division: 5, elo: 2733, peakElo: 2741, delta24h: 9 }, stats: { wins: 461, losses: 253, winRate: 64.6, winStreak: 4 } },
-  { id: "p6", name: "Kasper", tag: "Kasper#0440", region: "BRZ", avatarLegendId: "val", mainLegendIds: ["val", "lucien"], rank: { tier: "Diamond", division: 4, elo: 2701, peakElo: 2712, delta24h: -3 }, stats: { wins: 418, losses: 232, winRate: 64.3, winStreak: 0 } },
-  { id: "p7", name: "Rune", tag: "Rune#0006", region: "EU", avatarLegendId: "azoth", mainLegendIds: ["azoth", "ember"], rank: { tier: "Diamond", division: 4, elo: 2688, peakElo: 2701, delta24h: 6 }, stats: { wins: 401, losses: 224, winRate: 64.2, winStreak: 2 } },
+  { id: "p1", name: "Kyna", tag: "Kyna#0001", region: "BRZ", avatarLegendId: "teros", mainLegendIds: ["teros", "tezca"], rank: { tier: "Valhallan", division: 1, elo: 2952, peakElo: 2981, delta24h: 24 }, stats: { wins: 731, losses: 312, winRate: 70.1, winStreak: 6 } },
+  { id: "p2", name: "Yüz", tag: "Yüz#0202", region: "BRZ", avatarLegendId: "jaeyun", mainLegendIds: ["jaeyun", "asuri"], rank: { tier: "Valhallan", division: 1, elo: 2897, peakElo: 2920, delta24h: 12 }, stats: { wins: 684, losses: 304, winRate: 69.2, winStreak: 3 } },
+  { id: "p3", name: "Wess", tag: "Wess#0103", region: "BRZ", avatarLegendId: "tezca", mainLegendIds: ["tezca", "ada"], rank: { tier: "Valhallan", division: 1, elo: 2854, peakElo: 2871, delta24h: -7 }, stats: { wins: 632, losses: 289, winRate: 68.6, winStreak: 0 } },
+  { id: "p4", name: "Godly", tag: "Godly#0404", region: "EU", avatarLegendId: "petra", mainLegendIds: ["petra", "azoth"], rank: { tier: "Valhallan", division: 1, elo: 2811, peakElo: 2832, delta24h: 9 }, stats: { wins: 597, losses: 281, winRate: 68.0, winStreak: 4 } },
+  { id: "p5", name: "Sandstorm", tag: "Sandstorm#7421", region: "US-E", avatarLegendId: "mordex", mainLegendIds: ["mordex", "val"], rank: { tier: "Valhallan", division: 1, elo: 2768, peakElo: 2790, delta24h: 5 }, stats: { wins: 561, losses: 268, winRate: 67.7, winStreak: 2 } },
+  { id: "p6", name: "Enrico", tag: "Enrico#1313", region: "BRZ", avatarLegendId: "bodvar", mainLegendIds: ["bodvar", "caspian"], rank: { tier: "Diamond", division: 5, elo: 2691, peakElo: 2708, delta24h: 16 }, stats: { wins: 484, losses: 251, winRate: 65.9, winStreak: 3 } },
 ]
 
 export const TOP_PLAYERS_2V2: Player[] = [
