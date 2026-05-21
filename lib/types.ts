@@ -106,5 +106,8 @@ export interface MetaSnapshot {
   playersOnline: number
   topLegendId: string
   topWeaponId: WeaponId
-  averageEloDelta: number
+  nextMajorTournament: {
+    name: string
+    when: string
+  }
 }

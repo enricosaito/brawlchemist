@@ -155,7 +155,7 @@ export const TOP_PLAYERS_1V1: Player[] = [
   { id: "p3", name: "Wess", tag: "Wess#0103", region: "BRZ", avatarLegendId: "tezca", mainLegendIds: ["tezca", "ada"], rank: { tier: "Valhallan", division: 1, elo: 2854, peakElo: 2871, delta24h: -7 }, stats: { wins: 632, losses: 289, winRate: 68.6, winStreak: 0 } },
   { id: "p4", name: "Godly", tag: "Godly#0404", region: "EU", avatarLegendId: "petra", mainLegendIds: ["petra", "azoth"], rank: { tier: "Valhallan", division: 1, elo: 2811, peakElo: 2832, delta24h: 9 }, stats: { wins: 597, losses: 281, winRate: 68.0, winStreak: 4 } },
   { id: "p5", name: "Sandstorm", tag: "Sandstorm#7421", region: "US-E", avatarLegendId: "mordex", mainLegendIds: ["mordex", "val"], rank: { tier: "Valhallan", division: 1, elo: 2768, peakElo: 2790, delta24h: 5 }, stats: { wins: 561, losses: 268, winRate: 67.7, winStreak: 2 } },
-  { id: "p6", name: "Enrico", tag: "Enrico#1313", region: "BRZ", avatarLegendId: "bodvar", mainLegendIds: ["bodvar", "caspian"], rank: { tier: "Diamond", division: 5, elo: 2691, peakElo: 2708, delta24h: 16 }, stats: { wins: 484, losses: 251, winRate: 65.9, winStreak: 3 } },
+  { id: "p6", name: "Enrico", tag: "Enrico#1313", region: "BRZ", avatarLegendId: "bodvar", mainLegendIds: ["bodvar", "caspian"], rank: { tier: "Diamond", division: 5, elo: 2391, peakElo: 2458, delta24h: 16 }, stats: { wins: 484, losses: 251, winRate: 65.9, winStreak: 3 } },
 ]
 
 export const TOP_PLAYERS_2V2: Player[] = [
@@ -249,9 +249,12 @@ export const RECENT_MATCHES: Match[] = [
 
 export const META_SNAPSHOT: MetaSnapshot = {
   playersOnline: 48214,
-  topLegendId: "caspian",
-  topWeaponId: "spear",
-  averageEloDelta: 0.4,
+  topLegendId: "cassidy",
+  topWeaponId: "gauntlets",
+  nextMajorTournament: {
+    name: "Midseason Championship 2026",
+    when: "Jun 2026",
+  },
 }
 
 export const TRENDING_LEGEND_IDS = ["caspian", "bodvar", "orion", "mirage"]
