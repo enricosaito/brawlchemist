@@ -25,8 +25,7 @@ export function Hero() {
         </h1>
 
         <p className="mt-3 max-w-md text-sm text-muted-foreground sm:text-base">
-          Read the meta and track ranked progress across
-          1v1 and 2v2.
+          Read the meta and track 1v1 & 2v2 ranked stats.
         </p>
 
         <form
