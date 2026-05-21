@@ -1,7 +1,7 @@
 import { WEAPONS, getLegend } from "@/lib/mock-data"
 import { formatPercent } from "@/lib/format"
 import { PreviewCard } from "./preview-card"
-import { Delta, LegendChip } from "./primitives"
+import { Delta, LegendChip, WeaponIcon } from "./primitives"
 
 export function WeaponMetaCard() {
   const top = [...WEAPONS].sort((a, b) => b.pickRate - a.pickRate).slice(0, 6)
@@ -28,6 +28,7 @@ export function WeaponMetaCard() {
               <span className="w-4 text-right font-mono text-xs text-muted-foreground tabular-nums">
                 {i + 1}
               </span>
+              <WeaponIcon weaponId={weapon.id} size={28} />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-sm font-medium">
                   {weapon.name}
