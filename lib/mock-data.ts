@@ -133,19 +133,19 @@ export function getLegend(id: string): Legend | undefined {
 }
 
 export const WEAPONS: Weapon[] = [
-  { id: "spear", name: "Spear", pickRate: 21.4, winRate: 51.2, topLegendId: "orion", deltaWR: 0.8 },
-  { id: "sword", name: "Sword", pickRate: 18.9, winRate: 50.6, topLegendId: "bodvar", deltaWR: 0.3 },
-  { id: "hammer", name: "Hammer", pickRate: 14.2, winRate: 50.1, topLegendId: "bodvar", deltaWR: -0.4 },
-  { id: "blasters", name: "Blasters", pickRate: 12.7, winRate: 49.8, topLegendId: "diana", deltaWR: 0.5 },
-  { id: "axe", name: "Axe", pickRate: 11.8, winRate: 49.6, topLegendId: "ragnir", deltaWR: 0.2 },
-  { id: "katar", name: "Katars", pickRate: 10.4, winRate: 51.7, topLegendId: "caspian", deltaWR: 1.1 },
-  { id: "gauntlets", name: "Gauntlets", pickRate: 9.8, winRate: 50.4, topLegendId: "caspian", deltaWR: 0.6 },
+  { id: "gauntlets", name: "Gauntlets", pickRate: 22.5, winRate: 51.4, topLegendId: "tezca", deltaWR: 1.2 },
+  { id: "hammer", name: "Hammer", pickRate: 18.2, winRate: 50.8, topLegendId: "cassidy", deltaWR: 0.7 },
+  { id: "sword", name: "Sword", pickRate: 15.7, winRate: 50.6, topLegendId: "bodvar", deltaWR: 0.3 },
+  { id: "bow", name: "Bow", pickRate: 13.4, winRate: 49.4, topLegendId: "zariel", deltaWR: 0.4 },
+  { id: "katar", name: "Katars", pickRate: 11.9, winRate: 51.7, topLegendId: "asuri", deltaWR: 1.1 },
+  { id: "axe", name: "Axe", pickRate: 10.5, winRate: 50.2, topLegendId: "teros", deltaWR: 0.3 },
+  { id: "blasters", name: "Blasters", pickRate: 9.8, winRate: 49.8, topLegendId: "diana", deltaWR: 0.5 },
+  { id: "spear", name: "Spear", pickRate: 9.2, winRate: 50.0, topLegendId: "orion", deltaWR: -0.4 },
   { id: "scythe", name: "Scythe", pickRate: 8.5, winRate: 49.1, topLegendId: "mirage", deltaWR: -0.2 },
   { id: "rocket-lance", name: "Rocket Lance", pickRate: 7.6, winRate: 48.9, topLegendId: "scarlet", deltaWR: 0.1 },
-  { id: "bow", name: "Bow", pickRate: 7.1, winRate: 49.4, topLegendId: "diana", deltaWR: 0.3 },
   { id: "orb", name: "Orb", pickRate: 4.8, winRate: 48.2, topLegendId: "petra", deltaWR: -0.6 },
-  { id: "greatsword", name: "Greatsword", pickRate: 3.6, winRate: 48.6, topLegendId: "bodvar", deltaWR: 0.2 },
-  { id: "cannon", name: "Cannon", pickRate: 2.4, winRate: 47.9, topLegendId: "cassidy", deltaWR: -0.3 },
+  { id: "greatsword", name: "Greatsword", pickRate: 3.6, winRate: 48.6, topLegendId: "jaeyun", deltaWR: 0.2 },
+  { id: "cannon", name: "Cannon", pickRate: 2.4, winRate: 47.9, topLegendId: "sidra", deltaWR: -0.3 },
   { id: "battle-boots", name: "Battle Boots", pickRate: 1.9, winRate: 48.4, topLegendId: "val", deltaWR: 0.4 },
 ]
 

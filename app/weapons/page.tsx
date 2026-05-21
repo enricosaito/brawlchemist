@@ -1,4 +1,4 @@
-import { Delta, LegendChip } from "@/components/site/primitives"
+import { Delta, LegendChip, WeaponIcon } from "@/components/site/primitives"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { PageHero } from "@/components/site/page-hero"
 import { SiteFooter } from "@/components/site/site-footer"
@@ -18,6 +18,13 @@ const columns: ColDef<Weapon>[] = [
         {i + 1}
       </span>
     ),
+  },
+  {
+    id: "icon",
+    label: "",
+    width: "52px",
+    align: "center",
+    render: (w) => <WeaponIcon weaponId={w.id} size={32} className="mx-auto" />,
   },
   {
     id: "weapon",

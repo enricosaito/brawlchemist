@@ -1,7 +1,7 @@
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { getLegend } from "@/lib/mock-data"
-import type { LegendTier, Tier } from "@/lib/types"
+import type { LegendTier, Tier, WeaponId } from "@/lib/types"
 
 /**
  * Delta — signed numeric change with semantic color.
@@ -206,6 +206,48 @@ export function LegendChip({
         <span className="truncate text-sm">{legend.name}</span>
       )}
     </span>
+  )
+}
+
+/**
+ * WeaponIcon — small weapon glyph. Currently only gauntlets and hammer have
+ * dedicated assets; others fall back to a neutral placeholder box.
+ */
+const WEAPON_ICON_SRC: Partial<Record<WeaponId, string>> = {
+  gauntlets: "/assets/weapons/gauntlets.png",
+  hammer: "/assets/weapons/hammer.webp",
+}
+
+export function WeaponIcon({
+  weaponId,
+  size = 28,
+  className,
+}: {
+  weaponId: WeaponId
+  size?: number
+  className?: string
+}) {
+  const src = WEAPON_ICON_SRC[weaponId]
+  if (src) {
+    return (
+      <Image
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        className={cn("shrink-0 select-none object-contain", className)}
+      />
+    )
+  }
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "inline-block shrink-0 rounded-md border border-border/60 bg-muted/40",
+        className,
+      )}
+      style={{ width: size, height: size }}
+    />
   )
 }
 
