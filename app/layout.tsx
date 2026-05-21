@@ -1,15 +1,30 @@
-import { Geist, Geist_Mono, Montserrat } from "next/font/google"
+import type { Metadata } from "next"
+import { Geist, Geist_Mono, Cinzel } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils"
 
-const montserrat = Montserrat({subsets:['latin'],variable:'--font-sans'})
+const fontSans = Geist({ subsets: ["latin"], variable: "--font-sans" })
 
 const fontMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
 })
+
+// Display face reserved for the wordmark and tier letters — single typographic
+// moment that carries most of the alchemy identity.
+const fontDisplay = Cinzel({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-display",
+})
+
+export const metadata: Metadata = {
+  title: "Brawlchemist — the Brawlhalla stats laboratory",
+  description:
+    "Search players, read the meta, track rankings and weapon trends for Brawlhalla 1v1 and 2v2 ranked.",
+}
 
 export default function RootLayout({
   children,
@@ -20,10 +35,16 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", montserrat.variable)}
+      className={cn(
+        "antialiased",
+        fontSans.variable,
+        fontMono.variable,
+        fontDisplay.variable,
+        "font-sans",
+      )}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider defaultTheme="dark">{children}</ThemeProvider>
       </body>
     </html>
   )
