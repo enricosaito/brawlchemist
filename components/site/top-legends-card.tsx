@@ -16,7 +16,7 @@ export function TopLegendsCard() {
   return (
     <PreviewCard
       title="Top legends"
-      href="/tier-list"
+      href="/tierlist"
       viewAllLabel="view full tier list"
       meta={
         <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
