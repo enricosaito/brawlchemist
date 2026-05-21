@@ -32,15 +32,14 @@ export function TopLegendsCard() {
           >
             <TierLetter tier={legend.tier} />
             <LegendChip legendId={legend.id} size="md" showName={false} />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">
-              {legend.name}
-            </span>
-            {legend.bestStance && (
-              <StanceLabel
-                stance={legend.bestStance}
-                className="shrink-0"
-              />
-            )}
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-sm font-medium">
+                {legend.name}
+              </span>
+              {legend.bestStance && (
+                <StanceLabel stance={legend.bestStance} />
+              )}
+            </div>
             <div className="flex shrink-0 flex-col items-end gap-0.5">
               <span className="font-mono text-sm tabular-nums">
                 {formatPercent(legend.winRate)}
