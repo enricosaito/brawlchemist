@@ -122,7 +122,7 @@ export function RankIcon({
 
 const LEGEND_TIER_TEXT: Record<LegendTier, string> = {
   "S+": "text-tier-gold",
-  S: "text-copper",
+  S: "text-tier-s",
   A: "text-mystic",
   B: "text-foreground/80",
   C: "text-muted-foreground",
@@ -214,8 +214,12 @@ export function LegendChip({
  * dedicated assets; others fall back to a neutral placeholder box.
  */
 const WEAPON_ICON_SRC: Partial<Record<WeaponId, string>> = {
-  gauntlets: "/assets/weapons/gauntlets.png",
-  hammer: "/assets/weapons/hammer.webp",
+  gauntlets: "/assets/weapons/gauntlets.gif",
+  hammer: "/assets/weapons/hammer.png",
+  sword: "/assets/weapons/sword.webp",
+  bow: "/assets/weapons/bow.png",
+  katar: "/assets/weapons/katars.png",
+  axe: "/assets/weapons/axe.png",
 }
 
 export function WeaponIcon({
@@ -235,6 +239,7 @@ export function WeaponIcon({
         alt=""
         width={size}
         height={size}
+        unoptimized
         className={cn("shrink-0 select-none object-contain", className)}
       />
     )

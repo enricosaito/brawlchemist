@@ -54,6 +54,7 @@
     --color-tier-platinum: var(--tier-platinum);
     --color-tier-diamond: var(--tier-diamond);
     --color-tier-valhallan: var(--tier-valhallan);
+    --color-tier-s: var(--tier-s);
 
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
@@ -97,6 +98,7 @@
     --tier-platinum: oklch(0.75 0.07 200);
     --tier-diamond: oklch(0.75 0.13 250);
     --tier-valhallan: oklch(0.66 0.25 0);
+    --tier-s: oklch(0.66 0.19 285);
 
     --chart-1: oklch(0.74 0.115 75);
     --chart-2: oklch(0.74 0.13 175);
@@ -148,6 +150,7 @@
     --tier-platinum: oklch(0.78 0.08 200);
     --tier-diamond: oklch(0.78 0.13 260);
     --tier-valhallan: oklch(0.76 0.24 0);
+    --tier-s: oklch(0.78 0.2 285);
 
     --chart-1: oklch(0.74 0.115 75);
     --chart-2: oklch(0.85 0.105 175);

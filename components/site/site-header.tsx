@@ -1,3 +1,4 @@
+import Image from "next/image"
 import Link from "next/link"
 import { Search } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -16,9 +17,14 @@ export function SiteHeader() {
           href="/"
           className="group flex items-center gap-2 font-display text-base font-semibold tracking-wider"
         >
-          <span className="text-copper transition-transform group-hover:rotate-12" aria-hidden>
-            ⚗
-          </span>
+          <Image
+            src="/assets/Brawlchemist.png"
+            alt=""
+            width={32}
+            height={32}
+            priority
+            className="size-7 shrink-0 transition-transform group-hover:rotate-12"
+          />
           <span>
             BRAWL<span className="text-copper">CHEMIST</span>
           </span>
