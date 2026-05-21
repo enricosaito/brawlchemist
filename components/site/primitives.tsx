@@ -107,7 +107,8 @@ export function RankIcon({
   size?: number
   className?: string
 }) {
-  const src = RANK_ICON_SRC[tier] ?? "/assets/Valhallan-GIF.gif"
+  const src = RANK_ICON_SRC[tier]
+  if (!src) return null
   return (
     <Image
       src={src}
