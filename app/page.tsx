@@ -16,11 +16,11 @@ export default function Page() {
 
         <div className="rune-divider mx-auto max-w-[1280px]" />
 
-        <div className="mt-8">
+        <div className="mt-5">
           <MetaStrip />
         </div>
 
-        <section className="mx-auto mt-8 max-w-[1280px] px-4 sm:px-6">
+        <section className="mx-auto mt-5 max-w-[1280px] px-4 sm:px-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <TopPlayersCard />
             <TopLegendsCard />
@@ -28,7 +28,7 @@ export default function Page() {
           </div>
         </section>
 
-        <div className="my-12 px-4 sm:px-6">
+        <div className="my-8 px-4 sm:px-6">
           <div className="rune-divider mx-auto max-w-[1280px]" />
         </div>
 

@@ -252,7 +252,7 @@ export const META_SNAPSHOT: MetaSnapshot = {
   topLegendId: "cassidy",
   topWeaponId: "gauntlets",
   nextMajorTournament: {
-    name: "Midseason Championship 2026",
+    name: "Midseason Championship",
     when: "Jun 2026",
   },
 }
