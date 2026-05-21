@@ -95,6 +95,7 @@ export function RankPill({
  */
 const RANK_ICON_SRC: Partial<Record<Tier, string>> = {
   Valhallan: "/assets/Valhallan-GIF.gif",
+  Diamond: "/assets/Avatar_Diamond_20.webp",
 }
 
 export function RankIcon({
@@ -141,7 +142,7 @@ export function TierLetter({
   return (
     <span
       className={cn(
-        "inline-flex w-8 shrink-0 items-baseline justify-center font-display text-xl font-bold leading-none tracking-tight",
+        "glow-text inline-flex w-8 shrink-0 items-baseline justify-center font-display text-xl font-bold leading-none tracking-tight",
         LEGEND_TIER_TEXT[tier],
         className,
       )}
