@@ -119,38 +119,40 @@ export function RankIcon({
   )
 }
 
-const LEGEND_TIER_COLOR: Record<LegendTier, string> = {
-  S: "text-copper border-copper/40 bg-copper/10",
-  A: "text-mystic border-mystic/40 bg-mystic/10",
-  B: "text-foreground/80 border-border bg-muted",
-  C: "text-muted-foreground border-border bg-muted/60",
+const LEGEND_TIER_TEXT: Record<LegendTier, string> = {
+  "S+": "text-tier-gold",
+  S: "text-copper",
+  A: "text-mystic",
+  B: "text-foreground/80",
+  C: "text-muted-foreground",
 }
 
+/**
+ * TierLetter — plain colored grade. No frame, no background. The "+" on S+
+ * renders slightly smaller so the grade reads as a single unit.
+ */
 export function TierLetter({
   tier,
   className,
-  size = "md",
 }: {
   tier: LegendTier
   className?: string
-  size?: "sm" | "md" | "lg"
 }) {
-  const sizeClass =
-    size === "sm"
-      ? "size-5 text-[10px]"
-      : size === "lg"
-        ? "size-9 text-base"
-        : "size-7 text-xs"
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-md border font-display font-semibold tracking-wider",
-        LEGEND_TIER_COLOR[tier],
-        sizeClass,
+        "inline-flex w-8 shrink-0 items-baseline justify-center font-display text-xl font-bold leading-none tracking-tight",
+        LEGEND_TIER_TEXT[tier],
         className,
       )}
     >
-      {tier}
+      {tier === "S+" ? (
+        <>
+          S<span className="text-[0.65em] font-semibold leading-none">+</span>
+        </>
+      ) : (
+        tier
+      )}
     </span>
   )
 }
