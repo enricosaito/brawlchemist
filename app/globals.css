@@ -202,8 +202,8 @@
     .ember-glow {
         background: radial-gradient(
             closest-side,
-            oklch(0.74 0.115 75 / 0.18),
-            oklch(0.74 0.115 75 / 0) 70%
+            oklch(0.78 0.2 285 / 0.22),
+            oklch(0.78 0.2 285 / 0) 70%
         );
     }
     .mystic-glow {
