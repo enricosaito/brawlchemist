@@ -1,4 +1,4 @@
-import { LEGENDS, WEAPON_NAMES } from "@/lib/mock-data"
+import { CURRENT_PATCH, LEGENDS, WEAPON_NAMES } from "@/lib/mock-data"
 import { formatPercent } from "@/lib/format"
 import { LEGEND_TIER_RANK } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
@@ -19,9 +19,14 @@ export function TopLegendsCard() {
       href="/tier-list"
       viewAllLabel="view full tier list"
       meta={
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          1v1 · last 7d
-        </span>
+        <>
+          <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
+            Patch {CURRENT_PATCH}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            1v1 · last 7d
+          </span>
+        </>
       }
     >
       <ol className="divide-y divide-border/60">

@@ -14,13 +14,17 @@ export function SiteFooter() {
         <div className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-wider">
           <span>API: live</span>
           <a
-            href="https://github.com/"
+            href="https://github.com/enricosaito/brawlchemist"
+            target="_blank"
+            rel="noopener noreferrer"
             className="transition-colors hover:text-copper"
           >
             GitHub
           </a>
           <a
-            href="#"
+            href="https://discord.gg/jXpe8kjYwQ"
+            target="_blank"
+            rel="noopener noreferrer"
             className="transition-colors hover:text-copper"
           >
             Discord
