@@ -22,8 +22,8 @@ export default function Page() {
 
         <section className="mx-auto mt-8 max-w-[1280px] px-4 sm:px-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <TopLegendsCard />
             <TopPlayersCard />
+            <TopLegendsCard />
             <WeaponMetaCard />
           </div>
         </section>

@@ -1,0 +1,410 @@
+[
+  {
+    "slug": "bodvar",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/bodvar.png",
+    "name": "Bödvar",
+    "file": "/assets/legends/bodvar.png"
+  },
+  {
+    "slug": "cassidy",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/cassidy.png",
+    "name": "Cassidy",
+    "file": "/assets/legends/cassidy.png"
+  },
+  {
+    "slug": "orion",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/orion.png",
+    "name": "Orion",
+    "file": "/assets/legends/orion.png"
+  },
+  {
+    "slug": "lord-vraxx",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_VraxxM-1.png",
+    "name": "Lord Vraxx",
+    "file": "/assets/legends/lord-vraxx.png"
+  },
+  {
+    "slug": "gnash",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/gnash.png",
+    "name": "Gnash",
+    "file": "/assets/legends/gnash.png"
+  },
+  {
+    "slug": "queen-nai",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/nai.png",
+    "name": "Queen Nai",
+    "file": "/assets/legends/queen-nai.png"
+  },
+  {
+    "slug": "hattori",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/hattori.png",
+    "name": "Hattori",
+    "file": "/assets/legends/hattori.png"
+  },
+  {
+    "slug": "sir-roland",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/roland.png",
+    "name": "Sir Roland",
+    "file": "/assets/legends/sir-roland.png"
+  },
+  {
+    "slug": "scarlet",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/scarlet.png",
+    "name": "Scarlet",
+    "file": "/assets/legends/scarlet.png"
+  },
+  {
+    "slug": "thatch",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/thatch.png",
+    "name": "Thatch",
+    "file": "/assets/legends/thatch.png"
+  },
+  {
+    "slug": "ada",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/ada.png",
+    "name": "Ada",
+    "file": "/assets/legends/ada.png"
+  },
+  {
+    "slug": "sentinel",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/sentinel.png",
+    "name": "Sentinel",
+    "file": "/assets/legends/sentinel.png"
+  },
+  {
+    "slug": "lucien",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/lucien.png",
+    "name": "Lucien",
+    "file": "/assets/legends/lucien.png"
+  },
+  {
+    "slug": "teros",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/teros.png",
+    "name": "Teros",
+    "file": "/assets/legends/teros.png"
+  },
+  {
+    "slug": "brynn",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_ValkyrieM.png",
+    "name": "Brynn",
+    "file": "/assets/legends/brynn.png"
+  },
+  {
+    "slug": "asuri",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_CatM.png",
+    "name": "Asuri",
+    "file": "/assets/legends/asuri.png"
+  },
+  {
+    "slug": "barraza",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_ApocM.png",
+    "name": "Barraza",
+    "file": "/assets/legends/barraza.png"
+  },
+  {
+    "slug": "ember",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_ElfM.png",
+    "name": "Ember",
+    "file": "/assets/legends/ember.png"
+  },
+  {
+    "slug": "azoth",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_AzothM.png",
+    "name": "Azoth",
+    "file": "/assets/legends/azoth.png"
+  },
+  {
+    "slug": "koji",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_SamuraiM.png",
+    "name": "Koji",
+    "file": "/assets/legends/koji.png"
+  },
+  {
+    "slug": "ulgrim",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_DwarfM.png",
+    "name": "Ulgrim",
+    "file": "/assets/legends/ulgrim.png"
+  },
+  {
+    "slug": "diana",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_MonsterHunterM.png",
+    "name": "Diana",
+    "file": "/assets/legends/diana.png"
+  },
+  {
+    "slug": "jhala",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_BarbarianM.png",
+    "name": "Jhala",
+    "file": "/assets/legends/jhala.png"
+  },
+  {
+    "slug": "kor",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_GolemM.png",
+    "name": "Kor",
+    "file": "/assets/legends/kor.png"
+  },
+  {
+    "slug": "wu-shang",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_MonkM.png",
+    "name": "Wu Shang",
+    "file": "/assets/legends/wu-shang.png"
+  },
+  {
+    "slug": "val",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_ValM.png",
+    "name": "Val",
+    "file": "/assets/legends/val.png"
+  },
+  {
+    "slug": "ragnir",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_DragonM.png",
+    "name": "Ragnir",
+    "file": "/assets/legends/ragnir.png"
+  },
+  {
+    "slug": "cross",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_CrossM.png",
+    "name": "Cross",
+    "file": "/assets/legends/cross.png"
+  },
+  {
+    "slug": "mirage",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_AssassinM.png",
+    "name": "Mirage",
+    "file": "/assets/legends/mirage.png"
+  },
+  {
+    "slug": "nix",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_ReaperM.png",
+    "name": "Nix",
+    "file": "/assets/legends/nix.png"
+  },
+  {
+    "slug": "mordex",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_WerewolfM.png",
+    "name": "Mordex",
+    "file": "/assets/legends/mordex.png"
+  },
+  {
+    "slug": "yumiko",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_KitsuneM.png",
+    "name": "Yumiko",
+    "file": "/assets/legends/yumiko.png"
+  },
+  {
+    "slug": "artemis",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_SpaceHunterM.png",
+    "name": "Artemis",
+    "file": "/assets/legends/artemis.png"
+  },
+  {
+    "slug": "caspian",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_ThiefM.png",
+    "name": "Caspian",
+    "file": "/assets/legends/caspian.png"
+  },
+  {
+    "slug": "sidra",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_CorsairM.png",
+    "name": "Sidra",
+    "file": "/assets/legends/sidra.png"
+  },
+  {
+    "slug": "xull",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_BruteM.png",
+    "name": "Xull",
+    "file": "/assets/legends/xull.png"
+  },
+  {
+    "slug": "kaya",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_InuitM-1.png",
+    "name": "Kaya",
+    "file": "/assets/legends/kaya.png"
+  },
+  {
+    "slug": "isaiah",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_SoldierM.png",
+    "name": "Isaiah",
+    "file": "/assets/legends/isaiah.png"
+  },
+  {
+    "slug": "jiro",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_ShinobiM.png",
+    "name": "Jiro",
+    "file": "/assets/legends/jiro.png"
+  },
+  {
+    "slug": "lin-fei",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_WuxiaM.png",
+    "name": "Lin Fei",
+    "file": "/assets/legends/lin-fei.png"
+  },
+  {
+    "slug": "zariel",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_CelestialM.png",
+    "name": "Zariel",
+    "file": "/assets/legends/zariel.png"
+  },
+  {
+    "slug": "rayman",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_RaymanM.png",
+    "name": "Rayman",
+    "file": "/assets/legends/rayman.png"
+  },
+  {
+    "slug": "dusk",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_ElfwarM.png",
+    "name": "Dusk",
+    "file": "/assets/legends/dusk.png"
+  },
+  {
+    "slug": "fait",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_SpellwitchM.png",
+    "name": "Fait",
+    "file": "/assets/legends/fait.png"
+  },
+  {
+    "slug": "thor",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_ThorM.png",
+    "name": "Thor",
+    "file": "/assets/legends/thor.png"
+  },
+  {
+    "slug": "petra",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_RagefighterM.png",
+    "name": "Petra",
+    "file": "/assets/legends/petra.png"
+  },
+  {
+    "slug": "vector",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_ActualRobotM.png",
+    "name": "Vector",
+    "file": "/assets/legends/vector.png"
+  },
+  {
+    "slug": "volkov",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_VampLordM.png",
+    "name": "Volkov",
+    "file": "/assets/legends/volkov.png"
+  },
+  {
+    "slug": "onyx",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_GargoyleM.png",
+    "name": "Onyx",
+    "file": "/assets/legends/onyx.png"
+  },
+  {
+    "slug": "jaeyun",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_SellswordM.png",
+    "name": "Jaeyun",
+    "file": "/assets/legends/jaeyun.png"
+  },
+  {
+    "slug": "mako",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_ActualSharkM.png",
+    "name": "Mako",
+    "file": "/assets/legends/mako.png"
+  },
+  {
+    "slug": "magyar",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_GhostArmorM.png",
+    "name": "Magyar",
+    "file": "/assets/legends/magyar.png"
+  },
+  {
+    "slug": "reno",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/07/a_Roster_Pose_BountyHunterM.png",
+    "name": "Reno",
+    "file": "/assets/legends/reno.png"
+  },
+  {
+    "slug": "munin",
+    "source": "https://cms.brawlhalla.com/c/uploads/2021/12/a_Roster_Pose_BirdBardM.png",
+    "name": "Munin",
+    "file": "/assets/legends/munin.png"
+  },
+  {
+    "slug": "arcadia",
+    "source": "https://cms.brawlhalla.com/c/uploads/2022/03/a_Roster_Pose_FairyQueenM.png",
+    "name": "Arcadia",
+    "file": "/assets/legends/arcadia.png"
+  },
+  {
+    "slug": "ezio",
+    "source": "https://cms.brawlhalla.com/c/uploads/2022/07/a_Roster_Pose_EzioM.png",
+    "name": "Ezio",
+    "file": "/assets/legends/ezio.png"
+  },
+  {
+    "slug": "tezca",
+    "source": "https://cms.brawlhalla.com/c/uploads/2022/12/a_Roster_Pose_LuchadorM.png",
+    "name": "Tezca",
+    "file": "/assets/legends/tezca.png"
+  },
+  {
+    "slug": "thea",
+    "source": "https://cms.brawlhalla.com/c/uploads/2023/03/a_Roster_Pose_SpeedsterM.png",
+    "name": "Thea",
+    "file": "/assets/legends/thea.png"
+  },
+  {
+    "slug": "red-raptor",
+    "source": "https://cms.brawlhalla.com/c/uploads/2023/06/a_Roster_Pose_SentaiM.png",
+    "name": "Red Raptor",
+    "file": "/assets/legends/red-raptor.png"
+  },
+  {
+    "slug": "loki",
+    "source": "https://cms.brawlhalla.com/c/uploads/2023/09/Loki_icon-1.png",
+    "name": "Loki",
+    "file": "/assets/legends/loki.png"
+  },
+  {
+    "slug": "seven",
+    "source": "https://cms.brawlhalla.com/c/uploads/2023/12/roboengineer-rostericon.png",
+    "name": "Seven",
+    "file": "/assets/legends/seven.png"
+  },
+  {
+    "slug": "vivi",
+    "source": "https://cms.brawlhalla.com/c/uploads/2024/08/a_Roster_Pose_ViviL.png",
+    "name": "Vivi",
+    "file": "/assets/legends/vivi.png"
+  },
+  {
+    "slug": "imugi",
+    "source": "https://cms.brawlhalla.com/c/uploads/2024/07/imgui-icon.png",
+    "name": "Imugi",
+    "file": "/assets/legends/imugi.png"
+  },
+  {
+    "slug": "king-zuva",
+    "source": "https://cms.brawlhalla.com/c/uploads/2024/10/a_Roster_Pose_ZuvaM.png",
+    "name": "King Zuva",
+    "file": "/assets/legends/king-zuva.png"
+  },
+  {
+    "slug": "priya",
+    "source": "https://cms.brawlhalla.com/c/uploads/2025/01/Mobile-icon.png",
+    "name": "Priya",
+    "file": "/assets/legends/priya.png"
+  },
+  {
+    "slug": "ransom",
+    "source": "https://cms.brawlhalla.com/c/uploads/2025/06/a_Roster_Pose_CybervirusM.png",
+    "name": "Ransom",
+    "file": "/assets/legends/ransom.png"
+  },
+  {
+    "slug": "lady-vera",
+    "source": "https://cms.brawlhalla.com/c/uploads/2025/11/a_Roster_Pose_ClericM.png",
+    "name": "Lady Vera",
+    "file": "/assets/legends/lady-vera.png"
+  },
+  {
+    "slug": "rupture",
+    "source": "https://cms.brawlhalla.com/c/uploads/2026/01/a_Roster_Pose_DarkheartMonsterM.png",
+    "name": "Rupture",
+    "file": "/assets/legends/rupture.png"
+  }
+]

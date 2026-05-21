@@ -13,7 +13,15 @@ export type Tier =
 
 export type Division = 1 | 2 | 3 | 4 | 5
 
-export type LegendTier = "S" | "A" | "B" | "C"
+export type LegendTier = "S+" | "S" | "A" | "B" | "C"
+
+export const LEGEND_TIER_RANK: Record<LegendTier, number> = {
+  "S+": 0,
+  S: 1,
+  A: 2,
+  B: 3,
+  C: 4,
+}
 
 export type WeaponId =
   | "sword"
@@ -48,6 +56,7 @@ export interface Legend {
   pickRate: number
   winRate: number
   deltaWR: number
+  imageUrl?: string
 }
 
 export interface PlayerRank {

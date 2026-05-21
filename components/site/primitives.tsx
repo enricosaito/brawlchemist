@@ -1,3 +1,4 @@
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { getLegend } from "@/lib/mock-data"
 import type { LegendTier, Tier } from "@/lib/types"
@@ -54,6 +55,16 @@ const TIER_COLOR: Record<Tier, string> = {
   Valhallan: "text-tier-valhallan border-tier-valhallan/50 bg-tier-valhallan/15",
 }
 
+export const TIER_TEXT_COLOR: Record<Tier, string> = {
+  Tin: "text-tier-tin",
+  Bronze: "text-tier-bronze",
+  Silver: "text-tier-silver",
+  Gold: "text-tier-gold",
+  Platinum: "text-tier-platinum",
+  Diamond: "text-tier-diamond",
+  Valhallan: "text-tier-valhallan",
+}
+
 export function RankPill({
   tier,
   division,
@@ -77,45 +88,84 @@ export function RankPill({
   )
 }
 
-const LEGEND_TIER_COLOR: Record<LegendTier, string> = {
-  S: "text-copper border-copper/40 bg-copper/10",
-  A: "text-mystic border-mystic/40 bg-mystic/10",
-  B: "text-foreground/80 border-border bg-muted",
-  C: "text-muted-foreground border-border bg-muted/60",
+/**
+ * RankIcon — animated rank emblem displayed inline with top-player rows.
+ * Currently uses the Valhallan asset across all tiers as a placeholder; swap
+ * in per-tier files once the rest are provided.
+ */
+const RANK_ICON_SRC: Partial<Record<Tier, string>> = {
+  Valhallan: "/assets/Valhallan-GIF.gif",
 }
 
+export function RankIcon({
+  tier,
+  size = 22,
+  className,
+}: {
+  tier: Tier
+  size?: number
+  className?: string
+}) {
+  const src = RANK_ICON_SRC[tier] ?? "/assets/Valhallan-GIF.gif"
+  return (
+    <Image
+      src={src}
+      alt={`${tier} rank`}
+      width={size}
+      height={size}
+      unoptimized
+      className={cn("shrink-0 select-none object-contain", className)}
+    />
+  )
+}
+
+const LEGEND_TIER_TEXT: Record<LegendTier, string> = {
+  "S+": "text-tier-gold",
+  S: "text-copper",
+  A: "text-mystic",
+  B: "text-foreground/80",
+  C: "text-muted-foreground",
+}
+
+/**
+ * TierLetter — plain colored grade. No frame, no background. The "+" on S+
+ * renders slightly smaller so the grade reads as a single unit.
+ */
 export function TierLetter({
   tier,
   className,
-  size = "md",
 }: {
   tier: LegendTier
   className?: string
-  size?: "sm" | "md" | "lg"
 }) {
-  const sizeClass =
-    size === "sm"
-      ? "size-5 text-[10px]"
-      : size === "lg"
-        ? "size-9 text-base"
-        : "size-7 text-xs"
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-md border font-display font-semibold tracking-wider",
-        LEGEND_TIER_COLOR[tier],
-        sizeClass,
+        "inline-flex w-8 shrink-0 items-baseline justify-center font-display text-xl font-bold leading-none tracking-tight",
+        LEGEND_TIER_TEXT[tier],
         className,
       )}
     >
-      {tier}
+      {tier === "S+" ? (
+        <>
+          S<span className="text-[0.65em] font-semibold leading-none">+</span>
+        </>
+      ) : (
+        tier
+      )}
     </span>
   )
 }
 
+const AVATAR_SIZE_PX: Record<"sm" | "md" | "lg", number> = {
+  sm: 20,
+  md: 28,
+  lg: 36,
+}
+
 /**
- * LegendChip — avatar placeholder + name. Asset will replace the gradient
- * placeholder once the user supplies legend icons.
+ * LegendChip — legend portrait when a `Legend.imageUrl` is set, otherwise a
+ * neutral gradient placeholder ready to receive the asset later.
  */
 export function LegendChip({
   legendId,
@@ -131,7 +181,7 @@ export function LegendChip({
   const legend = getLegend(legendId)
   const avatarSize =
     size === "sm" ? "size-5" : size === "lg" ? "size-9" : "size-7"
-  const initial = legend?.name.charAt(0).toUpperCase() ?? "?"
+  const px = AVATAR_SIZE_PX[size]
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
       <span
@@ -141,9 +191,15 @@ export function LegendChip({
           avatarSize,
         )}
       >
-        <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-muted-foreground">
-          {initial}
-        </span>
+        {legend?.imageUrl ? (
+          <Image
+            src={legend.imageUrl}
+            alt=""
+            width={px}
+            height={px}
+            className="absolute inset-0 size-full object-cover"
+          />
+        ) : null}
       </span>
       {showName && legend && (
         <span className="truncate text-sm">{legend.name}</span>
