@@ -3,10 +3,9 @@ import { Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const NAV = [
-  { label: "Tier List", href: "/tier-list" },
-  { label: "Leaderboard", href: "/leaderboard" },
+  { label: "Tier List", href: "/tierlist" },
+  { label: "Leaderboards", href: "/leaderboards" },
   { label: "Weapons", href: "/weapons" },
-  { label: "Legends", href: "/legends" },
 ]
 
 export function SiteHeader() {

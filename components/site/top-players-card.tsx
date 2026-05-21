@@ -68,7 +68,7 @@ export function TopPlayersCard() {
   return (
     <PreviewCard
       title="Top players"
-      href={`/leaderboard?queue=${queue}`}
+      href={`/leaderboards?queue=${queue}`}
       viewAllLabel="view leaderboard"
       meta={
         <div

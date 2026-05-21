@@ -1,11 +1,13 @@
 import type {
   Legend,
+  LegendTier,
   Match,
   MetaSnapshot,
   Player,
   Weapon,
   WeaponId,
 } from "./types"
+import { LEGEND_ROSTER } from "./legends-roster"
 
 export const WEAPON_NAMES: Record<WeaponId, string> = {
   sword: "Sword",
@@ -24,7 +26,13 @@ export const WEAPON_NAMES: Record<WeaponId, string> = {
   "battle-boots": "Battle Boots",
 }
 
-export const LEGENDS: Legend[] = [
+/**
+ * DETAILED_LEGENDS — the hand-curated subset that drives the homepage
+ * Top Legends preview. Every entry here keeps its declared tier, win rate,
+ * and weapons. All other legends in the roster get deterministic mock
+ * stats generated below.
+ */
+const DETAILED_LEGENDS: Legend[] = [
   { id: "cassidy", name: "Cassidy", weapons: ["hammer", "blasters"], tier: "S+", pickRate: 7.8, winRate: 54.2, deltaWR: 1.6, imageUrl: "/assets/legends/cassidy.png" },
   { id: "tezca", name: "Tezca", weapons: ["gauntlets", "axe"], tier: "S", pickRate: 5.2, winRate: 53.8, deltaWR: 1.1, imageUrl: "/assets/legends/tezca.png" },
   { id: "caspian", name: "Caspian", weapons: ["katar", "gauntlets"], tier: "S", pickRate: 9.4, winRate: 53.4, deltaWR: 0.8, imageUrl: "/assets/legends/caspian.png" },
@@ -48,6 +56,76 @@ export const LEGENDS: Legend[] = [
   { id: "lord-vraxx", name: "Lord Vraxx", weapons: ["rocket-lance", "blasters"], tier: "C", pickRate: 1.2, winRate: 46.6, deltaWR: -0.3, imageUrl: "/assets/legends/lord-vraxx.png" },
   { id: "thatch", name: "Thatch", weapons: ["sword", "blasters"], tier: "C", pickRate: 1.1, winRate: 46.2, deltaWR: 0.4, imageUrl: "/assets/legends/thatch.png" },
 ]
+
+const ALL_WEAPONS_FOR_GEN: WeaponId[] = [
+  "sword", "hammer", "axe", "spear", "katar", "bow", "gauntlets",
+  "scythe", "rocket-lance", "blasters", "greatsword", "cannon",
+  "orb", "battle-boots",
+]
+
+const TIER_WR_RANGE: Record<"A" | "B" | "C", [number, number]> = {
+  // A capped below Mordex (51.0) so the homepage top 6 stays stable.
+  A: [48.5, 50.9],
+  B: [47.0, 49.0],
+  C: [44.5, 46.9],
+}
+
+const TIER_PR_RANGE: Record<"A" | "B" | "C", [number, number]> = {
+  A: [1.5, 3.0],
+  B: [0.8, 2.0],
+  C: [0.3, 1.5],
+}
+
+function hashSlug(slug: string): number {
+  let h = 2166136261
+  for (let i = 0; i < slug.length; i++) {
+    h ^= slug.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+function pickInRange([lo, hi]: [number, number], h: number, shift: number): number {
+  const x = ((h >>> shift) % 1000) / 1000
+  return lo + x * (hi - lo)
+}
+
+/**
+ * Generate plausible mock stats for a legend not in the detailed set.
+ * No S+ or S tiers are assigned here — those are reserved for the
+ * detailed roster so the homepage top 6 order is deterministic.
+ */
+function generateLegend(slug: string, name: string): Legend {
+  const h = hashSlug(slug)
+  const tierRoll = h % 100
+  const tier: LegendTier =
+    tierRoll < 35 ? "A" : tierRoll < 77 ? "B" : "C"
+
+  const winRate = pickInRange(TIER_WR_RANGE[tier], h, 7)
+  const pickRate = pickInRange(TIER_PR_RANGE[tier], h, 13)
+  const deltaWR = (((h >>> 19) % 31) - 15) / 10 // -1.5 .. +1.5
+
+  const widx1 = h % ALL_WEAPONS_FOR_GEN.length
+  let widx2 = (h >>> 5) % ALL_WEAPONS_FOR_GEN.length
+  if (widx2 === widx1) widx2 = (widx2 + 1) % ALL_WEAPONS_FOR_GEN.length
+
+  return {
+    id: slug,
+    name,
+    weapons: [ALL_WEAPONS_FOR_GEN[widx1], ALL_WEAPONS_FOR_GEN[widx2]],
+    tier,
+    pickRate: Number(pickRate.toFixed(1)),
+    winRate: Number(winRate.toFixed(1)),
+    deltaWR: Number(deltaWR.toFixed(1)),
+    imageUrl: `/assets/legends/${slug}.png`,
+  }
+}
+
+const detailedById = new Map(DETAILED_LEGENDS.map((l) => [l.id, l]))
+
+export const LEGENDS: Legend[] = LEGEND_ROSTER.map(({ slug, name }) =>
+  detailedById.get(slug) ?? generateLegend(slug, name),
+)
 
 const legendsById = Object.fromEntries(LEGENDS.map((l) => [l.id, l] as const))
 export function getLegend(id: string): Legend | undefined {
