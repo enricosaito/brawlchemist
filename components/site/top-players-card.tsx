@@ -8,8 +8,9 @@ import { PreviewCard } from "./preview-card"
 import {
   Delta,
   LegendChip,
-  RankPill,
+  RankIcon,
   RegionPill,
+  TIER_TEXT_COLOR,
 } from "./primitives"
 import type { Player, Queue } from "@/lib/types"
 
@@ -24,6 +25,7 @@ function PlayerRow({ player, index }: { player: Player; index: number }) {
       <span className="w-4 text-right font-mono text-xs text-muted-foreground tabular-nums">
         {index + 1}
       </span>
+      <RankIcon tier={player.rank.tier} size={28} />
       <LegendChip
         legendId={player.avatarLegendId}
         size="md"
@@ -35,8 +37,18 @@ function PlayerRow({ player, index }: { player: Player; index: number }) {
           <RegionPill region={player.region} />
         </span>
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <RankPill tier={player.rank.tier} division={player.rank.division} />
-          <span className="tabular-nums">{formatPercent(player.stats.winRate)} WR</span>
+          <span
+            className={cn(
+              "font-medium uppercase tracking-wider text-[10px]",
+              TIER_TEXT_COLOR[player.rank.tier],
+            )}
+          >
+            {player.rank.tier}
+          </span>
+          <span className="text-border">·</span>
+          <span className="tabular-nums">
+            {formatPercent(player.stats.winRate)} WR
+          </span>
         </span>
       </div>
       <div className="flex flex-col items-end gap-0.5">

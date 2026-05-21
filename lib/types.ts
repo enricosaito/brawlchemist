@@ -48,6 +48,7 @@ export interface Legend {
   pickRate: number
   winRate: number
   deltaWR: number
+  imageUrl?: string
 }
 
 export interface PlayerRank {

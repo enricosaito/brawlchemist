@@ -96,7 +96,7 @@
     --tier-gold: oklch(0.78 0.13 80);
     --tier-platinum: oklch(0.75 0.07 200);
     --tier-diamond: oklch(0.75 0.13 250);
-    --tier-valhallan: oklch(0.74 0.14 75);
+    --tier-valhallan: oklch(0.7 0.19 350);
 
     --chart-1: oklch(0.74 0.115 75);
     --chart-2: oklch(0.74 0.13 175);
@@ -147,7 +147,7 @@
     --tier-gold: oklch(0.82 0.14 80);
     --tier-platinum: oklch(0.78 0.08 200);
     --tier-diamond: oklch(0.78 0.13 260);
-    --tier-valhallan: oklch(0.78 0.14 75);
+    --tier-valhallan: oklch(0.76 0.2 350);
 
     --chart-1: oklch(0.74 0.115 75);
     --chart-2: oklch(0.85 0.105 175);
