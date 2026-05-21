@@ -2,7 +2,7 @@ import { CURRENT_PATCH, LEGENDS } from "@/lib/mock-data"
 import { formatPercent } from "@/lib/format"
 import { LEGEND_TIER_RANK } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
-import { Delta, LegendChip, TierLetter } from "./primitives"
+import { Delta, LegendChip, StanceLabel, TierLetter } from "./primitives"
 
 export function TopLegendsCard() {
   const top = [...LEGENDS]
@@ -32,10 +32,15 @@ export function TopLegendsCard() {
           >
             <TierLetter tier={legend.tier} />
             <LegendChip legendId={legend.id} size="md" showName={false} />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">
-              {legend.name}
-            </span>
-            <div className="flex flex-col items-end gap-0.5">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-sm font-medium">
+                {legend.name}
+              </span>
+              {legend.bestStance && (
+                <StanceLabel stance={legend.bestStance} />
+              )}
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-0.5">
               <span className="font-mono text-sm tabular-nums">
                 {formatPercent(legend.winRate)}
               </span>

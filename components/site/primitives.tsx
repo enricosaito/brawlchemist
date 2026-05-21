@@ -1,7 +1,7 @@
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { getLegend } from "@/lib/mock-data"
-import type { LegendTier, Tier, WeaponId } from "@/lib/types"
+import type { LegendTier, Stance, Tier, WeaponId } from "@/lib/types"
 
 /**
  * Delta — signed numeric change with semantic color.
@@ -253,6 +253,55 @@ export function WeaponIcon({
       )}
       style={{ width: size, height: size }}
     />
+  )
+}
+
+const STANCE_INFO: Record<Stance, { label: string; src: string }> = {
+  base: { label: "Base", src: "/assets/stances/base.png" },
+  defense: { label: "Defense", src: "/assets/stances/defense.png" },
+  dexterity: { label: "Dexterity", src: "/assets/stances/dexterity.png" },
+  speed: { label: "Speed", src: "/assets/stances/speed.png" },
+  strength: { label: "Strength", src: "/assets/stances/strength.png" },
+  superdef: { label: "Super Defense", src: "/assets/stances/superdef.png" },
+  superdex: { label: "Super Dex", src: "/assets/stances/superdex.png" },
+  superspeed: { label: "Super Speed", src: "/assets/stances/superspeed.png" },
+  superstrength: {
+    label: "Super Strength",
+    src: "/assets/stances/superstrength.webp",
+  },
+}
+
+/**
+ * StanceLabel — "BEST WITH [icon] Stance Name" inline element. Mirrors the
+ * "best on …" treatment used by the weapon-meta card.
+ */
+export function StanceLabel({
+  stance,
+  className,
+}: {
+  stance: Stance
+  className?: string
+}) {
+  const info = STANCE_INFO[stance]
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 text-xs text-muted-foreground",
+        className,
+      )}
+    >
+      <span className="font-mono text-[10px] uppercase tracking-wider">
+        best with
+      </span>
+      <Image
+        src={info.src}
+        alt=""
+        width={20}
+        height={20}
+        className="shrink-0 select-none object-contain"
+      />
+      <span className="text-sm text-muted-foreground">{info.label}</span>
+    </span>
   )
 }
 

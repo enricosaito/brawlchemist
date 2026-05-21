@@ -33,12 +33,12 @@ export const WEAPON_NAMES: Record<WeaponId, string> = {
  * stats generated below.
  */
 const DETAILED_LEGENDS: Legend[] = [
-  { id: "cassidy", name: "Cassidy", weapons: ["hammer", "blasters"], tier: "S+", pickRate: 7.8, winRate: 54.2, deltaWR: 1.6, imageUrl: "/assets/legends/cassidy.png" },
-  { id: "tezca", name: "Tezca", weapons: ["gauntlets", "axe"], tier: "S+", pickRate: 5.2, winRate: 53.8, deltaWR: 1.1, imageUrl: "/assets/legends/tezca.png" },
-  { id: "caspian", name: "Caspian", weapons: ["katar", "gauntlets"], tier: "S", pickRate: 9.4, winRate: 53.4, deltaWR: 0.8, imageUrl: "/assets/legends/caspian.png" },
-  { id: "bodvar", name: "Bödvar", weapons: ["sword", "hammer"], tier: "S", pickRate: 6.1, winRate: 52.5, deltaWR: 0.4, imageUrl: "/assets/legends/bodvar.png" },
-  { id: "teros", name: "Teros", weapons: ["hammer", "axe"], tier: "S", pickRate: 4.8, winRate: 51.8, deltaWR: 0.5, imageUrl: "/assets/legends/teros.png" },
-  { id: "mordex", name: "Mordex", weapons: ["scythe", "gauntlets"], tier: "A", pickRate: 3.3, winRate: 51.0, deltaWR: 0.2, imageUrl: "/assets/legends/mordex.png" },
+  { id: "cassidy", name: "Cassidy", weapons: ["hammer", "blasters"], tier: "S+", pickRate: 7.8, winRate: 54.2, deltaWR: 1.6, imageUrl: "/assets/legends/cassidy.png", bestStance: "superstrength" },
+  { id: "tezca", name: "Tezca", weapons: ["gauntlets", "axe"], tier: "S+", pickRate: 5.2, winRate: 53.8, deltaWR: 1.1, imageUrl: "/assets/legends/tezca.png", bestStance: "speed" },
+  { id: "caspian", name: "Caspian", weapons: ["katar", "gauntlets"], tier: "S", pickRate: 9.4, winRate: 53.4, deltaWR: 0.8, imageUrl: "/assets/legends/caspian.png", bestStance: "defense" },
+  { id: "bodvar", name: "Bödvar", weapons: ["sword", "hammer"], tier: "S", pickRate: 6.1, winRate: 52.5, deltaWR: 0.4, imageUrl: "/assets/legends/bodvar.png", bestStance: "base" },
+  { id: "teros", name: "Teros", weapons: ["hammer", "axe"], tier: "S", pickRate: 4.8, winRate: 51.8, deltaWR: 0.5, imageUrl: "/assets/legends/teros.png", bestStance: "superdex" },
+  { id: "mordex", name: "Mordex", weapons: ["scythe", "gauntlets"], tier: "A", pickRate: 3.3, winRate: 51.0, deltaWR: 0.2, imageUrl: "/assets/legends/mordex.png", bestStance: "base" },
   { id: "val", name: "Val", weapons: ["sword", "gauntlets"], tier: "A", pickRate: 4.2, winRate: 50.7, deltaWR: 0.3, imageUrl: "/assets/legends/val.png" },
   { id: "orion", name: "Orion", weapons: ["spear", "rocket-lance"], tier: "A", pickRate: 5.7, winRate: 50.5, deltaWR: -0.1, imageUrl: "/assets/legends/orion.png" },
   { id: "ada", name: "Ada", weapons: ["spear", "blasters"], tier: "A", pickRate: 3.8, winRate: 50.4, deltaWR: 0.7, imageUrl: "/assets/legends/ada.png" },

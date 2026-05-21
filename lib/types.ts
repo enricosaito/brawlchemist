@@ -48,6 +48,17 @@ export interface Weapon {
   deltaWR: number
 }
 
+export type Stance =
+  | "base"
+  | "defense"
+  | "dexterity"
+  | "speed"
+  | "strength"
+  | "superdef"
+  | "superdex"
+  | "superspeed"
+  | "superstrength"
+
 export interface Legend {
   id: string
   name: string
@@ -57,6 +68,7 @@ export interface Legend {
   winRate: number
   deltaWR: number
   imageUrl?: string
+  bestStance?: Stance
 }
 
 export interface PlayerRank {
