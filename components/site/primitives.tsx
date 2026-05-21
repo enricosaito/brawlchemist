@@ -300,7 +300,7 @@ export function StanceLabel({
         height={20}
         className="shrink-0 select-none object-contain"
       />
-      <span className="text-sm text-foreground">{info.label}</span>
+      <span className="text-sm text-muted-foreground">{info.label}</span>
     </span>
   )
 }
