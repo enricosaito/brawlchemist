@@ -40,12 +40,24 @@ export async function TopLegendsCard() {
     console.error("[top-legends-card] stats lookup failed:", err)
   }
 
+  // The 6 candidates come from the curated popular-meta pool; their render
+  // order is then sorted by WR descending so the strongest popular pick
+  // shows up top. Games used as a tiebreaker.
   const rows = FEATURED_SLUGS.map((slug) => {
     const legend = getLegend(slug)
     const legendId = legendIdForSlug(slug)
     const live = legendId != null ? liveStats.get(legendId) : undefined
     return { slug, legend, live }
-  }).filter((r) => r.legend)
+  })
+    .filter((r) => r.legend)
+    .sort((a, b) => {
+      const aWr = a.live?.winRate ?? a.legend!.winRate
+      const bWr = b.live?.winRate ?? b.legend!.winRate
+      if (bWr !== aWr) return bWr - aWr
+      const aGames = a.live?.games ?? 0
+      const bGames = b.live?.games ?? 0
+      return bGames - aGames
+    })
 
   return (
     <PreviewCard
