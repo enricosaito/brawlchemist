@@ -88,6 +88,14 @@ const SLUG_BY_LEGEND_ID = new Map<number, string>(
   LEGEND_ROSTER.map((l) => [l.legendId, l.slug]),
 )
 
+const LEGEND_ID_BY_SLUG = new Map<string, number>(
+  LEGEND_ROSTER.map((l) => [l.slug, l.legendId]),
+)
+
 export function slugForLegendId(legendId: number): string | null {
   return SLUG_BY_LEGEND_ID.get(legendId) ?? null
+}
+
+export function legendIdForSlug(slug: string): number | null {
+  return LEGEND_ID_BY_SLUG.get(slug) ?? null
 }

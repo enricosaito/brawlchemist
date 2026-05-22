@@ -4,7 +4,6 @@ import { Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const NAV = [
-  { label: "Tier List", href: "/tierlist" },
   { label: "Leaderboards", href: "/leaderboards" },
   { label: "Legends", href: "/legends" },
   { label: "Weapons", href: "/weapons" },

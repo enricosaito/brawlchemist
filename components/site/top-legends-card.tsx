@@ -1,30 +1,51 @@
 import { CURRENT_PATCH, getLegend } from "@/lib/mock-data"
 import { formatPercent } from "@/lib/format"
+import { legendIdForSlug } from "@/lib/legends-roster"
+import { getValhallanLegendStats } from "@/lib/sync/valhallan"
 import { PreviewCard } from "./preview-card"
 import { LegendChip, StanceLabel, TierLetter } from "./primitives"
 
 /**
  * Featured legends on the homepage Top Legends card. Order is the user's
- * curated "Valhallan+ popular meta" ranking; the games counts are pulled
- * from the most recent /legends Popular snapshot (rounded for display).
- *
- * Stays hardcoded so the card stays deterministic and lightweight —
- * future iteration can swap to a live DB read via getValhallanLegendStats.
+ * curated "Valhallan+ popular meta" ranking. Tier and best-stance stay
+ * hardcoded via the mock-data DETAILED_LEGENDS entries; WR and game count
+ * come from the live Valhallan-tier Popular aggregation.
  */
-const TOP_LEGENDS = [
-  { id: "cassidy", games: 10_361 },
-  { id: "mordex", games: 9_577 },
-  { id: "teros", games: 8_399 },
-  { id: "bodvar", games: 7_120 },
-  { id: "diana", games: 7_306 },
-  { id: "asuri", games: 6_179 },
-]
+const FEATURED_SLUGS = [
+  "cassidy",
+  "mordex",
+  "teros",
+  "bodvar",
+  "diana",
+  "asuri",
+] as const
 
-export function TopLegendsCard() {
-  const rows = TOP_LEGENDS.map((entry) => ({
-    ...entry,
-    legend: getLegend(entry.id),
-  })).filter((r) => r.legend)
+export async function TopLegendsCard() {
+  // Live popular-method stats across the competitive Valhallan pool. Falls
+  // back gracefully if the DB lookup fails (e.g. DATABASE_URL not set).
+  let liveStats = new Map<number, { winRate: number; games: number }>()
+  try {
+    const { legends } = await getValhallanLegendStats({
+      method: "popular",
+      region: null,
+      minGames: 100,
+    })
+    liveStats = new Map(
+      legends.map((l) => [
+        l.legend_id,
+        { winRate: l.win_rate, games: l.games },
+      ]),
+    )
+  } catch (err) {
+    console.error("[top-legends-card] stats lookup failed:", err)
+  }
+
+  const rows = FEATURED_SLUGS.map((slug) => {
+    const legend = getLegend(slug)
+    const legendId = legendIdForSlug(slug)
+    const live = legendId != null ? liveStats.get(legendId) : undefined
+    return { slug, legend, live }
+  }).filter((r) => r.legend)
 
   return (
     <PreviewCard
@@ -43,8 +64,12 @@ export function TopLegendsCard() {
       }
     >
       <ol className="divide-y divide-border/60">
-        {rows.map(({ legend, games }) => {
+        {rows.map(({ legend, live }) => {
           if (!legend) return null
+          // Prefer the live aggregation when available; fall back to mock
+          // numbers if the row hasn't been synced yet (cron still seeding).
+          const winRate = live?.winRate ?? legend.winRate
+          const games = live?.games ?? null
           return (
             <li
               key={legend.id}
@@ -62,10 +87,10 @@ export function TopLegendsCard() {
               </div>
               <div className="flex shrink-0 flex-col items-end gap-0.5">
                 <span className="font-mono text-sm tabular-nums">
-                  {formatPercent(legend.winRate)}
+                  {formatPercent(winRate)}
                 </span>
                 <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                  {games.toLocaleString()} games
+                  {games != null ? `${games.toLocaleString()} games` : "—"}
                 </span>
               </div>
             </li>
