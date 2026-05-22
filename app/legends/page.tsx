@@ -34,8 +34,8 @@ function isRegionOption(v: string | undefined): v is RegionOption {
 
 const METHOD_OPTIONS: { id: AggregationMethod; label: string }[] = [
   { id: "popular", label: "Popular" },
-  { id: "avg", label: "Per-player" },
-  { id: "pooled", label: "Pooled" },
+  { id: "avg", label: "Player WR" },
+  { id: "pooled", label: "Pooled WR" },
 ]
 
 function isMethod(v: string | undefined): v is AggregationMethod {
