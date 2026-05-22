@@ -90,6 +90,68 @@ export async function getStaleValhallanIds(
   return ids.filter((id) => !freshSet.has(id))
 }
 
+export interface TopMainer {
+  username: string
+  rating: number
+  region: string
+}
+
+/**
+ * For each legend, return the top-N Valhallan players whose `top_legend_id`
+ * equals that legend (their season main is that legend), ordered by rating.
+ *
+ * Why this query instead of "players with most games on the legend"? Because
+ * top_legend_id is already denormalized per player, so this is just a window
+ * function over `players` — no jsonb scanning required.
+ */
+export async function getTopValhallanMainers(
+  opts: { region?: string | null; perLegend?: number } = {},
+): Promise<Map<number, TopMainer[]>> {
+  const region = opts.region ?? null
+  const perLegend = opts.perLegend ?? 3
+
+  const result = await db().execute(sql`
+    WITH ranked AS (
+      SELECT
+        top_legend_id,
+        username,
+        (ranked_json->>'rating')::int AS rating,
+        ranked_json->>'region' AS region,
+        ROW_NUMBER() OVER (
+          PARTITION BY top_legend_id
+          ORDER BY (ranked_json->>'rating')::int DESC
+        ) AS rn
+      FROM players
+      WHERE top_legend_id IS NOT NULL
+        AND (ranked_json->>'rating')::int >= ${VALHALLAN_MIN_RATING}
+        AND (${region}::text IS NULL OR ranked_json->>'region' = ${region})
+    )
+    SELECT top_legend_id, username, rating, region
+    FROM ranked
+    WHERE rn <= ${perLegend}
+    ORDER BY top_legend_id, rn
+  `)
+
+  const rows = result.rows as unknown as Array<{
+    top_legend_id: number
+    username: string
+    rating: number
+    region: string
+  }>
+
+  const map = new Map<number, TopMainer[]>()
+  for (const row of rows) {
+    const list = map.get(row.top_legend_id) ?? []
+    list.push({
+      username: row.username,
+      rating: row.rating,
+      region: row.region,
+    })
+    map.set(row.top_legend_id, list)
+  }
+  return map
+}
+
 export interface LegendStat {
   legend_id: number
   /** Total games across all contributing players. */

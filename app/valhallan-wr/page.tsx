@@ -9,8 +9,10 @@ import { getLegend } from "@/lib/mock-data"
 import { slugForLegendId } from "@/lib/legends-roster"
 import {
   type AggregationMethod,
+  getTopValhallanMainers,
   getValhallanLegendStats,
   type LegendStat,
+  type TopMainer,
 } from "@/lib/sync/valhallan"
 
 // "ALL" means no region filter (every Valhallan-rated player across all regions).
@@ -41,7 +43,10 @@ function isMethod(v: string | undefined): v is AggregationMethod {
   return v === "pooled" || v === "avg"
 }
 
-function buildColumns(method: AggregationMethod): ColDef<LegendStat>[] {
+function buildColumns(
+  method: AggregationMethod,
+  mainers: Map<number, TopMainer[]>,
+): ColDef<LegendStat>[] {
   const cols: ColDef<LegendStat>[] = [
     {
       id: "rank",
@@ -59,20 +64,28 @@ function buildColumns(method: AggregationMethod): ColDef<LegendStat>[] {
       label: "Legend",
       render: (row) => {
         const slug = slugForLegendId(row.legend_id)
-        if (!slug) {
-          return (
-            <span className="font-mono text-xs text-muted-foreground">
-              legend #{row.legend_id}
-            </span>
-          )
-        }
-        const legend = getLegend(slug)
+        const legend = slug ? getLegend(slug) : null
+        const tops = mainers.get(row.legend_id) ?? []
         return (
           <div className="flex items-center gap-2">
-            <LegendChip legendId={slug} size="md" showName={false} />
-            <span className="truncate text-sm font-medium">
-              {legend?.name ?? slug}
-            </span>
+            {slug ? (
+              <LegendChip legendId={slug} size="md" showName={false} />
+            ) : (
+              <span
+                className="size-7 shrink-0 rounded-md border border-border/60 bg-muted/30"
+                aria-hidden
+              />
+            )}
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="truncate text-sm font-medium">
+                {legend?.name ?? slug ?? `legend #${row.legend_id}`}
+              </span>
+              {tops.length > 0 && (
+                <span className="truncate text-[10px] text-muted-foreground/80">
+                  {tops.map((m) => m.username).join(" · ")}
+                </span>
+              )}
+            </div>
           </div>
         )
       },
@@ -174,13 +187,16 @@ export default async function ValhallanWrPage({
         ? 20
         : 30
 
-  const { legends, sampleSize } = await getValhallanLegendStats({
-    region: regionFilter,
-    method,
-    minGames,
-  })
+  const [{ legends, sampleSize }, mainers] = await Promise.all([
+    getValhallanLegendStats({
+      region: regionFilter,
+      method,
+      minGames,
+    }),
+    getTopValhallanMainers({ region: regionFilter, perLegend: 3 }),
+  ])
 
-  const columns = buildColumns(method)
+  const columns = buildColumns(method, mainers)
   const methodCopy =
     method === "avg"
       ? "Each Valhallan player contributes one data point per legend (≥ " +
