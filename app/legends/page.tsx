@@ -15,7 +15,8 @@ import {
   type TopMainer,
 } from "@/lib/sync/valhallan"
 
-// "ALL" means no region filter (every Valhallan-rated player across all regions).
+// "ALL" means no region filter (every Valhallan-rated player across the
+// competitive regions; SA/AUS/JPS are excluded — see COMPETITIVE_REGIONS).
 const REGION_OPTIONS = [
   "ALL",
   "US-E",
@@ -23,9 +24,6 @@ const REGION_OPTIONS = [
   "EU",
   "BRZ",
   "SEA",
-  "AUS",
-  "JPS",
-  "SA",
   "ME",
 ] as const
 type RegionOption = (typeof REGION_OPTIONS)[number]
