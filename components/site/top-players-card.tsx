@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { formatElo } from "@/lib/format"
+import { formatElo, formatPercent } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
 import {
   type ApiGameMode,
@@ -35,6 +35,16 @@ function toTier(value: string | null): Tier | null {
   return (KNOWN_TIERS as readonly string[]).includes(value)
     ? (value as Tier)
     : null
+}
+
+function formatWinRate(
+  wins: number | null,
+  losses: number | null,
+): string | null {
+  if (wins == null || losses == null) return null
+  const total = wins + losses
+  if (total === 0) return null
+  return formatPercent((wins / total) * 100)
 }
 
 export async function TopPlayersCard({
@@ -174,8 +184,20 @@ export async function TopPlayersCard({
                             aria-hidden
                           />
                         )}
-                        <span className="truncate font-medium">
-                          {p.username}
+                        <span className="flex min-w-0 flex-col gap-0.5">
+                          <span className="truncate font-medium">
+                            {p.username}
+                          </span>
+                          {is1v1 && tier && (
+                            <span
+                              className={cn(
+                                "font-mono text-[10px] uppercase tracking-wider",
+                                TIER_TEXT_COLOR[tier],
+                              )}
+                            >
+                              {tier}
+                            </span>
+                          )}
                         </span>
                       </span>
                     )
@@ -185,15 +207,32 @@ export async function TopPlayersCard({
                   <span className="font-mono text-sm tabular-nums">
                     {entry.rating != null ? formatElo(entry.rating) : "—"}
                   </span>
-                  {tier && (
-                    <span
-                      className={cn(
-                        "font-mono text-[9px] uppercase tracking-wider",
-                        TIER_TEXT_COLOR[tier],
-                      )}
-                    >
-                      {tier}
-                    </span>
+                  {is1v1 ? (
+                    tier &&
+                    (() => {
+                      const wr = formatWinRate(entry.wins, entry.losses)
+                      return wr ? (
+                        <span
+                          className={cn(
+                            "font-mono text-[10px] tabular-nums",
+                            TIER_TEXT_COLOR[tier],
+                          )}
+                        >
+                          {wr}
+                        </span>
+                      ) : null
+                    })()
+                  ) : (
+                    tier && (
+                      <span
+                        className={cn(
+                          "font-mono text-[9px] uppercase tracking-wider",
+                          TIER_TEXT_COLOR[tier],
+                        )}
+                      >
+                        {tier}
+                      </span>
+                    )
                   )}
                 </div>
               </li>
