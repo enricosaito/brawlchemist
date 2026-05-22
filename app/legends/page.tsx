@@ -61,6 +61,30 @@ function buildColumns(
       ),
     },
     {
+      id: "legend",
+      label: "Legend",
+      width: "180px",
+      render: (row) => {
+        const slug = slugForLegendId(row.legend_id)
+        const legend = slug ? getLegend(slug) : null
+        return (
+          <div className="flex items-center gap-2">
+            {slug ? (
+              <LegendChip legendId={slug} size="md" showName={false} />
+            ) : (
+              <span
+                className="size-7 shrink-0 rounded-md border border-border/60 bg-muted/30"
+                aria-hidden
+              />
+            )}
+            <span className="truncate text-sm font-medium">
+              {legend?.name ?? slug ?? `legend #${row.legend_id}`}
+            </span>
+          </div>
+        )
+      },
+    },
+    {
       id: "mainers",
       label: "Top Mainers",
       width: "360px",
@@ -83,30 +107,6 @@ function buildColumns(
                 </span>
               </span>
             ))}
-          </div>
-        )
-      },
-    },
-    {
-      id: "legend",
-      label: "Legend",
-      width: "180px",
-      render: (row) => {
-        const slug = slugForLegendId(row.legend_id)
-        const legend = slug ? getLegend(slug) : null
-        return (
-          <div className="flex items-center gap-2">
-            {slug ? (
-              <LegendChip legendId={slug} size="md" showName={false} />
-            ) : (
-              <span
-                className="size-7 shrink-0 rounded-md border border-border/60 bg-muted/30"
-                aria-hidden
-              />
-            )}
-            <span className="truncate text-sm font-medium">
-              {legend?.name ?? slug ?? `legend #${row.legend_id}`}
-            </span>
           </div>
         )
       },
