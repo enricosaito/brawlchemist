@@ -182,7 +182,7 @@ export interface LegendStat {
   pick_rate: number
 }
 
-export type AggregationMethod = "pooled" | "avg"
+export type AggregationMethod = "pooled" | "avg" | "popular"
 
 export interface ValhallanAggregation {
   legends: LegendStat[]
@@ -213,9 +213,12 @@ export const VALHALLAN_MIN_RATING = 2000
  *   - "avg": per-player WR, then averaged across players. Each player
  *     contributes one data point regardless of game count. Less influenced
  *     by outliers like Lopes' 4000-game samples.
+ *   - "popular": same shape as pooled but ordered by total games desc.
+ *     Surfaces the most-played legends at high level — proxy for the
+ *     "meta picks" tier-list view.
  *
  * `minGames` interpretation depends on method:
- *   - pooled: minimum total games across all players combined.
+ *   - pooled/popular: minimum total games across all players combined.
  *   - avg: minimum games per individual player to qualify as a data point,
  *     plus an implicit minPlayers=5 floor on the legend itself.
  */
@@ -236,8 +239,10 @@ export async function getValhallanLegendStats(opts: {
   `)).rows as unknown as { n: number }[]
   const sampleSize = sampleRows[0]?.n ?? 0
 
-  if (method === "pooled") {
+  if (method === "pooled" || method === "popular") {
     const minGames = opts.minGames ?? 50
+    const orderBy =
+      method === "popular" ? sql`games DESC` : sql`win_rate DESC`
     const result = await db().execute(sql`
       WITH legend_totals AS (
         SELECT
@@ -259,7 +264,7 @@ export async function getValhallanLegendStats(opts: {
         ROUND(100.0 * wins / NULLIF(games, 0), 2)::float AS win_rate,
         ROUND(100.0 * games / NULLIF(SUM(games) OVER (), 0), 2)::float AS pick_rate
       FROM legend_totals
-      ORDER BY win_rate DESC
+      ORDER BY ${orderBy}
     `)
     return {
       legends: result.rows as unknown as LegendStat[],

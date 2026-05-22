@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 const NAV = [
   { label: "Tier List", href: "/tierlist" },
   { label: "Leaderboards", href: "/leaderboards" },
-  { label: "Win Rates", href: "/valhallan-wr" },
+  { label: "Legends", href: "/legends" },
   { label: "Weapons", href: "/weapons" },
 ]
 
