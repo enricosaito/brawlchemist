@@ -16,16 +16,8 @@ import {
 } from "@/lib/sync/valhallan"
 
 // "ALL" means no region filter (every Valhallan-rated player across the
-// competitive regions; SA/AUS/JPS are excluded — see COMPETITIVE_REGIONS).
-const REGION_OPTIONS = [
-  "ALL",
-  "US-E",
-  "US-W",
-  "EU",
-  "BRZ",
-  "SEA",
-  "ME",
-] as const
+// competitive regions — see COMPETITIVE_REGIONS in lib/sync/valhallan.ts).
+const REGION_OPTIONS = ["ALL", "US-E", "EU", "BRZ"] as const
 type RegionOption = (typeof REGION_OPTIONS)[number]
 
 function isRegionOption(v: string | undefined): v is RegionOption {

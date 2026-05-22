@@ -12,19 +12,13 @@ import { players } from "@/lib/db/schema"
 const QUEUES: ApiGameMode[] = ["1v1", "2v2"]
 
 /**
- * Regions we treat as "competitive" for tier-list aggregation. SA, AUS, JPS
- * are intentionally excluded — their Valhallan ladders are small/quieter and
- * add noise to the WR analysis without contributing much signal. Easy to
- * re-add later by editing this list.
+ * Regions we treat as "competitive" for tier-list aggregation. Only the
+ * top three ladders (US-E ~150, EU ~150, BRZ ~100) are kept — US-W, SEA,
+ * ME and the rest are dropped to cut noise from smaller, quieter pools.
+ * Expected sample size when fully seeded: ~400 Valhallans. Easy to re-add
+ * any region by editing this list.
  */
-export const COMPETITIVE_REGIONS: ApiRegion[] = [
-  "US-E",
-  "US-W",
-  "EU",
-  "BRZ",
-  "SEA",
-  "ME",
-]
+export const COMPETITIVE_REGIONS: ApiRegion[] = ["US-E", "EU", "BRZ"]
 const REGIONS: ApiRegion[] = COMPETITIVE_REGIONS
 
 /**
