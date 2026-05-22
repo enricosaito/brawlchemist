@@ -225,7 +225,7 @@ export default async function LegendsPage({
       <main className="pb-16">
         <PageHero
           title="Legends"
-          subtitle={`Per-legend stats across Valhallan-tier players (rating ≥ 2000). ${methodCopy}`}
+          subtitle={`Per-legend stats across elite Valhallan players (rating ≥ 2400). ${methodCopy}`}
           meta={
             <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
               {sampleSize} players sampled

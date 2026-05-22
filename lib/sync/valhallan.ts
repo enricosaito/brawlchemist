@@ -213,17 +213,20 @@ export interface ValhallanAggregation {
 }
 
 /**
- * Valhallan starts at 2000 rating in Brawlhalla's tier system. The /ranked
- * endpoint never returns "Valhallan" as a tier name (it tops out at
- * "Diamond" even for 2800-rated players) — Valhallan is a leaderboard-only
- * designation. So we filter by rating instead, which matches the
- * leaderboard endpoint's tier assignment exactly.
+ * Valhallan tier officially starts at 2000 rating, but the 2000–2399 band
+ * is a noisy mix of grinders and one-off climbers. The actual "top of the
+ * ladder" — the cohort whose pick/win patterns shape the meta — sits at
+ * 2400+. We filter there for the tier-list aggregation.
+ *
+ * (The /ranked endpoint never returns "Valhallan" as a tier name either —
+ * it caps at "Diamond" even for 2800-rated players — so filtering by
+ * rating is also the only reliable way to identify these players.)
  */
-export const VALHALLAN_MIN_RATING = 2000
+export const VALHALLAN_MIN_RATING = 2400
 
 /**
  * Aggregate per-legend win rate across every player whose 1v1 rating
- * crosses the Valhallan threshold (2000+). Per-legend games include time
+ * crosses the elite-Valhallan threshold (2400+). Per-legend games include time
  * spent climbing through lower tiers on those legends.
  *
  * `region` — filter to a single region (matching ranked_json.region values
