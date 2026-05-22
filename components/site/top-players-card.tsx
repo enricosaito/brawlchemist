@@ -207,33 +207,25 @@ export async function TopPlayersCard({
                   <span className="font-mono text-sm tabular-nums">
                     {entry.rating != null ? formatElo(entry.rating) : "—"}
                   </span>
-                  {is1v1 ? (
-                    tier &&
-                    (() => {
-                      const wr = formatWinRate(entry.wins, entry.losses)
-                      return wr ? (
+                  {is1v1
+                    ? (() => {
+                        const wr = formatWinRate(entry.wins, entry.losses)
+                        return wr ? (
+                          <span className="font-mono text-[10px] tabular-nums text-positive">
+                            {wr} WR
+                          </span>
+                        ) : null
+                      })()
+                    : tier && (
                         <span
                           className={cn(
-                            "font-mono text-[10px] tabular-nums",
+                            "font-mono text-[9px] uppercase tracking-wider",
                             TIER_TEXT_COLOR[tier],
                           )}
                         >
-                          {wr}
+                          {tier}
                         </span>
-                      ) : null
-                    })()
-                  ) : (
-                    tier && (
-                      <span
-                        className={cn(
-                          "font-mono text-[9px] uppercase tracking-wider",
-                          TIER_TEXT_COLOR[tier],
-                        )}
-                      >
-                        {tier}
-                      </span>
-                    )
-                  )}
+                      )}
                 </div>
               </li>
             )
