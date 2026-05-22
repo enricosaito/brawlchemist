@@ -4,10 +4,27 @@ import { RecentMatches } from "@/components/site/recent-matches"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import { TopLegendsCard } from "@/components/site/top-legends-card"
-import { TopPlayersCard } from "@/components/site/top-players-card"
+import {
+  HOME_REGIONS,
+  type HomeRegion,
+  TopPlayersCard,
+} from "@/components/site/top-players-card"
 import { WeaponMetaCard } from "@/components/site/weapon-meta-card"
+import type { ApiGameMode } from "@/lib/brawlhalla-api"
 
-export default function Page() {
+function isHomeRegion(v: string | undefined): v is HomeRegion {
+  return !!v && (HOME_REGIONS as readonly string[]).includes(v)
+}
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ queue?: string; region?: string }>
+}) {
+  const params = await searchParams
+  const queue: ApiGameMode = params.queue === "2v2" ? "2v2" : "1v1"
+  const region: HomeRegion = isHomeRegion(params.region) ? params.region : "BRZ"
+
   return (
     <div className="min-h-svh">
       <SiteHeader />
@@ -22,7 +39,7 @@ export default function Page() {
 
         <section className="mx-auto mt-5 max-w-[1280px] px-4 sm:px-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <TopPlayersCard />
+            <TopPlayersCard queue={queue} region={region} />
             <TopLegendsCard />
             <WeaponMetaCard />
           </div>

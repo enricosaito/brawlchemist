@@ -1,104 +1,187 @@
-"use client"
-
-import { useState } from "react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { TOP_PLAYERS_1V1, TOP_PLAYERS_2V2 } from "@/lib/mock-data"
-import { formatElo, formatPercent } from "@/lib/format"
-import { PreviewCard } from "./preview-card"
+import { formatElo } from "@/lib/format"
+import { slugForLegendId } from "@/lib/legends-roster"
 import {
-  Delta,
-  LegendChip,
-  RankIcon,
-  RegionPill,
-  TIER_TEXT_COLOR,
-} from "./primitives"
-import type { Player, Queue } from "@/lib/types"
+  type ApiGameMode,
+  getRankedLeaderboard,
+} from "@/lib/brawlhalla-api"
+import { getPlayersByIds } from "@/lib/sync/players"
+import type { PlayerRow } from "@/lib/db/schema"
+import type { Tier } from "@/lib/types"
+import { PreviewCard } from "./preview-card"
+import { LegendChip, RankIcon, TIER_TEXT_COLOR } from "./primitives"
 
-const QUEUES: { id: Queue; label: string }[] = [
+export const HOME_REGIONS = ["US-E", "BRZ", "EU"] as const
+export type HomeRegion = (typeof HOME_REGIONS)[number]
+
+const QUEUES: { id: ApiGameMode; label: string }[] = [
   { id: "1v1", label: "1v1" },
   { id: "2v2", label: "2v2" },
 ]
 
-function PlayerRow({ player, index }: { player: Player; index: number }) {
-  return (
-    <li className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40">
-      <span className="w-4 text-right font-mono text-xs text-muted-foreground tabular-nums">
-        {index + 1}
-      </span>
-      <RankIcon tier={player.rank.tier} size={28} />
-      <LegendChip
-        legendId={player.avatarLegendId}
-        size="md"
-        showName={false}
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="flex items-center gap-1.5">
-          <span className="truncate text-sm font-medium">{player.name}</span>
-          <RegionPill region={player.region} />
-        </span>
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span
-            className={cn(
-              "font-medium uppercase tracking-wider text-[10px]",
-              TIER_TEXT_COLOR[player.rank.tier],
-            )}
-          >
-            {player.rank.tier}
-          </span>
-          <span className="text-border">·</span>
-          <span className="tabular-nums">
-            {formatPercent(player.stats.winRate)} WR
-          </span>
-        </span>
-      </div>
-      <div className="flex flex-col items-end gap-0.5">
-        <span className="font-mono text-sm tabular-nums">
-          {formatElo(player.rank.elo)}
-        </span>
-        <Delta value={player.rank.delta24h} />
-      </div>
-    </li>
-  )
+const KNOWN_TIERS: readonly Tier[] = [
+  "Tin",
+  "Bronze",
+  "Silver",
+  "Gold",
+  "Platinum",
+  "Diamond",
+  "Valhallan",
+]
+
+function toTier(value: string | null): Tier | null {
+  if (!value) return null
+  return (KNOWN_TIERS as readonly string[]).includes(value)
+    ? (value as Tier)
+    : null
 }
 
-export function TopPlayersCard() {
-  const [queue, setQueue] = useState<Queue>("1v1")
-  const players = (queue === "1v1" ? TOP_PLAYERS_1V1 : TOP_PLAYERS_2V2).slice(0, 6)
+export async function TopPlayersCard({
+  queue,
+  region,
+}: {
+  queue: ApiGameMode
+  region: HomeRegion
+}) {
+  const lb = await getRankedLeaderboard({
+    gameMode: queue,
+    region,
+    maxResults: 6,
+  })
+  const rows = lb.ok ? lb.data.rankings : []
+
+  let playersMap = new Map<number, PlayerRow>()
+  if (rows.length > 0) {
+    const ids = rows.flatMap((r) => r.players.map((p) => p.id))
+    try {
+      playersMap = await getPlayersByIds(ids)
+    } catch (err) {
+      console.error("[top-players-card] DB lookup failed:", err)
+    }
+  }
 
   return (
     <PreviewCard
       title="Top players"
-      href={`/leaderboards?queue=${queue}`}
+      href={`/leaderboards?queue=${queue}&region=${region}`}
       viewAllLabel="view leaderboard"
       meta={
-        <div
-          role="tablist"
-          aria-label="Queue"
-          className="flex items-center rounded-md border border-border/60 bg-muted/40 p-0.5"
-        >
-          {QUEUES.map((q) => (
-            <button
-              key={q.id}
-              role="tab"
-              aria-selected={queue === q.id}
-              onClick={() => setQueue(q.id)}
-              className={cn(
-                "rounded-[5px] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
-                queue === q.id
-                  ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {q.label}
-            </button>
-          ))}
-        </div>
+        <>
+          <div
+            role="tablist"
+            aria-label="Queue"
+            className="flex items-center rounded-md border border-border/60 bg-muted/40 p-0.5"
+          >
+            {QUEUES.map((q) => (
+              <Link
+                key={q.id}
+                role="tab"
+                aria-selected={queue === q.id}
+                href={`/?queue=${q.id}&region=${region}#top-players`}
+                scroll={false}
+                className={cn(
+                  "rounded-[5px] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
+                  queue === q.id
+                    ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {q.label}
+              </Link>
+            ))}
+          </div>
+          <div
+            role="tablist"
+            aria-label="Region"
+            className="flex items-center rounded-md border border-border/60 bg-muted/40 p-0.5"
+          >
+            {HOME_REGIONS.map((r) => (
+              <Link
+                key={r}
+                role="tab"
+                aria-selected={region === r}
+                href={`/?queue=${queue}&region=${r}#top-players`}
+                scroll={false}
+                className={cn(
+                  "rounded-[5px] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
+                  region === r
+                    ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {r}
+              </Link>
+            ))}
+          </div>
+        </>
       }
     >
-      <ol className="divide-y divide-border/60">
-        {players.map((player, i) => (
-          <PlayerRow key={player.id} player={player} index={i} />
-        ))}
+      <ol id="top-players" className="divide-y divide-border/60">
+        {rows.length === 0 ? (
+          <li className="px-4 py-8 text-center text-xs text-muted-foreground">
+            No rankings for {queue} · {region}.
+          </li>
+        ) : (
+          rows.map((entry) => {
+            const tier = toTier(entry.tier)
+            const firstId = entry.players[0]?.id
+            return (
+              <li
+                key={`${entry.rank}-${firstId ?? "x"}`}
+                className="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-muted/40"
+              >
+                <span className="w-4 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums">
+                  {entry.rank}
+                </span>
+                {tier && <RankIcon tier={tier} size={24} className="shrink-0" />}
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  {entry.players.map((p) => {
+                    const lid = playersMap.get(p.id)?.topLegendId
+                    const slug = lid ? slugForLegendId(lid) : null
+                    return (
+                      <span
+                        key={p.id}
+                        className="flex items-center gap-2 text-sm leading-tight"
+                      >
+                        {slug ? (
+                          <LegendChip
+                            legendId={slug}
+                            size="sm"
+                            showName={false}
+                          />
+                        ) : (
+                          <span
+                            className="size-5 shrink-0 rounded-md border border-border/60 bg-muted/30"
+                            aria-hidden
+                          />
+                        )}
+                        <span className="truncate font-medium">
+                          {p.username}
+                        </span>
+                      </span>
+                    )
+                  })}
+                </div>
+                <div className="flex flex-col items-end gap-0.5">
+                  <span className="font-mono text-sm tabular-nums">
+                    {entry.rating != null ? formatElo(entry.rating) : "—"}
+                  </span>
+                  {tier && (
+                    <span
+                      className={cn(
+                        "font-mono text-[9px] uppercase tracking-wider",
+                        TIER_TEXT_COLOR[tier],
+                      )}
+                    >
+                      {tier}
+                    </span>
+                  )}
+                </div>
+              </li>
+            )
+          })
+        )}
       </ol>
     </PreviewCard>
   )
