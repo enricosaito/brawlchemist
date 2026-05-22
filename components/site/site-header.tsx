@@ -25,9 +25,7 @@ export function SiteHeader() {
             priority
             className="size-7 shrink-0 transition-transform group-hover:rotate-12"
           />
-          <span>
-            BRAWL<span className="text-tier-s">CHEMIST</span>
-          </span>
+          <span className="text-tier-s">BRAWLCHEMIST</span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
           {NAV.map((item) => (

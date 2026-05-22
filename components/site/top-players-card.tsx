@@ -126,15 +126,27 @@ export async function TopPlayersCard({
           rows.map((entry) => {
             const tier = toTier(entry.tier)
             const firstId = entry.players[0]?.id
+            const is1v1 = queue === "1v1"
+            const chipSize = is1v1 ? "md" : "sm"
+            const placeholderSize = is1v1 ? "size-7" : "size-5"
             return (
               <li
                 key={`${entry.rank}-${firstId ?? "x"}`}
-                className="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-muted/40"
+                className={cn(
+                  "flex items-center transition-colors hover:bg-muted/40",
+                  is1v1 ? "gap-3 px-4 py-2.5" : "gap-2 px-3 py-2",
+                )}
               >
                 <span className="w-4 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums">
                   {entry.rank}
                 </span>
-                {tier && <RankIcon tier={tier} size={24} className="shrink-0" />}
+                {tier && (
+                  <RankIcon
+                    tier={tier}
+                    size={is1v1 ? 30 : 24}
+                    className="shrink-0"
+                  />
+                )}
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   {entry.players.map((p) => {
                     const lid = playersMap.get(p.id)?.topLegendId
@@ -142,17 +154,23 @@ export async function TopPlayersCard({
                     return (
                       <span
                         key={p.id}
-                        className="flex items-center gap-2 text-sm leading-tight"
+                        className={cn(
+                          "flex items-center text-sm leading-tight",
+                          is1v1 ? "gap-3" : "gap-2",
+                        )}
                       >
                         {slug ? (
                           <LegendChip
                             legendId={slug}
-                            size="sm"
+                            size={chipSize}
                             showName={false}
                           />
                         ) : (
                           <span
-                            className="size-5 shrink-0 rounded-md border border-border/60 bg-muted/30"
+                            className={cn(
+                              placeholderSize,
+                              "shrink-0 rounded-md border border-border/60 bg-muted/30",
+                            )}
                             aria-hidden
                           />
                         )}
@@ -163,7 +181,7 @@ export async function TopPlayersCard({
                     )
                   })}
                 </div>
-                <div className="flex flex-col items-end gap-0.5">
+                <div className="flex shrink-0 flex-col items-end gap-0.5">
                   <span className="font-mono text-sm tabular-nums">
                     {entry.rating != null ? formatElo(entry.rating) : "—"}
                   </span>
