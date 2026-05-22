@@ -213,16 +213,17 @@ export interface ValhallanAggregation {
 }
 
 /**
- * Valhallan tier officially starts at 2000 rating, but the 2000–2399 band
- * is a noisy mix of grinders and one-off climbers. The actual "top of the
- * ladder" — the cohort whose pick/win patterns shape the meta — sits at
- * 2400+. We filter there for the tier-list aggregation.
+ * Internal filter threshold for the tier-list aggregation. The /legends
+ * page subtitle quotes 2400 publicly (the "purer" elite-Valhallan band)
+ * but we filter at 2300 to keep a healthier sample size; the 2300–2399
+ * cohort is still solidly top-of-Valhallan in practice and helps stabilize
+ * per-legend WR numbers. Update the page subtitle if this value moves.
  *
- * (The /ranked endpoint never returns "Valhallan" as a tier name either —
- * it caps at "Diamond" even for 2800-rated players — so filtering by
- * rating is also the only reliable way to identify these players.)
+ * (The /ranked endpoint never returns "Valhallan" as a tier name — it
+ * caps at "Diamond" even for 2800-rated players — so filtering by rating
+ * is also the only reliable way to identify these players.)
  */
-export const VALHALLAN_MIN_RATING = 2400
+export const VALHALLAN_MIN_RATING = 2300
 
 /**
  * Aggregate per-legend win rate across every player whose 1v1 rating
