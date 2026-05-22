@@ -40,10 +40,9 @@ export async function TopLegendsCard() {
     console.error("[top-legends-card] stats lookup failed:", err)
   }
 
-  // The 6 candidates come from the curated popular-meta pool. Cassidy is
-  // pinned at #1 as the marquee S+ legend; the remaining five sort by WR
-  // descending with games as the tiebreaker.
-  const PINNED_FIRST = "cassidy"
+  // Ordering is total games desc (most-played → least). WR is shown as
+  // illustration only; the popular meta is what we want to surface at the
+  // top of the page.
   const rows = FEATURED_SLUGS.map((slug) => {
     const legend = getLegend(slug)
     const legendId = legendIdForSlug(slug)
@@ -52,14 +51,12 @@ export async function TopLegendsCard() {
   })
     .filter((r) => r.legend)
     .sort((a, b) => {
-      if (a.slug === PINNED_FIRST) return -1
-      if (b.slug === PINNED_FIRST) return 1
-      const aWr = a.live?.winRate ?? a.legend!.winRate
-      const bWr = b.live?.winRate ?? b.legend!.winRate
-      if (bWr !== aWr) return bWr - aWr
       const aGames = a.live?.games ?? 0
       const bGames = b.live?.games ?? 0
-      return bGames - aGames
+      if (bGames !== aGames) return bGames - aGames
+      const aWr = a.live?.winRate ?? a.legend!.winRate
+      const bWr = b.live?.winRate ?? b.legend!.winRate
+      return bWr - aWr
     })
 
   return (
@@ -102,10 +99,10 @@ export async function TopLegendsCard() {
               </div>
               <div className="flex shrink-0 flex-col items-end gap-0.5">
                 <span className="font-mono text-sm tabular-nums">
-                  {formatPercent(winRate)}
+                  {games != null ? `${games.toLocaleString()} games` : "—"}
                 </span>
                 <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                  {games != null ? `${games.toLocaleString()} games` : "—"}
+                  {formatPercent(winRate)} WR
                 </span>
               </div>
             </li>
