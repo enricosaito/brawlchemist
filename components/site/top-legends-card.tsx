@@ -19,9 +19,14 @@ export function TopLegendsCard() {
       href="/tierlist"
       viewAllLabel="view full tier list"
       meta={
-        <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
-          Patch {CURRENT_PATCH}
-        </span>
+        <>
+          <span className="rounded border border-tier-diamond/40 bg-tier-diamond/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-diamond">
+            Diamond+
+          </span>
+          <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
+            Patch {CURRENT_PATCH}
+          </span>
+        </>
       }
     >
       <ol className="divide-y divide-border/60">
