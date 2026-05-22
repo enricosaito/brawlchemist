@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 const NAV = [
   { label: "Tier List", href: "/tierlist" },
   { label: "Leaderboards", href: "/leaderboards" },
+  { label: "Win Rates", href: "/valhallan-wr" },
   { label: "Weapons", href: "/weapons" },
 ]
 
@@ -51,9 +52,8 @@ export function SiteHeader() {
           >
             <Search className="size-4" />
           </button>
-          <kbd className="hidden rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground md:inline-block">
-            press d for theme
-          </kbd>
+          {/* "press d for theme" hint removed; the keybind handler stays
+              wired so the shortcut still works for power users. */}
         </div>
       </div>
     </header>

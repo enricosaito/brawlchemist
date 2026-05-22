@@ -65,7 +65,6 @@ function buildColumns(
       render: (row) => {
         const slug = slugForLegendId(row.legend_id)
         const legend = slug ? getLegend(slug) : null
-        const tops = mainers.get(row.legend_id) ?? []
         return (
           <div className="flex items-center gap-2">
             {slug ? (
@@ -76,16 +75,39 @@ function buildColumns(
                 aria-hidden
               />
             )}
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="truncate text-sm font-medium">
-                {legend?.name ?? slug ?? `legend #${row.legend_id}`}
-              </span>
-              {tops.length > 0 && (
-                <span className="truncate text-[10px] text-muted-foreground/80">
-                  {tops.map((m) => m.username).join(" · ")}
+            <span className="truncate text-sm font-medium">
+              {legend?.name ?? slug ?? `legend #${row.legend_id}`}
+            </span>
+          </div>
+        )
+      },
+    },
+    {
+      id: "mainers",
+      label: "Top Mainers",
+      width: "320px",
+      render: (row) => {
+        const tops = mainers.get(row.legend_id) ?? []
+        if (tops.length === 0) {
+          return (
+            <span className="text-xs text-muted-foreground/60">—</span>
+          )
+        }
+        return (
+          <div className="flex flex-col gap-0.5">
+            {tops.map((m, i) => (
+              <span
+                key={i}
+                className="flex items-baseline gap-1.5 text-xs leading-tight"
+              >
+                <span className="truncate font-medium text-foreground/90">
+                  {m.username}
                 </span>
-              )}
-            </div>
+                <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-tier-valhallan">
+                  [{m.region} Valhallan #{m.regionRank}]
+                </span>
+              </span>
+            ))}
           </div>
         )
       },

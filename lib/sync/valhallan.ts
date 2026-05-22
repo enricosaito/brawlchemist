@@ -94,6 +94,11 @@ export interface TopMainer {
   username: string
   rating: number
   region: string
+  /** Player's rank within their region among synced Valhallans (rating
+   * descending). Computed in-query, not from the API — /ranked returns 0
+   * for region_rank universally. Converges to the real leaderboard rank
+   * as the cron finishes seeding. */
+  regionRank: number
 }
 
 /**
@@ -111,23 +116,32 @@ export async function getTopValhallanMainers(
   const perLegend = opts.perLegend ?? 3
 
   const result = await db().execute(sql`
-    WITH ranked AS (
+    WITH valhallans AS (
       SELECT
+        brawlhalla_id,
         top_legend_id,
         username,
         (ranked_json->>'rating')::int AS rating,
         ranked_json->>'region' AS region,
         ROW_NUMBER() OVER (
-          PARTITION BY top_legend_id
+          PARTITION BY ranked_json->>'region'
           ORDER BY (ranked_json->>'rating')::int DESC
-        ) AS rn
+        ) AS region_rank
       FROM players
       WHERE top_legend_id IS NOT NULL
         AND (ranked_json->>'rating')::int >= ${VALHALLAN_MIN_RATING}
         AND (${region}::text IS NULL OR ranked_json->>'region' = ${region})
+    ),
+    legend_ranked AS (
+      SELECT *,
+        ROW_NUMBER() OVER (
+          PARTITION BY top_legend_id
+          ORDER BY rating DESC
+        ) AS rn
+      FROM valhallans
     )
-    SELECT top_legend_id, username, rating, region
-    FROM ranked
+    SELECT top_legend_id, username, rating, region, region_rank
+    FROM legend_ranked
     WHERE rn <= ${perLegend}
     ORDER BY top_legend_id, rn
   `)
@@ -137,6 +151,7 @@ export async function getTopValhallanMainers(
     username: string
     rating: number
     region: string
+    region_rank: number
   }>
 
   const map = new Map<number, TopMainer[]>()
@@ -146,6 +161,7 @@ export async function getTopValhallanMainers(
       username: row.username,
       rating: row.rating,
       region: row.region,
+      regionRank: row.region_rank,
     })
     map.set(row.top_legend_id, list)
   }
