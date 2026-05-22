@@ -92,15 +92,24 @@ export async function getStaleValhallanIds(
 
 export interface LegendStat {
   legend_id: number
-  wins: number
+  /** Total games across all contributing players. */
   games: number
+  /** Pooled wins (only set for method=pooled). */
+  wins?: number
+  /** Distinct contributing players (only set for method=avg). */
+  players?: number
+  /** Percent. Pooled WR for "pooled"; mean of per-player WRs for "avg". */
   win_rate: number
+  /** Share of total games in the pool. */
   pick_rate: number
 }
+
+export type AggregationMethod = "pooled" | "avg"
 
 export interface ValhallanAggregation {
   legends: LegendStat[]
   sampleSize: number
+  method: AggregationMethod
 }
 
 /**
@@ -114,21 +123,30 @@ export const VALHALLAN_MIN_RATING = 2000
 
 /**
  * Aggregate per-legend win rate across every player whose 1v1 rating
- * crosses the Valhallan threshold (2000+). This is the "what do Valhallan-
- * caliber players play with this season" interpretation — per-legend games
- * include time spent climbing through lower tiers on those legends.
+ * crosses the Valhallan threshold (2000+). Per-legend games include time
+ * spent climbing through lower tiers on those legends.
  *
- * `region` filters to a single region's player pool (matching the value
- * stored at /ranked.region — e.g. "BRZ", "US-E"). Pass null/undefined for
- * the global all-Valhallan view.
+ * `region` — filter to a single region (matching ranked_json.region values
+ *   like "BRZ", "US-E"). Pass null for the global view.
  *
- * The HAVING clause keeps tiny-sample legends out of the result.
+ * `method`:
+ *   - "pooled" (default): SUM(wins) / SUM(games) across all players. High-
+ *     volume players dominate. Reflects total observed outcomes.
+ *   - "avg": per-player WR, then averaged across players. Each player
+ *     contributes one data point regardless of game count. Less influenced
+ *     by outliers like Lopes' 4000-game samples.
+ *
+ * `minGames` interpretation depends on method:
+ *   - pooled: minimum total games across all players combined.
+ *   - avg: minimum games per individual player to qualify as a data point,
+ *     plus an implicit minPlayers=5 floor on the legend itself.
  */
 export async function getValhallanLegendStats(opts: {
   minGames?: number
   region?: string | null
+  method?: AggregationMethod
 } = {}): Promise<ValhallanAggregation> {
-  const minGames = opts.minGames ?? 50
+  const method = opts.method ?? "pooled"
   const region = opts.region ?? null
 
   // Sample size: number of Valhallan-rated players matching the region filter.
@@ -140,25 +158,69 @@ export async function getValhallanLegendStats(opts: {
   `)).rows as unknown as { n: number }[]
   const sampleSize = sampleRows[0]?.n ?? 0
 
+  if (method === "pooled") {
+    const minGames = opts.minGames ?? 50
+    const result = await db().execute(sql`
+      WITH legend_totals AS (
+        SELECT
+          (l->>'legend_id')::int AS legend_id,
+          SUM((l->>'wins')::int)::int AS wins,
+          SUM((l->>'games')::int)::int AS games
+        FROM players,
+             jsonb_array_elements(ranked_json->'legends') AS l
+        WHERE (ranked_json->>'rating')::int >= ${VALHALLAN_MIN_RATING}
+          AND (${region}::text IS NULL OR ranked_json->>'region' = ${region})
+          AND (l->>'games')::int > 0
+        GROUP BY legend_id
+        HAVING SUM((l->>'games')::int) >= ${minGames}
+      )
+      SELECT
+        legend_id,
+        wins,
+        games,
+        ROUND(100.0 * wins / NULLIF(games, 0), 2)::float AS win_rate,
+        ROUND(100.0 * games / NULLIF(SUM(games) OVER (), 0), 2)::float AS pick_rate
+      FROM legend_totals
+      ORDER BY win_rate DESC
+    `)
+    return {
+      legends: result.rows as unknown as LegendStat[],
+      sampleSize,
+      method,
+    }
+  }
+
+  // method === "avg" — per-player WR then averaged.
+  const minGamesPerPlayer = opts.minGames ?? 30
+  const minPlayersPerLegend = 5
   const result = await db().execute(sql`
-    WITH legend_totals AS (
+    WITH per_player AS (
       SELECT
         (l->>'legend_id')::int AS legend_id,
-        SUM((l->>'wins')::int)::int AS wins,
-        SUM((l->>'games')::int)::int AS games
+        (l->>'wins')::int AS wins,
+        (l->>'games')::int AS games,
+        (l->>'wins')::float / (l->>'games')::int AS player_wr
       FROM players,
            jsonb_array_elements(ranked_json->'legends') AS l
       WHERE (ranked_json->>'rating')::int >= ${VALHALLAN_MIN_RATING}
         AND (${region}::text IS NULL OR ranked_json->>'region' = ${region})
-        AND (l->>'games')::int > 0
+        AND (l->>'games')::int >= ${minGamesPerPlayer}
+    ),
+    legend_totals AS (
+      SELECT
+        legend_id,
+        COUNT(*)::int AS players,
+        SUM(games)::int AS games,
+        AVG(player_wr) AS macro_wr
+      FROM per_player
       GROUP BY legend_id
-      HAVING SUM((l->>'games')::int) >= ${minGames}
+      HAVING COUNT(*) >= ${minPlayersPerLegend}
     )
     SELECT
       legend_id,
-      wins,
+      players,
       games,
-      ROUND(100.0 * wins / NULLIF(games, 0), 2)::float AS win_rate,
+      ROUND((100.0 * macro_wr)::numeric, 2)::float AS win_rate,
       ROUND(100.0 * games / NULLIF(SUM(games) OVER (), 0), 2)::float AS pick_rate
     FROM legend_totals
     ORDER BY win_rate DESC
@@ -166,5 +228,6 @@ export async function getValhallanLegendStats(opts: {
   return {
     legends: result.rows as unknown as LegendStat[],
     sampleSize,
+    method,
   }
 }
