@@ -1,0 +1,189 @@
+import Link from "next/link"
+import { cn } from "@/lib/utils"
+import { DataTable, type ColDef } from "@/components/site/data-table"
+import { PageHero } from "@/components/site/page-hero"
+import { SiteFooter } from "@/components/site/site-footer"
+import { SiteHeader } from "@/components/site/site-header"
+import { LegendChip } from "@/components/site/primitives"
+import { getLegend } from "@/lib/mock-data"
+import { slugForLegendId } from "@/lib/legends-roster"
+import {
+  getValhallanLegendStats,
+  type LegendStat,
+} from "@/lib/sync/valhallan"
+
+// "ALL" means no region filter (every Valhallan-rated player across all regions).
+const REGION_OPTIONS = [
+  "ALL",
+  "US-E",
+  "US-W",
+  "EU",
+  "BRZ",
+  "SEA",
+  "AUS",
+  "JPS",
+  "SA",
+  "ME",
+] as const
+type RegionOption = (typeof REGION_OPTIONS)[number]
+
+function isRegionOption(v: string | undefined): v is RegionOption {
+  return !!v && (REGION_OPTIONS as readonly string[]).includes(v)
+}
+
+const columns: ColDef<LegendStat>[] = [
+  {
+    id: "rank",
+    label: "#",
+    width: "56px",
+    align: "right",
+    render: (_, i) => (
+      <span className="font-mono text-xs text-muted-foreground tabular-nums">
+        {i + 1}
+      </span>
+    ),
+  },
+  {
+    id: "legend",
+    label: "Legend",
+    render: (row) => {
+      const slug = slugForLegendId(row.legend_id)
+      if (!slug) {
+        return (
+          <span className="font-mono text-xs text-muted-foreground">
+            legend #{row.legend_id}
+          </span>
+        )
+      }
+      const legend = getLegend(slug)
+      return (
+        <div className="flex items-center gap-2">
+          <LegendChip legendId={slug} size="md" showName={false} />
+          <span className="truncate text-sm font-medium">
+            {legend?.name ?? slug}
+          </span>
+        </div>
+      )
+    },
+  },
+  {
+    id: "winrate",
+    label: "Win Rate",
+    align: "right",
+    width: "110px",
+    render: (row) => (
+      <span className="font-mono text-sm font-medium tabular-nums text-positive">
+        {row.win_rate.toFixed(2)}%
+      </span>
+    ),
+  },
+  {
+    id: "record",
+    label: "W – L",
+    align: "right",
+    width: "140px",
+    render: (row) => (
+      <span className="font-mono text-xs tabular-nums text-muted-foreground">
+        <span className="text-positive">{row.wins.toLocaleString()}</span>
+        <span className="px-1 opacity-60">–</span>
+        <span className="text-negative">
+          {(row.games - row.wins).toLocaleString()}
+        </span>
+      </span>
+    ),
+  },
+  {
+    id: "games",
+    label: "Games",
+    align: "right",
+    width: "100px",
+    render: (row) => (
+      <span className="font-mono text-sm tabular-nums text-muted-foreground">
+        {row.games.toLocaleString()}
+      </span>
+    ),
+  },
+  {
+    id: "pickrate",
+    label: "Pick Rate",
+    align: "right",
+    width: "100px",
+    render: (row) => (
+      <span className="font-mono text-sm tabular-nums text-muted-foreground">
+        {row.pick_rate.toFixed(2)}%
+      </span>
+    ),
+  },
+]
+
+export default async function ValhallanWrPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ region?: string }>
+}) {
+  const params = await searchParams
+  const region: RegionOption = isRegionOption(params.region)
+    ? params.region
+    : "ALL"
+  const regionFilter = region === "ALL" ? null : region
+
+  const { legends, sampleSize } = await getValhallanLegendStats({
+    region: regionFilter,
+    minGames: regionFilter ? 20 : 100,
+  })
+
+  return (
+    <div className="min-h-svh">
+      <SiteHeader />
+      <main className="pb-16">
+        <PageHero
+          title="Valhallan win rates"
+          subtitle="Per-legend ranked win rate aggregated across every Valhallan-tier player (rating ≥ 2000) in our DB. Refreshes via the sync-valhallan cron every 15 min."
+          meta={
+            <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
+              {sampleSize} players sampled
+            </span>
+          }
+        />
+        <div className="px-4 sm:px-6">
+          <div className="mx-auto mb-3 flex max-w-[1280px] flex-wrap items-center gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              Region
+            </span>
+            <div className="flex flex-wrap items-center gap-1 rounded-md border border-border/60 bg-muted/40 p-0.5">
+              {REGION_OPTIONS.map((r) => (
+                <Link
+                  key={r}
+                  href={`/valhallan-wr?region=${r}`}
+                  aria-current={region === r ? "true" : undefined}
+                  className={cn(
+                    "rounded-[5px] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
+                    region === r
+                      ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {r}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {legends.length === 0 ? (
+            <div className="mx-auto max-w-[1280px] rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">
+              No legends meet the sample threshold for {region}. The cron is
+              still seeding — check back in a few hours.
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              rows={legends}
+              rowKey={(l) => String(l.legend_id)}
+            />
+          )}
+        </div>
+      </main>
+      <SiteFooter />
+    </div>
+  )
+}

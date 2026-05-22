@@ -9,5 +9,13 @@ export const config: VercelConfig = {
       path: "/api/cron/sync-leaderboard",
       schedule: "*/15 * * * *",
     },
+    {
+      // Sweep the Valhallan-tier population (~1000 players across 9 regions
+      // × 2 queues) for the tier-list aggregations. Staggered 5 min off the
+      // leaderboard cron to spread rate-limit usage within each 15-min slot.
+      // 50 syncs per tick → ~5 hours of cold seeding, then mostly idle.
+      path: "/api/cron/sync-valhallan",
+      schedule: "5,20,35,50 * * * *",
+    },
   ],
 }
