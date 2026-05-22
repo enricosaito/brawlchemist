@@ -8,6 +8,7 @@ import { LegendChip } from "@/components/site/primitives"
 import { getLegend } from "@/lib/mock-data"
 import { slugForLegendId } from "@/lib/legends-roster"
 import {
+  type AggregationMethod,
   getValhallanLegendStats,
   type LegendStat,
 } from "@/lib/sync/valhallan"
@@ -31,106 +32,161 @@ function isRegionOption(v: string | undefined): v is RegionOption {
   return !!v && (REGION_OPTIONS as readonly string[]).includes(v)
 }
 
-const columns: ColDef<LegendStat>[] = [
-  {
-    id: "rank",
-    label: "#",
-    width: "56px",
-    align: "right",
-    render: (_, i) => (
-      <span className="font-mono text-xs text-muted-foreground tabular-nums">
-        {i + 1}
-      </span>
-    ),
-  },
-  {
-    id: "legend",
-    label: "Legend",
-    render: (row) => {
-      const slug = slugForLegendId(row.legend_id)
-      if (!slug) {
-        return (
-          <span className="font-mono text-xs text-muted-foreground">
-            legend #{row.legend_id}
-          </span>
-        )
-      }
-      const legend = getLegend(slug)
-      return (
-        <div className="flex items-center gap-2">
-          <LegendChip legendId={slug} size="md" showName={false} />
-          <span className="truncate text-sm font-medium">
-            {legend?.name ?? slug}
-          </span>
-        </div>
-      )
-    },
-  },
-  {
-    id: "winrate",
-    label: "Win Rate",
-    align: "right",
-    width: "110px",
-    render: (row) => (
-      <span className="font-mono text-sm font-medium tabular-nums text-positive">
-        {row.win_rate.toFixed(2)}%
-      </span>
-    ),
-  },
-  {
-    id: "record",
-    label: "W – L",
-    align: "right",
-    width: "140px",
-    render: (row) => (
-      <span className="font-mono text-xs tabular-nums text-muted-foreground">
-        <span className="text-positive">{row.wins.toLocaleString()}</span>
-        <span className="px-1 opacity-60">–</span>
-        <span className="text-negative">
-          {(row.games - row.wins).toLocaleString()}
-        </span>
-      </span>
-    ),
-  },
-  {
-    id: "games",
-    label: "Games",
-    align: "right",
-    width: "100px",
-    render: (row) => (
-      <span className="font-mono text-sm tabular-nums text-muted-foreground">
-        {row.games.toLocaleString()}
-      </span>
-    ),
-  },
-  {
-    id: "pickrate",
-    label: "Pick Rate",
-    align: "right",
-    width: "100px",
-    render: (row) => (
-      <span className="font-mono text-sm tabular-nums text-muted-foreground">
-        {row.pick_rate.toFixed(2)}%
-      </span>
-    ),
-  },
+const METHOD_OPTIONS: { id: AggregationMethod; label: string }[] = [
+  { id: "avg", label: "Per-player" },
+  { id: "pooled", label: "Pooled" },
 ]
+
+function isMethod(v: string | undefined): v is AggregationMethod {
+  return v === "pooled" || v === "avg"
+}
+
+function buildColumns(method: AggregationMethod): ColDef<LegendStat>[] {
+  const cols: ColDef<LegendStat>[] = [
+    {
+      id: "rank",
+      label: "#",
+      width: "56px",
+      align: "right",
+      render: (_, i) => (
+        <span className="font-mono text-xs text-muted-foreground tabular-nums">
+          {i + 1}
+        </span>
+      ),
+    },
+    {
+      id: "legend",
+      label: "Legend",
+      render: (row) => {
+        const slug = slugForLegendId(row.legend_id)
+        if (!slug) {
+          return (
+            <span className="font-mono text-xs text-muted-foreground">
+              legend #{row.legend_id}
+            </span>
+          )
+        }
+        const legend = getLegend(slug)
+        return (
+          <div className="flex items-center gap-2">
+            <LegendChip legendId={slug} size="md" showName={false} />
+            <span className="truncate text-sm font-medium">
+              {legend?.name ?? slug}
+            </span>
+          </div>
+        )
+      },
+    },
+    {
+      id: "winrate",
+      label: "Win Rate",
+      align: "right",
+      width: "110px",
+      render: (row) => (
+        <span className="font-mono text-sm font-medium tabular-nums text-positive">
+          {row.win_rate.toFixed(2)}%
+        </span>
+      ),
+    },
+  ]
+
+  if (method === "pooled") {
+    cols.push({
+      id: "record",
+      label: "W – L",
+      align: "right",
+      width: "140px",
+      render: (row) => (
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+          <span className="text-positive">{(row.wins ?? 0).toLocaleString()}</span>
+          <span className="px-1 opacity-60">–</span>
+          <span className="text-negative">
+            {(row.games - (row.wins ?? 0)).toLocaleString()}
+          </span>
+        </span>
+      ),
+    })
+  } else {
+    cols.push({
+      id: "players",
+      label: "Players",
+      align: "right",
+      width: "90px",
+      render: (row) => (
+        <span className="font-mono text-sm tabular-nums text-muted-foreground">
+          {(row.players ?? 0).toLocaleString()}
+        </span>
+      ),
+    })
+  }
+
+  cols.push(
+    {
+      id: "games",
+      label: "Games",
+      align: "right",
+      width: "100px",
+      render: (row) => (
+        <span className="font-mono text-sm tabular-nums text-muted-foreground">
+          {row.games.toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      id: "pickrate",
+      label: "Pick Rate",
+      align: "right",
+      width: "100px",
+      render: (row) => (
+        <span className="font-mono text-sm tabular-nums text-muted-foreground">
+          {row.pick_rate.toFixed(2)}%
+        </span>
+      ),
+    },
+  )
+
+  return cols
+}
 
 export default async function ValhallanWrPage({
   searchParams,
 }: {
-  searchParams: Promise<{ region?: string }>
+  searchParams: Promise<{ region?: string; method?: string }>
 }) {
   const params = await searchParams
   const region: RegionOption = isRegionOption(params.region)
     ? params.region
     : "ALL"
   const regionFilter = region === "ALL" ? null : region
+  const method: AggregationMethod = isMethod(params.method)
+    ? params.method
+    : "avg"
+
+  // Minimum threshold scales with the population:
+  //   - pooled: minimum total games (so a niche legend with 30 total games doesn't show).
+  //   - avg: minimum games per player to qualify as a data point.
+  const minGames =
+    method === "pooled"
+      ? regionFilter
+        ? 20
+        : 100
+      : regionFilter
+        ? 20
+        : 30
 
   const { legends, sampleSize } = await getValhallanLegendStats({
     region: regionFilter,
-    minGames: regionFilter ? 20 : 100,
+    method,
+    minGames,
   })
+
+  const columns = buildColumns(method)
+  const methodCopy =
+    method === "avg"
+      ? "Each Valhallan player contributes one data point per legend (≥ " +
+        minGames +
+        " games on that legend to qualify), then averaged. Less influenced by high-volume mains."
+      : "All Valhallan games and wins are summed and divided. Reflects total observed outcomes; high-volume players have proportional weight."
 
   return (
     <div className="min-h-svh">
@@ -138,7 +194,7 @@ export default async function ValhallanWrPage({
       <main className="pb-16">
         <PageHero
           title="Valhallan win rates"
-          subtitle="Per-legend ranked win rate aggregated across every Valhallan-tier player (rating ≥ 2000) in our DB. Refreshes via the sync-valhallan cron every 15 min."
+          subtitle={`Per-legend WR across Valhallan-tier players (rating ≥ 2000). ${methodCopy}`}
           meta={
             <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
               {sampleSize} players sampled
@@ -146,33 +202,58 @@ export default async function ValhallanWrPage({
           }
         />
         <div className="px-4 sm:px-6">
-          <div className="mx-auto mb-3 flex max-w-[1280px] flex-wrap items-center gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              Region
-            </span>
-            <div className="flex flex-wrap items-center gap-1 rounded-md border border-border/60 bg-muted/40 p-0.5">
-              {REGION_OPTIONS.map((r) => (
-                <Link
-                  key={r}
-                  href={`/valhallan-wr?region=${r}`}
-                  aria-current={region === r ? "true" : undefined}
-                  className={cn(
-                    "rounded-[5px] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
-                    region === r
-                      ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {r}
-                </Link>
-              ))}
+          <div className="mx-auto mb-3 flex max-w-[1280px] flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                Region
+              </span>
+              <div className="flex flex-wrap items-center gap-1 rounded-md border border-border/60 bg-muted/40 p-0.5">
+                {REGION_OPTIONS.map((r) => (
+                  <Link
+                    key={r}
+                    href={`/valhallan-wr?region=${r}&method=${method}`}
+                    aria-current={region === r ? "true" : undefined}
+                    className={cn(
+                      "rounded-[5px] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
+                      region === r
+                        ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {r}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                Method
+              </span>
+              <div className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 p-0.5">
+                {METHOD_OPTIONS.map((m) => (
+                  <Link
+                    key={m.id}
+                    href={`/valhallan-wr?region=${region}&method=${m.id}`}
+                    aria-current={method === m.id ? "true" : undefined}
+                    className={cn(
+                      "rounded-[5px] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
+                      method === m.id
+                        ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {m.label}
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
 
           {legends.length === 0 ? (
             <div className="mx-auto max-w-[1280px] rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">
-              No legends meet the sample threshold for {region}. The cron is
-              still seeding — check back in a few hours.
+              No legends meet the sample threshold for {region} · {method}. The
+              cron is still seeding — check back in a few hours.
             </div>
           ) : (
             <DataTable
