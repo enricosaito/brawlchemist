@@ -35,12 +35,13 @@ function isRegionOption(v: string | undefined): v is RegionOption {
 }
 
 const METHOD_OPTIONS: { id: AggregationMethod; label: string }[] = [
+  { id: "popular", label: "Popular" },
   { id: "avg", label: "Per-player" },
   { id: "pooled", label: "Pooled" },
 ]
 
 function isMethod(v: string | undefined): v is AggregationMethod {
-  return v === "pooled" || v === "avg"
+  return v === "pooled" || v === "avg" || v === "popular"
 }
 
 function buildColumns(
@@ -60,8 +61,36 @@ function buildColumns(
       ),
     },
     {
+      id: "mainers",
+      label: "Top Mainers",
+      width: "360px",
+      render: (row) => {
+        const tops = mainers.get(row.legend_id) ?? []
+        if (tops.length === 0) {
+          return (
+            <span className="text-xs text-muted-foreground/60">—</span>
+          )
+        }
+        return (
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs leading-tight">
+            {tops.map((m, i) => (
+              <span key={i} className="flex items-baseline gap-1">
+                <span className="font-mono text-[10px] tabular-nums text-tier-valhallan">
+                  [{m.region} #{m.regionRank}]
+                </span>
+                <span className="font-medium text-foreground/90">
+                  {m.username}
+                </span>
+              </span>
+            ))}
+          </div>
+        )
+      },
+    },
+    {
       id: "legend",
       label: "Legend",
+      width: "180px",
       render: (row) => {
         const slug = slugForLegendId(row.legend_id)
         const legend = slug ? getLegend(slug) : null
@@ -83,36 +112,6 @@ function buildColumns(
       },
     },
     {
-      id: "mainers",
-      label: "Top Mainers",
-      width: "320px",
-      render: (row) => {
-        const tops = mainers.get(row.legend_id) ?? []
-        if (tops.length === 0) {
-          return (
-            <span className="text-xs text-muted-foreground/60">—</span>
-          )
-        }
-        return (
-          <div className="flex flex-col gap-0.5">
-            {tops.map((m, i) => (
-              <span
-                key={i}
-                className="flex items-baseline gap-1.5 text-xs leading-tight"
-              >
-                <span className="truncate font-medium text-foreground/90">
-                  {m.username}
-                </span>
-                <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-tier-valhallan">
-                  [{m.region} Valhallan #{m.regionRank}]
-                </span>
-              </span>
-            ))}
-          </div>
-        )
-      },
-    },
-    {
       id: "winrate",
       label: "Win Rate",
       align: "right",
@@ -125,7 +124,7 @@ function buildColumns(
     },
   ]
 
-  if (method === "pooled") {
+  if (method === "pooled" || method === "popular") {
     cols.push({
       id: "record",
       label: "W – L",
@@ -183,7 +182,7 @@ function buildColumns(
   return cols
 }
 
-export default async function ValhallanWrPage({
+export default async function LegendsPage({
   searchParams,
 }: {
   searchParams: Promise<{ region?: string; method?: string }>
@@ -195,19 +194,20 @@ export default async function ValhallanWrPage({
   const regionFilter = region === "ALL" ? null : region
   const method: AggregationMethod = isMethod(params.method)
     ? params.method
-    : "avg"
+    : "popular"
 
   // Minimum threshold scales with the population:
-  //   - pooled: minimum total games (so a niche legend with 30 total games doesn't show).
+  //   - pooled/popular: minimum total games (so a niche legend with 30 total
+  //     games doesn't show in the popular leaderboard).
   //   - avg: minimum games per player to qualify as a data point.
   const minGames =
-    method === "pooled"
+    method === "avg"
       ? regionFilter
         ? 20
-        : 100
+        : 30
       : regionFilter
         ? 20
-        : 30
+        : 100
 
   const [{ legends, sampleSize }, mainers] = await Promise.all([
     getValhallanLegendStats({
@@ -219,20 +219,23 @@ export default async function ValhallanWrPage({
   ])
 
   const columns = buildColumns(method, mainers)
-  const methodCopy =
-    method === "avg"
-      ? "Each Valhallan player contributes one data point per legend (≥ " +
-        minGames +
-        " games on that legend to qualify), then averaged. Less influenced by high-volume mains."
-      : "All Valhallan games and wins are summed and divided. Reflects total observed outcomes; high-volume players have proportional weight."
+  const methodCopy = (() => {
+    if (method === "popular") {
+      return "Sorted by total games across the Valhallan pool — the legends actually getting played at the top of the ladder. WR shown for context but ordering ignores it."
+    }
+    if (method === "avg") {
+      return `Each Valhallan player contributes one data point per legend (≥ ${minGames} games on that legend to qualify), then averaged. Less influenced by high-volume mains.`
+    }
+    return "All Valhallan games and wins are summed and divided. Reflects total observed outcomes; high-volume players have proportional weight."
+  })()
 
   return (
     <div className="min-h-svh">
       <SiteHeader />
       <main className="pb-16">
         <PageHero
-          title="Valhallan win rates"
-          subtitle={`Per-legend WR across Valhallan-tier players (rating ≥ 2000). ${methodCopy}`}
+          title="Legends"
+          subtitle={`Per-legend stats across Valhallan-tier players (rating ≥ 2000). ${methodCopy}`}
           meta={
             <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
               {sampleSize} players sampled
@@ -249,7 +252,7 @@ export default async function ValhallanWrPage({
                 {REGION_OPTIONS.map((r) => (
                   <Link
                     key={r}
-                    href={`/valhallan-wr?region=${r}&method=${method}`}
+                    href={`/legends?region=${r}&method=${method}`}
                     aria-current={region === r ? "true" : undefined}
                     className={cn(
                       "rounded-[5px] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
@@ -272,7 +275,7 @@ export default async function ValhallanWrPage({
                 {METHOD_OPTIONS.map((m) => (
                   <Link
                     key={m.id}
-                    href={`/valhallan-wr?region=${region}&method=${m.id}`}
+                    href={`/legends?region=${region}&method=${m.id}`}
                     aria-current={method === m.id ? "true" : undefined}
                     className={cn(
                       "rounded-[5px] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
