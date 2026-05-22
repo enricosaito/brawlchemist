@@ -2,7 +2,6 @@ import "server-only"
 
 import { and, gte, inArray, sql } from "drizzle-orm"
 import {
-  API_REGIONS,
   type ApiGameMode,
   type ApiRegion,
   getRankedLeaderboard,
@@ -11,9 +10,38 @@ import { db } from "@/lib/db"
 import { players } from "@/lib/db/schema"
 
 const QUEUES: ApiGameMode[] = ["1v1", "2v2"]
-const REGIONS: ApiRegion[] = (API_REGIONS as readonly ApiRegion[]).filter(
-  (r) => r !== "ALL",
-)
+
+/**
+ * Regions we treat as "competitive" for tier-list aggregation. SA, AUS, JPS
+ * are intentionally excluded — their Valhallan ladders are small/quieter and
+ * add noise to the WR analysis without contributing much signal. Easy to
+ * re-add later by editing this list.
+ */
+export const COMPETITIVE_REGIONS: ApiRegion[] = [
+  "US-E",
+  "US-W",
+  "EU",
+  "BRZ",
+  "SEA",
+  "ME",
+]
+const REGIONS: ApiRegion[] = COMPETITIVE_REGIONS
+
+/**
+ * SQL fragment for the player-region filter used by every aggregation
+ * query. If a specific region is provided we match it exactly (so direct
+ * URLs to e.g. /legends?region=AUS still work against archived data).
+ * Otherwise we restrict to the competitive set above.
+ */
+function regionClause(region: string | null) {
+  if (region) {
+    return sql`ranked_json->>'region' = ${region}`
+  }
+  return sql`ranked_json->>'region' IN (${sql.join(
+    COMPETITIVE_REGIONS.map((r) => sql`${r}`),
+    sql`, `,
+  )})`
+}
 
 const PAGE_SIZE = 50
 // Safety cap. Valhallan ladders are ~150 players per region in practice;
@@ -130,7 +158,7 @@ export async function getTopValhallanMainers(
       FROM players
       WHERE top_legend_id IS NOT NULL
         AND (ranked_json->>'rating')::int >= ${VALHALLAN_MIN_RATING}
-        AND (${region}::text IS NULL OR ranked_json->>'region' = ${region})
+        AND ${regionClause(region)}
     ),
     legend_ranked AS (
       SELECT *,
@@ -235,7 +263,7 @@ export async function getValhallanLegendStats(opts: {
     SELECT COUNT(*)::int AS n
     FROM players
     WHERE (ranked_json->>'rating')::int >= ${VALHALLAN_MIN_RATING}
-      AND (${region}::text IS NULL OR ranked_json->>'region' = ${region})
+      AND ${regionClause(region)}
   `)).rows as unknown as { n: number }[]
   const sampleSize = sampleRows[0]?.n ?? 0
 
@@ -252,7 +280,7 @@ export async function getValhallanLegendStats(opts: {
         FROM players,
              jsonb_array_elements(ranked_json->'legends') AS l
         WHERE (ranked_json->>'rating')::int >= ${VALHALLAN_MIN_RATING}
-          AND (${region}::text IS NULL OR ranked_json->>'region' = ${region})
+          AND ${regionClause(region)}
           AND (l->>'games')::int > 0
         GROUP BY legend_id
         HAVING SUM((l->>'games')::int) >= ${minGames}
@@ -286,7 +314,7 @@ export async function getValhallanLegendStats(opts: {
       FROM players,
            jsonb_array_elements(ranked_json->'legends') AS l
       WHERE (ranked_json->>'rating')::int >= ${VALHALLAN_MIN_RATING}
-        AND (${region}::text IS NULL OR ranked_json->>'region' = ${region})
+        AND ${regionClause(region)}
         AND (l->>'games')::int >= ${minGamesPerPlayer}
     ),
     legend_totals AS (
