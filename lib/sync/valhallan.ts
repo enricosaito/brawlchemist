@@ -95,6 +95,12 @@ export interface LegendStat {
   wins: number
   games: number
   win_rate: number
+  pick_rate: number
+}
+
+export interface ValhallanAggregation {
+  legends: LegendStat[]
+  sampleSize: number
 }
 
 /**
@@ -112,29 +118,53 @@ export const VALHALLAN_MIN_RATING = 2000
  * caliber players play with this season" interpretation — per-legend games
  * include time spent climbing through lower tiers on those legends.
  *
+ * `region` filters to a single region's player pool (matching the value
+ * stored at /ranked.region — e.g. "BRZ", "US-E"). Pass null/undefined for
+ * the global all-Valhallan view.
+ *
  * The HAVING clause keeps tiny-sample legends out of the result.
  */
-export async function getValhallanLegendStats(
-  opts: { minGames?: number } = {},
-): Promise<LegendStat[]> {
+export async function getValhallanLegendStats(opts: {
+  minGames?: number
+  region?: string | null
+} = {}): Promise<ValhallanAggregation> {
   const minGames = opts.minGames ?? 50
-  const result = await db().execute(sql`
-    SELECT
-      (l->>'legend_id')::int AS legend_id,
-      SUM((l->>'wins')::int)::int AS wins,
-      SUM((l->>'games')::int)::int AS games,
-      ROUND(
-        100.0 * SUM((l->>'wins')::numeric) /
-        NULLIF(SUM((l->>'games')::numeric), 0),
-        2
-      )::float AS win_rate
-    FROM players,
-         jsonb_array_elements(ranked_json->'legends') AS l
+  const region = opts.region ?? null
+
+  // Sample size: number of Valhallan-rated players matching the region filter.
+  const sampleRows = (await db().execute(sql`
+    SELECT COUNT(*)::int AS n
+    FROM players
     WHERE (ranked_json->>'rating')::int >= ${VALHALLAN_MIN_RATING}
-      AND (l->>'games')::int > 0
-    GROUP BY legend_id
-    HAVING SUM((l->>'games')::int) >= ${minGames}
+      AND (${region}::text IS NULL OR ranked_json->>'region' = ${region})
+  `)).rows as unknown as { n: number }[]
+  const sampleSize = sampleRows[0]?.n ?? 0
+
+  const result = await db().execute(sql`
+    WITH legend_totals AS (
+      SELECT
+        (l->>'legend_id')::int AS legend_id,
+        SUM((l->>'wins')::int)::int AS wins,
+        SUM((l->>'games')::int)::int AS games
+      FROM players,
+           jsonb_array_elements(ranked_json->'legends') AS l
+      WHERE (ranked_json->>'rating')::int >= ${VALHALLAN_MIN_RATING}
+        AND (${region}::text IS NULL OR ranked_json->>'region' = ${region})
+        AND (l->>'games')::int > 0
+      GROUP BY legend_id
+      HAVING SUM((l->>'games')::int) >= ${minGames}
+    )
+    SELECT
+      legend_id,
+      wins,
+      games,
+      ROUND(100.0 * wins / NULLIF(games, 0), 2)::float AS win_rate,
+      ROUND(100.0 * games / NULLIF(SUM(games) OVER (), 0), 2)::float AS pick_rate
+    FROM legend_totals
     ORDER BY win_rate DESC
   `)
-  return result.rows as unknown as LegendStat[]
+  return {
+    legends: result.rows as unknown as LegendStat[],
+    sampleSize,
+  }
 }
