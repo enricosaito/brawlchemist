@@ -40,9 +40,10 @@ export async function TopLegendsCard() {
     console.error("[top-legends-card] stats lookup failed:", err)
   }
 
-  // The 6 candidates come from the curated popular-meta pool; their render
-  // order is then sorted by WR descending so the strongest popular pick
-  // shows up top. Games used as a tiebreaker.
+  // The 6 candidates come from the curated popular-meta pool. Cassidy is
+  // pinned at #1 as the marquee S+ legend; the remaining five sort by WR
+  // descending with games as the tiebreaker.
+  const PINNED_FIRST = "cassidy"
   const rows = FEATURED_SLUGS.map((slug) => {
     const legend = getLegend(slug)
     const legendId = legendIdForSlug(slug)
@@ -51,6 +52,8 @@ export async function TopLegendsCard() {
   })
     .filter((r) => r.legend)
     .sort((a, b) => {
+      if (a.slug === PINNED_FIRST) return -1
+      if (b.slug === PINNED_FIRST) return 1
       const aWr = a.live?.winRate ?? a.legend!.winRate
       const bWr = b.live?.winRate ?? b.legend!.winRate
       if (bWr !== aWr) return bWr - aWr
