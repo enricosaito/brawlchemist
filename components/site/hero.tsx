@@ -1,6 +1,4 @@
 import { Search } from "lucide-react"
-import { LegendChip } from "./primitives"
-import { TRENDING_LEGEND_IDS } from "@/lib/mock-data"
 
 export function Hero() {
   return (
@@ -24,10 +22,6 @@ export function Hero() {
           BRAWL<span className="text-tier-s">CHEMIST</span>
         </h1>
 
-        <p className="mt-3 max-w-md text-sm text-muted-foreground sm:text-base">
-          Read the meta and track 1v1 & 2v2 ranked stats.
-        </p>
-
         <form
           action="/search"
           className="group relative mt-5 w-full max-w-xl"
@@ -38,7 +32,7 @@ export function Hero() {
             <input
               type="search"
               name="q"
-              placeholder="Search a brawler — Name#1234 or Steam ID"
+              placeholder="Coming soon (Individual player search not available yet)"
               className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               aria-label="Search players"
             />
@@ -47,19 +41,6 @@ export function Hero() {
             </kbd>
           </div>
         </form>
-
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-          <span className="font-mono uppercase tracking-wider">trending</span>
-          <span className="text-border">·</span>
-          {TRENDING_LEGEND_IDS.map((id) => (
-            <span
-              key={id}
-              className="rounded-full border border-border/60 bg-card/40 px-2 py-1 transition-colors hover:border-copper/40 hover:text-foreground"
-            >
-              <LegendChip legendId={id} size="sm" />
-            </span>
-          ))}
-        </div>
       </div>
     </section>
   )
