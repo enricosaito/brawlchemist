@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { formatElo, formatPercent } from "@/lib/format"
+import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
 import {
   type ApiGameMode,
@@ -37,16 +37,6 @@ function toTier(value: string | null): Tier | null {
     : null
 }
 
-function formatWinRate(
-  wins: number | null,
-  losses: number | null,
-): string | null {
-  if (wins == null || losses == null) return null
-  const total = wins + losses
-  if (total === 0) return null
-  return formatPercent((wins / total) * 100)
-}
-
 export async function TopPlayersCard({
   queue,
   region,
@@ -73,7 +63,7 @@ export async function TopPlayersCard({
 
   return (
     <PreviewCard
-      title="Top players"
+      title="Live Ranked"
       href={`/leaderboards?queue=${queue}&region=${region}`}
       viewAllLabel="view leaderboard"
       meta={
@@ -143,7 +133,7 @@ export async function TopPlayersCard({
               <li
                 key={`${entry.rank}-${firstId ?? "x"}`}
                 className={cn(
-                  "flex items-center transition-colors hover:bg-muted/40",
+                  "flex min-h-16 items-center transition-colors hover:bg-muted/40",
                   is1v1 ? "gap-3 px-4 py-2.5" : "gap-2 px-3 py-2",
                 )}
               >
@@ -206,16 +196,33 @@ export async function TopPlayersCard({
                 <div className="flex shrink-0 flex-col items-end gap-0.5">
                   <span className="font-mono text-sm tabular-nums">
                     {entry.rating != null ? formatElo(entry.rating) : "—"}
+                    <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      ELO
+                    </span>
                   </span>
                   {is1v1
-                    ? (() => {
-                        const wr = formatWinRate(entry.wins, entry.losses)
-                        return wr ? (
-                          <span className="font-mono text-[10px] tabular-nums text-positive">
-                            {wr} WR
-                          </span>
-                        ) : null
-                      })()
+                    ? entry.wins != null && entry.losses != null
+                      ? (() => {
+                          const total = entry.wins + entry.losses
+                          const wr = total > 0
+                            ? ((entry.wins / total) * 100).toFixed(1)
+                            : null
+                          return (
+                            <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                              {wr && (
+                                <span className="text-tier-diamond">
+                                  ({wr}% WR)
+                                </span>
+                              )}
+                              <span className="ml-1">
+                                {entry.wins.toLocaleString()}
+                                <span className="px-0.5">–</span>
+                                {entry.losses.toLocaleString()}
+                              </span>
+                            </span>
+                          )
+                        })()
+                      : null
                     : tier && (
                         <span
                           className={cn(

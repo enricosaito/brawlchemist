@@ -28,11 +28,11 @@ export function PreviewCard({
         className,
       )}
     >
-      <header className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
+      <header className="flex min-h-14 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-border/60 px-4 py-3">
         <h2 className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-foreground/90">
           {title}
         </h2>
-        <div className="flex items-center gap-2 text-xs">{meta}</div>
+        <div className="flex flex-wrap items-center gap-2 text-xs">{meta}</div>
       </header>
       <div className="flex-1">{children}</div>
       <footer className="border-t border-border/60 px-2 py-1.5">

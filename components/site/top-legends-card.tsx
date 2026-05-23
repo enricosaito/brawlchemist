@@ -85,7 +85,7 @@ export async function TopLegendsCard() {
           return (
             <li
               key={legend.id}
-              className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
+              className="flex min-h-16 items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
             >
               <TierLetter tier={legend.tier} />
               <LegendChip legendId={legend.id} size="md" showName={false} />

@@ -37,7 +37,7 @@ export async function WeaponMetaCard() {
           return (
             <li
               key={weapon.weapon_id}
-              className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
+              className="flex min-h-16 items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
             >
               <span className="w-4 text-right font-mono text-xs text-muted-foreground tabular-nums">
                 {i + 1}
@@ -48,15 +48,18 @@ export async function WeaponMetaCard() {
                   {WEAPON_NAMES[weapon.weapon_id]}
                 </span>
                 {topLegends.length > 0 && (
-                  <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                  <span className="flex min-w-0 items-center gap-x-1.5 text-xs text-muted-foreground">
                     {topLegends.map((l, idx) => (
-                      <span key={l.id} className="flex items-center gap-1">
+                      <span
+                        key={l.id}
+                        className="flex min-w-0 items-center gap-1"
+                      >
                         <LegendChip
                           legendId={l.slug}
                           size="sm"
                           showName={false}
                         />
-                        <span className="text-foreground/90">
+                        <span className="truncate text-xs text-muted-foreground">
                           {l.name}
                           {idx < topLegends.length - 1 ? "," : ""}
                         </span>
@@ -67,10 +70,10 @@ export async function WeaponMetaCard() {
               </div>
               <div className="flex shrink-0 flex-col items-end gap-0.5">
                 <span className="font-mono text-sm tabular-nums">
-                  {weapon.win_rate.toFixed(1)}%
+                  {weapon.games.toLocaleString()}
                 </span>
-                <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                  {weapon.games.toLocaleString()} games
+                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  games
                 </span>
               </div>
             </li>

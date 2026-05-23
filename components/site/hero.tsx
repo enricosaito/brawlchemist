@@ -23,7 +23,7 @@ export function Hero() {
         </h1>
 
         <p className="mt-3 max-w-md text-sm text-muted-foreground sm:text-base">
-          Transform Brawlhalla data into insight.
+          Transform high-ranked players&apos; gameplay stats into actionable insight.
         </p>
 
         <form
