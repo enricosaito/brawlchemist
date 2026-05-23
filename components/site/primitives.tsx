@@ -211,16 +211,25 @@ export function LegendChip({
 }
 
 /**
- * WeaponIcon — small weapon glyph. Currently only gauntlets and hammer have
- * dedicated assets; others fall back to a neutral placeholder box.
+ * WeaponIcon — small weapon glyph. Assets sourced from the user's icon
+ * pack in public/assets/weapons. Chakram has no dedicated icon yet and
+ * falls back to a neutral placeholder.
  */
 const WEAPON_ICON_SRC: Partial<Record<WeaponId, string>> = {
-  gauntlets: "/assets/weapons/gauntlets.gif",
-  hammer: "/assets/weapons/hammer.png",
-  sword: "/assets/weapons/sword.webp",
-  bow: "/assets/weapons/bow.png",
-  katar: "/assets/weapons/katars.png",
-  axe: "/assets/weapons/axe.png",
+  sword: "/assets/weapons/Sword_Icon.webp",
+  hammer: "/assets/weapons/Grapple_Hammer_Icon.webp",
+  axe: "/assets/weapons/Axe_Icon.webp",
+  spear: "/assets/weapons/Spear_Icon.webp",
+  katar: "/assets/weapons/Katars_Icon.webp",
+  bow: "/assets/weapons/Bow_Icon.webp",
+  gauntlets: "/assets/weapons/Gauntlets_Icon.webp",
+  scythe: "/assets/weapons/Scythe_Icon.webp",
+  "rocket-lance": "/assets/weapons/Rocket_Lance_Icon.webp",
+  blasters: "/assets/weapons/Blasters_Icon.webp",
+  greatsword: "/assets/weapons/Greatsword_Icon.webp",
+  cannon: "/assets/weapons/Cannon_Icon.webp",
+  orb: "/assets/weapons/Orb_Icon.webp",
+  "battle-boots": "/assets/weapons/Battle_Boots_Icon.webp",
 }
 
 export function WeaponIcon({
