@@ -21,7 +21,7 @@ const fontDisplay = Cinzel({
 })
 
 export const metadata: Metadata = {
-  title: "Brawlchemist — the Brawlhalla stats laboratory",
+  title: "Brawlchemist — Brawlhalla Stats Lab",
   description:
     "Search players, read the meta, track rankings and weapon trends for Brawlhalla 1v1 and 2v2 ranked.",
 }

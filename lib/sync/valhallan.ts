@@ -361,7 +361,7 @@ export interface WeaponStat {
   top_legend_ids: number[]
 }
 
-const TOP_LEGENDS_PER_WEAPON = 2
+const TOP_LEGENDS_PER_WEAPON = 3
 
 /**
  * Aggregate per-weapon Valhallan-tier stats by composing the per-legend
