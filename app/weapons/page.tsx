@@ -1,13 +1,13 @@
-import { Delta, LegendChip, WeaponIcon } from "@/components/site/primitives"
+import { LegendChip, WeaponIcon } from "@/components/site/primitives"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { PageHero } from "@/components/site/page-hero"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
-import { formatPercent } from "@/lib/format"
-import { CURRENT_PATCH, WEAPONS, getLegend } from "@/lib/mock-data"
-import type { Weapon } from "@/lib/types"
+import { CURRENT_PATCH, WEAPON_NAMES } from "@/lib/mock-data"
+import { slugForLegendId } from "@/lib/legends-roster"
+import { getValhallanWeaponStats, type WeaponStat } from "@/lib/sync/valhallan"
 
-const columns: ColDef<Weapon>[] = [
+const columns: ColDef<WeaponStat>[] = [
   {
     id: "rank",
     label: "#",
@@ -24,54 +24,73 @@ const columns: ColDef<Weapon>[] = [
     label: "",
     width: "52px",
     align: "center",
-    render: (w) => <WeaponIcon weaponId={w.id} size={32} className="mx-auto" />,
+    render: (w) => (
+      <WeaponIcon weaponId={w.weapon_id} size={32} className="mx-auto" />
+    ),
   },
   {
     id: "weapon",
     label: "Weapon",
-    render: (w) => <span className="text-sm font-medium">{w.name}</span>,
+    render: (w) => (
+      <span className="text-sm font-medium">{WEAPON_NAMES[w.weapon_id]}</span>
+    ),
   },
   {
-    id: "bestOn",
-    label: "Best on",
+    id: "legends",
+    label: "Legends",
+    align: "right",
+    width: "80px",
+    render: (w) => (
+      <span className="font-mono text-sm tabular-nums text-muted-foreground">
+        {w.legend_count}
+      </span>
+    ),
+  },
+  {
+    id: "topLegend",
+    label: "Top Legend",
     render: (w) => {
-      const legend = getLegend(w.topLegendId)
-      return legend ? <LegendChip legendId={legend.id} size="md" /> : null
+      const slug = w.top_legend_id ? slugForLegendId(w.top_legend_id) : null
+      return slug ? <LegendChip legendId={slug} size="md" /> : null
     },
+  },
+  {
+    id: "games",
+    label: "Games",
+    align: "right",
+    width: "100px",
+    render: (w) => (
+      <span className="font-mono text-sm tabular-nums text-muted-foreground">
+        {w.games.toLocaleString()}
+      </span>
+    ),
   },
   {
     id: "pickRate",
     label: "Pick Rate",
     align: "right",
-    width: "120px",
+    width: "100px",
     render: (w) => (
-      <span className="font-mono tabular-nums">{formatPercent(w.pickRate)}</span>
+      <span className="font-mono text-sm tabular-nums text-muted-foreground">
+        {w.pick_rate.toFixed(2)}%
+      </span>
     ),
   },
   {
     id: "winRate",
     label: "Win Rate",
     align: "right",
-    width: "120px",
+    width: "100px",
     render: (w) => (
-      <span className="font-mono tabular-nums text-muted-foreground">
-        {formatPercent(w.winRate)}
+      <span className="font-mono text-sm font-medium tabular-nums text-positive">
+        {w.win_rate.toFixed(2)}%
       </span>
-    ),
-  },
-  {
-    id: "delta",
-    label: "Δ WR",
-    align: "right",
-    width: "90px",
-    render: (w) => (
-      <Delta value={Number(w.deltaWR.toFixed(1))} suffix="%" />
     ),
   },
 ]
 
-export default function WeaponsPage() {
-  const sorted = [...WEAPONS].sort((a, b) => b.pickRate - a.pickRate)
+export default async function WeaponsPage() {
+  const { weapons, sampleSize } = await getValhallanWeaponStats()
 
   return (
     <div className="min-h-svh">
@@ -79,24 +98,20 @@ export default function WeaponsPage() {
       <main className="pb-16">
         <PageHero
           title="Weapons"
-          subtitle="All 14 weapons in Brawlhalla, ranked by pick rate. Mock data — Brawlhalla API integration coming soon."
+          subtitle="All weapons in the roster, ranked by games played in the elite Valhallan pool. Stats aggregate from every legend that wields the weapon — full attribution, so pick rates sum to 200% (each game counts twice)."
           meta={
             <>
+              <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
+                {sampleSize} players
+              </span>
               <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
                 Patch {CURRENT_PATCH}
-              </span>
-              <span className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                1v1 · last 7d
               </span>
             </>
           }
         />
         <div className="px-4 sm:px-6">
-          <DataTable
-            columns={columns}
-            rows={sorted}
-            rowKey={(w) => w.id}
-          />
+          <DataTable columns={columns} rows={weapons} rowKey={(w) => w.weapon_id} />
         </div>
       </main>
       <SiteFooter />

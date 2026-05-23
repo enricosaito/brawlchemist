@@ -38,6 +38,7 @@ export type WeaponId =
   | "cannon"
   | "orb"
   | "battle-boots"
+  | "chakram"
 
 export interface Weapon {
   id: WeaponId
