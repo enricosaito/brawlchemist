@@ -23,7 +23,10 @@ import {
   type RankedEntry,
 } from "@/lib/brawlhalla-api"
 import { getPlayersByIds } from "@/lib/sync/players"
+import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
+
+const CUTOFF_REGIONS: ApiRegion[] = ["US-E", "EU", "BRZ"]
 
 const QUEUES: { id: ApiGameMode; label: string }[] = [
   { id: "1v1", label: "1v1" },
@@ -225,12 +228,15 @@ export default async function LeaderboardsPage({
   const region: ApiRegion =
     params.region && isApiRegion(params.region) ? params.region : "BRZ"
 
-  const result = await getRankedLeaderboard({
-    gameMode,
-    region,
-    page: 1,
-    maxResults: 30,
-  })
+  const [result, cutoffs] = await Promise.all([
+    getRankedLeaderboard({
+      gameMode,
+      region,
+      page: 1,
+      maxResults: 30,
+    }),
+    getValhallanCutoffs(gameMode, CUTOFF_REGIONS),
+  ])
 
   const rows = result.ok ? result.data.rankings : []
 
@@ -308,6 +314,31 @@ export default async function LeaderboardsPage({
               ))}
             </div>
           </div>
+
+          {cutoffs.size > 0 && (
+            <div className="mx-auto mb-3 flex max-w-[1280px] flex-wrap items-center gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                Valhallan cutoff
+              </span>
+              <div className="flex flex-wrap items-center gap-1">
+                {CUTOFF_REGIONS.map((r) => {
+                  const c = cutoffs.get(r)
+                  if (!c) return null
+                  return (
+                    <span
+                      key={r}
+                      className="inline-flex items-baseline gap-1 rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-tier-valhallan"
+                      title={`#${c.rank} ${c.username} — ${c.count} Valhallans total`}
+                    >
+                      <span>{r}</span>
+                      <span className="opacity-60">·</span>
+                      <span className="tabular-nums">{c.rating}</span>
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {!result.ok ? (
             <div className="mx-auto max-w-[1280px] rounded-xl border border-negative/30 bg-negative/5 p-6 text-sm text-muted-foreground">
