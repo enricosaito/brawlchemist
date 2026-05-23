@@ -1,4 +1,4 @@
-import { WEAPON_NAMES } from "@/lib/mock-data"
+import { CURRENT_PATCH, WEAPON_NAMES } from "@/lib/mock-data"
 import { slugForLegendId } from "@/lib/legends-roster"
 import { getValhallanWeaponStats } from "@/lib/sync/valhallan"
 import { PreviewCard } from "./preview-card"
@@ -14,9 +14,14 @@ export async function WeaponMetaCard() {
       href="/weapons"
       viewAllLabel="view weapon meta"
       meta={
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          by games
-        </span>
+        <>
+          <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
+            Valhallan+
+          </span>
+          <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
+            Patch {CURRENT_PATCH}
+          </span>
+        </>
       }
     >
       <ol className="divide-y divide-border/60">
@@ -46,12 +51,12 @@ export async function WeaponMetaCard() {
                   </span>
                 )}
               </div>
-              <div className="flex flex-col items-end gap-0.5">
+              <div className="flex shrink-0 flex-col items-end gap-0.5">
                 <span className="font-mono text-sm tabular-nums">
-                  {weapon.games.toLocaleString()}
+                  {weapon.win_rate.toFixed(1)}%
                 </span>
-                <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
-                  {weapon.win_rate.toFixed(1)}% WR
+                <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                  {weapon.games.toLocaleString()} games
                 </span>
               </div>
             </li>
