@@ -6,7 +6,13 @@ import { LegendChip, WeaponIcon } from "./primitives"
 
 export async function WeaponMetaCard() {
   const { weapons } = await getValhallanWeaponStats()
-  const top = weapons.slice(0, 6)
+  // Sort the homepage preview by WR so it answers "what's winning at top
+  // level" rather than "what's getting played". /weapons page keeps its
+  // games-desc default for the full table.
+  const top = [...weapons]
+    .filter((w) => w.games > 0)
+    .sort((a, b) => b.win_rate - a.win_rate)
+    .slice(0, 6)
 
   return (
     <PreviewCard

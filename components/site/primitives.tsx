@@ -230,6 +230,7 @@ const WEAPON_ICON_SRC: Partial<Record<WeaponId, string>> = {
   cannon: "/assets/weapons/Cannon_Icon.webp",
   orb: "/assets/weapons/Orb_Icon.webp",
   "battle-boots": "/assets/weapons/Battle_Boots_Icon.webp",
+  chakram: "/assets/weapons/Chakram_Icon.webp",
 }
 
 export function WeaponIcon({
