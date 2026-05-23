@@ -28,9 +28,7 @@ const LEADERBOARD_OPTIONS: LeaderboardOption[] = [
   {
     label: "Solo 2v2",
     href: "/leaderboards?queue=2v2",
-    // Filename has a literal & — URL-encode so it doesn't get parsed as
-    // a query-string separator when Next/Image rewrites it.
-    avatar: "/assets/AniAvatar_Ash_%26_Yarra.webp",
+    avatar: "/assets/AniAvatar_River_Raid.webp",
   },
   {
     label: "OTPs",
@@ -78,7 +76,7 @@ export function SiteHeader() {
             </Link>
             <div
               className={cn(
-                "invisible absolute left-0 top-full z-50 mt-1 w-60 translate-y-1 rounded-xl border border-border/60 bg-card/95 p-1.5 opacity-0 shadow-xl backdrop-blur-md transition-all duration-200",
+                "invisible absolute left-0 top-full z-50 mt-1 w-80 translate-y-1 rounded-xl border border-border/60 bg-card/95 p-2 opacity-0 shadow-xl backdrop-blur-md transition-all duration-200",
                 "group-hover/lb:visible group-hover/lb:translate-y-0 group-hover/lb:opacity-100",
                 "group-focus-within/lb:visible group-focus-within/lb:translate-y-0 group-focus-within/lb:opacity-100",
               )}
@@ -89,15 +87,15 @@ export function SiteHeader() {
                   key={opt.label}
                   href={opt.href}
                   role="menuitem"
-                  className="flex items-center gap-3 rounded-md px-2 py-2 text-sm text-foreground transition-colors hover:bg-muted"
+                  className="flex items-center gap-3 rounded-md px-3 py-2.5 text-base font-medium text-foreground transition-colors hover:bg-muted"
                 >
                   <Image
                     src={opt.avatar}
                     alt=""
-                    width={28}
-                    height={28}
+                    width={44}
+                    height={44}
                     unoptimized
-                    className="size-7 shrink-0 select-none rounded-md object-contain"
+                    className="size-11 shrink-0 select-none rounded-md object-contain"
                   />
                   <span>{opt.label}</span>
                 </Link>
