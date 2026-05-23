@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { CURRENT_PATCH, getLegend } from "@/lib/mock-data"
 import { formatPercent } from "@/lib/format"
 import { legendIdForSlug } from "@/lib/legends-roster"
@@ -83,28 +84,30 @@ export async function TopLegendsCard() {
           const winRate = live?.winRate ?? legend.winRate
           const games = live?.games ?? null
           return (
-            <li
-              key={legend.id}
-              className="flex min-h-16 items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
-            >
-              <TierLetter tier={legend.tier} />
-              <LegendChip legendId={legend.id} size="md" showName={false} />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-sm font-medium">
-                  {legend.name}
-                </span>
-                {legend.bestStance && (
-                  <StanceLabel stance={legend.bestStance} />
-                )}
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-0.5">
-                <span className="font-mono text-sm tabular-nums">
-                  {formatPercent(winRate)}
-                </span>
-                <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                  {games != null ? `${games.toLocaleString()} games` : "—"}
-                </span>
-              </div>
+            <li key={legend.id}>
+              <Link
+                href={`/otps?legend=${legend.id}`}
+                className="flex min-h-16 items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
+              >
+                <TierLetter tier={legend.tier} />
+                <LegendChip legendId={legend.id} size="md" showName={false} />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-medium">
+                    {legend.name}
+                  </span>
+                  {legend.bestStance && (
+                    <StanceLabel stance={legend.bestStance} />
+                  )}
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-0.5">
+                  <span className="font-mono text-sm tabular-nums">
+                    {formatPercent(winRate)}
+                  </span>
+                  <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                    {games != null ? `${games.toLocaleString()} games` : "—"}
+                  </span>
+                </div>
+              </Link>
             </li>
           )
         })}

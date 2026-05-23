@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { CURRENT_PATCH, WEAPON_NAMES } from "@/lib/mock-data"
 import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import { getValhallanWeaponStats } from "@/lib/sync/valhallan"
@@ -50,20 +51,21 @@ export async function WeaponMetaCard() {
                 {topLegends.length > 0 && (
                   <span className="flex min-w-0 items-center gap-x-1.5 text-xs text-muted-foreground">
                     {topLegends.map((l, idx) => (
-                      <span
+                      <Link
                         key={l.id}
-                        className="flex min-w-0 items-center gap-1"
+                        href={`/otps?legend=${l.slug}`}
+                        className="flex min-w-0 items-center gap-1 rounded transition-colors hover:text-foreground"
                       >
                         <LegendChip
                           legendId={l.slug}
                           size="sm"
                           showName={false}
                         />
-                        <span className="truncate text-xs text-muted-foreground">
+                        <span className="truncate text-xs">
                           {l.name}
                           {idx < topLegends.length - 1 ? "," : ""}
                         </span>
-                      </span>
+                      </Link>
                     ))}
                   </span>
                 )}
