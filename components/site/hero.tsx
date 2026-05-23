@@ -18,8 +18,8 @@ export function Hero() {
           the brawlhalla stats laboratory
         </span>
 
-        <h1 className="font-display text-4xl font-semibold tracking-[0.02em] sm:text-5xl md:text-6xl">
-          BRAWL<span className="text-tier-s">CHEMIST</span>
+        <h1 className="font-wordmark text-5xl font-normal tracking-tight sm:text-6xl md:text-7xl">
+          brawl<span className="text-tier-s">chemist</span>
         </h1>
 
         <form

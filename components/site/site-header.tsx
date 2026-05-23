@@ -15,7 +15,7 @@ export function SiteHeader() {
       <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-6 px-4 sm:px-6">
         <Link
           href="/"
-          className="group flex items-center gap-2 font-wordmark text-xl font-normal tracking-tight"
+          className="group flex items-center gap-2 font-wordmark text-xl font-light tracking-tight"
         >
           <Image
             src="/assets/Brawlchemist.png"
