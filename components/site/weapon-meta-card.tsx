@@ -1,8 +1,8 @@
 import { CURRENT_PATCH, WEAPON_NAMES } from "@/lib/mock-data"
-import { rosterEntryByLegendId } from "@/lib/legends-roster"
+import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import { getValhallanWeaponStats } from "@/lib/sync/valhallan"
 import { PreviewCard } from "./preview-card"
-import { WeaponIcon } from "./primitives"
+import { LegendChip, WeaponIcon } from "./primitives"
 
 export async function WeaponMetaCard() {
   const { weapons } = await getValhallanWeaponStats()
@@ -27,9 +27,13 @@ export async function WeaponMetaCard() {
     >
       <ol className="divide-y divide-border/60">
         {top.map((weapon, i) => {
-          const topNames = weapon.top_legend_ids
-            .map((id) => rosterEntryByLegendId(id)?.name)
-            .filter((n): n is string => !!n)
+          const topLegends = weapon.top_legend_ids
+            .map((id) => {
+              const slug = slugForLegendId(id)
+              const name = rosterEntryByLegendId(id)?.name
+              return slug && name ? { id, slug, name } : null
+            })
+            .filter((x): x is { id: number; slug: string; name: string } => !!x)
           return (
             <li
               key={weapon.weapon_id}
@@ -43,14 +47,21 @@ export async function WeaponMetaCard() {
                 <span className="truncate text-sm font-medium">
                   {WEAPON_NAMES[weapon.weapon_id]}
                 </span>
-                {topNames.length > 0 && (
-                  <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                    <span className="font-mono uppercase tracking-wider">
-                      top on
-                    </span>
-                    <span className="truncate font-mono uppercase tracking-wider">
-                      {topNames.join(", ")}
-                    </span>
+                {topLegends.length > 0 && (
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                    {topLegends.map((l, idx) => (
+                      <span key={l.id} className="flex items-center gap-1">
+                        <LegendChip
+                          legendId={l.slug}
+                          size="sm"
+                          showName={false}
+                        />
+                        <span className="text-foreground/90">
+                          {l.name}
+                          {idx < topLegends.length - 1 ? "," : ""}
+                        </span>
+                      </span>
+                    ))}
                   </span>
                 )}
               </div>
