@@ -2,6 +2,20 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/**
+ * Coolvetica — wordmark-only display face. Self-hosted because Coolvetica
+ * isn't on Google Fonts. Drop CoolveticaRg.ttf in public/fonts/ to enable;
+ * if absent, the browser falls back through the sans stack and the wordmark
+ * just renders in whatever system sans is available — no build crash.
+ */
+@font-face {
+  font-family: "Coolvetica";
+  src: url("/fonts/CoolveticaRg.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -188,6 +202,10 @@
 @layer utilities {
     .font-display {
         font-family: var(--font-display);
+        letter-spacing: -0.01em;
+    }
+    .font-wordmark {
+        font-family: "Coolvetica", var(--font-sans), system-ui, sans-serif;
         letter-spacing: -0.01em;
     }
     /* Tier-aware text glow: shadow picks up the current text color, so

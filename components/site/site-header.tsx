@@ -15,7 +15,7 @@ export function SiteHeader() {
       <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-6 px-4 sm:px-6">
         <Link
           href="/"
-          className="group flex items-center gap-2 font-display text-base font-semibold tracking-wider"
+          className="group flex items-center gap-2 font-wordmark text-xl font-normal tracking-tight"
         >
           <Image
             src="/assets/Brawlchemist.png"
@@ -26,7 +26,7 @@ export function SiteHeader() {
             className="size-7 shrink-0 transition-transform group-hover:rotate-12"
           />
           <span>
-            BRAWL<span className="text-tier-s">CHEMIST</span>
+            brawl<span className="text-tier-s">chemist</span>
           </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
