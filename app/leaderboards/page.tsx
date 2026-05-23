@@ -45,8 +45,11 @@ const KNOWN_TIERS: readonly Tier[] = [
 
 function toTier(value: string | null): Tier | null {
   if (!value) return null
-  return (KNOWN_TIERS as readonly string[]).includes(value)
-    ? (value as Tier)
+  // The leaderboard endpoint returns tier with a division suffix ("Gold 3",
+  // "Platinum 1") — strip it down to the base tier for icon/color lookup.
+  const base = value.split(" ")[0]
+  return (KNOWN_TIERS as readonly string[]).includes(base)
+    ? (base as Tier)
     : null
 }
 
@@ -218,25 +221,32 @@ function buildColumns(
   ]
 }
 
+const PAGE_SIZE = 50
+
 export default async function LeaderboardsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ queue?: string; region?: string }>
+  searchParams: Promise<{ queue?: string; region?: string; page?: string }>
 }) {
   const params = await searchParams
   const gameMode: ApiGameMode = params.queue === "2v2" ? "2v2" : "1v1"
   const region: ApiRegion =
     params.region && isApiRegion(params.region) ? params.region : "BRZ"
+  const requestedPage = Math.max(1, Number(params.page ?? "1") || 1)
 
   const [result, cutoffs] = await Promise.all([
     getRankedLeaderboard({
       gameMode,
       region,
-      page: 1,
-      maxResults: 30,
+      page: requestedPage,
+      maxResults: PAGE_SIZE,
     }),
     getValhallanCutoffs(gameMode, CUTOFF_REGIONS),
   ])
+  const totalPages = result.ok ? Math.max(1, result.data.total_pages) : 1
+  // Clamp current page in case the user requested past the end.
+  const page = Math.min(requestedPage, totalPages)
+  const baseQuery = `queue=${gameMode}&region=${region}`
 
   const rows = result.ok ? result.data.rankings : []
 
@@ -276,7 +286,7 @@ export default async function LeaderboardsPage({
                     key={q.id}
                     role="tab"
                     aria-selected={gameMode === q.id}
-                    href={`/leaderboards?queue=${q.id}&region=${region}`}
+                    href={`/leaderboards?queue=${q.id}&region=${region}&page=1`}
                     className={cn(
                       "rounded-[5px] px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
                       gameMode === q.id
@@ -300,7 +310,7 @@ export default async function LeaderboardsPage({
               {API_REGIONS.map((r) => (
                 <Link
                   key={r}
-                  href={`/leaderboards?queue=${gameMode}&region=${r}`}
+                  href={`/leaderboards?queue=${gameMode}&region=${r}&page=1`}
                   aria-current={region === r ? "true" : undefined}
                   className={cn(
                     "rounded-[5px] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
@@ -352,11 +362,49 @@ export default async function LeaderboardsPage({
               No rankings returned for {gameMode} · {region}.
             </div>
           ) : (
-            <DataTable
-              columns={columns}
-              rows={rows}
-              rowKey={(r) => `${r.rank}-${r.players[0]?.id ?? "x"}`}
-            />
+            <div className="mx-auto max-w-[1280px]">
+              <DataTable
+                columns={columns}
+                rows={rows}
+                rowKey={(r) => `${r.rank}-${r.players[0]?.id ?? "x"}`}
+              />
+              {totalPages > 1 && (
+                <nav
+                  aria-label="Leaderboard pagination"
+                  className="mt-4 flex flex-wrap items-center justify-between gap-3"
+                >
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Page {page} of {totalPages.toLocaleString()}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {page > 1 ? (
+                      <Link
+                        href={`/leaderboards?${baseQuery}&page=${page - 1}`}
+                        className="rounded-md border border-border/60 bg-card/60 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-foreground transition-colors hover:bg-muted"
+                      >
+                        ← Prev
+                      </Link>
+                    ) : (
+                      <span className="rounded-md border border-border/30 bg-card/30 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
+                        ← Prev
+                      </span>
+                    )}
+                    {page < totalPages ? (
+                      <Link
+                        href={`/leaderboards?${baseQuery}&page=${page + 1}`}
+                        className="rounded-md border border-border/60 bg-card/60 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-foreground transition-colors hover:bg-muted"
+                      >
+                        Next →
+                      </Link>
+                    ) : (
+                      <span className="rounded-md border border-border/30 bg-card/30 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
+                        Next →
+                      </span>
+                    )}
+                  </div>
+                </nav>
+              )}
+            </div>
           )}
         </div>
       </main>

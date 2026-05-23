@@ -95,7 +95,14 @@ export function RankPill({
  */
 const RANK_ICON_SRC: Partial<Record<Tier, string>> = {
   Valhallan: "/assets/Valhallan-GIF.gif",
-  Diamond: "/assets/Avatar_Diamond_20.webp",
+  Diamond: "/assets/Avatar_Diamond_37.webp",
+  Platinum: "/assets/Avatar_Platinum_6.webp",
+  Gold: "/assets/Avatar_Gold_6.webp",
+  // No dedicated art yet for Silver / Bronze / Tin — generic participation
+  // avatar serves as the placeholder until per-tier art arrives.
+  Silver: "/assets/Avatar_Participation_10.webp",
+  Bronze: "/assets/Avatar_Participation_10.webp",
+  Tin: "/assets/Avatar_Participation_10.webp",
 }
 
 export function RankIcon({

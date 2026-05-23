@@ -1,12 +1,13 @@
-import Link from "next/link"
-import { cn } from "@/lib/utils"
 import {
   LegendChip,
   RankIcon,
   RegionPill,
   TIER_TEXT_COLOR,
 } from "@/components/site/primitives"
+import { cn } from "@/lib/utils"
+import Link from "next/link"
 import { DataTable, type ColDef } from "@/components/site/data-table"
+import { LegendPicker } from "@/components/site/legend-picker"
 import { PageHero } from "@/components/site/page-hero"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
@@ -23,6 +24,9 @@ import { getOtpsForLegend, type OtpPlayer } from "@/lib/sync/otps"
 
 const REGION_OPTIONS = ["ALL", ...API_REGIONS.filter((r) => r !== "ALL")] as const
 
+// The /ranked endpoint never returns "Valhallan" — it caps at "Diamond"
+// even for 2800-rated players. We derive the true tier from rating.
+const VALHALLAN_THRESHOLD = 2000
 const KNOWN_TIERS: readonly Tier[] = [
   "Tin",
   "Bronze",
@@ -33,11 +37,17 @@ const KNOWN_TIERS: readonly Tier[] = [
   "Valhallan",
 ]
 
-function toTier(value: string | null): Tier | null {
-  if (!value) return null
-  return (KNOWN_TIERS as readonly string[]).includes(value)
-    ? (value as Tier)
+function deriveTier(apiTier: string | null, rating: number | null): Tier | null {
+  if (rating != null && rating >= VALHALLAN_THRESHOLD) return "Valhallan"
+  if (!apiTier) return null
+  return (KNOWN_TIERS as readonly string[]).includes(apiTier)
+    ? (apiTier as Tier)
     : null
+}
+
+function tierLabel(apiTier: string | null, rating: number | null): string {
+  if (rating != null && rating >= VALHALLAN_THRESHOLD) return "Valhallan"
+  return apiTier ?? "—"
 }
 
 function formatWinRate(wins: number | null, games: number | null): string {
@@ -47,111 +57,127 @@ function formatWinRate(wins: number | null, games: number | null): string {
 
 const DEFAULT_LEGEND_SLUG = "cassidy"
 
-const columns: ColDef<OtpPlayer>[] = [
-  {
-    id: "rank",
-    label: "#",
-    width: "56px",
-    align: "right",
-    render: (_, i) => (
-      <span className="font-mono text-xs text-muted-foreground tabular-nums">
-        {i + 1}
-      </span>
-    ),
-  },
-  {
-    id: "rank-icon",
-    label: "Rank",
-    width: "72px",
-    align: "center",
-    render: (p) => {
-      const tier = toTier(p.tier)
-      return tier ? (
-        <RankIcon tier={tier} size={32} className="mx-auto" />
-      ) : null
-    },
-  },
-  {
-    id: "player",
-    label: "Player",
-    render: (p) => (
-      <span className="truncate text-sm font-medium">{p.username}</span>
-    ),
-  },
-  {
-    id: "region",
-    label: "Region",
-    width: "84px",
-    render: (p) =>
-      p.region ? (
-        <RegionPill region={p.region} />
-      ) : (
-        <span className="text-xs text-muted-foreground">—</span>
-      ),
-  },
-  {
-    id: "tier",
-    label: "Tier",
-    width: "110px",
-    render: (p) => {
-      const tier = toTier(p.tier)
-      return (
-        <span
-          className={cn(
-            "font-mono text-[11px] font-medium uppercase tracking-wider",
-            tier ? TIER_TEXT_COLOR[tier] : "text-muted-foreground",
-          )}
-        >
-          {p.tier ?? "—"}
+function buildColumns(legendSlug: string): ColDef<OtpPlayer>[] {
+  return [
+    {
+      id: "rank",
+      label: "#",
+      width: "56px",
+      align: "right",
+      render: (_, i) => (
+        <span className="font-mono text-xs text-muted-foreground tabular-nums">
+          {i + 1}
         </span>
-      )
+      ),
     },
-  },
-  {
-    id: "rating",
-    label: "Rating",
-    align: "right",
-    width: "100px",
-    render: (p) => (
-      <span className="font-mono text-sm tabular-nums">
-        {p.rating != null ? formatElo(p.rating) : "—"}
-      </span>
-    ),
-  },
-  {
-    id: "peak",
-    label: "Peak",
-    align: "right",
-    width: "100px",
-    render: (p) => (
-      <span className="font-mono text-sm tabular-nums text-muted-foreground">
-        {p.peak_rating != null ? formatElo(p.peak_rating) : "—"}
-      </span>
-    ),
-  },
-  {
-    id: "games",
-    label: "Games",
-    align: "right",
-    width: "90px",
-    render: (p) => (
-      <span className="font-mono text-sm tabular-nums text-muted-foreground">
-        {p.games != null ? p.games.toLocaleString() : "—"}
-      </span>
-    ),
-  },
-  {
-    id: "winrate",
-    label: "Win Rate",
-    align: "right",
-    width: "100px",
-    render: (p) => (
-      <span className="font-mono text-sm tabular-nums">
-        {formatWinRate(p.wins, p.games)}
-      </span>
-    ),
-  },
-]
+    {
+      id: "rank-icon",
+      label: "Rank",
+      width: "72px",
+      align: "center",
+      render: (p) => {
+        const tier = deriveTier(p.tier, p.rating)
+        return tier ? (
+          <RankIcon tier={tier} size={32} className="mx-auto" />
+        ) : null
+      },
+    },
+    {
+      id: "player",
+      label: "Player",
+      render: (p) => (
+        <div className="flex items-center gap-2">
+          <LegendChip legendId={legendSlug} size="md" showName={false} />
+          <span className="truncate text-sm font-medium">{p.username}</span>
+        </div>
+      ),
+    },
+    {
+      id: "region",
+      label: "Region",
+      width: "84px",
+      render: (p) =>
+        p.region ? (
+          <RegionPill region={p.region} />
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        ),
+    },
+    {
+      id: "tier",
+      label: "Tier",
+      width: "110px",
+      render: (p) => {
+        const tier = deriveTier(p.tier, p.rating)
+        return (
+          <span
+            className={cn(
+              "font-mono text-[11px] font-medium uppercase tracking-wider",
+              tier ? TIER_TEXT_COLOR[tier] : "text-muted-foreground",
+            )}
+          >
+            {tierLabel(p.tier, p.rating)}
+          </span>
+        )
+      },
+    },
+    {
+      id: "rating",
+      label: "Rating",
+      align: "right",
+      width: "100px",
+      render: (p) => (
+        <span className="font-mono text-sm tabular-nums">
+          {p.rating != null ? formatElo(p.rating) : "—"}
+        </span>
+      ),
+    },
+    {
+      id: "peak",
+      label: "Peak",
+      align: "right",
+      width: "100px",
+      render: (p) => (
+        <span className="font-mono text-sm tabular-nums text-muted-foreground">
+          {p.peak_rating != null ? formatElo(p.peak_rating) : "—"}
+        </span>
+      ),
+    },
+    {
+      id: "legend-games",
+      label: "On Legend",
+      align: "right",
+      width: "150px",
+      render: (p) => {
+        const lGames = p.legend_games ?? 0
+        const total = p.games ?? 0
+        const share = total > 0 ? (lGames / total) * 100 : 0
+        return (
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="font-mono text-sm tabular-nums">
+              {lGames.toLocaleString()}
+              <span className="text-muted-foreground"> / {total.toLocaleString()}</span>
+            </span>
+            <span className="font-mono text-[10px] tabular-nums text-tier-s">
+              {share.toFixed(1)}% pick
+            </span>
+          </div>
+        )
+      },
+    },
+    {
+      id: "winrate",
+      label: "Legend WR",
+      align: "right",
+      width: "100px",
+      render: (p) => (
+        <span className="font-mono text-sm tabular-nums text-positive">
+          {formatWinRate(p.legend_wins, p.legend_games)}
+        </span>
+      ),
+    },
+  ]
+}
 
 export default async function OtpsPage({
   searchParams,
@@ -179,17 +205,16 @@ export default async function OtpsPage({
     limit: 50,
   })
 
-  // Sort the picker roster by name for stable, scannable layout.
-  const pickerRoster = [...LEGEND_ROSTER].sort((a, b) =>
-    a.name.localeCompare(b.name),
-  )
+  const pickerOptions = [...LEGEND_ROSTER]
+    .map((l) => ({ slug: l.slug, name: l.name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <div className="min-h-svh">
       <SiteHeader />
       <main className="pb-16">
         <PageHero
-          title="One-trick Ponies"
+          title="OTPs"
           subtitle={`Players whose most-played legend this season is ${selectedLegend.name}. Sorted by rating. Pulled from the Valhallan-discovered player pool.`}
           meta={
             <>
@@ -203,47 +228,14 @@ export default async function OtpsPage({
           }
         />
         <div className="px-4 sm:px-6">
-          {/* Legend picker — every legend in the roster, alphabetical. */}
           <div className="mx-auto mb-4 max-w-[1280px]">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                Pick a legend
-              </span>
-              <span className="text-xs text-muted-foreground">
-                Currently:{" "}
-                <span className="font-medium text-foreground">
-                  {selectedLegend.name}
-                </span>
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {pickerRoster.map((entry) => {
-                const isSelected = entry.slug === legendSlug
-                return (
-                  <Link
-                    key={entry.slug}
-                    href={`/otps?legend=${entry.slug}&region=${region}`}
-                    title={entry.name}
-                    aria-current={isSelected ? "true" : undefined}
-                    className={cn(
-                      "group relative rounded-md border transition-all",
-                      isSelected
-                        ? "border-tier-s bg-tier-s/15 ring-2 ring-tier-s/40"
-                        : "border-border/40 bg-card/40 opacity-70 hover:border-border hover:opacity-100",
-                    )}
-                  >
-                    <LegendChip
-                      legendId={entry.slug}
-                      size="md"
-                      showName={false}
-                    />
-                  </Link>
-                )
-              })}
-            </div>
+            <LegendPicker
+              options={pickerOptions}
+              selectedSlug={legendSlug}
+              currentRegion={region}
+            />
           </div>
 
-          {/* Region picker */}
           <div className="mx-auto mb-3 flex max-w-[1280px] flex-wrap items-center gap-2">
             <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
               Region
@@ -273,9 +265,7 @@ export default async function OtpsPage({
               <span className="font-medium text-foreground">
                 {selectedLegend.name}
               </span>{" "}
-              {region === "ALL"
-                ? "this season."
-                : `in ${region} this season.`}{" "}
+              {region === "ALL" ? "this season." : `in ${region} this season.`}{" "}
               The DB only includes Valhallan-discovered players — try a more
               popular legend, or widen the region filter to ALL.
             </div>
@@ -293,16 +283,14 @@ export default async function OtpsPage({
                       {selectedLegend.name} mains
                     </span>
                     <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {region === "ALL"
-                        ? "all regions"
-                        : `region: ${region}`}{" "}
+                      {region === "ALL" ? "all regions" : `region: ${region}`}{" "}
                       · top {players.length}
                     </span>
                   </div>
                 </div>
               )}
               <DataTable
-                columns={columns}
+                columns={buildColumns(legendSlug)}
                 rows={players}
                 rowKey={(p) => String(p.brawlhalla_id)}
               />
