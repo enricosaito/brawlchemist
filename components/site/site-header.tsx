@@ -32,7 +32,7 @@ const LEADERBOARD_OPTIONS: LeaderboardOption[] = [
   },
   {
     label: "OTPs",
-    href: "/leaderboards",
+    href: "/otps",
     avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
   },
 ]
