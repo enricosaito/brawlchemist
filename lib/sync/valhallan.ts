@@ -353,9 +353,15 @@ export interface WeaponStat {
   pick_rate: number
   /** Number of legends in the roster that wield this weapon. */
   legend_count: number
-  /** Legend with the most games among those wielding this weapon. */
-  top_legend_id: number | null
+  /**
+   * Up to two legend ids — the most-played wielders of this weapon in the
+   * Valhallan pool, sorted by total games desc. Caveat: "most-played" is by
+   * the legend's total games (any weapon), not per-weapon games.
+   */
+  top_legend_ids: number[]
 }
+
+const TOP_LEGENDS_PER_WEAPON = 2
 
 /**
  * Aggregate per-weapon Valhallan-tier stats by composing the per-legend
@@ -387,21 +393,21 @@ export async function getValhallanWeaponStats(
     byLegend.set(l.legend_id, { games: l.games, wins: l.wins ?? 0 })
   }
 
-  // Accumulator per weapon.
+  // Accumulator per weapon. We track every wielder's games so we can pick
+  // the top N at the end.
   const acc = new Map<
     string,
     {
       games: number
       wins: number
-      legend_count: number
-      top: { legendId: number; games: number } | null
+      wielders: { legendId: number; games: number }[]
     }
   >()
 
   const { LEGEND_ROSTER, ROSTER_WEAPONS } = await import("@/lib/legends-roster")
 
   for (const w of ROSTER_WEAPONS) {
-    acc.set(w, { games: 0, wins: 0, legend_count: 0, top: null })
+    acc.set(w, { games: 0, wins: 0, wielders: [] })
   }
   for (const legend of LEGEND_ROSTER) {
     const stats = byLegend.get(legend.legendId)
@@ -411,10 +417,7 @@ export async function getValhallanWeaponStats(
       if (!slot) continue
       slot.games += stats.games
       slot.wins += stats.wins
-      slot.legend_count += 1
-      if (!slot.top || stats.games > slot.top.games) {
-        slot.top = { legendId: legend.legendId, games: stats.games }
-      }
+      slot.wielders.push({ legendId: legend.legendId, games: stats.games })
     }
   }
 
@@ -424,19 +427,24 @@ export async function getValhallanWeaponStats(
   )
 
   const weapons: WeaponStat[] = Array.from(acc.entries()).map(
-    ([weapon_id, s]) => ({
-      weapon_id: weapon_id as import("@/lib/types").WeaponId,
-      games: s.games,
-      wins: s.wins,
-      win_rate:
-        s.games > 0 ? Math.round((100 * s.wins * 100) / s.games) / 100 : 0,
-      pick_rate:
-        totalGames > 0
-          ? Math.round((100 * s.games * 100) / totalGames) / 100
-          : 0,
-      legend_count: s.legend_count,
-      top_legend_id: s.top?.legendId ?? null,
-    }),
+    ([weapon_id, s]) => {
+      const sortedWielders = [...s.wielders].sort((a, b) => b.games - a.games)
+      return {
+        weapon_id: weapon_id as import("@/lib/types").WeaponId,
+        games: s.games,
+        wins: s.wins,
+        win_rate:
+          s.games > 0 ? Math.round((100 * s.wins * 100) / s.games) / 100 : 0,
+        pick_rate:
+          totalGames > 0
+            ? Math.round((100 * s.games * 100) / totalGames) / 100
+            : 0,
+        legend_count: s.wielders.length,
+        top_legend_ids: sortedWielders
+          .slice(0, TOP_LEGENDS_PER_WEAPON)
+          .map((w) => w.legendId),
+      }
+    },
   )
   // Default sort: by games descending — same "popular" ordering as /legends.
   weapons.sort((a, b) => b.games - a.games)

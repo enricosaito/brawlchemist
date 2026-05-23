@@ -1,8 +1,8 @@
 import { CURRENT_PATCH, WEAPON_NAMES } from "@/lib/mock-data"
-import { slugForLegendId } from "@/lib/legends-roster"
+import { rosterEntryByLegendId } from "@/lib/legends-roster"
 import { getValhallanWeaponStats } from "@/lib/sync/valhallan"
 import { PreviewCard } from "./preview-card"
-import { LegendChip, WeaponIcon } from "./primitives"
+import { WeaponIcon } from "./primitives"
 
 export async function WeaponMetaCard() {
   const { weapons } = await getValhallanWeaponStats()
@@ -27,9 +27,9 @@ export async function WeaponMetaCard() {
     >
       <ol className="divide-y divide-border/60">
         {top.map((weapon, i) => {
-          const topSlug = weapon.top_legend_id
-            ? slugForLegendId(weapon.top_legend_id)
-            : null
+          const topNames = weapon.top_legend_ids
+            .map((id) => rosterEntryByLegendId(id)?.name)
+            .filter((n): n is string => !!n)
           return (
             <li
               key={weapon.weapon_id}
@@ -43,12 +43,14 @@ export async function WeaponMetaCard() {
                 <span className="truncate text-sm font-medium">
                   {WEAPON_NAMES[weapon.weapon_id]}
                 </span>
-                {topSlug && (
+                {topNames.length > 0 && (
                   <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                     <span className="font-mono uppercase tracking-wider">
                       top on
                     </span>
-                    <LegendChip legendId={topSlug} size="sm" />
+                    <span className="truncate font-mono uppercase tracking-wider">
+                      {topNames.join(", ")}
+                    </span>
                   </span>
                 )}
               </div>
