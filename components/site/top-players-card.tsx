@@ -12,7 +12,7 @@ import type { Tier } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
 import { LegendChip, RankIcon, TIER_TEXT_COLOR } from "./primitives"
 
-export const HOME_REGIONS = ["US-E", "BRZ", "EU"] as const
+export const HOME_REGIONS = ["US-E", "EU", "BRZ"] as const
 export type HomeRegion = (typeof HOME_REGIONS)[number]
 
 const QUEUES: { id: ApiGameMode; label: string }[] = [

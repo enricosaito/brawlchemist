@@ -15,7 +15,7 @@ export function SiteHeader() {
       <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-6 px-4 sm:px-6">
         <Link
           href="/"
-          className="group flex items-center gap-2 font-display text-base font-semibold tracking-wider"
+          className="group flex items-center gap-2 font-wordmark text-xl font-extrabold tracking-tight"
         >
           <Image
             src="/assets/Brawlchemist.png"
@@ -25,8 +25,8 @@ export function SiteHeader() {
             priority
             className="size-7 shrink-0 transition-transform group-hover:rotate-12"
           />
-          <span>
-            BRAWL<span className="text-tier-s">CHEMIST</span>
+          <span className="bg-gradient-to-r from-tier-s to-tier-valhallan bg-clip-text text-transparent">
+            brawlchemist
           </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
@@ -35,8 +35,8 @@ export function SiteHeader() {
               key={item.href}
               href={item.href}
               className={cn(
-                "rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors",
-                "hover:bg-muted hover:text-foreground",
+                "rounded-md px-3 py-1.5 text-sm text-foreground transition-colors",
+                "hover:bg-muted",
               )}
             >
               {item.label}
