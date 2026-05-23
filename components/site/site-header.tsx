@@ -1,12 +1,42 @@
 import Image from "next/image"
 import Link from "next/link"
-import { Search } from "lucide-react"
+import { ChevronDown, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const NAV = [
-  { label: "Leaderboards", href: "/leaderboards" },
   { label: "Legends", href: "/legends" },
   { label: "Weapons", href: "/weapons" },
+]
+
+interface LeaderboardOption {
+  label: string
+  href: string
+  avatar: string
+}
+
+// 1v1 Rankings gets the Volkonomicon avatar; the rest are stubbed with
+// the Diamond placeholder until per-mode avatars land.
+const LEADERBOARD_OPTIONS: LeaderboardOption[] = [
+  {
+    label: "1v1 Rankings",
+    href: "/leaderboards?queue=1v1",
+    avatar: "/assets/AniAvatar_Volkonomicon.webp",
+  },
+  {
+    label: "2v2 Teams",
+    href: "/leaderboards?queue=2v2",
+    avatar: "/assets/Avatar_Diamond_20.webp",
+  },
+  {
+    label: "Solo 2v2",
+    href: "/leaderboards?queue=2v2",
+    avatar: "/assets/Avatar_Diamond_20.webp",
+  },
+  {
+    label: "OTPs",
+    href: "/leaderboards",
+    avatar: "/assets/Avatar_Diamond_20.webp",
+  },
 ]
 
 export function SiteHeader() {
@@ -30,6 +60,50 @@ export function SiteHeader() {
           </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
+          {/* Leaderboards: hover-triggered dropdown. CSS-only via
+              group-hover + focus-within (keyboard accessible). */}
+          <div className="group/lb relative">
+            <Link
+              href="/leaderboards"
+              className={cn(
+                "flex items-center gap-1 rounded-md px-3 py-1.5 text-sm text-foreground transition-colors",
+                "hover:bg-muted",
+              )}
+            >
+              Leaderboards
+              <ChevronDown
+                className="size-3.5 text-muted-foreground transition-transform duration-200 group-hover/lb:-rotate-180 group-focus-within/lb:-rotate-180"
+                aria-hidden
+              />
+            </Link>
+            <div
+              className={cn(
+                "invisible absolute left-0 top-full z-50 mt-1 w-60 translate-y-1 rounded-xl border border-border/60 bg-card/95 p-1.5 opacity-0 shadow-xl backdrop-blur-md transition-all duration-200",
+                "group-hover/lb:visible group-hover/lb:translate-y-0 group-hover/lb:opacity-100",
+                "group-focus-within/lb:visible group-focus-within/lb:translate-y-0 group-focus-within/lb:opacity-100",
+              )}
+              role="menu"
+            >
+              {LEADERBOARD_OPTIONS.map((opt) => (
+                <Link
+                  key={opt.label}
+                  href={opt.href}
+                  role="menuitem"
+                  className="flex items-center gap-3 rounded-md px-2 py-2 text-sm text-foreground transition-colors hover:bg-muted"
+                >
+                  <Image
+                    src={opt.avatar}
+                    alt=""
+                    width={28}
+                    height={28}
+                    unoptimized
+                    className="size-7 shrink-0 select-none rounded-md object-contain"
+                  />
+                  <span>{opt.label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
           {NAV.map((item) => (
             <Link
               key={item.href}
