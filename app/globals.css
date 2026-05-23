@@ -2,6 +2,19 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/**
+ * JHCRasbora Extrabold — wordmark-only display face. Self-hosted. Drop the
+ * .otf at public/fonts/JHCRasbora-Extrabold.otf. If absent, the browser
+ * falls back to the sans stack — no build crash.
+ */
+@font-face {
+  font-family: "JHCRasbora";
+  src: url("/fonts/JHCRasbora-Extrabold.otf") format("opentype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -188,6 +201,10 @@
 @layer utilities {
     .font-display {
         font-family: var(--font-display);
+        letter-spacing: -0.01em;
+    }
+    .font-wordmark {
+        font-family: "JHCRasbora", var(--font-sans), system-ui, sans-serif;
         letter-spacing: -0.01em;
     }
     /* Tier-aware text glow: shadow picks up the current text color, so

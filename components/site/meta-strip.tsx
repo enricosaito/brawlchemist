@@ -6,12 +6,6 @@ import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 
 const CUTOFF_REGIONS: ApiRegion[] = ["US-E", "EU", "BRZ"]
 
-const REGION_LABEL: Partial<Record<ApiRegion, string>> = {
-  "US-E": "USA",
-  EU: "Europe",
-  BRZ: "Brazil",
-}
-
 const REGION_FLAG: Partial<Record<ApiRegion, string>> = {
   "US-E": "/assets/usa.webp",
   EU: "/assets/europe.webp",
@@ -27,17 +21,23 @@ export async function MetaStrip() {
         {CUTOFF_REGIONS.map((region) => {
           const c = cutoffs.get(region)
           const flag = REGION_FLAG[region]
-          const label = REGION_LABEL[region] ?? region
           return (
             <div
               key={region}
               className="flex items-center justify-between gap-3 bg-card/80 px-4 py-3"
             >
-              <div className="flex min-w-0 flex-col">
+              <Image
+                src="/assets/valhallan-helm.png"
+                alt=""
+                width={36}
+                height={36}
+                className="shrink-0 select-none object-contain"
+              />
+              <div className="flex min-w-0 flex-1 flex-col">
                 <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {label} Valhallan Cutoff
+                  Valhallan Cutoff
                 </span>
-                <span className="mt-0.5 truncate font-mono text-base font-medium tabular-nums text-tier-valhallan">
+                <span className="mt-0.5 truncate font-mono text-base font-medium tabular-nums text-foreground">
                   {c ? c.rating.toLocaleString() : "—"}
                 </span>
               </div>
