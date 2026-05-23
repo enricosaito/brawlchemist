@@ -4,7 +4,7 @@ import { PageHero } from "@/components/site/page-hero"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import { CURRENT_PATCH, WEAPON_NAMES } from "@/lib/mock-data"
-import { slugForLegendId } from "@/lib/legends-roster"
+import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import { getValhallanWeaponStats, type WeaponStat } from "@/lib/sync/valhallan"
 
 const columns: ColDef<WeaponStat>[] = [
@@ -47,11 +47,25 @@ const columns: ColDef<WeaponStat>[] = [
     ),
   },
   {
-    id: "topLegend",
-    label: "Top Legend",
+    id: "topLegends",
+    label: "Top Legends",
     render: (w) => {
-      const slug = w.top_legend_id ? slugForLegendId(w.top_legend_id) : null
-      return slug ? <LegendChip legendId={slug} size="md" /> : null
+      if (w.top_legend_ids.length === 0) return null
+      return (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {w.top_legend_ids.map((id) => {
+            const slug = slugForLegendId(id)
+            const name = rosterEntryByLegendId(id)?.name
+            if (!slug || !name) return null
+            return (
+              <span key={id} className="flex items-center gap-1.5">
+                <LegendChip legendId={slug} size="sm" showName={false} />
+                <span className="text-sm font-medium">{name}</span>
+              </span>
+            )
+          })}
+        </div>
+      )
     },
   },
   {
