@@ -45,8 +45,11 @@ const KNOWN_TIERS: readonly Tier[] = [
 
 function toTier(value: string | null): Tier | null {
   if (!value) return null
-  return (KNOWN_TIERS as readonly string[]).includes(value)
-    ? (value as Tier)
+  // The leaderboard endpoint returns tier with a division suffix ("Gold 3",
+  // "Platinum 1") — strip it down to the base tier for icon/color lookup.
+  const base = value.split(" ")[0]
+  return (KNOWN_TIERS as readonly string[]).includes(base)
+    ? (base as Tier)
     : null
 }
 
