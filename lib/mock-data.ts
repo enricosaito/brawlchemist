@@ -24,6 +24,7 @@ export const WEAPON_NAMES: Record<WeaponId, string> = {
   cannon: "Cannon",
   orb: "Orb",
   "battle-boots": "Battle Boots",
+  chakram: "Chakram",
 }
 
 /**
