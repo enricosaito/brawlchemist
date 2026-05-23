@@ -14,8 +14,6 @@ interface LeaderboardOption {
   avatar: string
 }
 
-// 1v1 Rankings gets the Volkonomicon avatar; the rest are stubbed with
-// the Diamond placeholder until per-mode avatars land.
 const LEADERBOARD_OPTIONS: LeaderboardOption[] = [
   {
     label: "1v1 Rankings",
@@ -25,17 +23,19 @@ const LEADERBOARD_OPTIONS: LeaderboardOption[] = [
   {
     label: "2v2 Teams",
     href: "/leaderboards?queue=2v2",
-    avatar: "/assets/Avatar_Diamond_20.webp",
+    avatar: "/assets/AniAvatar_Forest_Sprites.webp",
   },
   {
     label: "Solo 2v2",
     href: "/leaderboards?queue=2v2",
-    avatar: "/assets/Avatar_Diamond_20.webp",
+    // Filename has a literal & — URL-encode so it doesn't get parsed as
+    // a query-string separator when Next/Image rewrites it.
+    avatar: "/assets/AniAvatar_Ash_%26_Yarra.webp",
   },
   {
     label: "OTPs",
     href: "/leaderboards",
-    avatar: "/assets/Avatar_Diamond_20.webp",
+    avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
   },
 ]
 
