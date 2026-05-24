@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Loader2, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { playerPreview } from "@/lib/player-previews"
+import { ProBadge } from "./pro-badge"
 
 interface SearchResult {
   id: number
@@ -285,8 +287,13 @@ export function PlayerSearchForm({
                             <span className="size-7 shrink-0 rounded-md border border-border/60 bg-muted/30" />
                           )}
                           <span className="flex min-w-0 flex-1 flex-col">
-                            <span className="truncate text-sm font-medium">
-                              {opt.result.username}
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <span className="min-w-0 truncate text-sm font-medium">
+                                {opt.result.username}
+                              </span>
+                              {playerPreview(opt.result.id)?.verified && (
+                                <ProBadge className="shrink-0" />
+                              )}
                             </span>
                             <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                               ID {opt.result.id}
