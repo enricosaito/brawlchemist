@@ -32,18 +32,14 @@ function DiscordIcon({ className }: { className?: string }) {
   )
 }
 
-const NAV = [
-  { label: "Legends", href: "/legends" },
-  { label: "Weapons", href: "/weapons" },
-]
-
-interface LeaderboardOption {
+interface DropdownOption {
   label: string
   href: string
   avatar: string
+  comingSoon?: boolean
 }
 
-const LEADERBOARD_OPTIONS: LeaderboardOption[] = [
+const LEADERBOARD_OPTIONS: DropdownOption[] = [
   {
     label: "1v1 Rankings",
     href: "/leaderboards?queue=1v1",
@@ -66,6 +62,109 @@ const LEADERBOARD_OPTIONS: LeaderboardOption[] = [
   },
 ]
 
+const TIERLIST_OPTIONS: DropdownOption[] = [
+  {
+    label: "Legends",
+    href: "/legends",
+    avatar: "/assets/AniAvatar_Metamorphosis.webp",
+  },
+  {
+    label: "Weapons",
+    href: "/weapons",
+    avatar: "/assets/AniAvatar_Cursed_Kunai.webp",
+  },
+  {
+    label: "Stances",
+    href: "/stances",
+    avatar: "/assets/AniAvatar_Potion_Shelf.webp",
+    comingSoon: true,
+  },
+  {
+    label: "2v2 Comps",
+    // Ampersand in the filename must be URL-encoded so Next/Image can fetch it.
+    href: "/comps",
+    avatar: "/assets/AniAvatar_Ash_%26_Yarra.webp",
+    comingSoon: true,
+  },
+]
+
+function NavDropdown({
+  label,
+  href,
+  options,
+}: {
+  label: string
+  href: string
+  options: DropdownOption[]
+}) {
+  return (
+    <div className="group/dd relative">
+      <Link
+        href={href}
+        className={cn(
+          "flex items-center gap-1 rounded-md px-3 py-1.5 text-sm text-foreground transition-colors",
+          "hover:bg-muted",
+        )}
+      >
+        {label}
+        <ChevronDown
+          className="size-3.5 text-muted-foreground transition-transform duration-200 group-hover/dd:-rotate-180 group-focus-within/dd:-rotate-180"
+          aria-hidden
+        />
+      </Link>
+      <div
+        className={cn(
+          "invisible absolute left-0 top-full z-50 mt-1 w-80 translate-y-1 rounded-xl border border-border/60 bg-card/95 p-2 opacity-0 shadow-xl backdrop-blur-md transition-all duration-200",
+          "group-hover/dd:visible group-hover/dd:translate-y-0 group-hover/dd:opacity-100",
+          "group-focus-within/dd:visible group-focus-within/dd:translate-y-0 group-focus-within/dd:opacity-100",
+        )}
+        role="menu"
+      >
+        {options.map((opt) =>
+          opt.comingSoon ? (
+            <div
+              key={opt.label}
+              role="menuitem"
+              aria-disabled
+              className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2.5 text-base font-medium text-muted-foreground opacity-60"
+            >
+              <Image
+                src={opt.avatar}
+                alt=""
+                width={44}
+                height={44}
+                unoptimized
+                className="size-11 shrink-0 select-none rounded-md object-contain grayscale"
+              />
+              <span className="flex-1">{opt.label}</span>
+              <span className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                Soon
+              </span>
+            </div>
+          ) : (
+            <Link
+              key={opt.label}
+              href={opt.href}
+              role="menuitem"
+              className="flex items-center gap-3 rounded-md px-3 py-2.5 text-base font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              <Image
+                src={opt.avatar}
+                alt=""
+                width={44}
+                height={44}
+                unoptimized
+                className="size-11 shrink-0 select-none rounded-md object-contain"
+              />
+              <span>{opt.label}</span>
+            </Link>
+          ),
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-md">
@@ -87,62 +186,12 @@ export function SiteHeader() {
           </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
-          {/* Leaderboards: hover-triggered dropdown. CSS-only via
-              group-hover + focus-within (keyboard accessible). */}
-          <div className="group/lb relative">
-            <Link
-              href="/leaderboards"
-              className={cn(
-                "flex items-center gap-1 rounded-md px-3 py-1.5 text-sm text-foreground transition-colors",
-                "hover:bg-muted",
-              )}
-            >
-              Leaderboards
-              <ChevronDown
-                className="size-3.5 text-muted-foreground transition-transform duration-200 group-hover/lb:-rotate-180 group-focus-within/lb:-rotate-180"
-                aria-hidden
-              />
-            </Link>
-            <div
-              className={cn(
-                "invisible absolute left-0 top-full z-50 mt-1 w-80 translate-y-1 rounded-xl border border-border/60 bg-card/95 p-2 opacity-0 shadow-xl backdrop-blur-md transition-all duration-200",
-                "group-hover/lb:visible group-hover/lb:translate-y-0 group-hover/lb:opacity-100",
-                "group-focus-within/lb:visible group-focus-within/lb:translate-y-0 group-focus-within/lb:opacity-100",
-              )}
-              role="menu"
-            >
-              {LEADERBOARD_OPTIONS.map((opt) => (
-                <Link
-                  key={opt.label}
-                  href={opt.href}
-                  role="menuitem"
-                  className="flex items-center gap-3 rounded-md px-3 py-2.5 text-base font-medium text-foreground transition-colors hover:bg-muted"
-                >
-                  <Image
-                    src={opt.avatar}
-                    alt=""
-                    width={44}
-                    height={44}
-                    unoptimized
-                    className="size-11 shrink-0 select-none rounded-md object-contain"
-                  />
-                  <span>{opt.label}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm text-foreground transition-colors",
-                "hover:bg-muted",
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
+          <NavDropdown
+            label="Leaderboards"
+            href="/leaderboards"
+            options={LEADERBOARD_OPTIONS}
+          />
+          <NavDropdown label="Tierlist" href="/legends" options={TIERLIST_OPTIONS} />
         </nav>
         <div className="ml-auto flex items-center gap-1">
           <a
