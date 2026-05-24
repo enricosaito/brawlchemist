@@ -12,13 +12,17 @@ import {
   getPlayerRanked,
   getPlayerStats,
   getStaticLegends,
+  isApiRegion,
+  type ApiGameMode,
+  type ApiRegion,
   type PlayerRanked,
   type PlayerRanked2v2,
   type PlayerRankedLegend,
 } from "@/lib/brawlhalla-api"
 import { getPlayersByIds, upsertPlayerRanked } from "@/lib/sync/players"
+import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
-import { deriveTier, tierLabel } from "@/lib/tier"
+import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 import { formatElo, formatPercent } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
 import { cn } from "@/lib/utils"
@@ -27,12 +31,29 @@ import { cn } from "@/lib/utils"
 const loadPlayer = cache((id: number) => getPlayerRanked(id))
 const loadStats = cache((id: number) => getPlayerStats(id))
 const loadStaticLegends = cache(() => getStaticLegends())
+const loadCutoff = cache((mode: ApiGameMode, region: ApiRegion) =>
+  getValhallanCutoff(mode, region),
+)
 
 const MAX_LEGEND_LEVEL = 100
 
 function parseId(raw: string): number | null {
   const n = Number(raw)
   return Number.isInteger(n) && n > 0 ? n : null
+}
+
+/**
+ * Lowest Valhallan rating in the player's region for a queue, used to tell
+ * Valhallan apart from Diamond (both 2000+). Null for regions we don't track
+ * (e.g. an unexpected string, or the synthetic "ALL").
+ */
+async function valhallanCutoffRating(
+  mode: ApiGameMode,
+  region: string | null | undefined,
+): Promise<number | null> {
+  if (!region || region === "ALL" || !isApiRegion(region)) return null
+  const c = await loadCutoff(mode, region)
+  return c?.rating ?? null
 }
 
 function winRate(wins: number, games: number): string {
@@ -53,9 +74,11 @@ export async function generateMetadata({
     return { title: "Player · Brawlchemist" }
   }
   const d = res.data
+  const cutoff = await valhallanCutoffRating("1v1", d.region)
+  const valhallan = isValhallan(d.rating, cutoff, d.wins)
   const wr = d.games > 0 ? `${((d.wins / d.games) * 100).toFixed(1)}% WR` : null
   const description = [
-    tierLabel(d.tier, d.rating),
+    tierLabel(d.tier, valhallan),
     `${formatElo(d.rating)} ELO`,
     wr,
     `${d.games.toLocaleString()} games`,
@@ -203,13 +226,16 @@ function TeamCard({
   view,
   ownerName,
   ownerSlug,
+  valhallanCutoff,
 }: {
   view: TeamView
   ownerName: string
   ownerSlug: string | null
+  valhallanCutoff: number | null
 }) {
   const { team, teammateId, teammateName, teammateSlug } = view
-  const tier = deriveTier(team.tier, team.rating)
+  const valhallan = isValhallan(team.rating, valhallanCutoff, team.wins)
+  const tier = deriveTier(team.tier, valhallan)
   const losses = Math.max(0, team.games - team.wins)
   return (
     <Link
@@ -241,7 +267,7 @@ function TeamCard({
             <span
               className={cn("uppercase tracking-wider", TIER_TEXT_COLOR[tier])}
             >
-              {tierLabel(team.tier, team.rating)}
+              {tierLabel(team.tier, valhallan)}
             </span>
           )}
           <span className="tabular-nums">
@@ -273,11 +299,13 @@ function TeamCard({
 function ProfileHeader({
   data,
   titles,
+  valhallan,
 }: {
   data: PlayerRanked
   titles: string[]
+  valhallan: boolean
 }) {
-  const tier = deriveTier(data.tier, data.rating)
+  const tier = deriveTier(data.tier, valhallan)
   const losses = Math.max(0, data.games - data.wins)
   const preview = PLAYER_PREVIEWS[data.brawlhalla_id]
   const topSlugs = [...(data.legends ?? [])]
@@ -430,7 +458,7 @@ function ProfileHeader({
                   {tier && (
                     <div className="mt-2 font-mono text-[11px] font-medium uppercase tracking-wider">
                       <span className={TIER_TEXT_COLOR[tier]}>
-                        {tierLabel(data.tier, data.rating)}
+                        {tierLabel(data.tier, valhallan)}
                       </span>
                     </div>
                   )}
@@ -581,9 +609,19 @@ export default async function PlayerPage({
     }
   })
 
+  // Distinguish Valhallan from Diamond (both 2000+) via the region's live
+  // ladder cutoff — 1v1 for the header, 2v2 for the team cards.
+  const [cutoff1v1, cutoff2v2] = await Promise.all([
+    valhallanCutoffRating("1v1", data.region),
+    teams.length > 0
+      ? valhallanCutoffRating("2v2", data.region)
+      : Promise.resolve(null),
+  ])
+  const headerValhallan = isValhallan(data.rating, cutoff1v1, data.wins)
+
   return (
     <Shell>
-      <ProfileHeader data={data} titles={titles} />
+      <ProfileHeader data={data} titles={titles} valhallan={headerValhallan} />
 
       {teamViews.length > 0 && (
         <div className="mt-8 px-4 sm:px-6">
@@ -595,6 +633,7 @@ export default async function PlayerPage({
                 view={view}
                 ownerName={data.name}
                 ownerSlug={ownerSlug}
+                valhallanCutoff={cutoff2v2}
               />
             ))}
           </div>
