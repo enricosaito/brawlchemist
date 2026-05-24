@@ -21,6 +21,10 @@ const fontDisplay = Cinzel({
 })
 
 export const metadata: Metadata = {
+  // Base for resolving relative OG/Twitter image URLs (e.g. profile cards).
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://brawlchemist.com",
+  ),
   title: "Brawlchemist — Brawlhalla Stats Lab",
   description:
     "Search players, read the meta, track rankings and weapon trends for Brawlhalla 1v1 and 2v2 ranked.",
