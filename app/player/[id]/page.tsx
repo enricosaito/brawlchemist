@@ -49,8 +49,28 @@ export async function generateMetadata({
   const numId = parseId(id)
   if (!numId) return { title: "Player · Brawlchemist" }
   const res = await loadPlayer(numId)
-  const name = res.ok && res.data?.name ? res.data.name : `Player ${id}`
-  return { title: `${name} · Brawlchemist` }
+  if (!res.ok || !res.data?.name) {
+    return { title: "Player · Brawlchemist" }
+  }
+  const d = res.data
+  const wr = d.games > 0 ? `${((d.wins / d.games) * 100).toFixed(1)}% WR` : null
+  const description = [
+    tierLabel(d.tier, d.rating),
+    `${formatElo(d.rating)} ELO`,
+    wr,
+    `${d.games.toLocaleString()} games`,
+    d.region || null,
+  ]
+    .filter(Boolean)
+    .join(" · ")
+  const title = `${d.name} · Brawlchemist`
+  // og:image is auto-attached from opengraph-image.tsx in this folder.
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "profile" },
+    twitter: { card: "summary_large_image", title, description },
+  }
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
