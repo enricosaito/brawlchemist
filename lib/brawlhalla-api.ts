@@ -212,3 +212,59 @@ export interface LegendSummary {
 export function getAllLegends(): Promise<ApiResult<LegendSummary[]>> {
   return apiFetch<LegendSummary[]>("/legend/all/", {}, 60 * 60 * 24 * 7) // 1 week
 }
+
+/**
+ * GetPlayerStats — lifetime stats. We only type what we surface (per-legend
+ * `level`, used to award legend titles); the rest stays loosely typed.
+ */
+export interface PlayerStatsLegend {
+  legend_id: number
+  legend_name_key: string
+  level: number
+  xp: number
+  games: number
+  wins: number
+  [key: string]: unknown
+}
+
+export interface PlayerStats {
+  brawlhalla_id: number
+  name: string
+  level: number
+  legends: PlayerStatsLegend[]
+  [key: string]: unknown
+}
+
+export function getPlayerStats(
+  brawlhallaId: number,
+): Promise<ApiResult<PlayerStats>> {
+  // Lifetime levels move slowly — an hour of caching spares the API.
+  return apiFetch<PlayerStats>(`/player/${brawlhallaId}/stats`, {}, 60 * 60)
+}
+
+/** Static legend metadata, incl. `bio_aka` (the "title", e.g. "The Minotaur"). */
+export interface StaticLegend {
+  legend_id: number
+  legend_name: string
+  bio_name: string
+  bio_aka: string
+  weapon_one: string
+  weapon_two: string
+  [key: string]: unknown
+}
+
+interface StaticLegendsResponse {
+  legends: StaticLegend[]
+  total_pages: number
+}
+
+export async function getStaticLegends(): Promise<ApiResult<StaticLegend[]>> {
+  // 100 = the endpoint's max page size; the roster fits on one page.
+  const res = await apiFetch<StaticLegendsResponse>(
+    "/v1/static/legends",
+    { page: 1, max_results: 100 },
+    60 * 60 * 24 * 7, // 1 week — static data
+  )
+  if (!res.ok) return res
+  return { ok: true, data: res.data.legends ?? [] }
+}

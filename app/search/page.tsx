@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { LegendChip, RegionPill } from "@/components/site/primitives"
 import { PageHero } from "@/components/site/page-hero"
 import { PlayerSearchForm } from "@/components/site/player-search-form"
+import { ProBadge } from "@/components/site/pro-badge"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import { searchPlayerBySteamId, type PlayerRanked } from "@/lib/brawlhalla-api"
@@ -10,6 +11,7 @@ import { searchPlayersByUsername } from "@/lib/sync/players"
 import type { PlayerRow } from "@/lib/db/schema"
 import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
+import { playerPreview } from "@/lib/player-previews"
 
 /**
  * Pull a steamID64 out of either a bare 17-digit ID or a pasted Steam profile
@@ -51,7 +53,14 @@ function PlayerResultRow({ player }: { player: PlayerRow }) {
           <span className="size-9 shrink-0 rounded-md border border-border/60 bg-muted/30" />
         )}
         <div className="flex min-w-0 flex-col">
-          <span className="truncate font-medium">{player.username}</span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="min-w-0 truncate font-medium">
+              {player.username}
+            </span>
+            {playerPreview(player.brawlhallaId)?.verified && (
+              <ProBadge className="shrink-0" />
+            )}
+          </span>
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             ID {player.brawlhallaId}
             {region ? ` · ${region}` : ""}
