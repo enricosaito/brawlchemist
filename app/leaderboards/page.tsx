@@ -2,6 +2,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import {
   LegendChip,
+  PlayerLink,
   RankIcon,
   RegionPill,
   TIER_TEXT_COLOR,
@@ -169,12 +170,13 @@ function buildColumns(
           <div className="flex min-w-0 flex-col gap-0.5">
             {r.players.length > 0 ? (
               r.players.map((p) => (
-                <span
+                <PlayerLink
                   key={p.id}
+                  id={p.id}
                   className="truncate text-sm font-medium leading-5"
                 >
                   {p.username}
-                </span>
+                </PlayerLink>
               ))
             ) : (
               <span className="text-sm text-muted-foreground">—</span>

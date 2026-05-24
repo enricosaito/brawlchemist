@@ -1,7 +1,36 @@
 import Image from "next/image"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { getLegend } from "@/lib/mock-data"
 import type { LegendTier, Stance, Tier, WeaponId } from "@/lib/types"
+
+/**
+ * PlayerLink — wraps a player's name in a link to their profile. Falls back to
+ * plain text when we don't have a Brawlhalla ID (e.g. mock/placeholder rows),
+ * so callers can use it unconditionally.
+ */
+export function PlayerLink({
+  id,
+  className,
+  children,
+}: {
+  id: number | null | undefined
+  className?: string
+  children: React.ReactNode
+}) {
+  if (id == null) return <span className={className}>{children}</span>
+  return (
+    <Link
+      href={`/player/${id}`}
+      className={cn(
+        "underline-offset-2 transition-colors hover:text-copper hover:underline",
+        className,
+      )}
+    >
+      {children}
+    </Link>
+  )
+}
 
 /**
  * Delta — signed numeric change with semantic color.
