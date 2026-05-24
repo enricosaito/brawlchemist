@@ -144,24 +144,18 @@ function buildColumns(legendSlug: string): ColDef<OtpPlayer>[] {
       ),
     },
     {
-      id: "legend-games",
-      label: "On Legend",
+      id: "pick-rate",
+      label: "Pick Rate",
       align: "right",
-      width: "150px",
+      width: "110px",
       render: (p) => {
         const lGames = p.legend_games ?? 0
         const total = p.games ?? 0
         const share = total > 0 ? (lGames / total) * 100 : 0
         return (
-          <div className="flex flex-col items-end gap-0.5">
-            <span className="font-mono text-sm tabular-nums">
-              {lGames.toLocaleString()}
-              <span className="text-muted-foreground"> / {total.toLocaleString()}</span>
-            </span>
-            <span className="font-mono text-[10px] tabular-nums text-tier-s">
-              {share.toFixed(1)}% pick
-            </span>
-          </div>
+          <span className="font-mono text-sm tabular-nums text-tier-s">
+            {share.toFixed(1)}%
+          </span>
         )
       },
     },

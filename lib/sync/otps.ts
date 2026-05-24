@@ -34,33 +34,44 @@ export async function getOtpsForLegend(opts: {
 }): Promise<OtpPlayer[]> {
   const limit = opts.limit ?? 50
   const region = opts.region ?? null
+  // Hard floor on per-legend pick rate. Players who happen to top-rank
+  // this legend with very few games on them aren't really "OTPs".
+  const MIN_PICK_RATE = 0.2
   const result = await db().execute(sql`
-    SELECT
-      p.brawlhalla_id,
-      p.username,
-      p.top_legend_id,
-      (p.ranked_json->>'rating')::int AS rating,
-      (p.ranked_json->>'peak_rating')::int AS peak_rating,
-      p.ranked_json->>'region' AS region,
-      p.ranked_json->>'tier' AS tier,
-      (p.ranked_json->>'wins')::int AS wins,
-      (p.ranked_json->>'games')::int AS games,
-      (
-        SELECT (l->>'games')::int
-        FROM jsonb_array_elements(p.ranked_json->'legends') l
-        WHERE (l->>'legend_id')::int = ${opts.legendId}
-        LIMIT 1
-      ) AS legend_games,
-      (
-        SELECT (l->>'wins')::int
-        FROM jsonb_array_elements(p.ranked_json->'legends') l
-        WHERE (l->>'legend_id')::int = ${opts.legendId}
-        LIMIT 1
-      ) AS legend_wins
-    FROM players p
-    WHERE p.top_legend_id = ${opts.legendId}
-      AND (${region}::text IS NULL OR p.ranked_json->>'region' = ${region})
-    ORDER BY (p.ranked_json->>'rating')::int DESC NULLS LAST
+    WITH candidates AS (
+      SELECT
+        p.brawlhalla_id,
+        p.username,
+        p.top_legend_id,
+        (p.ranked_json->>'rating')::int AS rating,
+        (p.ranked_json->>'peak_rating')::int AS peak_rating,
+        p.ranked_json->>'region' AS region,
+        p.ranked_json->>'tier' AS tier,
+        (p.ranked_json->>'wins')::int AS wins,
+        (p.ranked_json->>'games')::int AS games,
+        (
+          SELECT (l->>'games')::int
+          FROM jsonb_array_elements(p.ranked_json->'legends') l
+          WHERE (l->>'legend_id')::int = ${opts.legendId}
+          LIMIT 1
+        ) AS legend_games,
+        (
+          SELECT (l->>'wins')::int
+          FROM jsonb_array_elements(p.ranked_json->'legends') l
+          WHERE (l->>'legend_id')::int = ${opts.legendId}
+          LIMIT 1
+        ) AS legend_wins
+      FROM players p
+      WHERE p.top_legend_id = ${opts.legendId}
+        AND (${region}::text IS NULL OR p.ranked_json->>'region' = ${region})
+    )
+    SELECT *
+    FROM candidates
+    WHERE games IS NOT NULL
+      AND games > 0
+      AND legend_games IS NOT NULL
+      AND (legend_games::float / games) >= ${MIN_PICK_RATE}
+    ORDER BY rating DESC NULLS LAST
     LIMIT ${limit}
   `)
   return result.rows as unknown as OtpPlayer[]
