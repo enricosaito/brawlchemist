@@ -9,7 +9,7 @@ import type {
 } from "@/lib/brawlhalla-api"
 import { slugForLegendId } from "@/lib/legends-roster"
 import type { Tier } from "@/lib/types"
-import { LegendChip, RankIcon, TIER_TEXT_COLOR } from "./primitives"
+import { LegendChip, PlayerLink, RankIcon, TIER_TEXT_COLOR } from "./primitives"
 
 const KNOWN_TIERS: readonly Tier[] = [
   "Tin",
@@ -115,9 +115,12 @@ function PodiumCard({
         <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/40 font-display text-base font-bold text-foreground">
           {entry.rank}
         </span>
-        <span className="min-w-0 flex-1 truncate text-center text-lg font-semibold leading-tight">
+        <PlayerLink
+          id={gameMode === "1v1" ? player?.id : null}
+          className="min-w-0 flex-1 truncate text-center text-lg font-semibold leading-tight"
+        >
           {username || "—"}
-        </span>
+        </PlayerLink>
         {tier && <RankIcon tier={tier} size={44} className="shrink-0" />}
       </div>
 

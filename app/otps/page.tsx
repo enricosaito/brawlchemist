@@ -1,5 +1,6 @@
 import {
   LegendChip,
+  PlayerLink,
   RankIcon,
   RegionPill,
   TIER_TEXT_COLOR,
@@ -88,7 +89,12 @@ function buildColumns(legendSlug: string): ColDef<OtpPlayer>[] {
       render: (p) => (
         <div className="flex items-center gap-2">
           <LegendChip legendId={legendSlug} size="md" showName={false} />
-          <span className="truncate text-sm font-medium">{p.username}</span>
+          <PlayerLink
+            id={p.brawlhalla_id}
+            className="truncate text-sm font-medium"
+          >
+            {p.username}
+          </PlayerLink>
         </div>
       ),
     },

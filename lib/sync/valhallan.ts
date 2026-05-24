@@ -113,6 +113,7 @@ export async function getStaleValhallanIds(
 }
 
 export interface TopMainer {
+  brawlhallaId: number
   username: string
   rating: number
   region: string
@@ -162,7 +163,7 @@ export async function getTopValhallanMainers(
         ) AS rn
       FROM valhallans
     )
-    SELECT top_legend_id, username, rating, region, region_rank
+    SELECT top_legend_id, brawlhalla_id, username, rating, region, region_rank
     FROM legend_ranked
     WHERE rn <= ${perLegend}
     ORDER BY top_legend_id, rn
@@ -170,6 +171,7 @@ export async function getTopValhallanMainers(
 
   const rows = result.rows as unknown as Array<{
     top_legend_id: number
+    brawlhalla_id: number
     username: string
     rating: number
     region: string
@@ -180,6 +182,7 @@ export async function getTopValhallanMainers(
   for (const row of rows) {
     const list = map.get(row.top_legend_id) ?? []
     list.push({
+      brawlhallaId: row.brawlhalla_id,
       username: row.username,
       rating: row.rating,
       region: row.region,

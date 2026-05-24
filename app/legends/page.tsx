@@ -4,7 +4,7 @@ import { DataTable, type ColDef } from "@/components/site/data-table"
 import { PageHero } from "@/components/site/page-hero"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
-import { LegendChip } from "@/components/site/primitives"
+import { LegendChip, PlayerLink } from "@/components/site/primitives"
 import { getLegend } from "@/lib/mock-data"
 import { slugForLegendId } from "@/lib/legends-roster"
 import {
@@ -92,9 +92,12 @@ function buildColumns(
                 <span className="font-mono text-[10px] tabular-nums text-tier-valhallan">
                   [{m.region} #{m.regionRank}]
                 </span>
-                <span className="font-medium text-foreground/90">
+                <PlayerLink
+                  id={m.brawlhallaId}
+                  className="font-medium text-foreground/90"
+                >
                   {m.username}
-                </span>
+                </PlayerLink>
               </span>
             ))}
           </div>

@@ -10,7 +10,7 @@ import { getPlayersByIds } from "@/lib/sync/players"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { Tier } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
-import { LegendChip, RankIcon, TIER_TEXT_COLOR } from "./primitives"
+import { LegendChip, PlayerLink, RankIcon, TIER_TEXT_COLOR } from "./primitives"
 
 export const HOME_REGIONS = ["US-E", "EU", "BRZ"] as const
 export type HomeRegion = (typeof HOME_REGIONS)[number]
@@ -175,9 +175,9 @@ export async function TopPlayersCard({
                           />
                         )}
                         <span className="flex min-w-0 flex-col gap-0.5">
-                          <span className="truncate font-medium">
+                          <PlayerLink id={p.id} className="truncate font-medium">
                             {p.username}
-                          </span>
+                          </PlayerLink>
                           {is1v1 && tier && (
                             <span
                               className={cn(
