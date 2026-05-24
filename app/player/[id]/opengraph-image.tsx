@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og"
-import { getPlayerRanked } from "@/lib/brawlhalla-api"
-import { deriveTier, tierLabel } from "@/lib/tier"
+import { getPlayerRanked, isApiRegion } from "@/lib/brawlhalla-api"
+import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
+import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 import { PLAYER_PREVIEWS } from "@/lib/player-previews"
 
 export const alt = "Brawlchemist player profile"
@@ -31,8 +32,15 @@ export default async function OgImage({
     Number.isInteger(numId) && numId > 0 ? await getPlayerRanked(numId) : null
   const data = res?.ok ? res.data : null
 
+  // Tell Valhallan apart from Diamond (both 2000+) using the region's cutoff.
+  let valhallan = false
+  if (data?.region && data.region !== "ALL" && isApiRegion(data.region)) {
+    const c = await getValhallanCutoff("1v1", data.region)
+    valhallan = isValhallan(data.rating, c?.rating ?? null, data.wins)
+  }
+
   const name = data?.name || "Player"
-  const tier = data ? deriveTier(data.tier, data.rating) : null
+  const tier = data ? deriveTier(data.tier, valhallan) : null
   const tierColor = tier ? TIER_HEX[tier] : "#8b8b94"
   const games = data?.games ?? 0
   const wins = data?.wins ?? 0
@@ -108,7 +116,7 @@ export default async function OgImage({
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 34 }}>
             <div style={{ display: "flex", color: tierColor, fontWeight: 600 }}>
-              {data ? tierLabel(data.tier, data.rating) : "—"}
+              {data ? tierLabel(data.tier, valhallan) : "—"}
             </div>
             {data?.region ? (
               <div style={{ display: "flex", color: "#6b6b73" }}>·</div>

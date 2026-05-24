@@ -19,37 +19,12 @@ import {
   rosterEntryBySlug,
   type RosterEntry,
 } from "@/lib/legends-roster"
-import type { Tier } from "@/lib/types"
-import { API_REGIONS, isApiRegion } from "@/lib/brawlhalla-api"
+import { API_REGIONS, isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import { getOtpsForLegend, type OtpPlayer } from "@/lib/sync/otps"
+import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
+import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 
 const REGION_OPTIONS = ["ALL", ...API_REGIONS.filter((r) => r !== "ALL")] as const
-
-// The /ranked endpoint never returns "Valhallan" — it caps at "Diamond"
-// even for 2800-rated players. We derive the true tier from rating.
-const VALHALLAN_THRESHOLD = 2000
-const KNOWN_TIERS: readonly Tier[] = [
-  "Tin",
-  "Bronze",
-  "Silver",
-  "Gold",
-  "Platinum",
-  "Diamond",
-  "Valhallan",
-]
-
-function deriveTier(apiTier: string | null, rating: number | null): Tier | null {
-  if (rating != null && rating >= VALHALLAN_THRESHOLD) return "Valhallan"
-  if (!apiTier) return null
-  return (KNOWN_TIERS as readonly string[]).includes(apiTier)
-    ? (apiTier as Tier)
-    : null
-}
-
-function tierLabel(apiTier: string | null, rating: number | null): string {
-  if (rating != null && rating >= VALHALLAN_THRESHOLD) return "Valhallan"
-  return apiTier ?? "—"
-}
 
 function formatWinRate(wins: number | null, games: number | null): string {
   if (wins == null || games == null || games === 0) return "—"
@@ -58,7 +33,10 @@ function formatWinRate(wins: number | null, games: number | null): string {
 
 const DEFAULT_LEGEND_SLUG = "cassidy"
 
-function buildColumns(legendSlug: string): ColDef<OtpPlayer>[] {
+function buildColumns(
+  legendSlug: string,
+  valhallanById: Map<number, boolean>,
+): ColDef<OtpPlayer>[] {
   return [
     {
       id: "rank",
@@ -77,7 +55,7 @@ function buildColumns(legendSlug: string): ColDef<OtpPlayer>[] {
       width: "72px",
       align: "center",
       render: (p) => {
-        const tier = deriveTier(p.tier, p.rating)
+        const tier = deriveTier(p.tier, valhallanById.get(p.brawlhalla_id) ?? false)
         return tier ? (
           <RankIcon tier={tier} size={32} className="mx-auto" />
         ) : null
@@ -114,7 +92,8 @@ function buildColumns(legendSlug: string): ColDef<OtpPlayer>[] {
       label: "Tier",
       width: "110px",
       render: (p) => {
-        const tier = deriveTier(p.tier, p.rating)
+        const val = valhallanById.get(p.brawlhalla_id) ?? false
+        const tier = deriveTier(p.tier, val)
         return (
           <span
             className={cn(
@@ -122,7 +101,7 @@ function buildColumns(legendSlug: string): ColDef<OtpPlayer>[] {
               tier ? TIER_TEXT_COLOR[tier] : "text-muted-foreground",
             )}
           >
-            {tierLabel(p.tier, p.rating)}
+            {tierLabel(p.tier, val)}
           </span>
         )
       },
@@ -204,6 +183,29 @@ export default async function OtpsPage({
     region: regionFilter,
     limit: 50,
   })
+
+  // Valhallan vs Diamond (both 2000+) hinges on each player's regional ladder
+  // cutoff. Fetch only the regions present here (cached, shared with the
+  // leaderboard) and mark who clears it with the 100-win requirement.
+  const regions = [
+    ...new Set(
+      players
+        .map((p) => p.region)
+        .filter(
+          (r): r is ApiRegion => !!r && r !== "ALL" && isApiRegion(r),
+        ),
+    ),
+  ]
+  const cutoffs = await getValhallanCutoffs("1v1", regions)
+  const valhallanById = new Map<number, boolean>(
+    players.map((p) => {
+      const cutoff =
+        p.region && isApiRegion(p.region)
+          ? cutoffs.get(p.region)?.rating ?? null
+          : null
+      return [p.brawlhalla_id, isValhallan(p.rating, cutoff, p.wins)]
+    }),
+  )
 
   const pickerOptions = [...LEGEND_ROSTER]
     .map((l) => ({ slug: l.slug, name: l.name }))
@@ -290,7 +292,7 @@ export default async function OtpsPage({
                 </div>
               )}
               <DataTable
-                columns={buildColumns(legendSlug)}
+                columns={buildColumns(legendSlug, valhallanById)}
                 rows={players}
                 rowKey={(p) => String(p.brawlhalla_id)}
               />

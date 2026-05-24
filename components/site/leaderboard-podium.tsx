@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils"
+import Image from "next/image"
 import { formatElo, formatPercent } from "@/lib/format"
 import type { PlayerRow } from "@/lib/db/schema"
 import type {
@@ -8,8 +8,10 @@ import type {
   RankedEntry,
 } from "@/lib/brawlhalla-api"
 import { slugForLegendId } from "@/lib/legends-roster"
+import { PLAYER_PREVIEWS } from "@/lib/player-previews"
 import type { Tier } from "@/lib/types"
-import { LegendChip, PlayerLink, RankIcon, TIER_TEXT_COLOR } from "./primitives"
+import { LegendChip, PlayerLink, TIER_TEXT_COLOR } from "./primitives"
+import { ProBadge } from "./pro-badge"
 
 const KNOWN_TIERS: readonly Tier[] = [
   "Tin",
@@ -27,26 +29,6 @@ function toTier(value: string | null): Tier | null {
   return (KNOWN_TIERS as readonly string[]).includes(base)
     ? (base as Tier)
     : null
-}
-
-const TIER_GRADIENT: Record<Tier, string> = {
-  Tin: "from-tier-tin/20 via-tier-tin/5 to-transparent",
-  Bronze: "from-tier-bronze/25 via-tier-bronze/5 to-transparent",
-  Silver: "from-tier-silver/25 via-tier-silver/5 to-transparent",
-  Gold: "from-tier-gold/30 via-tier-gold/5 to-transparent",
-  Platinum: "from-tier-platinum/30 via-tier-platinum/5 to-transparent",
-  Diamond: "from-tier-diamond/30 via-tier-diamond/5 to-transparent",
-  Valhallan: "from-tier-valhallan/35 via-tier-valhallan/10 to-transparent",
-}
-
-const TIER_BORDER: Record<Tier, string> = {
-  Tin: "border-tier-tin/40",
-  Bronze: "border-tier-bronze/40",
-  Silver: "border-tier-silver/40",
-  Gold: "border-tier-gold/45",
-  Platinum: "border-tier-platinum/45",
-  Diamond: "border-tier-diamond/45",
-  Valhallan: "border-tier-valhallan/50",
 }
 
 const TOP_LEGENDS_LIMIT = 5
@@ -76,15 +58,12 @@ function PodiumCard({
   entry,
   playersMap,
   gameMode,
-  highlight,
 }: {
   entry: RankedEntry
   playersMap: Map<number, PlayerRow>
   gameMode: ApiGameMode
-  highlight: boolean
 }) {
   const tier = toTier(entry.tier)
-  const tint = tier ?? "Valhallan"
   const username = entry.players.map((p) => p.username).join(" + ")
   const player = entry.players[0]
   const slugs =
@@ -94,37 +73,59 @@ function PodiumCard({
   const winRate = formatWinRate(entry.wins, entry.losses)
   const totalGames = (entry.wins ?? 0) + (entry.losses ?? 0)
 
+  // Experimental player previews (verified pros, favorite skins) are keyed by
+  // brawlhalla id. The skin belongs to the primary player; the pro badge shows
+  // if either teammate is verified.
+  const primaryPreview = player ? PLAYER_PREVIEWS[player.id] : undefined
+  const skin = primaryPreview?.favoriteSkin
+  const verified = entry.players.some((p) => PLAYER_PREVIEWS[p.id]?.verified)
+
   return (
-    <div
-      className={cn(
-        "relative flex flex-col gap-4 overflow-hidden rounded-2xl border bg-card/60 p-5 shadow-lg backdrop-blur-sm transition-transform",
-        TIER_BORDER[tint],
-        highlight && "ring-2 ring-tier-gold/40 sm:-translate-y-2",
+    <div className="relative flex gap-4 overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-5 shadow-lg backdrop-blur-sm">
+      {/* Favorite skin — faint character art bleeding in from the right as a
+          backdrop. Cropped by overflow-hidden; masked so it fades into the card
+          rather than hard-cutting across the stats. */}
+      {skin && (
+        <Image
+          src={skin.src}
+          alt=""
+          aria-hidden
+          width={364}
+          height={323}
+          className="pointer-events-none absolute -right-6 top-1/2 h-[150%] w-auto max-w-none -translate-y-1/2 select-none object-contain opacity-[0.12]"
+          style={{
+            maskImage: "linear-gradient(to left, black 35%, transparent 95%)",
+            WebkitMaskImage: "linear-gradient(to left, black 35%, transparent 95%)",
+          }}
+        />
       )}
-    >
-      {/* Tier-tinted backdrop wash */}
-      <div
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute inset-0 bg-gradient-to-br",
-          TIER_GRADIENT[tint],
-        )}
-      />
 
-      <div className="relative flex items-center justify-between gap-3">
-        <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/40 font-display text-base font-bold text-foreground">
-          {entry.rank}
-        </span>
-        <PlayerLink
-          id={gameMode === "1v1" ? player?.id : null}
-          className="min-w-0 flex-1 truncate text-center text-lg font-semibold leading-tight"
-        >
-          {username || "—"}
-        </PlayerLink>
-        {tier && <RankIcon tier={tier} size={44} className="shrink-0" />}
-      </div>
+      {/* Left rail — rank banner. */}
+      {tier && (
+        <Image
+          src={`/assets/ranks/Banner_Rank_${tier}.webp`}
+          alt={`${tier} rank banner`}
+          width={182}
+          height={330}
+          className="relative h-28 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-32"
+        />
+      )}
 
-      <div className="relative flex flex-col gap-1">
+      {/* Right column — identity, rating, and best legends. */}
+      <div className="relative flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/40 font-display text-sm font-bold text-foreground">
+            {entry.rank}
+          </span>
+          <PlayerLink
+            id={gameMode === "1v1" ? player?.id : null}
+            className="min-w-0 flex-1 truncate text-base font-semibold leading-tight"
+          >
+            {username || "—"}
+          </PlayerLink>
+          {verified && <ProBadge className="shrink-0" />}
+        </div>
+
         <div className="flex items-baseline gap-1.5">
           <span className="font-mono text-3xl font-bold tabular-nums text-foreground">
             {entry.rating != null ? formatElo(entry.rating) : "—"}
@@ -135,10 +136,9 @@ function PodiumCard({
             </span>
           )}
         </div>
-        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider">
-          {tier && (
-            <span className={TIER_TEXT_COLOR[tier]}>{entry.tier}</span>
-          )}
+
+        <span className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider">
+          {tier && <span className={TIER_TEXT_COLOR[tier]}>{entry.tier}</span>}
           {tier && <span className="text-muted-foreground/60">·</span>}
           <span className="text-positive">{winRate}</span>
           <span className="text-muted-foreground/60">·</span>
@@ -146,14 +146,9 @@ function PodiumCard({
             {totalGames.toLocaleString()} games
           </span>
         </span>
-      </div>
 
-      {slugs.length > 0 && (
-        <div className="relative flex flex-col gap-1.5">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            Best legends
-          </span>
-          <div className="flex items-center gap-1.5">
+        {slugs.length > 0 && (
+          <div className="mt-auto flex items-center gap-1.5 pt-1">
             {slugs.map((slug) => (
               <LegendChip
                 key={slug}
@@ -163,8 +158,8 @@ function PodiumCard({
               />
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
@@ -183,13 +178,12 @@ export function LeaderboardPodium({
 
   return (
     <div className="mx-auto mb-4 grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {top3.map((entry, i) => (
+      {top3.map((entry) => (
         <PodiumCard
           key={`${entry.rank}-${entry.players[0]?.id ?? "x"}`}
           entry={entry}
           playersMap={playersMap}
           gameMode={gameMode}
-          highlight={i === 0}
         />
       ))}
     </div>

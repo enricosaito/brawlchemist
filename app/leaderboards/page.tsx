@@ -1,3 +1,4 @@
+import Image from "next/image"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import {
@@ -317,6 +318,11 @@ export default async function LeaderboardsPage({
     params.region && isApiRegion(params.region) ? params.region : "BRZ"
   const requestedPage = Math.max(1, Number(params.page ?? "1") || 1)
 
+  // When narrowed to a single region, the cutoff strip collapses to just that
+  // region; "ALL" keeps the multi-region reference breakdown.
+  const cutoffRegions: ApiRegion[] =
+    region === "ALL" ? CUTOFF_REGIONS : [region]
+
   const [result, cutoffs] = await Promise.all([
     getRankedLeaderboard({
       gameMode,
@@ -324,7 +330,7 @@ export default async function LeaderboardsPage({
       page: requestedPage,
       maxResults: PAGE_SIZE,
     }),
-    getValhallanCutoffs(gameMode, CUTOFF_REGIONS),
+    getValhallanCutoffs(gameMode, cutoffRegions),
   ])
   const totalPages = result.ok ? Math.max(1, result.data.total_pages) : 1
   // Clamp current page in case the user requested past the end.
@@ -414,18 +420,26 @@ export default async function LeaderboardsPage({
                 Valhallan cutoff
               </span>
               <div className="flex flex-wrap items-center gap-1">
-                {CUTOFF_REGIONS.map((r) => {
+                {cutoffRegions.map((r) => {
                   const c = cutoffs.get(r)
                   if (!c) return null
                   return (
                     <span
                       key={r}
-                      className="inline-flex items-baseline gap-1 rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-tier-valhallan"
+                      className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground"
                       title={`#${c.rank} ${c.username} — ${c.count} Valhallans total`}
                     >
-                      <span>{r}</span>
-                      <span className="opacity-60">·</span>
-                      <span className="tabular-nums">{c.rating}</span>
+                      <Image
+                        src="/assets/valhallan-helm.png"
+                        alt=""
+                        width={16}
+                        height={16}
+                        className="shrink-0 select-none object-contain"
+                      />
+                      <span className="text-muted-foreground">{r}</span>
+                      <span className="tabular-nums">
+                        {c.rating.toLocaleString()}
+                      </span>
                     </span>
                   )
                 })}

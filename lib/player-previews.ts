@@ -26,6 +26,22 @@ export const PLAYER_PREVIEWS: Record<number, PlayerPreview> = {
       "2v2 Midseason Champion '24",
     ],
   },
+  // Lopes
+  5461700: {
+    favoriteSkin: {
+      src: "/assets/SIDRA_PirateQueenSidra_WillowLeaves.png",
+      name: "Pirate Queen Sidra",
+    },
+    verified: { handle: "Lopes" },
+  },
+  // yüz
+  5989758: {
+    favoriteSkin: {
+      src: "/assets/EMBER_Fangwild'sHeartEmber_WillowLeaves_Movement_Bow_NeutralSignature_Original_Original_1_410x346.png",
+      name: "Fangwild's Heart Ember",
+    },
+    verified: { handle: "yüz" },
+  },
 }
 
 export function playerPreview(id: number): PlayerPreview | undefined {
