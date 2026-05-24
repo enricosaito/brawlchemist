@@ -75,6 +75,21 @@ export interface PlayerRankedLegend {
   [key: string]: unknown
 }
 
+/** A 2v2 team row from GetPlayerRanked. `region` here is a numeric id (not the
+ * string region used at the top level), so we leave it untyped/undisplayed. */
+export interface PlayerRanked2v2 {
+  brawlhalla_id_one: number
+  brawlhalla_id_two: number
+  rating: number
+  peak_rating: number
+  tier: string
+  wins: number
+  games: number
+  teamname: string
+  global_rank?: number
+  [key: string]: unknown
+}
+
 export interface PlayerRanked {
   brawlhalla_id: number
   name: string
@@ -84,7 +99,10 @@ export interface PlayerRanked {
   peak_rating: number
   games: number
   wins: number
+  global_rank?: number
+  region_rank?: number
   legends: PlayerRankedLegend[]
+  "2v2"?: PlayerRanked2v2[]
   [key: string]: unknown
 }
 
@@ -163,6 +181,26 @@ export function getPlayerRanked(
   // We bypass the fetch cache here: the sync layer decides freshness via the
   // DB's last_synced column, not the HTTP layer.
   return apiFetch<PlayerRanked>(`/player/${brawlhallaId}/ranked`, {}, 0)
+}
+
+/**
+ * SearchPlayerBySteamId response — maps a steamID64 to a Brawlhalla account.
+ * `name` can come back as an empty string for accounts without a display name.
+ */
+export interface PlayerSearchResult {
+  brawlhalla_id: number
+  name: string
+}
+
+export function searchPlayerBySteamId(
+  steamId: string,
+): Promise<ApiResult<PlayerSearchResult>> {
+  // Steam→Brawlhalla mappings are stable; cache for a day to spare the API.
+  return apiFetch<PlayerSearchResult>(
+    "/search",
+    { steamid: steamId },
+    60 * 60 * 24,
+  )
 }
 
 export interface LegendSummary {

@@ -1,6 +1,6 @@
 import "server-only"
 
-import { eq, inArray } from "drizzle-orm"
+import { eq, ilike, inArray, sql } from "drizzle-orm"
 import {
   getPlayerRanked,
   type PlayerRanked,
@@ -22,6 +22,33 @@ function topRankedLegendId(legends: PlayerRankedLegend[]): number | null {
 
 function isFresh(row: PlayerRow, ttlMs: number): boolean {
   return Date.now() - row.lastSynced.getTime() < ttlMs
+}
+
+/**
+ * Upsert an already-fetched GetPlayerRanked payload into the players table.
+ * Shared by the background sync and the profile page (which fetches the live
+ * payload anyway, so it can populate the pool for free on every view).
+ */
+export async function upsertPlayerRanked(ranked: PlayerRanked): Promise<void> {
+  const topLegendId = topRankedLegendId(ranked.legends ?? [])
+  await db()
+    .insert(players)
+    .values({
+      brawlhallaId: ranked.brawlhalla_id,
+      username: ranked.name,
+      topLegendId,
+      rankedJson: ranked,
+      lastSynced: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: players.brawlhallaId,
+      set: {
+        username: ranked.name,
+        topLegendId,
+        rankedJson: ranked,
+        lastSynced: new Date(),
+      },
+    })
 }
 
 export interface SyncOutcome {
@@ -57,27 +84,7 @@ export async function syncPlayer(
     return { status: "failed", brawlhallaId, error: result.error }
   }
 
-  const ranked: PlayerRanked = result.data
-  const topLegendId = topRankedLegendId(ranked.legends ?? [])
-
-  await db()
-    .insert(players)
-    .values({
-      brawlhallaId: ranked.brawlhalla_id,
-      username: ranked.name,
-      topLegendId,
-      rankedJson: ranked,
-      lastSynced: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: players.brawlhallaId,
-      set: {
-        username: ranked.name,
-        topLegendId,
-        rankedJson: ranked,
-        lastSynced: new Date(),
-      },
-    })
+  await upsertPlayerRanked(result.data)
 
   return { status: "synced", brawlhallaId }
 }
@@ -105,6 +112,27 @@ export async function syncManyPlayers(
     }
   }
   return outcomes
+}
+
+/**
+ * Search the local player pool by username (case-insensitive substring).
+ *
+ * The Brawlhalla API has no name-search endpoint, so this only finds players
+ * we've already synced — via leaderboard/OTP enrichment or someone viewing
+ * their profile. Ranked higher-rating first so the strongest matches lead.
+ */
+export async function searchPlayersByUsername(
+  query: string,
+  limit = 20,
+): Promise<PlayerRow[]> {
+  const q = query.trim()
+  if (!q) return []
+  return db()
+    .select()
+    .from(players)
+    .where(ilike(players.username, `%${q}%`))
+    .orderBy(sql`(${players.rankedJson}->>'rating')::int desc nulls last`)
+    .limit(limit)
 }
 
 /**
