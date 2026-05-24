@@ -7,6 +7,7 @@ import {
   TIER_TEXT_COLOR,
 } from "@/components/site/primitives"
 import { DataTable, type ColDef } from "@/components/site/data-table"
+import { LeaderboardPodium } from "@/components/site/leaderboard-podium"
 import { PageHero } from "@/components/site/page-hero"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
@@ -20,11 +21,34 @@ import {
   type ApiRegion,
   getRankedLeaderboard,
   isApiRegion,
+  type PlayerRanked,
+  type PlayerRankedLegend,
   type RankedEntry,
 } from "@/lib/brawlhalla-api"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
+
+const TOP_LEGENDS_LIMIT = 5
+
+/**
+ * Pull up to N most-played legends from a player's cached rankedJson.
+ * Returns slugs (in games-desc order), filtering out anything we can't map
+ * back to a roster entry.
+ */
+function topLegendSlugsFor(player: PlayerRow | undefined): string[] {
+  if (!player?.rankedJson) return []
+  const ranked = player.rankedJson as PlayerRanked
+  const legends: PlayerRankedLegend[] = Array.isArray(ranked.legends)
+    ? ranked.legends
+    : []
+  return legends
+    .filter((l) => typeof l.games === "number" && l.games > 0)
+    .sort((a, b) => b.games - a.games)
+    .slice(0, TOP_LEGENDS_LIMIT)
+    .map((l) => slugForLegendId(l.legend_id))
+    .filter((s): s is string => !!s)
+}
 
 const CUTOFF_REGIONS: ApiRegion[] = ["US-E", "EU", "BRZ"]
 
@@ -66,7 +90,20 @@ function formatNullableElo(value: number | null): string {
 
 function buildColumns(
   playersMap: Map<number, PlayerRow>,
+  gameMode: ApiGameMode,
+  region: ApiRegion,
 ): ColDef<RankedEntry>[] {
+  const regionColumn: ColDef<RankedEntry> = {
+    id: "region",
+    label: "Region",
+    width: "84px",
+    render: (r) =>
+      r.region ? (
+        <RegionPill region={r.region} />
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
+      ),
+  }
   return [
     {
       id: "rank",
@@ -126,63 +163,107 @@ function buildColumns(
     {
       id: "player",
       label: "Player",
-      render: (r) => (
-        <div className="flex min-w-0 flex-col gap-1">
-          {r.players.length > 0 ? (
-            r.players.map((p) => (
-              <span
-                key={p.id}
-                className="truncate text-sm font-medium leading-5"
-              >
-                {p.username}
-              </span>
-            ))
-          ) : (
-            <span className="text-sm text-muted-foreground">—</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      id: "region",
-      label: "Region",
-      width: "84px",
-      render: (r) =>
-        r.region ? (
-          <RegionPill region={r.region} />
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        ),
-    },
-    {
-      id: "tier",
-      label: "Tier",
-      width: "110px",
       render: (r) => {
         const tier = toTier(r.tier)
         return (
-          <span
-            className={cn(
-              "font-mono text-[11px] font-medium uppercase tracking-wider",
-              tier ? TIER_TEXT_COLOR[tier] : "text-muted-foreground",
+          <div className="flex min-w-0 flex-col gap-0.5">
+            {r.players.length > 0 ? (
+              r.players.map((p) => (
+                <span
+                  key={p.id}
+                  className="truncate text-sm font-medium leading-5"
+                >
+                  {p.username}
+                </span>
+              ))
+            ) : (
+              <span className="text-sm text-muted-foreground">—</span>
             )}
-          >
-            {r.tier ?? "—"}
-          </span>
+            {tier && (
+              <span
+                className={cn(
+                  "mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
+                  TIER_TEXT_COLOR[tier],
+                )}
+              >
+                {r.tier}
+              </span>
+            )}
+          </div>
         )
       },
     },
+    // Hide the region column when the user has already narrowed to one
+    // region — every row in the result set would be identical anyway.
+    ...(region === "ALL" ? [regionColumn] : []),
     {
       id: "rating",
       label: "Rating",
       align: "right",
-      width: "100px",
+      width: "120px",
       render: (r) => (
         <span className="font-mono text-sm tabular-nums">
           {formatNullableElo(r.rating)}
+          {r.rating != null && (
+            <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+              ELO
+            </span>
+          )}
         </span>
       ),
     },
+    // 1v1: show up to 5 most-played legends pulled from cached ranked_json.
+    // 2v2: fall back to the textual tier column — best-legends would be
+    // ambiguous across the team's two players.
+    gameMode === "1v1"
+      ? {
+          id: "best-legends",
+          label: "Best Legends",
+          width: "200px",
+          render: (r) => {
+            const player = r.players[0]
+            const slugs = player
+              ? topLegendSlugsFor(playersMap.get(player.id))
+              : []
+            if (slugs.length === 0) {
+              return (
+                <span className="font-mono text-[10px] text-muted-foreground/60">
+                  —
+                </span>
+              )
+            }
+            return (
+              <div className="flex items-center gap-1.5">
+                {slugs.map((slug) => (
+                  <LegendChip
+                    key={slug}
+                    legendId={slug}
+                    size="md"
+                    showName={false}
+                  />
+                ))}
+              </div>
+            )
+          },
+        }
+      : {
+          id: "tier",
+          label: "Tier",
+          width: "110px",
+          render: (r) => {
+            const tier = toTier(r.tier)
+            return (
+              <span
+                className={cn(
+                  "font-mono text-[11px] font-medium uppercase tracking-wider",
+                  tier ? TIER_TEXT_COLOR[tier] : "text-muted-foreground",
+                )}
+              >
+                {r.tier ?? "—"}
+              </span>
+            )
+          },
+        },
     {
       id: "peak",
       label: "Peak",
@@ -262,7 +343,7 @@ export default async function LeaderboardsPage({
     }
   }
 
-  const columns = buildColumns(playersMap)
+  const columns = buildColumns(playersMap, gameMode, region)
 
   return (
     <div className="min-h-svh">
@@ -363,9 +444,16 @@ export default async function LeaderboardsPage({
             </div>
           ) : (
             <div className="mx-auto max-w-[1280px]">
+              {page === 1 && (
+                <LeaderboardPodium
+                  entries={rows}
+                  playersMap={playersMap}
+                  gameMode={gameMode}
+                />
+              )}
               <DataTable
                 columns={columns}
-                rows={rows}
+                rows={page === 1 ? rows.slice(3) : rows}
                 rowKey={(r) => `${r.rank}-${r.players[0]?.id ?? "x"}`}
               />
               {totalPages > 1 && (
