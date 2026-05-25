@@ -23,7 +23,7 @@ export function PlayerLink({
     <Link
       href={`/player/${id}`}
       className={cn(
-        "underline-offset-2 transition-colors hover:text-copper hover:underline",
+        "underline-offset-2 transition-colors hover:underline",
         className,
       )}
     >

@@ -1,5 +1,6 @@
 import Image from "next/image"
 import Link from "next/link"
+import { BadgeCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   LegendChip,
@@ -32,7 +33,6 @@ import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import { getOverridesMap } from "@/lib/sync/player-overrides"
 import { isFallenValhallan } from "@/lib/tier"
 import { FallenEmblem } from "@/components/site/fallen-valhallan"
-import { PlayerName } from "@/components/site/pro-badge"
 import type { PlayerPreview } from "@/lib/player-previews"
 import type { PlayerRow } from "@/lib/db/schema"
 
@@ -185,8 +185,8 @@ function buildColumns(
       label: "Player",
       render: (r) => {
         const tier = toTier(r.tier)
-        // Pro rows hide the tier and show the PRO handle by default; hovering
-        // swaps to the in-game username and reveals the tier (one group/pro).
+        // Pros show "<handle> ✓" + a blue "Pro Player" tag by default; hovering
+        // the row reveals the in-game username and the real tier (one group/pro).
         const rowPro = r.players.some((p) => !!previews.get(p.id)?.verified)
         return (
           <div
@@ -202,7 +202,15 @@ function buildColumns(
                     className="text-sm font-medium leading-5"
                   >
                     {handle ? (
-                      <PlayerName username={p.username} handle={handle} />
+                      <span className="inline-flex min-w-0 items-center gap-1">
+                        <span className="min-w-0 truncate">
+                          <span className="group-hover/pro:hidden">{handle}</span>
+                          <span className="hidden group-hover/pro:inline">
+                            {p.username}
+                          </span>
+                        </span>
+                        <BadgeCheck className="size-3.5 shrink-0 text-foreground group-hover/pro:hidden" />
+                      </span>
                     ) : (
                       <span className="truncate">{p.username}</span>
                     )}
@@ -212,17 +220,32 @@ function buildColumns(
             ) : (
               <span className="text-sm text-muted-foreground">—</span>
             )}
-            {tier && (
+            {rowPro ? (
+              <>
+                <span className="mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-mystic group-hover/pro:hidden">
+                  Pro Player
+                </span>
+                {tier && (
+                  <span
+                    className={cn(
+                      "mt-0.5 hidden font-mono text-[10px] font-medium uppercase tracking-wider group-hover/pro:block",
+                      TIER_TEXT_COLOR[tier],
+                    )}
+                  >
+                    {r.tier}
+                  </span>
+                )}
+              </>
+            ) : tier ? (
               <span
                 className={cn(
                   "mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
                   TIER_TEXT_COLOR[tier],
-                  rowPro && "hidden group-hover/pro:block",
                 )}
               >
                 {r.tier}
               </span>
-            )}
+            ) : null}
           </div>
         )
       },
