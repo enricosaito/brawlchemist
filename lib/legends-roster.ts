@@ -12,8 +12,8 @@ import type { WeaponId } from "./types"
  *   Sourced from the user's tier-list. The /weapons page derives its data
  *   from this mapping; do not let the mock-data fall out of sync with this.
  *
- * Ransom's weapons are still a placeholder pending user confirmation (Lady
- * Vera and Rupture are now confirmed).
+ * Ransom / Lady Vera / Rupture weapons are placeholders pending user
+ * confirmation — TODO mark them out below.
  */
 export interface RosterEntry {
   slug: string
@@ -85,13 +85,12 @@ export const LEGEND_ROSTER: RosterEntry[] = [
   { slug: "loki", name: "Loki", legendId: 27, weapons: ["katar", "scythe"] },
   { slug: "seven", name: "Seven", legendId: 61, weapons: ["spear", "cannon"] },
   { slug: "vivi", name: "Vivi", legendId: 64, weapons: ["blasters", "battle-boots"] },
-  { slug: "imugi", name: "Imugi", legendId: 65, weapons: ["axe", "cannon"] },
+  { slug: "imugi", name: "Imugi", legendId: 65, weapons: ["axe", "greatsword"] },
   { slug: "king-zuva", name: "King Zuva", legendId: 66, weapons: ["hammer", "battle-boots"] },
-  { slug: "priya", name: "Priya", legendId: 67, weapons: ["chakram", "spear"] },
-  // TODO: confirm Ransom's weapons with user (still a placeholder).
-  { slug: "ransom", name: "Ransom", legendId: 68, weapons: ["greatsword", "bow"] },
-  { slug: "lady-vera", name: "Lady Vera", legendId: 69, weapons: ["chakram", "scythe"] },
-  { slug: "rupture", name: "Rupture", legendId: 70, weapons: ["rocket-lance", "katar"] },
+  { slug: "priya", name: "Priya", legendId: 67, weapons: ["chakram", "sword"] },
+  { slug: "ransom", name: "Ransom", legendId: 68, weapons: ["chakram", "bow"] },
+  { slug: "lady-vera", name: "Lady Vera", legendId: 69, weapons: ["chakram", "orb"] },
+  { slug: "rupture", name: "Rupture", legendId: 70, weapons: ["hammer", "battle-boots"] },
 ]
 
 const SLUG_BY_LEGEND_ID = new Map<number, string>(
