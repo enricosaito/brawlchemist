@@ -202,7 +202,12 @@ function buildColumns(
                     className="text-sm font-medium leading-5"
                   >
                     {handle ? (
-                      <PlayerName username={p.username} handle={handle} />
+                      <PlayerName
+                        username={p.username}
+                        handle={handle}
+                        tier={r.tier}
+                        tierClassName={tier ? TIER_TEXT_COLOR[tier] : undefined}
+                      />
                     ) : (
                       <span className="truncate">{p.username}</span>
                     )}
@@ -212,12 +217,12 @@ function buildColumns(
             ) : (
               <span className="text-sm text-muted-foreground">—</span>
             )}
-            {tier && (
+            {/* Pro rows show the tier inline next to the name on hover instead. */}
+            {tier && !rowPro && (
               <span
                 className={cn(
                   "mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
                   TIER_TEXT_COLOR[tier],
-                  rowPro && "hidden group-hover/pro:block",
                 )}
               >
                 {r.tier}
