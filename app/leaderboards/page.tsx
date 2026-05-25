@@ -185,8 +185,13 @@ function buildColumns(
       label: "Player",
       render: (r) => {
         const tier = toTier(r.tier)
+        // Pro rows hide the tier and show the PRO handle by default; hovering
+        // swaps to the in-game username and reveals the tier (one group/pro).
+        const rowPro = r.players.some((p) => !!previews.get(p.id)?.verified)
         return (
-          <div className="flex min-w-0 flex-col gap-0.5">
+          <div
+            className={cn("flex min-w-0 flex-col gap-0.5", rowPro && "group/pro")}
+          >
             {r.players.length > 0 ? (
               r.players.map((p) => {
                 const handle = previews.get(p.id)?.verified?.handle
@@ -212,6 +217,7 @@ function buildColumns(
                 className={cn(
                   "mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
                   TIER_TEXT_COLOR[tier],
+                  rowPro && "hidden group-hover/pro:block",
                 )}
               >
                 {r.tier}

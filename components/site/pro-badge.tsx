@@ -20,9 +20,10 @@ export function ProBadge({ className }: { className?: string }) {
 
 /**
  * PlayerName — for verified pros, shows the PRO badge + clean handle by default
- * and reveals the (often clan-tagged) in-game username on hover. CSS-only swap,
- * so it works in server-rendered tables. Render this only when `handle` is set;
- * fall back to the plain username otherwise.
+ * and swaps to the (often clan-tagged) in-game username on hover, dropping the
+ * badge. CSS-only, driven by an ancestor with `group/pro` (the leaderboard row
+ * or podium card), so the same hover also reveals the tier alongside it. Render
+ * only when `handle` is set; fall back to the plain username otherwise.
  */
 export function PlayerName({
   username,
@@ -34,13 +35,8 @@ export function PlayerName({
   className?: string
 }) {
   return (
-    <span
-      className={cn(
-        "group/pro inline-flex min-w-0 items-center gap-1.5",
-        className,
-      )}
-    >
-      <ProBadge className="shrink-0" />
+    <span className={cn("inline-flex min-w-0 items-center gap-1.5", className)}>
+      <ProBadge className="shrink-0 group-hover/pro:hidden" />
       <span className="min-w-0 truncate">
         <span className="group-hover/pro:hidden">{handle}</span>
         <span className="hidden group-hover/pro:inline">{username}</span>

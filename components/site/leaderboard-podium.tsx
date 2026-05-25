@@ -83,6 +83,9 @@ function PodiumCard({
   const skin = primaryPreview?.favoriteSkin
   const handle = primaryPreview?.verified?.handle
   const verified = entry.players.some((p) => previews.get(p.id)?.verified)
+  // Single pro with a handle: show [PRO] handle (tier hidden) by default, and
+  // swap to username + tier on hover. Coordinated via group/pro on the card.
+  const proSwap = entry.players.length === 1 && !!player && !!handle
 
   const href = gameMode === "1v1" && player?.id ? `/player/${player.id}` : null
 
@@ -158,8 +161,12 @@ function PodiumCard({
         </div>
 
         <span className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider">
-          {tier && <span className={TIER_TEXT_COLOR[tier]}>{entry.tier}</span>}
-          {tier && <span className="text-muted-foreground/60">·</span>}
+          {tier && (
+            <span className="inline-flex items-center gap-1.5">
+              <span className={TIER_TEXT_COLOR[tier]}>{entry.tier}</span>
+              <span className="text-muted-foreground/60">·</span>
+            </span>
+          )}
           <span className="text-positive">{winRate}</span>
           <span className="text-muted-foreground/60">·</span>
           <span className="text-muted-foreground">
@@ -184,7 +191,10 @@ function PodiumCard({
   )
 
   return href ? (
-    <Link href={href} className={`${baseClass} ${interactiveClass}`}>
+    <Link
+      href={href}
+      className={`${baseClass} ${interactiveClass}${proSwap ? " group/pro" : ""}`}
+    >
       {body}
     </Link>
   ) : (
