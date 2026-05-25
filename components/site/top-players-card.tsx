@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
 import {
+  API_REGIONS,
   type ApiGameMode,
   getRankedLeaderboard,
 } from "@/lib/brawlhalla-api"
@@ -14,7 +15,8 @@ import type { Tier } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
 import { LegendChip, PlayerLink, RankIcon, TIER_TEXT_COLOR } from "./primitives"
 
-export const HOME_REGIONS = ["ALL", "US-E", "EU", "BRZ"] as const
+// All API regions (ALL first), shown in the home region dropdown.
+export const HOME_REGIONS = API_REGIONS
 export type HomeRegion = (typeof HOME_REGIONS)[number]
 
 const QUEUES: { id: ApiGameMode; label: string }[] = [
@@ -112,7 +114,7 @@ export async function TopPlayersCard({
             <div
               role="menu"
               className={cn(
-                "invisible absolute right-0 top-full z-50 mt-1 w-28 translate-y-1 rounded-md border border-border/60 bg-card/95 p-1 opacity-0 shadow-xl backdrop-blur-md transition-all duration-200",
+                "invisible absolute right-0 top-full z-50 mt-1 max-h-64 w-28 translate-y-1 overflow-y-auto rounded-md border border-border/60 bg-card/95 p-1 opacity-0 shadow-xl backdrop-blur-md transition-all duration-200",
                 "group-hover/region:visible group-hover/region:translate-y-0 group-hover/region:opacity-100",
                 "group-focus-within/region:visible group-focus-within/region:translate-y-0 group-focus-within/region:opacity-100",
               )}
