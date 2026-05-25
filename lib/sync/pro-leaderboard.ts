@@ -2,46 +2,38 @@ import "server-only"
 
 import { unstable_cache } from "next/cache"
 import {
-  getPlayerRanked,
   isApiRegion,
   type ApiRegion,
   type PlayerRanked,
   type RankedEntry,
 } from "@/lib/brawlhalla-api"
 import { listOverrides } from "@/lib/sync/player-overrides"
+import { getPlayersByIds } from "@/lib/sync/players"
 import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
 import { isValhallan } from "@/lib/tier"
-
-// Fetch a few pros at a time. The Brawlhalla API rate-limits bursts, so firing
-// all 30+ requests at once silently drops some — small batches avoid that.
-const BATCH = 5
 
 /**
  * Verified pros as leaderboard rows, sorted by current 1v1 rating.
  *
- * "Pro" is our own data (player_overrides), so the API can't filter by it — we
- * take every verified pro, fetch their live ranked standing in batches, then
- * scope + rank. `region` of "ALL" keeps every region; a specific region filters
- * to it. The /ranked endpoint caps at Diamond, so the real Valhallan tier is
- * derived from each player's region cutoff. Cached 5 min, tagged
- * `player-overrides`.
+ * Reads pros' standings from the cached `players` table — populated by the
+ * sync-pros cron and on registration — so it never bursts the Brawlhalla API
+ * (live-fetching 50 pros per request was getting rate-limited). `region` of
+ * "ALL" keeps every region; a specific region filters to it. The /ranked
+ * payload caps at Diamond, so the real Valhallan tier is derived from each
+ * player's region cutoff. Cached 5 min, tagged `player-overrides`.
  */
 async function fetchProLeaderboard(region: ApiRegion): Promise<RankedEntry[]> {
   const overrides = await listOverrides()
   const proIds = overrides.filter((o) => o.pro).map((o) => o.brawlhallaId)
   if (proIds.length === 0) return []
 
-  const players: PlayerRanked[] = []
-  for (let i = 0; i < proIds.length; i += BATCH) {
-    const chunk = proIds.slice(i, i + BATCH)
-    const results = await Promise.all(chunk.map((id) => getPlayerRanked(id)))
-    for (const res of results) {
-      if (res.ok && res.data?.name) players.push(res.data)
-    }
-  }
+  const rowsById = await getPlayersByIds(proIds)
+  const data = proIds
+    .map((id) => rowsById.get(id)?.rankedJson as PlayerRanked | undefined)
+    .filter((d): d is PlayerRanked => !!d && !!d.name)
 
   const inScope =
-    region === "ALL" ? players : players.filter((d) => d.region === region)
+    region === "ALL" ? data : data.filter((d) => d.region === region)
   if (inScope.length === 0) return []
 
   // Region cutoffs distinguish Valhallan from Diamond. For "ALL" we need every
