@@ -352,12 +352,27 @@ export function StanceLabel({
   )
 }
 
-/** Region pill — flat, compact, monospace. */
+/** A distinct text color per region, for at-a-glance region coding. */
+export const REGION_COLOR: Record<string, string> = {
+  ALL: "text-muted-foreground",
+  BRZ: "text-[#facc15]",
+  "US-E": "text-[#60a5fa]",
+  "US-W": "text-[#38bdf8]",
+  EU: "text-[#a78bfa]",
+  SEA: "text-[#34d399]",
+  AUS: "text-[#fb923c]",
+  JPS: "text-[#f87171]",
+  SA: "text-[#c084fc]",
+  ME: "text-[#f472b6]",
+}
+
+/** Region pill — flat, compact, monospace, color-coded per region. */
 export function RegionPill({ region, className }: { region: string; className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground",
+        "inline-flex items-center rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
+        REGION_COLOR[region] ?? "text-muted-foreground",
         className,
       )}
     >
