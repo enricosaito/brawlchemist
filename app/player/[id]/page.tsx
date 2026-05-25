@@ -26,7 +26,7 @@ import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 import { deriveTier, isFallenValhallan, isValhallan, tierLabel } from "@/lib/tier"
 import { formatElo, formatPercent } from "@/lib/format"
-import { slugForLegendId } from "@/lib/legends-roster"
+import { rosterEntryBySlug, slugForLegendId } from "@/lib/legends-roster"
 import { cn } from "@/lib/utils"
 
 // Memoize per-request so generateMetadata and the page share one API call.
@@ -298,27 +298,71 @@ function TeamCard({
   )
 }
 
+interface TopLegend {
+  slug: string
+  name: string
+  /** Share of the player's ranked games played on this legend, 0–100. */
+  pickRate: number
+  level?: number
+  xp?: number
+}
+
+/** A most-played legend head with a hover card: name, pick rate, level, XP. */
+function MostPlayedLegend({ legend }: { legend: TopLegend }) {
+  return (
+    <div className="group/leg relative">
+      <LegendHead slug={legend.slug} className="size-11" />
+      <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-max -translate-x-1/2 rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-center shadow-lg group-hover/leg:block">
+        <div className="text-xs font-semibold">{legend.name}</div>
+        <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+          {legend.pickRate.toFixed(1)}% pick rate
+        </div>
+        {(legend.level != null || legend.xp != null) && (
+          <div className="font-mono text-[10px] text-muted-foreground">
+            {legend.level != null && <>Lv {legend.level}</>}
+            {legend.level != null && legend.xp != null && " · "}
+            {legend.xp != null && <>{legend.xp.toLocaleString()} XP</>}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function ProfileHeader({
   data,
   titles,
   valhallan,
   fallen,
   preview,
+  legendStats,
 }: {
   data: PlayerRanked
   titles: string[]
   valhallan: boolean
   fallen: boolean
   preview: PlayerPreview | undefined
+  legendStats: Map<number, { level: number; xp: number }>
 }) {
   const tier = deriveTier(data.tier, valhallan)
   const losses = Math.max(0, data.games - data.wins)
-  const topSlugs = [...(data.legends ?? [])]
+  const topLegends: TopLegend[] = [...(data.legends ?? [])]
     .filter((l) => l.games > 0)
     .sort((a, b) => b.games - a.games)
     .slice(0, 5)
-    .map((l) => slugForLegendId(l.legend_id))
-    .filter((s): s is string => !!s)
+    .map((l): TopLegend | null => {
+      const slug = slugForLegendId(l.legend_id)
+      if (!slug) return null
+      const stats = legendStats.get(l.legend_id)
+      return {
+        slug,
+        name: rosterEntryBySlug(slug)?.name ?? slug,
+        pickRate: data.games > 0 ? (l.games / data.games) * 100 : 0,
+        level: stats?.level,
+        xp: stats?.xp,
+      }
+    })
+    .filter((l): l is TopLegend => l !== null)
 
   // Meta line under the name: ranks (rarely populated) + earned legend titles.
   // The tier itself now lives in the rating card below.
@@ -354,11 +398,13 @@ function ProfileHeader({
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
       <div className="mx-auto max-w-[1280px]">
-        <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-card/50 p-6 shadow-lg backdrop-blur-sm">
-          {/* On-brand ambient wash — copper→mystic, kept off the data surfaces. */}
+        <div className="relative rounded-2xl border border-border/60 bg-card/50 p-6 shadow-lg backdrop-blur-sm">
+          {/* On-brand ambient wash — copper→mystic, kept off the data surfaces.
+              Rounded to match the card; the card itself isn't clipped so the
+              Most Played hover tooltips can extend past its edges. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-copper/10 via-transparent to-mystic/10"
+            className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-copper/10 via-transparent to-mystic/10"
           />
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-stretch">
             {(tier || preview?.favoriteSkin) && (
@@ -484,15 +530,15 @@ function ProfileHeader({
                     />
                   </div>
                 </div>
-                {/* Most played — now its own card for consistency. */}
-                {topSlugs.length > 0 && (
+                {/* Most played — hover a head for pick rate, level, and XP. */}
+                {topLegends.length > 0 && (
                   <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:shrink-0">
                     <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                       Most Played
                     </span>
                     <div className="mt-2 flex items-center gap-2">
-                      {topSlugs.map((slug) => (
-                        <LegendHead key={slug} slug={slug} className="size-11" />
+                      {topLegends.map((l) => (
+                        <MostPlayedLegend key={l.slug} legend={l} />
                       ))}
                     </div>
                   </div>
@@ -580,6 +626,14 @@ export default async function PlayerPage({
       .filter((t): t is string => !!t)
   }
 
+  // Per-legend level/XP (from GetPlayerStats) for the Most Played hover cards.
+  const legendStatsById = new Map<number, { level: number; xp: number }>()
+  if (statsRes.ok) {
+    for (const l of statsRes.data.legends ?? []) {
+      legendStatsById.set(l.legend_id, { level: l.level, xp: l.xp })
+    }
+  }
+
   const teams = [...(data["2v2"] ?? [])].sort((a, b) => b.rating - a.rating)
 
   // Resolve each team's *other* player so cards can show their main legend and
@@ -641,6 +695,7 @@ export default async function PlayerPage({
         valhallan={headerValhallan}
         fallen={headerFallen}
         preview={preview}
+        legendStats={legendStatsById}
       />
 
       {teamViews.length > 0 && (
