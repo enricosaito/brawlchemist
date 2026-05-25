@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ChevronRight } from "lucide-react"
 import { RegionPill, TIER_TEXT_COLOR } from "@/components/site/primitives"
 import { ProBadge } from "@/components/site/pro-badge"
+import { FallenValhallanBadge } from "@/components/site/fallen-valhallan"
 import { PLAYER_PREVIEWS } from "@/lib/player-previews"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
@@ -22,7 +23,7 @@ import {
 import { getPlayersByIds, upsertPlayerRanked } from "@/lib/sync/players"
 import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
-import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
+import { deriveTier, isFallenValhallan, isValhallan, tierLabel } from "@/lib/tier"
 import { formatElo, formatPercent } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
 import { cn } from "@/lib/utils"
@@ -300,10 +301,12 @@ function ProfileHeader({
   data,
   titles,
   valhallan,
+  fallen,
 }: {
   data: PlayerRanked
   titles: string[]
   valhallan: boolean
+  fallen: boolean
 }) {
   const tier = deriveTier(data.tier, valhallan)
   const losses = Math.max(0, data.games - data.wins)
@@ -344,7 +347,7 @@ function ProfileHeader({
       node: <span className="normal-case text-tier-gold">{title}</span>,
     })
   })
-  const hasMeta = !!preview?.verified || metaNodes.length > 0
+  const hasMeta = fallen || !!preview?.verified || metaNodes.length > 0
 
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
@@ -392,6 +395,7 @@ function ProfileHeader({
                   </div>
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
+                      {fallen && <FallenValhallanBadge />}
                       {preview?.verified && (
                         <span className="inline-flex items-center gap-2">
                           <ProBadge />
@@ -405,7 +409,7 @@ function ProfileHeader({
                           key={item.key}
                           className="inline-flex items-center gap-2"
                         >
-                          {(i > 0 || preview?.verified) && (
+                          {(i > 0 || preview?.verified || fallen) && (
                             <span
                               aria-hidden
                               className="text-muted-foreground/40"
@@ -618,10 +622,22 @@ export default async function PlayerPage({
       : Promise.resolve(null),
   ])
   const headerValhallan = isValhallan(data.rating, cutoff1v1, data.wins)
+  const headerFallen = isFallenValhallan(
+    data.tier,
+    data.rating,
+    data.peak_rating,
+    cutoff1v1,
+    data.wins,
+  )
 
   return (
     <Shell>
-      <ProfileHeader data={data} titles={titles} valhallan={headerValhallan} />
+      <ProfileHeader
+        data={data}
+        titles={titles}
+        valhallan={headerValhallan}
+        fallen={headerFallen}
+      />
 
       {teamViews.length > 0 && (
         <div className="mt-8 px-4 sm:px-6">
