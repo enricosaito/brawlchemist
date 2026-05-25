@@ -42,17 +42,17 @@ interface DropdownOption {
 const LEADERBOARD_OPTIONS: DropdownOption[] = [
   {
     label: "1v1 Rankings",
-    href: "/leaderboards?queue=1v1",
+    href: "/leaderboards/1v1",
     avatar: "/assets/AniAvatar_Volkonomicon.webp",
   },
   {
     label: "2v2 Teams",
-    href: "/leaderboards?queue=2v2",
+    href: "/leaderboards/2v2",
     avatar: "/assets/AniAvatar_Forest_Sprites.webp",
   },
   {
     label: "Solo 2v2",
-    href: "/leaderboards?queue=2v2",
+    href: "/leaderboards/2v2",
     avatar: "/assets/AniAvatar_River_Raid.webp",
   },
   {
@@ -195,7 +195,7 @@ export function SiteHeader() {
         <nav className="hidden items-center gap-1 md:flex">
           <NavDropdown
             label="Leaderboards"
-            href="/leaderboards"
+            href="/leaderboards/1v1"
             options={LEADERBOARD_OPTIONS}
           />
           <NavDropdown label="Tierlist" href="/legends" options={TIERLIST_OPTIONS} />

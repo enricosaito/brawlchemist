@@ -193,7 +193,7 @@ export default async function SearchPage({
 
           <div className="mx-auto mt-6 max-w-xl text-center">
             <Link
-              href="/leaderboards"
+              href="/leaderboards/1v1"
               className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
             >
               ← Browse the leaderboards

@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Geist, Geist_Mono, Cinzel } from "next/font/google"
+import { Geist, Geist_Mono } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -12,11 +12,10 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 })
 
-// Display face reserved for the wordmark and tier letters — single typographic
-// moment that carries most of the alchemy identity.
-const fontDisplay = Cinzel({
+// Headings and tier letters reuse the regular body sans (Geist) — no distinct
+// display face. Swapped off the old Cinzel serif, which added visual noise.
+const fontDisplay = Geist({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
   variable: "--font-display",
 })
 
