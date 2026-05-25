@@ -171,7 +171,11 @@ function PodiumCard({
           )}
           {showRegion && entry.region && (
             <span className="inline-flex items-center gap-1.5">
-              <span className={REGION_COLOR[entry.region] ?? "text-muted-foreground"}>
+              <span
+                className={
+                  REGION_COLOR[entry.region]?.text ?? "text-muted-foreground"
+                }
+              >
                 {entry.region}
               </span>
               <span className="text-muted-foreground/60">·</span>

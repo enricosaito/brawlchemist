@@ -352,27 +352,29 @@ export function StanceLabel({
   )
 }
 
-/** A distinct text color per region, for at-a-glance region coding. */
-export const REGION_COLOR: Record<string, string> = {
-  ALL: "text-muted-foreground",
-  BRZ: "text-[#facc15]",
-  "US-E": "text-[#60a5fa]",
-  "US-W": "text-[#38bdf8]",
-  EU: "text-[#a78bfa]",
-  SEA: "text-[#34d399]",
-  AUS: "text-[#fb923c]",
-  JPS: "text-[#f87171]",
-  SA: "text-[#c084fc]",
-  ME: "text-[#f472b6]",
+/** A distinct text + border color per region, for at-a-glance region coding. */
+export const REGION_COLOR: Record<string, { text: string; border: string }> = {
+  ALL: { text: "text-muted-foreground", border: "border-border/60" },
+  BRZ: { text: "text-[#4ade80]", border: "border-[#4ade80]/40" },
+  "US-E": { text: "text-[#f87171]", border: "border-[#f87171]/40" },
+  "US-W": { text: "text-[#38bdf8]", border: "border-[#38bdf8]/40" },
+  EU: { text: "text-[#60a5fa]", border: "border-[#60a5fa]/40" },
+  SEA: { text: "text-[#2dd4bf]", border: "border-[#2dd4bf]/40" },
+  AUS: { text: "text-[#fb923c]", border: "border-[#fb923c]/40" },
+  JPS: { text: "text-[#facc15]", border: "border-[#facc15]/40" },
+  SA: { text: "text-[#c084fc]", border: "border-[#c084fc]/40" },
+  ME: { text: "text-[#f472b6]", border: "border-[#f472b6]/40" },
 }
 
-/** Region pill — flat, compact, monospace, color-coded per region. */
+/** Region pill — flat, compact, monospace, color-coded per region (text + outline). */
 export function RegionPill({ region, className }: { region: string; className?: string }) {
+  const c = REGION_COLOR[region]
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
-        REGION_COLOR[region] ?? "text-muted-foreground",
+        "inline-flex min-w-[2.75rem] items-center justify-center rounded border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
+        c?.text ?? "text-muted-foreground",
+        c?.border ?? "border-border/60",
         className,
       )}
     >
