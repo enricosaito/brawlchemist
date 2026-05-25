@@ -60,6 +60,11 @@ const LEADERBOARD_OPTIONS: DropdownOption[] = [
     href: "/otps",
     avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
   },
+  {
+    label: "Pro Players",
+    href: "/leaderboards/pro",
+    avatar: "/assets/AniAvatar_Crown_of_the_Exalted.webp",
+  },
 ]
 
 const TIERLIST_OPTIONS: DropdownOption[] = [
