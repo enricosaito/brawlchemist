@@ -2,7 +2,7 @@ import { cache } from "react"
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight, Users } from "lucide-react"
 import { RegionPill, TIER_TEXT_COLOR } from "@/components/site/primitives"
 import { ProBadge } from "@/components/site/pro-badge"
 import { FallenValhallanBadge } from "@/components/site/fallen-valhallan"
@@ -11,17 +11,20 @@ import { getOverride } from "@/lib/sync/player-overrides"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import {
+  getPlayerGuild,
   getPlayerRanked,
   getPlayerStats,
   getStaticLegends,
   isApiRegion,
   type ApiGameMode,
   type ApiRegion,
+  type PlayerGuild,
   type PlayerRanked,
   type PlayerRanked2v2,
   type PlayerRankedLegend,
 } from "@/lib/brawlhalla-api"
 import { getPlayersByIds, upsertPlayerRanked } from "@/lib/sync/players"
+import { recordPlayerGuild } from "@/lib/sync/guilds"
 import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 import { deriveTier, isFallenValhallan, isValhallan, tierLabel } from "@/lib/tier"
@@ -32,6 +35,7 @@ import { cn } from "@/lib/utils"
 // Memoize per-request so generateMetadata and the page share one API call.
 const loadPlayer = cache((id: number) => getPlayerRanked(id))
 const loadStats = cache((id: number) => getPlayerStats(id))
+const loadGuild = cache((id: number) => getPlayerGuild(id))
 const loadStaticLegends = cache(() => getStaticLegends())
 const loadCutoff = cache((mode: ApiGameMode, region: ApiRegion) =>
   getValhallanCutoff(mode, region),
@@ -336,6 +340,7 @@ function ProfileHeader({
   fallen,
   preview,
   legendStats,
+  guild,
 }: {
   data: PlayerRanked
   titles: string[]
@@ -343,6 +348,7 @@ function ProfileHeader({
   fallen: boolean
   preview: PlayerPreview | undefined
   legendStats: Map<number, { level: number; xp: number }>
+  guild: PlayerGuild | null
 }) {
   const tier = deriveTier(data.tier, valhallan)
   const losses = Math.max(0, data.games - data.wins)
@@ -440,6 +446,18 @@ function ProfileHeader({
                       {data.name}
                     </h1>
                     {data.region && <RegionPill region={data.region} />}
+                    {guild?.guild_id && (
+                      <Link
+                        href={`/guilds/${guild.guild_id}`}
+                        className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-tier-valhallan/50 hover:text-foreground"
+                        title={`Guild: ${guild.guild_name}`}
+                      >
+                        <Users className="size-3 shrink-0" />
+                        <span className="max-w-[180px] truncate">
+                          {guild.guild_name || "Guild"}
+                        </span>
+                      </Link>
+                    )}
                   </div>
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
@@ -608,10 +626,20 @@ export default async function PlayerPage({
   // Legend titles: every legend the player has maxed (level 100) earns its
   // "bio_aka" (e.g. Teros → "The Minotaur"). Levels come from GetPlayerStats,
   // titles from the static legend list. Both fail open — no titles, no error.
-  const [statsRes, legendsRes] = await Promise.all([
+  const [statsRes, legendsRes, guildRes] = await Promise.all([
     loadStats(numId),
     loadStaticLegends(),
+    loadGuild(numId),
   ])
+
+  // The player's guild powers the header chip; persist it so a profile view
+  // contributes to guild discovery (the row exists from the upsert above).
+  const guild = guildRes.ok ? guildRes.data.guild ?? null : null
+  try {
+    await recordPlayerGuild(numId, guild)
+  } catch {
+    // A cache write failure shouldn't take down the page.
+  }
   let titles: string[] = []
   if (statsRes.ok && legendsRes.ok) {
     const akaById = new Map(
@@ -696,6 +724,7 @@ export default async function PlayerPage({
         fallen={headerFallen}
         preview={preview}
         legendStats={legendStatsById}
+        guild={guild}
       />
 
       {teamViews.length > 0 && (
