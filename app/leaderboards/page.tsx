@@ -32,7 +32,6 @@ import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import { getOverridesMap } from "@/lib/sync/player-overrides"
 import { isFallenValhallan } from "@/lib/tier"
 import { FallenEmblem } from "@/components/site/fallen-valhallan"
-import { PlayerName } from "@/components/site/pro-badge"
 import type { PlayerPreview } from "@/lib/player-previews"
 import type { PlayerRow } from "@/lib/db/schema"
 
@@ -185,40 +184,28 @@ function buildColumns(
       label: "Player",
       render: (r) => {
         const tier = toTier(r.tier)
-        // Pro rows hide the tier and show the PRO handle by default; hovering
-        // swaps to the in-game username and reveals the tier (one group/pro).
         const rowPro = r.players.some((p) => !!previews.get(p.id)?.verified)
         return (
-          <div
-            className={cn("flex min-w-0 flex-col gap-0.5", rowPro && "group/pro")}
-          >
+          <div className="flex min-w-0 flex-col gap-0.5">
             {r.players.length > 0 ? (
-              r.players.map((p) => {
-                const handle = previews.get(p.id)?.verified?.handle
-                return (
-                  <PlayerLink
-                    key={p.id}
-                    id={p.id}
-                    className="text-sm font-medium leading-5"
-                  >
-                    {handle ? (
-                      <PlayerName
-                        username={p.username}
-                        handle={handle}
-                        tier={r.tier}
-                        tierClassName={tier ? TIER_TEXT_COLOR[tier] : undefined}
-                      />
-                    ) : (
-                      <span className="truncate">{p.username}</span>
-                    )}
-                  </PlayerLink>
-                )
-              })
+              r.players.map((p) => (
+                <PlayerLink
+                  key={p.id}
+                  id={p.id}
+                  className="truncate text-sm font-medium leading-5"
+                >
+                  {p.username}
+                </PlayerLink>
+              ))
             ) : (
               <span className="text-sm text-muted-foreground">—</span>
             )}
-            {/* Pro rows show the tier inline next to the name on hover instead. */}
-            {tier && !rowPro && (
+            {/* Verified pros get a blue "Verified PRO" tag in place of the tier. */}
+            {rowPro ? (
+              <span className="mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-mystic">
+                Verified PRO
+              </span>
+            ) : tier ? (
               <span
                 className={cn(
                   "mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
@@ -227,7 +214,7 @@ function buildColumns(
               >
                 {r.tier}
               </span>
-            )}
+            ) : null}
           </div>
         )
       },
