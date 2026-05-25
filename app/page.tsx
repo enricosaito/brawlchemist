@@ -1,6 +1,8 @@
 import { Hero } from "@/components/site/hero"
 import { MetaStrip } from "@/components/site/meta-strip"
-import { RecentMatches } from "@/components/site/recent-matches"
+// Recent Notable Matches is hidden for now — it's WIP on mock data. Restore the
+// import + the <RecentMatches /> block below once it's backed by real matches.
+// import { RecentMatches } from "@/components/site/recent-matches"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import { TopLegendsCard } from "@/components/site/top-legends-card"
@@ -37,7 +39,7 @@ export default async function Page({
           <MetaStrip />
         </div>
 
-        <section className="mx-auto mt-5 max-w-[1280px] px-4 sm:px-6">
+        <section className="mx-auto mb-12 mt-5 max-w-[1280px] px-4 sm:mb-16 sm:px-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <TopPlayersCard queue={queue} region={region} />
             <TopLegendsCard />
@@ -45,11 +47,12 @@ export default async function Page({
           </div>
         </section>
 
+        {/* Hidden until backed by real data — WIP on mock data. The divider
+            above only separated the cards from this section, so it's gone too.
         <div className="my-8 px-4 sm:px-6">
           <div className="rune-divider mx-auto max-w-[1280px]" />
         </div>
-
-        <RecentMatches />
+        <RecentMatches /> */}
       </main>
       <SiteFooter />
     </div>
