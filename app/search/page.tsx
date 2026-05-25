@@ -7,9 +7,10 @@ import { ProBadge } from "@/components/site/pro-badge"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import { searchPlayerBySteamId, type PlayerRanked } from "@/lib/brawlhalla-api"
-import { searchPlayersByUsername } from "@/lib/sync/players"
+import { getPlayersByIds, searchPlayersByUsername } from "@/lib/sync/players"
 import { getOverridesMap } from "@/lib/sync/player-overrides"
 import type { PlayerRow } from "@/lib/db/schema"
+import type { PlayerPreview } from "@/lib/player-previews"
 import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
 
@@ -38,15 +39,19 @@ function ResultCard({ title, children }: { title: string; children: React.ReactN
 
 function PlayerResultRow({
   player,
-  verified,
+  preview,
 }: {
   player: PlayerRow
-  verified: boolean
+  preview?: PlayerPreview
 }) {
   const ranked = (player.rankedJson ?? null) as PlayerRanked | null
   const slug = player.topLegendId ? slugForLegendId(player.topLegendId) : null
   const rating = ranked?.rating
   const region = ranked?.region
+  // Verified pros lead with their pro handle + badge regardless of whether the
+  // search matched their handle or their in-game name; the IGN moves to the
+  // meta line so the match stays recognizable.
+  const handle = preview?.verified?.handle || null
   return (
     <Link
       href={`/player/${player.brawlhallaId}`}
@@ -61,13 +66,16 @@ function PlayerResultRow({
         <div className="flex min-w-0 flex-col">
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="min-w-0 truncate font-medium">
-              {player.username}
+              {handle ?? player.username}
             </span>
-            {verified && <ProBadge className="shrink-0" />}
+            {handle && <ProBadge className="shrink-0" />}
           </span>
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             ID {player.brawlhallaId}
             {region ? ` · ${region}` : ""}
+            {handle && handle !== player.username && (
+              <span className="normal-case"> · IGN {player.username}</span>
+            )}
           </span>
         </div>
       </div>
@@ -108,19 +116,39 @@ export default async function SearchPage({
     }
   }
 
-  // Anything else is a username search against our local pool.
+  // Anything else is a name search against our local pool — plus verified pro
+  // handles, so a pro's in-game name and their pro handle both find them.
   const isUsername = raw !== "" && !asSteamId64(raw) && !/^\d+$/.test(raw)
   let results: PlayerRow[] = []
+  let overrides: Map<number, PlayerPreview> | null = null
   let searchFailed = false
   if (isUsername) {
     try {
-      results = await searchPlayersByUsername(raw)
+      overrides = await getOverridesMap()
+      const byName = await searchPlayersByUsername(raw)
+      const byId = new Map(byName.map((p) => [p.brawlhallaId, p]))
+
+      // Match verified pro handles too, then pull in any pros the in-game-name
+      // search didn't already surface.
+      const q = raw.toLowerCase()
+      const handleIds = [...overrides.entries()]
+        .filter(([, pv]) => pv.verified?.handle?.toLowerCase().includes(q))
+        .map(([id]) => id)
+        .filter((id) => !byId.has(id))
+      if (handleIds.length > 0) {
+        for (const [id, row] of await getPlayersByIds(handleIds)) {
+          byId.set(id, row)
+        }
+      }
+
+      const ratingOf = (p: PlayerRow) =>
+        (p.rankedJson as PlayerRanked | null)?.rating ?? -1
+      results = [...byId.values()].sort((a, b) => ratingOf(b) - ratingOf(a))
     } catch (err) {
-      console.error("[search] username lookup failed:", err)
+      console.error("[search] name/handle lookup failed:", err)
       searchFailed = true
     }
   }
-  const overrides = results.length > 0 ? await getOverridesMap() : null
 
   // A leftover steamID64 that didn't resolve (the only way to reach here with
   // a non-username query) means no linked Brawlhalla account.
@@ -183,7 +211,7 @@ export default async function SearchPage({
                   <li key={p.brawlhallaId}>
                     <PlayerResultRow
                       player={p}
-                      verified={!!overrides?.get(p.brawlhallaId)?.verified}
+                      preview={overrides?.get(p.brawlhallaId)}
                     />
                   </li>
                 ))}
