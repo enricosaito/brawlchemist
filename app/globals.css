@@ -212,6 +212,10 @@
         font-family: "JHCRasbora", var(--font-sans), system-ui, sans-serif;
         letter-spacing: -0.01em;
     }
+    /* Cinzel serif, reserved for the tier-grade letters (S+, S, A …). */
+    .font-tier-grade {
+        font-family: var(--font-cinzel), serif;
+    }
     /* Tier-aware text glow: shadow picks up the current text color, so
        S+ glows gold, S copper, A mystic — no per-tier wiring needed.
        Named without a `text-` prefix so tailwind-merge doesn't treat it

@@ -179,7 +179,7 @@ export function TierLetter({
   return (
     <span
       className={cn(
-        "glow-text inline-flex w-8 shrink-0 items-baseline justify-center font-display text-xl font-bold leading-none tracking-tight",
+        "glow-text inline-flex w-8 shrink-0 items-baseline justify-center font-tier-grade text-xl font-bold leading-none tracking-tight",
         LEGEND_TIER_TEXT[tier],
         className,
       )}
