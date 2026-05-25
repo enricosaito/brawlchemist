@@ -16,7 +16,7 @@ export function SiteFooter() {
             href="https://github.com/enricosaito/brawlchemist"
             target="_blank"
             rel="noopener noreferrer"
-            className="transition-colors hover:text-copper"
+            className="transition-colors hover:text-tier-valhallan"
           >
             GitHub
           </a>
@@ -24,7 +24,7 @@ export function SiteFooter() {
             href="https://discord.gg/jXpe8kjYwQ"
             target="_blank"
             rel="noopener noreferrer"
-            className="transition-colors hover:text-copper"
+            className="transition-colors hover:text-tier-valhallan"
           >
             Discord
           </a>

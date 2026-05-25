@@ -242,7 +242,7 @@ function TeamCard({
   return (
     <Link
       href={`/player/${teammateId}`}
-      className="group relative flex items-center gap-4 overflow-hidden rounded-xl border border-border/60 bg-card/50 p-4 transition-colors hover:border-copper/50 hover:bg-card/70"
+      className="group relative flex items-center gap-4 overflow-hidden rounded-xl border border-border/60 bg-card/50 p-4 transition-colors hover:border-tier-valhallan/50 hover:bg-card/70"
     >
       {tier && (
         <Image
@@ -293,7 +293,7 @@ function TeamCard({
           <span className="text-positive">{winRate(team.wins, team.games)}</span>
         </div>
       </div>
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-copper" />
+      <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-tier-valhallan" />
     </Link>
   )
 }

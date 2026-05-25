@@ -32,11 +32,11 @@ export function PreviewCard({
         <h2 className="font-display text-sm font-semibold uppercase tracking-[0.18em]">
           <Link
             href={href}
-            className="group/title inline-flex items-center gap-1 text-foreground/90 transition-colors hover:text-copper"
+            className="group/title inline-flex items-center gap-1 text-foreground/90 transition-colors hover:text-tier-valhallan"
           >
             {title}
             <ArrowUpRight
-              className="size-3.5 text-muted-foreground transition-all group-hover/title:-translate-y-0.5 group-hover/title:translate-x-0.5 group-hover/title:text-copper"
+              className="size-3.5 text-muted-foreground transition-all group-hover/title:-translate-y-0.5 group-hover/title:translate-x-0.5 group-hover/title:text-tier-valhallan"
               aria-hidden
             />
           </Link>
@@ -47,7 +47,7 @@ export function PreviewCard({
       <footer className="border-t border-border/60 px-2 py-1.5">
         <Link
           href={href}
-          className="flex w-full items-center justify-center gap-1 rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-copper"
+          className="flex w-full items-center justify-center gap-1 rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-tier-valhallan"
         >
           {viewAllLabel}
           <ArrowUpRight className="size-3" />
