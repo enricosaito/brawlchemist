@@ -12,6 +12,7 @@ import {
   TopPlayersCard,
 } from "@/components/site/top-players-card"
 import { WeaponMetaCard } from "@/components/site/weapon-meta-card"
+import type { ApiGameMode } from "@/lib/brawlhalla-api"
 
 function isHomeRegion(v: string | undefined): v is HomeRegion {
   return !!v && (HOME_REGIONS as readonly string[]).includes(v)
@@ -20,9 +21,10 @@ function isHomeRegion(v: string | undefined): v is HomeRegion {
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ region?: string }>
+  searchParams: Promise<{ queue?: string; region?: string }>
 }) {
   const params = await searchParams
+  const queue: ApiGameMode = params.queue === "2v2" ? "2v2" : "1v1"
   const region: HomeRegion = isHomeRegion(params.region) ? params.region : "ALL"
 
   return (
@@ -39,7 +41,7 @@ export default async function Page({
 
         <section className="mx-auto mb-12 mt-5 max-w-[1280px] px-4 sm:mb-16 sm:px-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <TopPlayersCard region={region} />
+            <TopPlayersCard queue={queue} region={region} />
             <TopLegendsCard />
             <WeaponMetaCard />
           </div>
