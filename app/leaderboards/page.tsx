@@ -1,5 +1,6 @@
 import Image from "next/image"
 import Link from "next/link"
+import { BadgeCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   LegendChip,
@@ -184,27 +185,57 @@ function buildColumns(
       label: "Player",
       render: (r) => {
         const tier = toTier(r.tier)
+        // Pros show "<handle> ✓" + a blue "Pro Player" tag by default; hovering
+        // the row reveals the in-game username and the real tier (one group/pro).
         const rowPro = r.players.some((p) => !!previews.get(p.id)?.verified)
         return (
-          <div className="flex min-w-0 flex-col gap-0.5">
+          <div
+            className={cn("flex min-w-0 flex-col gap-0.5", rowPro && "group/pro")}
+          >
             {r.players.length > 0 ? (
-              r.players.map((p) => (
-                <PlayerLink
-                  key={p.id}
-                  id={p.id}
-                  className="truncate text-sm font-medium leading-5"
-                >
-                  {p.username}
-                </PlayerLink>
-              ))
+              r.players.map((p) => {
+                const handle = previews.get(p.id)?.verified?.handle
+                return (
+                  <PlayerLink
+                    key={p.id}
+                    id={p.id}
+                    className="text-sm font-medium leading-5"
+                  >
+                    {handle ? (
+                      <span className="inline-flex min-w-0 items-center gap-1">
+                        <span className="min-w-0 truncate">
+                          <span className="group-hover/pro:hidden">{handle}</span>
+                          <span className="hidden group-hover/pro:inline">
+                            {p.username}
+                          </span>
+                        </span>
+                        <BadgeCheck className="size-3.5 shrink-0 text-mystic group-hover/pro:hidden" />
+                      </span>
+                    ) : (
+                      <span className="truncate">{p.username}</span>
+                    )}
+                  </PlayerLink>
+                )
+              })
             ) : (
               <span className="text-sm text-muted-foreground">—</span>
             )}
-            {/* Verified pros get a blue "Verified PRO" tag in place of the tier. */}
             {rowPro ? (
-              <span className="mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-mystic">
-                Verified PRO
-              </span>
+              <>
+                <span className="mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-mystic group-hover/pro:hidden">
+                  Pro Player
+                </span>
+                {tier && (
+                  <span
+                    className={cn(
+                      "mt-0.5 hidden font-mono text-[10px] font-medium uppercase tracking-wider group-hover/pro:block",
+                      TIER_TEXT_COLOR[tier],
+                    )}
+                  >
+                    {r.tier}
+                  </span>
+                )}
+              </>
             ) : tier ? (
               <span
                 className={cn(
