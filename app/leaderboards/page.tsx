@@ -32,6 +32,8 @@ import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import { getOverridesMap } from "@/lib/sync/player-overrides"
 import { isFallenValhallan } from "@/lib/tier"
 import { FallenEmblem } from "@/components/site/fallen-valhallan"
+import { PlayerName } from "@/components/site/pro-badge"
+import type { PlayerPreview } from "@/lib/player-previews"
 import type { PlayerRow } from "@/lib/db/schema"
 
 const TOP_LEGENDS_LIMIT = 5
@@ -98,6 +100,7 @@ function buildColumns(
   gameMode: ApiGameMode,
   region: ApiRegion,
   valhallanCutoff: number | null,
+  previews: Map<number, PlayerPreview>,
 ): ColDef<RankedEntry>[] {
   const regionColumn: ColDef<RankedEntry> = {
     id: "region",
@@ -185,15 +188,22 @@ function buildColumns(
         return (
           <div className="flex min-w-0 flex-col gap-0.5">
             {r.players.length > 0 ? (
-              r.players.map((p) => (
-                <PlayerLink
-                  key={p.id}
-                  id={p.id}
-                  className="truncate text-sm font-medium leading-5"
-                >
-                  {p.username}
-                </PlayerLink>
-              ))
+              r.players.map((p) => {
+                const handle = previews.get(p.id)?.verified?.handle
+                return (
+                  <PlayerLink
+                    key={p.id}
+                    id={p.id}
+                    className="text-sm font-medium leading-5"
+                  >
+                    {handle ? (
+                      <PlayerName username={p.username} handle={handle} />
+                    ) : (
+                      <span className="truncate">{p.username}</span>
+                    )}
+                  </PlayerLink>
+                )
+              })
             ) : (
               <span className="text-sm text-muted-foreground">—</span>
             )}
@@ -370,10 +380,17 @@ export default async function LeaderboardsPage({
   // with its own cutoff, so we can't mark fallen players there.
   const selectedCutoff =
     region !== "ALL" ? cutoffs.get(region)?.rating ?? null : null
-  const columns = buildColumns(playersMap, gameMode, region, selectedCutoff)
 
-  // Admin-curated previews (PRO badge, favorite skin) for the top-3 podium.
+  // Admin-curated previews (PRO badge/handle, favorite skin) for the podium
+  // and the table's pro name-swap.
   const overrides = await getOverridesMap()
+  const columns = buildColumns(
+    playersMap,
+    gameMode,
+    region,
+    selectedCutoff,
+    overrides,
+  )
 
   return (
     <div className="min-h-svh">

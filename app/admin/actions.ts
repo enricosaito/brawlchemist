@@ -1,6 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { put } from "@vercel/blob"
 import {
   createAdminSession,
   destroyAdminSession,
@@ -29,7 +30,24 @@ export async function saveOverrideAction(formData: FormData) {
   const id = Number(formData.get("brawlhallaId"))
   if (!Number.isInteger(id) || id <= 0) redirect("/admin?error=bad-id")
 
-  const skinSrc = String(formData.get("skinSrc") ?? "").trim()
+  // A picked file wins over the pasted path: upload it to Vercel Blob and use
+  // the returned public URL as the skin src.
+  let skinSrc = String(formData.get("skinSrc") ?? "").trim()
+  const file = formData.get("skinFile")
+  if (file instanceof File && file.size > 0) {
+    try {
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
+      const blob = await put(`skins/${id}-${Date.now()}-${safe}`, file, {
+        access: "public",
+        addRandomSuffix: false,
+      })
+      skinSrc = blob.url
+    } catch (err) {
+      console.error("[admin] skin upload failed:", err)
+      redirect("/admin?error=upload")
+    }
+  }
+
   const skinName = String(formData.get("skinName") ?? "").trim()
   const input: OverrideInput = {
     brawlhallaId: id,

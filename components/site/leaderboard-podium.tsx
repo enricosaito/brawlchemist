@@ -12,7 +12,7 @@ import { slugForLegendId } from "@/lib/legends-roster"
 import type { PlayerPreview } from "@/lib/player-previews"
 import type { Tier } from "@/lib/types"
 import { LegendChip, TIER_TEXT_COLOR } from "./primitives"
-import { ProBadge } from "./pro-badge"
+import { PlayerName, ProBadge } from "./pro-badge"
 
 const KNOWN_TIERS: readonly Tier[] = [
   "Tin",
@@ -81,6 +81,7 @@ function PodiumCard({
   // teammate is verified.
   const primaryPreview = player ? previews.get(player.id) : undefined
   const skin = primaryPreview?.favoriteSkin
+  const handle = primaryPreview?.verified?.handle
   const verified = entry.players.some((p) => previews.get(p.id)?.verified)
 
   const href = gameMode === "1v1" && player?.id ? `/player/${player.id}` : null
@@ -129,10 +130,20 @@ function PodiumCard({
           <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/40 font-display text-sm font-bold text-foreground">
             {entry.rank}
           </span>
-          <span className="min-w-0 flex-1 truncate text-base font-semibold leading-tight">
-            {username || "—"}
-          </span>
-          {verified && <ProBadge className="shrink-0" />}
+          {entry.players.length === 1 && player && handle ? (
+            <PlayerName
+              username={player.username}
+              handle={handle}
+              className="flex-1 text-base font-semibold leading-tight"
+            />
+          ) : (
+            <>
+              <span className="min-w-0 flex-1 truncate text-base font-semibold leading-tight">
+                {username || "—"}
+              </span>
+              {verified && <ProBadge className="shrink-0" />}
+            </>
+          )}
         </div>
 
         <div className="flex items-baseline gap-1.5">
