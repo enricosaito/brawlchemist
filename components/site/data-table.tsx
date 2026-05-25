@@ -19,11 +19,15 @@ export function DataTable<T>({
   rows,
   rowKey,
   className,
+  searchValue,
 }: {
   columns: ColDef<T>[]
   rows: T[]
   rowKey: (row: T, index: number) => string
   className?: string
+  /** When set, each row gets a lowercased `data-search` attr for client-side
+   * text filtering (see LeaderboardSearch). */
+  searchValue?: (row: T, index: number) => string
 }) {
   return (
     <div
@@ -59,6 +63,9 @@ export function DataTable<T>({
             {rows.map((row, i) => (
               <tr
                 key={rowKey(row, i)}
+                data-search={
+                  searchValue ? searchValue(row, i).toLowerCase() : undefined
+                }
                 className="border-t border-border/40 transition-colors hover:bg-muted/40"
               >
                 {columns.map((c) => (
