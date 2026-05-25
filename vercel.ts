@@ -22,5 +22,12 @@ export const config: VercelConfig = {
       path: "/api/cron/sync-valhallan",
       schedule: "0 6 * * *",
     },
+    {
+      // Guild discovery — walks top-rated players' guilds and refreshes the
+      // guild pool the /guilds leaderboard reads from. Throttled + gradual;
+      // every 30 min (staggered off the other ticks) keeps load modest.
+      path: "/api/cron/sync-guilds",
+      schedule: "13,43 * * * *",
+    },
   ],
 }

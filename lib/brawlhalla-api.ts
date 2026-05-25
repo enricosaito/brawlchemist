@@ -268,3 +268,93 @@ export async function getStaticLegends(): Promise<ApiResult<StaticLegend[]>> {
   if (!res.ok) return res
   return { ok: true, data: res.data.legends ?? [] }
 }
+
+// ---- Guilds (v1) -----------------------------------------------------------
+//
+// The API has no "list guilds" endpoint — only fetch-by-id (GetGuildStats,
+// GetGuildMembers) and player→guild lookup (GetPlayerGuild). The guild
+// leaderboard is therefore built from a discovered pool (see lib/sync/guilds).
+// The deprecated v0 /clan endpoint uses a *different* id space and fewer
+// fields, so we stay entirely on v1.
+
+/**
+ * A guild member from GetGuildStats/GetGuildMembers. `rank` here is the
+ * in-guild ROLE ("Leader" | "Officer" | "Member"), not a numeric rank.
+ */
+export interface GuildMember {
+  brawlhalla_id: number
+  name: string
+  rank: string
+  join_date: number
+  xp: number
+  guild_points: number
+}
+
+/**
+ * GetGuildStats response. `rank` (global guild rank) and `member_count` are
+ * optional per docs. The full payload is persisted as jsonb, so anything we
+ * don't type here is still kept.
+ */
+export interface Guild {
+  guild_id: number
+  name: string
+  create_date: number
+  xp: number
+  legacy_xp: number
+  notice: string
+  tags: string[]
+  discord_invite_code: string
+  guild_points: number
+  rank?: number
+  is_recruiting: boolean
+  member_count?: number
+  [key: string]: unknown
+}
+
+/** GetGuildMembers response. */
+export interface GuildMembersResponse {
+  guild_id: number
+  guild_members: GuildMember[]
+}
+
+/** A player's guild standing, from GetPlayerGuild. */
+export interface PlayerGuild {
+  guild_id: number
+  guild_name: string
+  personal_xp: number
+  personal_xp_this_week: number
+  personal_points: number
+  join_date: number
+  rank: string
+}
+
+/** GetPlayerGuild response — `guild` is absent/null when the player has none. */
+export interface PlayerGuildResponse {
+  brawlhalla_id: number
+  guild?: PlayerGuild | null
+}
+
+export function getGuildStats(guildId: number): Promise<ApiResult<Guild>> {
+  return apiFetch<Guild>("/v1/guild/stats", { guild_id: guildId }, 300)
+}
+
+export function getGuildMembers(
+  guildId: number,
+): Promise<ApiResult<GuildMembersResponse>> {
+  return apiFetch<GuildMembersResponse>(
+    "/v1/guild/members",
+    { guild_id: guildId },
+    300,
+  )
+}
+
+export function getPlayerGuild(
+  brawlhallaId: number,
+): Promise<ApiResult<PlayerGuildResponse>> {
+  // Freshness is gated by the DB's guild_checked_at, not the HTTP layer.
+  return apiFetch<PlayerGuildResponse>(
+    "/v1/player/guild",
+    { brawlhalla_id: brawlhallaId },
+    0,
+  )
+}

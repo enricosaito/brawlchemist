@@ -51,8 +51,8 @@ const LEADERBOARD_OPTIONS: DropdownOption[] = [
     avatar: "/assets/AniAvatar_Forest_Sprites.webp",
   },
   {
-    label: "Solo 2v2",
-    href: "/leaderboards/2v2",
+    label: "Guilds",
+    href: "/guilds",
     avatar: "/assets/AniAvatar_River_Raid.webp",
   },
   {
