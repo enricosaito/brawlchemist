@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { BadgeCheck } from "lucide-react"
+import { BadgeCheck, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
@@ -14,7 +14,7 @@ import type { Tier } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
 import { LegendChip, PlayerLink, RankIcon, TIER_TEXT_COLOR } from "./primitives"
 
-export const HOME_REGIONS = ["US-E", "EU", "BRZ"] as const
+export const HOME_REGIONS = ["ALL", "US-E", "EU", "BRZ"] as const
 export type HomeRegion = (typeof HOME_REGIONS)[number]
 
 const QUEUES: { id: ApiGameMode; label: string }[] = [
@@ -96,28 +96,45 @@ export async function TopPlayersCard({
               </Link>
             ))}
           </div>
-          <div
-            role="tablist"
-            aria-label="Region"
-            className="flex items-center rounded-md border border-border/60 bg-muted/40 p-0.5"
-          >
-            {HOME_REGIONS.map((r) => (
-              <Link
-                key={r}
-                role="tab"
-                aria-selected={region === r}
-                href={`/?queue=${queue}&region=${r}#top-players`}
-                scroll={false}
-                className={cn(
-                  "rounded-[5px] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
-                  region === r
-                    ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {r}
-              </Link>
-            ))}
+          <div className="group/region relative">
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-label={`Region: ${region}`}
+              className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-foreground transition-colors hover:bg-muted"
+            >
+              {region}
+              <ChevronDown
+                className="size-3 text-muted-foreground transition-transform duration-200 group-hover/region:-rotate-180 group-focus-within/region:-rotate-180"
+                aria-hidden
+              />
+            </button>
+            <div
+              role="menu"
+              className={cn(
+                "invisible absolute right-0 top-full z-50 mt-1 w-28 translate-y-1 rounded-md border border-border/60 bg-card/95 p-1 opacity-0 shadow-xl backdrop-blur-md transition-all duration-200",
+                "group-hover/region:visible group-hover/region:translate-y-0 group-hover/region:opacity-100",
+                "group-focus-within/region:visible group-focus-within/region:translate-y-0 group-focus-within/region:opacity-100",
+              )}
+            >
+              {HOME_REGIONS.map((r) => (
+                <Link
+                  key={r}
+                  role="menuitem"
+                  href={`/?queue=${queue}&region=${r}#top-players`}
+                  scroll={false}
+                  aria-current={region === r ? "true" : undefined}
+                  className={cn(
+                    "block rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wider transition-colors",
+                    region === r
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  {r}
+                </Link>
+              ))}
+            </div>
           </div>
         </>
       }

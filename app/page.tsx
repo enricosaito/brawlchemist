@@ -25,7 +25,7 @@ export default async function Page({
 }) {
   const params = await searchParams
   const queue: ApiGameMode = params.queue === "2v2" ? "2v2" : "1v1"
-  const region: HomeRegion = isHomeRegion(params.region) ? params.region : "BRZ"
+  const region: HomeRegion = isHomeRegion(params.region) ? params.region : "ALL"
 
   return (
     <div className="min-h-svh">
