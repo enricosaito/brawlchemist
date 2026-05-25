@@ -1,4 +1,5 @@
 import { searchPlayersByUsername } from "@/lib/sync/players"
+import { getOverridesMap } from "@/lib/sync/player-overrides"
 import { slugForLegendId } from "@/lib/legends-roster"
 import type { PlayerRanked } from "@/lib/brawlhalla-api"
 
@@ -17,7 +18,10 @@ export async function GET(req: Request) {
   if (q.length < 2) return Response.json({ results: [] }, { headers })
 
   try {
-    const rows = await searchPlayersByUsername(q, 8)
+    const [rows, overrides] = await Promise.all([
+      searchPlayersByUsername(q, 8),
+      getOverridesMap(),
+    ])
     const results = rows.map((p) => {
       const ranked = (p.rankedJson ?? null) as PlayerRanked | null
       return {
@@ -26,6 +30,7 @@ export async function GET(req: Request) {
         legendSlug: p.topLegendId ? slugForLegendId(p.topLegendId) : null,
         rating: ranked?.rating ?? null,
         region: ranked?.region ?? null,
+        pro: !!overrides.get(p.brawlhallaId)?.verified,
       }
     })
     return Response.json({ results }, { headers })

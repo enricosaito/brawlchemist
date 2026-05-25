@@ -6,7 +6,8 @@ import { ChevronRight } from "lucide-react"
 import { RegionPill, TIER_TEXT_COLOR } from "@/components/site/primitives"
 import { ProBadge } from "@/components/site/pro-badge"
 import { FallenValhallanBadge } from "@/components/site/fallen-valhallan"
-import { PLAYER_PREVIEWS } from "@/lib/player-previews"
+import type { PlayerPreview } from "@/lib/player-previews"
+import { getOverride } from "@/lib/sync/player-overrides"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import {
@@ -302,15 +303,16 @@ function ProfileHeader({
   titles,
   valhallan,
   fallen,
+  preview,
 }: {
   data: PlayerRanked
   titles: string[]
   valhallan: boolean
   fallen: boolean
+  preview: PlayerPreview | undefined
 }) {
   const tier = deriveTier(data.tier, valhallan)
   const losses = Math.max(0, data.games - data.wins)
-  const preview = PLAYER_PREVIEWS[data.brawlhalla_id]
   const topSlugs = [...(data.legends ?? [])]
     .filter((l) => l.games > 0)
     .sort((a, b) => b.games - a.games)
@@ -615,11 +617,12 @@ export default async function PlayerPage({
 
   // Distinguish Valhallan from Diamond (both 2000+) via the region's live
   // ladder cutoff — 1v1 for the header, 2v2 for the team cards.
-  const [cutoff1v1, cutoff2v2] = await Promise.all([
+  const [cutoff1v1, cutoff2v2, preview] = await Promise.all([
     valhallanCutoffRating("1v1", data.region),
     teams.length > 0
       ? valhallanCutoffRating("2v2", data.region)
       : Promise.resolve(null),
+    getOverride(numId),
   ])
   const headerValhallan = isValhallan(data.rating, cutoff1v1, data.wins)
   const headerFallen = isFallenValhallan(
@@ -637,6 +640,7 @@ export default async function PlayerPage({
         titles={titles}
         valhallan={headerValhallan}
         fallen={headerFallen}
+        preview={preview}
       />
 
       {teamViews.length > 0 && (

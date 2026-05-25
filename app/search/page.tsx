@@ -8,10 +8,10 @@ import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import { searchPlayerBySteamId, type PlayerRanked } from "@/lib/brawlhalla-api"
 import { searchPlayersByUsername } from "@/lib/sync/players"
+import { getOverridesMap } from "@/lib/sync/player-overrides"
 import type { PlayerRow } from "@/lib/db/schema"
 import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
-import { playerPreview } from "@/lib/player-previews"
 
 /**
  * Pull a steamID64 out of either a bare 17-digit ID or a pasted Steam profile
@@ -36,7 +36,13 @@ function ResultCard({ title, children }: { title: string; children: React.ReactN
   )
 }
 
-function PlayerResultRow({ player }: { player: PlayerRow }) {
+function PlayerResultRow({
+  player,
+  verified,
+}: {
+  player: PlayerRow
+  verified: boolean
+}) {
   const ranked = (player.rankedJson ?? null) as PlayerRanked | null
   const slug = player.topLegendId ? slugForLegendId(player.topLegendId) : null
   const rating = ranked?.rating
@@ -57,9 +63,7 @@ function PlayerResultRow({ player }: { player: PlayerRow }) {
             <span className="min-w-0 truncate font-medium">
               {player.username}
             </span>
-            {playerPreview(player.brawlhallaId)?.verified && (
-              <ProBadge className="shrink-0" />
-            )}
+            {verified && <ProBadge className="shrink-0" />}
           </span>
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             ID {player.brawlhallaId}
@@ -116,6 +120,7 @@ export default async function SearchPage({
       searchFailed = true
     }
   }
+  const overrides = results.length > 0 ? await getOverridesMap() : null
 
   // A leftover steamID64 that didn't resolve (the only way to reach here with
   // a non-username query) means no linked Brawlhalla account.
@@ -176,7 +181,10 @@ export default async function SearchPage({
               <ul className="flex flex-col gap-2">
                 {results.map((p) => (
                   <li key={p.brawlhallaId}>
-                    <PlayerResultRow player={p} />
+                    <PlayerResultRow
+                      player={p}
+                      verified={!!overrides?.get(p.brawlhallaId)?.verified}
+                    />
                   </li>
                 ))}
               </ul>

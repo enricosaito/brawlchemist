@@ -9,7 +9,7 @@ import type {
   RankedEntry,
 } from "@/lib/brawlhalla-api"
 import { slugForLegendId } from "@/lib/legends-roster"
-import { PLAYER_PREVIEWS } from "@/lib/player-previews"
+import type { PlayerPreview } from "@/lib/player-previews"
 import type { Tier } from "@/lib/types"
 import { LegendChip, TIER_TEXT_COLOR } from "./primitives"
 import { ProBadge } from "./pro-badge"
@@ -59,10 +59,12 @@ function PodiumCard({
   entry,
   playersMap,
   gameMode,
+  previews,
 }: {
   entry: RankedEntry
   playersMap: Map<number, PlayerRow>
   gameMode: ApiGameMode
+  previews: Map<number, PlayerPreview>
 }) {
   const tier = toTier(entry.tier)
   const username = entry.players.map((p) => p.username).join(" + ")
@@ -74,12 +76,12 @@ function PodiumCard({
   const winRate = formatWinRate(entry.wins, entry.losses)
   const totalGames = (entry.wins ?? 0) + (entry.losses ?? 0)
 
-  // Experimental player previews (verified pros, favorite skins) are keyed by
-  // brawlhalla id. The skin belongs to the primary player; the pro badge shows
-  // if either teammate is verified.
-  const primaryPreview = player ? PLAYER_PREVIEWS[player.id] : undefined
+  // Admin-curated previews (verified pros, favorite skins) keyed by brawlhalla
+  // id. The skin belongs to the primary player; the pro badge shows if either
+  // teammate is verified.
+  const primaryPreview = player ? previews.get(player.id) : undefined
   const skin = primaryPreview?.favoriteSkin
-  const verified = entry.players.some((p) => PLAYER_PREVIEWS[p.id]?.verified)
+  const verified = entry.players.some((p) => previews.get(p.id)?.verified)
 
   const href = gameMode === "1v1" && player?.id ? `/player/${player.id}` : null
 
@@ -183,10 +185,12 @@ export function LeaderboardPodium({
   entries,
   playersMap,
   gameMode,
+  previews,
 }: {
   entries: RankedEntry[]
   playersMap: Map<number, PlayerRow>
   gameMode: ApiGameMode
+  previews: Map<number, PlayerPreview>
 }) {
   const top3 = entries.slice(0, 3)
   if (top3.length === 0) return null
@@ -199,6 +203,7 @@ export function LeaderboardPodium({
           entry={entry}
           playersMap={playersMap}
           gameMode={gameMode}
+          previews={previews}
         />
       ))}
     </div>

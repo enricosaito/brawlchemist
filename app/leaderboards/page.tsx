@@ -29,6 +29,7 @@ import {
 } from "@/lib/brawlhalla-api"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
+import { getOverridesMap } from "@/lib/sync/player-overrides"
 import { isFallenValhallan } from "@/lib/tier"
 import { FallenEmblem } from "@/components/site/fallen-valhallan"
 import type { PlayerRow } from "@/lib/db/schema"
@@ -371,6 +372,9 @@ export default async function LeaderboardsPage({
     region !== "ALL" ? cutoffs.get(region)?.rating ?? null : null
   const columns = buildColumns(playersMap, gameMode, region, selectedCutoff)
 
+  // Admin-curated previews (PRO badge, favorite skin) for the top-3 podium.
+  const overrides = await getOverridesMap()
+
   return (
     <div className="min-h-svh">
       <SiteHeader />
@@ -483,6 +487,7 @@ export default async function LeaderboardsPage({
                   entries={rows}
                   playersMap={playersMap}
                   gameMode={gameMode}
+                  previews={overrides}
                 />
               )}
               <DataTable

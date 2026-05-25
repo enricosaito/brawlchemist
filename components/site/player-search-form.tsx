@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Loader2, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { playerPreview } from "@/lib/player-previews"
 import { ProBadge } from "./pro-badge"
 
 interface SearchResult {
@@ -15,6 +14,7 @@ interface SearchResult {
   legendSlug: string | null
   rating: number | null
   region: string | null
+  pro?: boolean
 }
 
 type Kind = "empty" | "name" | "id" | "steam"
@@ -291,7 +291,7 @@ export function PlayerSearchForm({
                               <span className="min-w-0 truncate text-sm font-medium">
                                 {opt.result.username}
                               </span>
-                              {playerPreview(opt.result.id)?.verified && (
+                              {opt.result.pro && (
                                 <ProBadge className="shrink-0" />
                               )}
                             </span>
