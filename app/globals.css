@@ -67,6 +67,7 @@
     --color-tier-platinum: var(--tier-platinum);
     --color-tier-diamond: var(--tier-diamond);
     --color-tier-valhallan: var(--tier-valhallan);
+    --color-tier-valhallan-fallen: var(--tier-valhallan-fallen);
     --color-tier-s: var(--tier-s);
 
     --radius-sm: calc(var(--radius) * 0.6);
@@ -111,6 +112,8 @@
     --tier-platinum: oklch(0.75 0.07 200);
     --tier-diamond: oklch(0.75 0.13 250);
     --tier-valhallan: oklch(0.66 0.25 0);
+    /* Fallen Valhallan — desaturated, purple-shifted echo of Valhallan. */
+    --tier-valhallan-fallen: oklch(0.56 0.09 335);
     --tier-s: oklch(0.66 0.19 285);
 
     --chart-1: oklch(0.74 0.115 75);
@@ -163,6 +166,8 @@
     --tier-platinum: oklch(0.78 0.08 200);
     --tier-diamond: oklch(0.78 0.13 260);
     --tier-valhallan: oklch(0.76 0.24 0);
+    /* Fallen Valhallan — desaturated, purple-shifted echo of Valhallan. */
+    --tier-valhallan-fallen: oklch(0.7 0.09 335);
     --tier-s: oklch(0.78 0.2 285);
 
     --chart-1: oklch(0.74 0.115 75);

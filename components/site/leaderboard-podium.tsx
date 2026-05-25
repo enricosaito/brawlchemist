@@ -1,4 +1,5 @@
 import Image from "next/image"
+import Link from "next/link"
 import { formatElo, formatPercent } from "@/lib/format"
 import type { PlayerRow } from "@/lib/db/schema"
 import type {
@@ -10,7 +11,7 @@ import type {
 import { slugForLegendId } from "@/lib/legends-roster"
 import { PLAYER_PREVIEWS } from "@/lib/player-previews"
 import type { Tier } from "@/lib/types"
-import { LegendChip, PlayerLink, TIER_TEXT_COLOR } from "./primitives"
+import { LegendChip, TIER_TEXT_COLOR } from "./primitives"
 import { ProBadge } from "./pro-badge"
 
 const KNOWN_TIERS: readonly Tier[] = [
@@ -80,8 +81,17 @@ function PodiumCard({
   const skin = primaryPreview?.favoriteSkin
   const verified = entry.players.some((p) => PLAYER_PREVIEWS[p.id]?.verified)
 
-  return (
-    <div className="relative flex gap-4 overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-5 shadow-lg backdrop-blur-sm">
+  const href = gameMode === "1v1" && player?.id ? `/player/${player.id}` : null
+
+  // Whole card is the click target. The pink hover glow (Valhallan token)
+  // replaces the old per-name copper hover — only on the linked (1v1) cards.
+  const baseClass =
+    "relative flex gap-4 overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-5 shadow-lg backdrop-blur-sm"
+  const interactiveClass =
+    "transition hover:border-tier-valhallan/60 hover:shadow-[0_0_24px_-4px_oklch(0.76_0.24_0_/_0.55)]"
+
+  const body = (
+    <>
       {/* Favorite skin — faint character art bleeding in from the right as a
           backdrop. Cropped by overflow-hidden; masked so it fades into the card
           rather than hard-cutting across the stats. */}
@@ -117,12 +127,9 @@ function PodiumCard({
           <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/40 font-display text-sm font-bold text-foreground">
             {entry.rank}
           </span>
-          <PlayerLink
-            id={gameMode === "1v1" ? player?.id : null}
-            className="min-w-0 flex-1 truncate text-base font-semibold leading-tight"
-          >
+          <span className="min-w-0 flex-1 truncate text-base font-semibold leading-tight">
             {username || "—"}
-          </PlayerLink>
+          </span>
           {verified && <ProBadge className="shrink-0" />}
         </div>
 
@@ -160,7 +167,15 @@ function PodiumCard({
           </div>
         )}
       </div>
-    </div>
+    </>
+  )
+
+  return href ? (
+    <Link href={href} className={`${baseClass} ${interactiveClass}`}>
+      {body}
+    </Link>
+  ) : (
+    <div className={baseClass}>{body}</div>
   )
 }
 

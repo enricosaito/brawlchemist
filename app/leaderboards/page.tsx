@@ -29,6 +29,8 @@ import {
 } from "@/lib/brawlhalla-api"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
+import { isFallenValhallan } from "@/lib/tier"
+import { FallenEmblem } from "@/components/site/fallen-valhallan"
 import type { PlayerRow } from "@/lib/db/schema"
 
 const TOP_LEGENDS_LIMIT = 5
@@ -94,6 +96,7 @@ function buildColumns(
   playersMap: Map<number, PlayerRow>,
   gameMode: ApiGameMode,
   region: ApiRegion,
+  valhallanCutoff: number | null,
 ): ColDef<RankedEntry>[] {
   const regionColumn: ColDef<RankedEntry> = {
     id: "region",
@@ -124,6 +127,17 @@ function buildColumns(
       width: "72px",
       align: "center",
       render: (r) => {
+        if (
+          isFallenValhallan(
+            r.tier,
+            r.rating,
+            r.best_rating,
+            valhallanCutoff,
+            r.wins,
+          )
+        ) {
+          return <FallenEmblem size={32} className="mx-auto" />
+        }
         const tier = toTier(r.tier)
         return tier ? (
           <RankIcon tier={tier} size={32} className="mx-auto" />
@@ -351,7 +365,11 @@ export default async function LeaderboardsPage({
     }
   }
 
-  const columns = buildColumns(playersMap, gameMode, region)
+  // Only meaningful when filtered to one region — "ALL" mixes regions, each
+  // with its own cutoff, so we can't mark fallen players there.
+  const selectedCutoff =
+    region !== "ALL" ? cutoffs.get(region)?.rating ?? null : null
+  const columns = buildColumns(playersMap, gameMode, region, selectedCutoff)
 
   return (
     <div className="min-h-svh">
