@@ -41,7 +41,7 @@ function ProToggle({ pro }: { pro: boolean }) {
     <Link
       href={pro ? allHref : proHref}
       aria-label={pro ? "Show all players" : "Show verified pros only"}
-      className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-2.5 py-1.5 sm:ml-auto"
+      className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-2.5 py-2.5 sm:ml-auto"
     >
       <span
         className={cn(
@@ -171,14 +171,14 @@ export default async function LeaderboardPage({
   const selectedCutoff =
     region !== "ALL" ? cutoffs.get(region)?.rating ?? null : null
 
-  // proView shows the real tier (proBoard), not a redundant "Pro Player" tag.
+  // Pro rows show the blue "Pro Player" tag in place of the tier (the default
+  // treatment), including in the toggled pro view.
   const columns = buildLeaderboardColumns(
     playersMap,
     gameMode,
     region,
     selectedCutoff,
     overrides,
-    proView,
   )
 
   return (
