@@ -63,7 +63,7 @@ const LEADERBOARD_OPTIONS: DropdownOption[] = [
   {
     label: "PRO Leaderboard",
     href: "/leaderboards/pro",
-    avatar: "/assets/Avatar_Exalted_Lion.png",
+    avatar: "/assets/AniAvatar_Crown_of_the_Exalted.webp",
   },
 ]
 
