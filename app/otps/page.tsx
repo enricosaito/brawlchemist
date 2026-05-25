@@ -9,11 +9,10 @@ import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { LegendPicker } from "@/components/site/legend-picker"
-import { PageHero } from "@/components/site/page-hero"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import { formatElo, formatPercent } from "@/lib/format"
-import { CURRENT_PATCH, getLegend } from "@/lib/mock-data"
+import { getLegend } from "@/lib/mock-data"
 import {
   LEGEND_ROSTER,
   rosterEntryBySlug,
@@ -231,21 +230,7 @@ export default async function OtpsPage({
     <div className="min-h-svh">
       <SiteHeader />
       <main className="pb-16">
-        <PageHero
-          title="OTPs"
-          subtitle={`Players whose most-played legend this season is ${selectedLegend.name}. Sorted by rating. Pulled from the Valhallan-discovered player pool.`}
-          meta={
-            <>
-              <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
-                {players.length} player{players.length === 1 ? "" : "s"}
-              </span>
-              <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
-                Patch {CURRENT_PATCH}
-              </span>
-            </>
-          }
-        />
-        <div className="px-4 sm:px-6">
+        <div className="px-4 pt-8 sm:px-6 sm:pt-10">
           <div className="mx-auto mb-4 max-w-[1280px]">
             <LegendPicker
               options={pickerOptions}
@@ -254,18 +239,18 @@ export default async function OtpsPage({
             />
           </div>
 
-          <div className="mx-auto mb-3 flex max-w-[1280px] flex-wrap items-center gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-2">
+            <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
               Region
             </span>
-            <div className="flex flex-wrap items-center gap-1 rounded-md border border-border/60 bg-muted/40 p-0.5">
+            <div className="flex flex-wrap items-center gap-1 rounded-md border border-border/60 bg-muted/40 p-1">
               {REGION_OPTIONS.map((r) => (
                 <Link
                   key={r}
                   href={`/otps?legend=${legendSlug}&region=${r}`}
                   aria-current={region === r ? "true" : undefined}
                   className={cn(
-                    "rounded-[5px] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
+                    "rounded-md px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors",
                     region === r
                       ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
                       : "text-muted-foreground hover:text-foreground",

@@ -8,7 +8,6 @@ import { DataTable } from "@/components/site/data-table"
 import { buildLeaderboardColumns } from "@/components/site/leaderboard-columns"
 import { LeaderboardPodium } from "@/components/site/leaderboard-podium"
 import { LeaderboardSearch } from "@/components/site/leaderboard-search"
-import { PageHero } from "@/components/site/page-hero"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import {
@@ -185,11 +184,7 @@ export default async function LeaderboardPage({
     <div className="min-h-svh">
       <SiteHeader />
       <main className="pb-16">
-        <PageHero
-          title={gameMode === "2v2" ? "2v2 Teams" : "1v1 Ranking"}
-          subtitle="Top-ranked players, pulled live from the Brawlhalla v1 API."
-        />
-        <div className="px-4 sm:px-6">
+        <div className="px-4 pt-8 sm:px-6 sm:pt-10">
           {/* Search · Mode · Region on one line; Valhallan cutoff pushed right. */}
           <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3">
             <LeaderboardSearch className="w-full sm:w-auto sm:min-w-[220px]" />
