@@ -48,18 +48,19 @@ export default async function AdminPage({
             : sp.error
               ? "Couldn’t save — check the Brawlhalla ID."
               : sp.deleted
-                ? "Override deleted."
-                : `Saved override for ${sp.saved}.`}
+                ? "Pro removed."
+                : `Saved pro ${sp.saved} (syncing their standing…).`}
         </div>
       )}
 
       {/* Create / edit form */}
       <section>
         <h2 className="font-display text-lg font-semibold">
-          {editing ? `Edit override · ${editing.brawlhallaId}` : "Add / edit override"}
+          {editing ? `Edit pro · ${editing.brawlhallaId}` : "Add a pro player"}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Keyed by Brawlhalla ID. To find an ID, look the player up on{" "}
+          Register a verified pro by Brawlhalla ID — saving pulls their ranked
+          standing onto the pro leaderboard. Find an ID via{" "}
           <Link href="/search" className="text-copper hover:underline">
             search
           </Link>
@@ -90,7 +91,7 @@ export default async function AdminPage({
               <input
                 name="pro"
                 type="checkbox"
-                defaultChecked={editing?.pro ?? false}
+                defaultChecked={editing ? editing.pro : true}
                 className="size-4 accent-mystic"
               />
               Verified pro (PRO badge)
@@ -175,7 +176,7 @@ export default async function AdminPage({
               type="submit"
               className="rounded-md bg-copper px-4 py-2 text-sm font-semibold text-background transition-colors hover:bg-copper/90"
             >
-              {editing ? "Save changes" : "Save override"}
+              {editing ? "Save changes" : "Add pro"}
             </button>
             {editing && (
               <Link
@@ -192,7 +193,7 @@ export default async function AdminPage({
       {/* Existing overrides */}
       <section>
         <h2 className="font-display text-lg font-semibold">
-          Overrides{" "}
+          Pro players{" "}
           <span className="font-mono text-sm font-normal text-muted-foreground">
             ({overrides.length})
           </span>
@@ -200,12 +201,17 @@ export default async function AdminPage({
 
         {overrides.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">
-            No overrides yet. Add one above.
+            No pros yet. Add one above.
           </p>
         ) : (
           <ul className="mt-3 flex flex-col gap-2">
             {overrides.map((o) => {
-              const username = players.get(o.brawlhallaId)?.username
+              const row = players.get(o.brawlhallaId)
+              const username = row?.username
+              const ranked = row?.rankedJson as
+                | { rating?: number; region?: string }
+                | null
+                | undefined
               return (
                 <li
                   key={o.brawlhallaId}
@@ -217,6 +223,16 @@ export default async function AdminPage({
                   <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                     ID {o.brawlhallaId}
                   </span>
+                  {ranked?.rating != null ? (
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {ranked.region ? `${ranked.region} · ` : ""}
+                      {ranked.rating.toLocaleString()} ELO
+                    </span>
+                  ) : (
+                    <span className="font-mono text-[10px] text-muted-foreground/60">
+                      not synced yet
+                    </span>
+                  )}
                   {o.pro && (
                     <span className="rounded border border-mystic/50 bg-mystic/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-mystic">
                       Pro{o.handle ? ` · ${o.handle}` : ""}

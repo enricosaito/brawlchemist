@@ -12,6 +12,7 @@ import {
   upsertOverride,
   type OverrideInput,
 } from "@/lib/sync/player-overrides"
+import { syncPlayer } from "@/lib/sync/players"
 
 export async function loginAction(formData: FormData) {
   const password = String(formData.get("password") ?? "")
@@ -62,6 +63,16 @@ export async function saveOverrideAction(formData: FormData) {
   }
 
   await upsertOverride(input)
+
+  // Pull the player's ranked standing now so they appear on the pro board
+  // immediately; the sync-pros cron keeps it fresh afterward. Fail open — the
+  // cron will retry if the API is unavailable right now.
+  try {
+    await syncPlayer(id, { force: true })
+  } catch (err) {
+    console.error("[admin] pro sync on save failed:", err)
+  }
+
   redirect(`/admin?saved=${id}`)
 }
 

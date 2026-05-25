@@ -4,18 +4,23 @@ export const config: VercelConfig = {
   framework: "nextjs",
   crons: [
     {
-      // Pick one (queue, region) per tick and refresh the 30 player stats.
-      // 18 combos covered every ~4.5 hours.
+      // Live ELO rankings — the most time-sensitive data. Picks one
+      // (queue, region) per tick and refreshes the top player stats into the
+      // players pool. Frequent so the pool stays close to live.
       path: "/api/cron/sync-leaderboard",
-      schedule: "*/15 * * * *",
+      schedule: "*/5 * * * *",
     },
     {
-      // Sweep the Valhallan-tier population (~1000 players across 9 regions
-      // × 2 queues) for the tier-list aggregations. Staggered 5 min off the
-      // leaderboard cron to spread rate-limit usage within each 15-min slot.
-      // 50 syncs per tick → ~5 hours of cold seeding, then mostly idle.
+      // Verified pros → players table, which the pro leaderboard reads from.
+      // Throttled internally; staggered off the :00/:05 ticks.
+      path: "/api/cron/sync-pros",
+      schedule: "7,22,37,52 * * * *",
+    },
+    {
+      // Legend/weapon tier-list aggregations from the Valhallan population.
+      // These move slowly, so once a day (off-peak) is plenty.
       path: "/api/cron/sync-valhallan",
-      schedule: "5,20,35,50 * * * *",
+      schedule: "0 6 * * *",
     },
   ],
 }
