@@ -222,7 +222,7 @@ function buildColumns(
             )}
             {rowPro ? (
               <>
-                <span className="mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-mystic group-hover/pro:hidden">
+                <span className="mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-foreground group-hover/pro:hidden">
                   Pro Player
                 </span>
                 {tier && (
