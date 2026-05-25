@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Geist, Geist_Mono, Cinzel } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -17,6 +17,14 @@ const fontMono = Geist_Mono({
 const fontDisplay = Geist({
   subsets: ["latin"],
   variable: "--font-display",
+})
+
+// Cinzel serif — used only for the tier-grade letters (S+, S, A …), the one
+// spot the serif still earns its keep.
+const fontCinzel = Cinzel({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-cinzel",
 })
 
 export const metadata: Metadata = {
@@ -43,6 +51,7 @@ export default function RootLayout({
         fontSans.variable,
         fontMono.variable,
         fontDisplay.variable,
+        fontCinzel.variable,
         "font-sans",
       )}
     >

@@ -68,7 +68,7 @@ export async function TopPlayersCard({
 
   return (
     <PreviewCard
-      title="Live Ranked"
+      title="Live Rankings"
       href={`/leaderboards/${queue}?region=${region}`}
       viewAllLabel="view leaderboard"
       meta={
