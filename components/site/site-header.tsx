@@ -61,7 +61,7 @@ const LEADERBOARD_OPTIONS: DropdownOption[] = [
     avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
   },
   {
-    label: "PRO Leaderboard",
+    label: "Pro Players",
     href: "/leaderboards/pro",
     avatar: "/assets/AniAvatar_Crown_of_the_Exalted.webp",
   },

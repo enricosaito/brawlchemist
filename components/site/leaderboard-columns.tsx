@@ -84,6 +84,9 @@ export function buildLeaderboardColumns(
   region: ApiRegion,
   valhallanCutoff: number | null,
   previews: Map<number, PlayerPreview>,
+  // On the pro board every row is already a pro, so show the handle + badge in
+  // the name but keep the real tier (not the "Pro Player" tag) in the subtext.
+  proBoard = false,
 ): ColDef<RankedEntry>[] {
   const regionColumn: ColDef<RankedEntry> = {
     id: "region",
@@ -203,7 +206,18 @@ export function buildLeaderboardColumns(
             ) : (
               <span className="text-sm text-muted-foreground">—</span>
             )}
-            {rowPro ? (
+            {proBoard ? (
+              tier ? (
+                <span
+                  className={cn(
+                    "mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
+                    TIER_TEXT_COLOR[tier],
+                  )}
+                >
+                  {r.tier}
+                </span>
+              ) : null
+            ) : rowPro ? (
               <>
                 <span className="mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-mystic group-hover/pro:hidden">
                   Pro Player

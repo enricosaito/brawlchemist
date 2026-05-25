@@ -9,11 +9,12 @@ import { CURRENT_PATCH } from "@/lib/mock-data"
 import { isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getPlayersByIds } from "@/lib/sync/players"
+import { getOverridesMap } from "@/lib/sync/player-overrides"
 import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 
 export const metadata = {
-  title: "PRO Leaderboard · Brawlchemist",
+  title: "Pro Players · Brawlchemist",
   description: "Verified pro players ranked by current 1v1 rating, per region.",
 }
 
@@ -47,14 +48,16 @@ export default async function ProLeaderboardPage({
   const cutoffs = await getValhallanCutoffs("1v1", [region])
   const cutoff = cutoffs.get(region)?.rating ?? null
 
-  // Empty previews → plain rows (normal tier ranks, no verified-pro name
-  // treatment — every row here is already a pro).
+  // proBoard mode: show the pro handle + verified badge in the name, keep the
+  // real Valhallan/Diamond tier in the subtext.
+  const overrides = await getOverridesMap()
   const columns = buildLeaderboardColumns(
     playersMap,
     "1v1",
     region,
     cutoff,
-    new Map(),
+    overrides,
+    true,
   )
 
   return (
@@ -62,7 +65,7 @@ export default async function ProLeaderboardPage({
       <SiteHeader />
       <main className="pb-16">
         <PageHero
-          title="PRO Leaderboard"
+          title="Pro Players"
           subtitle="Verified pro players, ranked by current 1v1 rating in each region."
           meta={
             <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
