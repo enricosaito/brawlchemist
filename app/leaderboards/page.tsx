@@ -209,7 +209,7 @@ function buildColumns(
                             {p.username}
                           </span>
                         </span>
-                        <BadgeCheck className="size-3.5 shrink-0 text-mystic group-hover/pro:hidden" />
+                        <BadgeCheck className="size-3.5 shrink-0 text-foreground group-hover/pro:hidden" />
                       </span>
                     ) : (
                       <span className="truncate">{p.username}</span>
@@ -222,7 +222,7 @@ function buildColumns(
             )}
             {rowPro ? (
               <>
-                <span className="mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-foreground group-hover/pro:hidden">
+                <span className="mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-mystic group-hover/pro:hidden">
                   Pro Player
                 </span>
                 {tier && (
