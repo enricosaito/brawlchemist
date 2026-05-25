@@ -11,7 +11,7 @@ import type {
 import { slugForLegendId } from "@/lib/legends-roster"
 import type { PlayerPreview } from "@/lib/player-previews"
 import type { Tier } from "@/lib/types"
-import { LegendChip, TIER_TEXT_COLOR } from "./primitives"
+import { LegendChip, REGION_COLOR, TIER_TEXT_COLOR } from "./primitives"
 import { PlayerName, ProBadge } from "./pro-badge"
 
 const KNOWN_TIERS: readonly Tier[] = [
@@ -60,11 +60,13 @@ function PodiumCard({
   playersMap,
   gameMode,
   previews,
+  showRegion,
 }: {
   entry: RankedEntry
   playersMap: Map<number, PlayerRow>
   gameMode: ApiGameMode
   previews: Map<number, PlayerPreview>
+  showRegion: boolean
 }) {
   const tier = toTier(entry.tier)
   const username = entry.players.map((p) => p.username).join(" + ")
@@ -167,6 +169,14 @@ function PodiumCard({
               <span className="text-muted-foreground/60">·</span>
             </span>
           )}
+          {showRegion && entry.region && (
+            <span className="inline-flex items-center gap-1.5">
+              <span className={REGION_COLOR[entry.region] ?? "text-muted-foreground"}>
+                {entry.region}
+              </span>
+              <span className="text-muted-foreground/60">·</span>
+            </span>
+          )}
           <span className="text-positive">{winRate}</span>
           <span className="text-muted-foreground/60">·</span>
           <span className="text-muted-foreground">
@@ -207,11 +217,13 @@ export function LeaderboardPodium({
   playersMap,
   gameMode,
   previews,
+  showRegion = false,
 }: {
   entries: RankedEntry[]
   playersMap: Map<number, PlayerRow>
   gameMode: ApiGameMode
   previews: Map<number, PlayerPreview>
+  showRegion?: boolean
 }) {
   const top3 = entries.slice(0, 3)
   if (top3.length === 0) return null
@@ -225,6 +237,7 @@ export function LeaderboardPodium({
           playersMap={playersMap}
           gameMode={gameMode}
           previews={previews}
+          showRegion={showRegion}
         />
       ))}
     </div>

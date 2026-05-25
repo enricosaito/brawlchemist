@@ -22,8 +22,6 @@ import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import { getOverridesMap } from "@/lib/sync/player-overrides"
 import type { PlayerRow } from "@/lib/db/schema"
 
-const CUTOFF_REGIONS: ApiRegion[] = ["US-E", "EU", "BRZ"]
-
 const QUEUES: { id: ApiGameMode; label: string }[] = [
   { id: "1v1", label: "1v1" },
   { id: "2v2", label: "2v2" },
@@ -70,10 +68,9 @@ export default async function LeaderboardPage({
   const modePath = `/leaderboards/${gameMode}`
   const baseQuery = `region=${region}`
 
-  // When narrowed to a single region, the cutoff strip collapses to just that
-  // region; "ALL" keeps the multi-region reference breakdown.
-  const cutoffRegions: ApiRegion[] =
-    region === "ALL" ? CUTOFF_REGIONS : [region]
+  // The Valhallan cutoff is region-specific, so it only shows for a single
+  // region — hidden on the ALL board where it'd be a variable breakdown.
+  const cutoffRegions: ApiRegion[] = region === "ALL" ? [] : [region]
 
   const [result, cutoffs] = await Promise.all([
     getRankedLeaderboard({
@@ -231,6 +228,7 @@ export default async function LeaderboardPage({
                   playersMap={playersMap}
                   gameMode={gameMode}
                   previews={overrides}
+                  showRegion={region === "ALL"}
                 />
               )}
               <DataTable
