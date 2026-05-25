@@ -60,11 +60,13 @@ const LEADERBOARD_OPTIONS: DropdownOption[] = [
     href: "/otps",
     avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
   },
-  {
-    label: "Pro Players",
-    href: "/leaderboards/pro",
-    avatar: "/assets/AniAvatar_Crown_of_the_Exalted.webp",
-  },
+  // Pro Players — hidden for now (WIP). The page still lives at
+  // /leaderboards/pro; restore this entry when it's ready.
+  // {
+  //   label: "Pro Players",
+  //   href: "/leaderboards/pro",
+  //   avatar: "/assets/AniAvatar_Crown_of_the_Exalted.webp",
+  // },
 ]
 
 const TIERLIST_OPTIONS: DropdownOption[] = [

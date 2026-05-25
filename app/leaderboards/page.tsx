@@ -426,7 +426,7 @@ export default async function LeaderboardsPage({
       <SiteHeader />
       <main className="pb-16">
         <PageHero
-          title="Leaderboards"
+          title={gameMode === "2v2" ? "2v2 Teams" : "1v1 Ranking"}
           subtitle="Top-ranked players, pulled live from the Brawlhalla v1 API. Main legends update every ~24h."
           meta={
             <>
