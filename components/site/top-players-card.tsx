@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { BadgeCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
@@ -7,6 +8,7 @@ import {
   getRankedLeaderboard,
 } from "@/lib/brawlhalla-api"
 import { getPlayersByIds } from "@/lib/sync/players"
+import { getOverridesMap } from "@/lib/sync/player-overrides"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { Tier } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
@@ -60,6 +62,9 @@ export async function TopPlayersCard({
       console.error("[top-players-card] DB lookup failed:", err)
     }
   }
+
+  // Admin-curated previews drive the verified-pro treatment (handle + check).
+  const overrides = await getOverridesMap()
 
   return (
     <PreviewCard
@@ -151,6 +156,7 @@ export async function TopPlayersCard({
                   {entry.players.map((p) => {
                     const lid = playersMap.get(p.id)?.topLegendId
                     const slug = lid ? slugForLegendId(lid) : null
+                    const handle = overrides.get(p.id)?.verified?.handle
                     return (
                       <span
                         key={p.id}
@@ -174,20 +180,58 @@ export async function TopPlayersCard({
                             aria-hidden
                           />
                         )}
-                        <span className="flex min-w-0 flex-col gap-0.5">
-                          <PlayerLink id={p.id} className="truncate font-medium">
-                            {p.username}
-                          </PlayerLink>
-                          {is1v1 && tier && (
-                            <span
-                              className={cn(
-                                "font-mono text-[10px] uppercase tracking-wider",
-                                TIER_TEXT_COLOR[tier],
-                              )}
-                            >
-                              {tier}
-                            </span>
+                        <span
+                          className={cn(
+                            "flex min-w-0 flex-col gap-0.5",
+                            handle && "group/pro",
                           )}
+                        >
+                          <PlayerLink id={p.id} className="font-medium">
+                            {handle ? (
+                              <span className="inline-flex min-w-0 items-center gap-1">
+                                <span className="min-w-0 truncate">
+                                  <span className="group-hover/pro:hidden">
+                                    {handle}
+                                  </span>
+                                  <span className="hidden group-hover/pro:inline">
+                                    {p.username}
+                                  </span>
+                                </span>
+                                <BadgeCheck className="size-3.5 shrink-0 text-foreground group-hover/pro:hidden" />
+                              </span>
+                            ) : (
+                              <span className="truncate">{p.username}</span>
+                            )}
+                          </PlayerLink>
+                          {is1v1 &&
+                            (handle ? (
+                              <>
+                                <span className="font-mono text-[10px] uppercase tracking-wider text-mystic group-hover/pro:hidden">
+                                  Pro Player
+                                </span>
+                                {tier && (
+                                  <span
+                                    className={cn(
+                                      "hidden font-mono text-[10px] uppercase tracking-wider group-hover/pro:block",
+                                      TIER_TEXT_COLOR[tier],
+                                    )}
+                                  >
+                                    {tier}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              tier && (
+                                <span
+                                  className={cn(
+                                    "font-mono text-[10px] uppercase tracking-wider",
+                                    TIER_TEXT_COLOR[tier],
+                                  )}
+                                >
+                                  {tier}
+                                </span>
+                              )
+                            ))}
                         </span>
                       </span>
                     )
