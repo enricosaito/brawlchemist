@@ -43,11 +43,13 @@ export default async function AdminPage({
               : "rounded-md border border-positive/40 bg-positive/10 px-3 py-2 text-sm text-positive"
           }
         >
-          {sp.error
-            ? "Couldn’t save — check the Brawlhalla ID."
-            : sp.deleted
-              ? "Override deleted."
-              : `Saved override for ${sp.saved}.`}
+          {sp.error === "upload"
+            ? "Skin upload failed — is Vercel Blob set up (BLOB_READ_WRITE_TOKEN)?"
+            : sp.error
+              ? "Couldn’t save — check the Brawlhalla ID."
+              : sp.deleted
+                ? "Override deleted."
+                : `Saved override for ${sp.saved}.`}
         </div>
       )}
 
@@ -135,6 +137,23 @@ export default async function AdminPage({
               placeholder="e.g. Fallen Prince Teros"
               className={inputCls}
             />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className={labelCls} htmlFor="skinFile">
+              …or upload a skin image (stored in Vercel Blob)
+            </label>
+            <input
+              id="skinFile"
+              name="skinFile"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="mt-1 block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-copper file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-background hover:file:bg-copper/90"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              On save, an uploaded image replaces the path above. Keep it under
+              ~1&nbsp;MB.
+            </p>
           </div>
 
           <div className="sm:col-span-2">
