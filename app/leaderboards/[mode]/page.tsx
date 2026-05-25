@@ -111,7 +111,7 @@ export default async function LeaderboardPage({
 
   const sp = await searchParams
   const region: ApiRegion =
-    sp.region && isApiRegion(sp.region) ? sp.region : "BRZ"
+    sp.region && isApiRegion(sp.region) ? sp.region : "ALL"
   const requestedPage = Math.max(1, Number(sp.page ?? "1") || 1)
   const modePath = `/leaderboards/${gameMode}`
   const baseQuery = `region=${region}`
