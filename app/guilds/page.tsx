@@ -3,6 +3,7 @@ import Link from "next/link"
 import { Users } from "lucide-react"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { LeaderboardSearch } from "@/components/site/leaderboard-search"
+import { Pagination } from "@/components/site/pagination"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import { getGuildLeaderboard } from "@/lib/sync/guilds"
@@ -12,6 +13,8 @@ export const metadata: Metadata = {
   title: "Guild Rankings · Brawlchemist",
   description: "Top Brawlhalla guilds, ranked by official guild rank.",
 }
+
+const PAGE_SIZE = 50
 
 const num = (n: number | null) => (n == null ? "—" : n.toLocaleString())
 
@@ -100,8 +103,19 @@ function buildColumns(): ColDef<GuildRow>[] {
   ]
 }
 
-export default async function GuildsPage() {
+export default async function GuildsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
   const guilds = await getGuildLeaderboard()
+  const sp = await searchParams
+  const totalPages = Math.max(1, Math.ceil(guilds.length / PAGE_SIZE))
+  const page = Math.min(
+    Math.max(1, Number(sp.page ?? "1") || 1),
+    totalPages,
+  )
+  const pageRows = guilds.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="min-h-svh">
@@ -130,7 +144,7 @@ export default async function GuildsPage() {
             <div className="mx-auto max-w-[1280px]">
               <DataTable
                 columns={buildColumns()}
-                rows={guilds}
+                rows={pageRows}
                 rowKey={(g) => String(g.guildId)}
                 searchValue={(g) => g.name}
               />
@@ -141,6 +155,12 @@ export default async function GuildsPage() {
               >
                 No guilds match your search.
               </p>
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                ariaLabel="Guild pagination"
+                hrefFor={(p) => `/guilds?page=${p}`}
+              />
             </div>
           )}
         </div>
