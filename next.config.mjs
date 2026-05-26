@@ -14,6 +14,27 @@ const nextConfig = {
       },
     ],
   },
+  // Vanity short links to our official socials. `permanent: false` (307) keeps
+  // them changeable later without browsers caching the destination forever.
+  async redirects() {
+    return [
+      {
+        source: "/github",
+        destination: "https://github.com/enricosaito/brawlchemist",
+        permanent: false,
+      },
+      {
+        source: "/twitter",
+        destination: "https://x.com/brawlchemist",
+        permanent: false,
+      },
+      {
+        source: "/discord",
+        destination: "https://discord.gg/jXpe8kjYwQ",
+        permanent: false,
+      },
+    ]
+  },
 }
 
 export default nextConfig

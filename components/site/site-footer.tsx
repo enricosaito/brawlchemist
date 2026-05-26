@@ -21,6 +21,14 @@ export function SiteFooter() {
             GitHub
           </a>
           <a
+            href="https://x.com/brawlchemist"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-tier-valhallan"
+          >
+            Twitter
+          </a>
+          <a
             href="https://discord.gg/jXpe8kjYwQ"
             target="_blank"
             rel="noopener noreferrer"
