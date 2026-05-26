@@ -122,6 +122,188 @@ export async function getYearTournaments(
   return [...byId.values()].sort((a, b) => b.startTime - a.startTime)
 }
 
+// ---- Players / power rankings ---------------------------------------------
+//
+// The esports profile of a Brawlhalla account. `GetPlayerByBhId` is the bridge
+// from our brawlhalla_id to the esports identity; it 404s for accounts that
+// have never been in a tracked tournament (regular ladder players). Socials
+// (twitter/twitch) only come back from SearchPlayers, which also bundles both
+// power-ranking objects + career earnings — so the cheap path is byBhId (gate +
+// name) then search(name) matched on brawlhallaId.
+
+const PLAYER_TTL = 6 * 60 * 60 // 6h — PR/earnings move slowly.
+
+interface EsportsPlayer {
+  playerId: number
+  sggPlayerId?: number
+  cmPlayerId?: string
+  brawlhallaId: number
+  name: string
+  twitter?: string
+  twitch?: string
+  country?: string
+}
+
+/** A power-ranking record. `powerRanking` is 0 / `region` "" when unranked. */
+interface RawPr {
+  top8: number
+  top32: number
+  gold: number
+  silver: number
+  bronze: number
+  powerRanking: number
+  region: string
+}
+
+interface PlayerByBhIdResponse {
+  player: EsportsPlayer
+}
+
+interface PlayerPrResponse {
+  earnings: number
+  pr: RawPr
+}
+
+interface SearchPlayersResponse {
+  searchPlayers: {
+    player: EsportsPlayer
+    pr1v1: RawPr
+    pr2v2: RawPr
+    earnings: number
+  }[]
+  nextToken: string | null
+}
+
+function getPlayerByBhId(
+  brawlhallaId: number,
+): Promise<ApiResult<PlayerByBhIdResponse>> {
+  return apiFetch<PlayerByBhIdResponse>(
+    `/v2/player/bhId/${brawlhallaId}`,
+    {},
+    PLAYER_TTL,
+  )
+}
+
+function getPlayerPr(
+  playerId: number,
+  gameMode: EsportsGameMode,
+): Promise<ApiResult<PlayerPrResponse>> {
+  return apiFetch<PlayerPrResponse>(
+    "/v2/player/pr",
+    { playerIds: playerId, gameMode },
+    PLAYER_TTL,
+  )
+}
+
+function searchPlayers(
+  query: string,
+): Promise<ApiResult<SearchPlayersResponse>> {
+  return apiFetch<SearchPlayersResponse>(
+    "/v2/player/search",
+    { query },
+    PLAYER_TTL,
+  )
+}
+
+/** A power ranking we actually surface — null means the player isn't ranked
+ * in that mode (powerRanking 0). */
+export interface EsportsPr {
+  region: string
+  powerRanking: number
+  top8: number
+  top32: number
+  gold: number
+  silver: number
+  bronze: number
+}
+
+function normalizePr(raw: RawPr | null | undefined): EsportsPr | null {
+  if (!raw || !raw.powerRanking || raw.powerRanking <= 0) return null
+  return {
+    region: raw.region,
+    powerRanking: raw.powerRanking,
+    top8: raw.top8,
+    top32: raw.top32,
+    gold: raw.gold,
+    silver: raw.silver,
+    bronze: raw.bronze,
+  }
+}
+
+/** Unified esports profile for a brawlhalla_id. `isPro` is true when the player
+ * holds an official power ranking in either mode (our definition of "pro"). */
+export interface EsportsProfile {
+  brawlhallaId: number
+  handle: string
+  twitter: string | null
+  twitch: string | null
+  country: string | null
+  earnings: number
+  pr1v1: EsportsPr | null
+  pr2v2: EsportsPr | null
+  isPro: boolean
+}
+
+/**
+ * Resolve a brawlhalla_id to its esports profile, or null when the account
+ * isn't a tracked competitor (byBhId 404). Primary path: search(name) matched
+ * on brawlhallaId (one call carries socials + both PRs + earnings); falls back
+ * to per-mode PR lookups (no socials) if search doesn't surface them.
+ */
+export async function getEsportsProfile(
+  brawlhallaId: number,
+): Promise<EsportsProfile | null> {
+  const idRes = await getPlayerByBhId(brawlhallaId)
+  if (!idRes.ok) return null // 404 = not in the esports database
+
+  const base = idRes.data.player
+  let player: EsportsPlayer = base
+  let rawPr1: RawPr | null = null
+  let rawPr2: RawPr | null = null
+  let earnings = 0
+
+  const searchRes = await searchPlayers(base.name)
+  const match = searchRes.ok
+    ? searchRes.data.searchPlayers.find(
+        (s) => s.player.brawlhallaId === brawlhallaId,
+      )
+    : undefined
+
+  if (match) {
+    player = match.player
+    rawPr1 = match.pr1v1
+    rawPr2 = match.pr2v2
+    earnings = match.earnings ?? 0
+  } else {
+    const [r1, r2] = await Promise.all([
+      getPlayerPr(base.playerId, 1),
+      getPlayerPr(base.playerId, 2),
+    ])
+    if (r1.ok) {
+      rawPr1 = r1.data.pr
+      earnings = r1.data.earnings ?? earnings
+    }
+    if (r2.ok) {
+      rawPr2 = r2.data.pr
+      earnings = r2.data.earnings || earnings
+    }
+  }
+
+  const pr1v1 = normalizePr(rawPr1)
+  const pr2v2 = normalizePr(rawPr2)
+  return {
+    brawlhallaId,
+    handle: player.name,
+    twitter: player.twitter || null,
+    twitch: player.twitch || null,
+    country: player.country || null,
+    earnings,
+    pr1v1,
+    pr2v2,
+    isPro: !!pr1v1 || !!pr2v2,
+  }
+}
+
 export interface TournamentsSplit {
   /** null only when the upstream API was unreachable (vs. an empty list). */
   tournaments: Tournament[] | null

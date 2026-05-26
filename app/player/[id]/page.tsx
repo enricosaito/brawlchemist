@@ -2,7 +2,7 @@ import { cache } from "react"
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
-import { ChevronRight, Users } from "lucide-react"
+import { ArrowUpRight, ChevronRight, Trophy, Users } from "lucide-react"
 import { RegionPill, TIER_TEXT_COLOR, WeaponIcon } from "@/components/site/primitives"
 import { ProBadge } from "@/components/site/pro-badge"
 import { FallenValhallanBadge } from "@/components/site/fallen-valhallan"
@@ -23,6 +23,11 @@ import {
   type PlayerRankedLegend,
   type PlayerStats,
 } from "@/lib/brawlhalla-api"
+import {
+  getEsportsProfile,
+  type EsportsPr,
+  type EsportsProfile,
+} from "@/lib/brawltools-api"
 import { getPlayersByIds, upsertPlayerRanked } from "@/lib/sync/players"
 import { recordPlayerGuild } from "@/lib/sync/guilds"
 import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
@@ -42,6 +47,7 @@ const loadPlayer = cache((id: number) => getPlayerRanked(id))
 const loadStats = cache((id: number) => getPlayerStats(id))
 const loadGuild = cache((id: number) => getPlayerGuild(id))
 const loadStaticLegends = cache(() => getStaticLegends())
+const loadEsports = cache((id: number) => getEsportsProfile(id))
 const loadCutoff = cache((mode: ApiGameMode, region: ApiRegion) =>
   getValhallanCutoff(mode, region),
 )
@@ -324,6 +330,160 @@ function AccountSection({
               )}
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function EsportsTile({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string
+  value: string
+  sub?: string
+  accent?: string
+}) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3">
+      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div
+        className={cn("mt-1 font-mono text-xl font-bold tabular-nums", accent)}
+      >
+        {value}
+      </div>
+      {sub && (
+        <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          {sub}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SocialLink({
+  href,
+  label,
+}: {
+  href: string
+  label: string
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2.5 py-1 text-xs text-foreground transition-colors hover:border-tier-valhallan/50 hover:text-tier-valhallan"
+    >
+      {label}
+      <ArrowUpRight className="size-3 shrink-0" />
+    </a>
+  )
+}
+
+/**
+ * Esports section — competitive/esports profile from brawltools, shown only
+ * for tracked competitors with a power ranking or career earnings. The "Pro"
+ * mark (a power ranking) is separate from the manual /admin verified badge.
+ */
+function EsportsSection({ profile }: { profile: EsportsProfile }) {
+  const { pr1v1, pr2v2, earnings, handle, twitter, twitch, country, isPro } =
+    profile
+  // Medals come from the mode the player is ranked highest in (lowest number).
+  const ranked = [
+    pr1v1 ? ({ mode: "1v1", pr: pr1v1 } as const) : null,
+    pr2v2 ? ({ mode: "2v2", pr: pr2v2 } as const) : null,
+  ].filter((x): x is { mode: "1v1" | "2v2"; pr: EsportsPr } => x !== null)
+  const primary = [...ranked].sort(
+    (a, b) => a.pr.powerRanking - b.pr.powerRanking,
+  )[0]
+
+  return (
+    <section className="mt-8 px-4 sm:px-6">
+      <SectionHeading>Esports</SectionHeading>
+      <div className="mx-auto max-w-[1280px]">
+        <div className="rounded-2xl border border-border/60 bg-card/50 p-5">
+          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="font-display text-lg font-semibold">{handle}</span>
+            {isPro && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-copper">
+                <Trophy className="size-3" />
+                Pro
+              </span>
+            )}
+            {country && (
+              <span className="text-sm text-muted-foreground">{country}</span>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {twitter && (
+                <SocialLink
+                  href={`https://x.com/${twitter}`}
+                  label={`Twitter @${twitter}`}
+                />
+              )}
+              {twitch && (
+                <SocialLink
+                  href={`https://twitch.tv/${twitch}`}
+                  label={`Twitch ${twitch}`}
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {pr1v1 && (
+              <EsportsTile
+                label="1v1 Power Rank"
+                value={`#${pr1v1.powerRanking}`}
+                sub={pr1v1.region}
+                accent="text-copper"
+              />
+            )}
+            {pr2v2 && (
+              <EsportsTile
+                label="2v2 Power Rank"
+                value={`#${pr2v2.powerRanking}`}
+                sub={pr2v2.region}
+                accent="text-copper"
+              />
+            )}
+            <EsportsTile
+              label="Earnings"
+              value={`$${Math.round(earnings).toLocaleString()}`}
+              accent="text-positive"
+            />
+            {primary && (
+              <EsportsTile
+                label="Top 8 / Top 32"
+                value={`${primary.pr.top8} / ${primary.pr.top32}`}
+                sub={`${primary.mode} placements`}
+              />
+            )}
+          </div>
+
+          {primary && (
+            <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border/60 pt-5">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                {primary.mode} medals
+              </span>
+              <span className="flex items-center gap-1.5 font-mono text-sm tabular-nums">
+                <span aria-hidden>🥇</span> {primary.pr.gold}
+                <span className="ml-3" aria-hidden>
+                  🥈
+                </span>{" "}
+                {primary.pr.silver}
+                <span className="ml-3" aria-hidden>
+                  🥉
+                </span>{" "}
+                {primary.pr.bronze}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -841,12 +1001,13 @@ export default async function PlayerPage({
 
   // Distinguish Valhallan from Diamond (both 2000+) via the region's live
   // ladder cutoff — 1v1 for the header, 2v2 for the team cards.
-  const [cutoff1v1, cutoff2v2, preview] = await Promise.all([
+  const [cutoff1v1, cutoff2v2, preview, esports] = await Promise.all([
     valhallanCutoffRating("1v1", data.region),
     teams.length > 0
       ? valhallanCutoffRating("2v2", data.region)
       : Promise.resolve(null),
     getOverride(numId),
+    loadEsports(numId),
   ])
   const headerValhallan = isValhallan(data.rating, cutoff1v1, data.wins)
   const headerFallen = isFallenValhallan(
@@ -867,6 +1028,10 @@ export default async function PlayerPage({
         preview={preview}
         legendStats={legendStatsById}
       />
+
+      {esports && (esports.isPro || esports.earnings > 0) && (
+        <EsportsSection profile={esports} />
+      )}
 
       {accountStats && (
         <AccountSection
