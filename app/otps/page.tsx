@@ -33,8 +33,7 @@ import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import { getOverridesMap } from "@/lib/sync/player-overrides"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
-import { deriveTier, isFallenValhallan, isValhallan, tierLabel } from "@/lib/tier"
-import { FallenEmblem } from "@/components/site/fallen-valhallan"
+import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 
 const REGION_OPTIONS = ["ALL", ...API_REGIONS.filter((r) => r !== "ALL")] as const
 
@@ -48,7 +47,6 @@ const DEFAULT_LEGEND_SLUG = "cassidy"
 function buildColumns(
   legendSlug: string,
   valhallanById: Map<number, boolean>,
-  fallenById: Map<number, boolean>,
   previews: Map<number, PlayerPreview>,
   // The top 3 render in the podium, so the table starts at this rank.
   rankOffset = 0,
@@ -71,9 +69,6 @@ function buildColumns(
       width: "72px",
       align: "center",
       render: (p) => {
-        if (fallenById.get(p.brawlhalla_id)) {
-          return <FallenEmblem size={32} className="mx-auto" />
-        }
         const tier = deriveTier(p.tier, valhallanById.get(p.brawlhalla_id) ?? false)
         return tier ? (
           <RankIcon tier={tier} size={32} className="mx-auto" />
@@ -258,19 +253,6 @@ export default async function OtpsPage({
       isValhallan(p.rating, cutoffFor(p.region), p.wins),
     ]),
   )
-  const fallenById = new Map<number, boolean>(
-    players.map((p) => [
-      p.brawlhalla_id,
-      isFallenValhallan(
-        p.tier,
-        p.rating,
-        p.peak_rating,
-        cutoffFor(p.region),
-        p.wins,
-      ),
-    ]),
-  )
-
   // Admin-curated pro handles/badges for the player column.
   const overrides = await getOverridesMap()
 
@@ -387,7 +369,6 @@ export default async function OtpsPage({
                     columns={buildColumns(
                       legendSlug,
                       valhallanById,
-                      fallenById,
                       overrides,
                       3,
                     )}

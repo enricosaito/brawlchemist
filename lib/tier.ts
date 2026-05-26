@@ -63,21 +63,3 @@ export function tierLabel(apiTier: string | null, valhallan: boolean): string {
   if (!apiTier) return "—"
   return apiTier.split(" ")[0]
 }
-
-/**
- * A "Fallen Valhallan" reached Valhallan (their peak cleared the region cutoff,
- * with the 100-win requirement) but has since dropped back to Diamond — i.e.
- * their *peak* clears the cutoff while their *current* rating does not, and
- * they're still Diamond now (the tier you land in just below the cutoff).
- */
-export function isFallenValhallan(
-  apiTier: string | null,
-  rating: number | null | undefined,
-  peakRating: number | null | undefined,
-  cutoff: number | null | undefined,
-  wins?: number | null,
-): boolean {
-  if (isValhallan(rating, cutoff, wins)) return false
-  if (!isValhallan(peakRating, cutoff, wins)) return false
-  return deriveTier(apiTier, false) === "Diamond"
-}

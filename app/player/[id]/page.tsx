@@ -5,7 +5,6 @@ import Link from "next/link"
 import { ArrowUpRight, ChevronRight, Trophy, Users } from "lucide-react"
 import { RegionPill, TIER_TEXT_COLOR, WeaponIcon } from "@/components/site/primitives"
 import { ProBadge } from "@/components/site/pro-badge"
-import { FallenValhallanBadge } from "@/components/site/fallen-valhallan"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { getOverride } from "@/lib/sync/player-overrides"
 import { SiteFooter } from "@/components/site/site-footer"
@@ -32,7 +31,7 @@ import { getPlayersByIds, upsertPlayerRanked } from "@/lib/sync/players"
 import { recordPlayerGuild } from "@/lib/sync/guilds"
 import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
-import { deriveTier, isFallenValhallan, isValhallan, tierLabel } from "@/lib/tier"
+import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 import { formatElo, formatPercent } from "@/lib/format"
 import {
   rosterEntryByLegendId,
@@ -661,14 +660,12 @@ function ProfileHeader({
   data,
   titles,
   valhallan,
-  fallen,
   preview,
   legendStats,
 }: {
   data: PlayerRanked
   titles: string[]
   valhallan: boolean
-  fallen: boolean
   preview: PlayerPreview | undefined
   legendStats: Map<number, { level: number; xp: number }>
 }) {
@@ -721,7 +718,7 @@ function ProfileHeader({
       node: <span className="normal-case text-tier-gold">{title}</span>,
     })
   })
-  const hasMeta = fallen || !!preview?.verified || metaNodes.length > 0
+  const hasMeta = !!preview?.verified || metaNodes.length > 0
 
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
@@ -771,7 +768,6 @@ function ProfileHeader({
                   </div>
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
-                      {fallen && <FallenValhallanBadge />}
                       {preview?.verified && (
                         <span className="inline-flex items-center gap-2">
                           <ProBadge />
@@ -785,7 +781,7 @@ function ProfileHeader({
                           key={item.key}
                           className="inline-flex items-center gap-2"
                         >
-                          {(i > 0 || preview?.verified || fallen) && (
+                          {(i > 0 || preview?.verified) && (
                             <span
                               aria-hidden
                               className="text-muted-foreground/40"
@@ -1208,13 +1204,6 @@ export default async function PlayerPage({
     loadEsports(numId),
   ])
   const headerValhallan = isValhallan(data.rating, cutoff1v1, data.wins)
-  const headerFallen = isFallenValhallan(
-    data.tier,
-    data.rating,
-    data.peak_rating,
-    cutoff1v1,
-    data.wins,
-  )
 
   // Name from the best available source: ranked → lifetime stats → esports.
   const displayName =
@@ -1242,7 +1231,6 @@ export default async function PlayerPage({
           data={data}
           titles={titles}
           valhallan={headerValhallan}
-          fallen={headerFallen}
           preview={preview}
           legendStats={legendStatsById}
         />
