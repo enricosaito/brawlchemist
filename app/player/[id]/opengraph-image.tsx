@@ -28,8 +28,12 @@ export default async function OgImage({
 }) {
   const { id } = await params
   const numId = Number(id)
+  // Short fetch-cache window, shared with the profile page's read — a render
+  // right after a page view costs no extra upstream call.
   const res =
-    Number.isInteger(numId) && numId > 0 ? await getPlayerRanked(numId) : null
+    Number.isInteger(numId) && numId > 0
+      ? await getPlayerRanked(numId, { revalidate: 300 })
+      : null
   const data = res?.ok ? res.data : null
 
   // Tell Valhallan apart from Diamond (both 2000+) using the region's cutoff.

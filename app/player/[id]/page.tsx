@@ -42,9 +42,17 @@ import type { WeaponId } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 // Memoize per-request so generateMetadata and the page share one API call.
-const loadPlayer = cache((id: number) => getPlayerRanked(id))
+// The ranked/guild reads also use a short fetch-cache window (revalidate) so
+// repeat views, link unfurls, and concurrent hits to the same profile collapse
+// to ~1 upstream call per 5 min instead of one per view.
+const PROFILE_REVALIDATE = 300
+const loadPlayer = cache((id: number) =>
+  getPlayerRanked(id, { revalidate: PROFILE_REVALIDATE }),
+)
 const loadStats = cache((id: number) => getPlayerStats(id))
-const loadGuild = cache((id: number) => getPlayerGuild(id))
+const loadGuild = cache((id: number) =>
+  getPlayerGuild(id, { revalidate: PROFILE_REVALIDATE }),
+)
 const loadStaticLegends = cache(() => getStaticLegends())
 const loadEsports = cache((id: number) => getEsportsProfile(id))
 const loadCutoff = cache((mode: ApiGameMode, region: ApiRegion) =>
