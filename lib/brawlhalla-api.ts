@@ -224,13 +224,32 @@ export interface PlayerStatsLegend {
   xp: number
   games: number
   wins: number
+  /** Seconds played on this legend (all modes). */
+  matchtime: number
+  /** Seconds the legend's first/second weapon was held — used to rank a
+   * player's most-used weapons. */
+  timeheldweaponone: number
+  timeheldweapontwo: number
+  [key: string]: unknown
+}
+
+/** A player's clan/guild, embedded in GetPlayerStats. `clan_id` matches the
+ * guild id used by the v1 guild endpoints. */
+export interface PlayerStatsClan {
+  clan_id: number
+  clan_name: string
   [key: string]: unknown
 }
 
 export interface PlayerStats {
   brawlhalla_id: number
   name: string
+  /** Account level and lifetime XP / record (all modes). */
   level: number
+  xp: number
+  games: number
+  wins: number
+  clan?: PlayerStatsClan
   legends: PlayerStatsLegend[]
   [key: string]: unknown
 }
