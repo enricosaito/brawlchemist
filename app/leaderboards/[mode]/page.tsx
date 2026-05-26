@@ -8,6 +8,7 @@ import { DataTable } from "@/components/site/data-table"
 import { buildLeaderboardColumns } from "@/components/site/leaderboard-columns"
 import { LeaderboardPodium } from "@/components/site/leaderboard-podium"
 import { LeaderboardSearch } from "@/components/site/leaderboard-search"
+import { Pagination } from "@/components/site/pagination"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import {
@@ -330,42 +331,12 @@ export default async function LeaderboardPage({
               >
                 No players match your search.
               </p>
-              {totalPages > 1 && (
-                <nav
-                  aria-label="Leaderboard pagination"
-                  className="mt-4 flex flex-wrap items-center justify-between gap-3"
-                >
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Page {page} of {totalPages.toLocaleString()}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {page > 1 ? (
-                      <Link
-                        href={`${modePath}?${baseQuery}&page=${page - 1}`}
-                        className="rounded-md border border-border/60 bg-card/60 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-foreground transition-colors hover:bg-muted"
-                      >
-                        ← Prev
-                      </Link>
-                    ) : (
-                      <span className="rounded-md border border-border/30 bg-card/30 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
-                        ← Prev
-                      </span>
-                    )}
-                    {page < totalPages ? (
-                      <Link
-                        href={`${modePath}?${baseQuery}&page=${page + 1}`}
-                        className="rounded-md border border-border/60 bg-card/60 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-foreground transition-colors hover:bg-muted"
-                      >
-                        Next →
-                      </Link>
-                    ) : (
-                      <span className="rounded-md border border-border/30 bg-card/30 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">
-                        Next →
-                      </span>
-                    )}
-                  </div>
-                </nav>
-              )}
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                ariaLabel="Leaderboard pagination"
+                hrefFor={(p) => `${modePath}?${baseQuery}&page=${p}`}
+              />
             </div>
           )}
         </div>

@@ -12,6 +12,7 @@ import { DataTable, type ColDef } from "@/components/site/data-table"
 import { LeaderboardPodium } from "@/components/site/leaderboard-podium"
 import { LeaderboardSearch } from "@/components/site/leaderboard-search"
 import { LegendPicker } from "@/components/site/legend-picker"
+import { Pagination } from "@/components/site/pagination"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import { formatElo, formatPercent } from "@/lib/format"
@@ -43,6 +44,11 @@ function formatWinRate(wins: number | null, games: number | null): string {
 }
 
 const DEFAULT_LEGEND_SLUG = "cassidy"
+const PAGE_SIZE = 50
+// Upper bound on the OTP board depth. The DB only holds Valhallan-discovered
+// players, so even popular legends rarely exceed this; the CTE computes every
+// candidate regardless of LIMIT, so raising it past 50 is essentially free.
+const MAX_OTPS = 200
 
 function buildColumns(
   legendSlug: string,
@@ -209,9 +215,10 @@ function buildColumns(
 export default async function OtpsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ legend?: string; region?: string }>
+  searchParams: Promise<{ legend?: string; region?: string; page?: string }>
 }) {
   const params = await searchParams
+  const requestedPage = Math.max(1, Number(params.page ?? "1") || 1)
   const legendSlug =
     params.legend && rosterEntryBySlug(params.legend)
       ? params.legend
@@ -229,8 +236,11 @@ export default async function OtpsPage({
   const players = await getOtpsForLegend({
     legendId: selectedLegend.legendId,
     region: regionFilter,
-    limit: 50,
+    limit: MAX_OTPS,
   })
+  const totalPages = Math.max(1, Math.ceil(players.length / PAGE_SIZE))
+  const page = Math.min(requestedPage, totalPages)
+  const pageStart = (page - 1) * PAGE_SIZE
 
   // Valhallan vs Diamond (both 2000+) hinges on each player's regional ladder
   // cutoff. Fetch only the regions present here (cached, shared with the
@@ -277,8 +287,13 @@ export default async function OtpsPage({
     region: p.region,
     tier: (valhallanById.get(p.brawlhalla_id) ?? false) ? "Valhallan" : p.tier,
   })
-  const podiumEntries = players.slice(0, 3).map((p, i) => toEntry(p, i + 1))
-  const tableRows = players.slice(3)
+  // Page 1 leads with the podium (top 3), so its table starts at rank 4. Later
+  // pages are a plain table window. `tableStart` doubles as the rank offset so
+  // the # column stays globally correct across pages.
+  const podiumEntries =
+    page === 1 ? players.slice(0, 3).map((p, i) => toEntry(p, i + 1)) : []
+  const tableStart = page === 1 ? 3 : pageStart
+  const tableRows = players.slice(tableStart, pageStart + PAGE_SIZE)
 
   const pickerOptions = [...LEGEND_ROSTER]
     .map((l) => ({ slug: l.slug, name: l.name }))
@@ -355,13 +370,15 @@ export default async function OtpsPage({
                 </div>
               )}
 
-              <LeaderboardPodium
-                entries={podiumEntries}
-                playersMap={playersMap}
-                gameMode="1v1"
-                previews={overrides}
-                showRegion={region === "ALL"}
-              />
+              {podiumEntries.length > 0 && (
+                <LeaderboardPodium
+                  entries={podiumEntries}
+                  playersMap={playersMap}
+                  gameMode="1v1"
+                  previews={overrides}
+                  showRegion={region === "ALL"}
+                />
+              )}
 
               {tableRows.length > 0 && (
                 <>
@@ -370,7 +387,7 @@ export default async function OtpsPage({
                       legendSlug,
                       valhallanById,
                       overrides,
-                      3,
+                      tableStart,
                     )}
                     rows={tableRows}
                     rowKey={(p) => String(p.brawlhalla_id)}
@@ -392,6 +409,15 @@ export default async function OtpsPage({
                   </p>
                 </>
               )}
+
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                ariaLabel="OTP pagination"
+                hrefFor={(p) =>
+                  `/otps?legend=${legendSlug}&region=${region}&page=${p}`
+                }
+              />
             </div>
           )}
         </div>
