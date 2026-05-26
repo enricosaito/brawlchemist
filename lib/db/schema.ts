@@ -109,3 +109,21 @@ export const guilds = pgTable("guilds", {
 
 export type GuildRow = typeof guilds.$inferSelect
 export type GuildInsert = typeof guilds.$inferInsert
+
+/**
+ * cron_controls — admin pause switches for the scheduled sync jobs. Each cron
+ * route checks its key here before doing any API work, so a single toggle in
+ * /admin can stop a job that's eating the Brawlhalla API rate limit (which is
+ * shared with on-demand profile fetches). A missing row means "not paused", so
+ * the table only holds keys that have ever been toggled.
+ */
+export const cronControls = pgTable("cron_controls", {
+  /** Matches the route segment under app/api/cron/<key>. */
+  key: text("key").primaryKey(),
+  paused: boolean("paused").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export type CronControlRow = typeof cronControls.$inferSelect

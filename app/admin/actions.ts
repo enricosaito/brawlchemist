@@ -12,6 +12,7 @@ import {
   upsertOverride,
   type OverrideInput,
 } from "@/lib/sync/player-overrides"
+import { setCronPaused } from "@/lib/sync/cron-controls"
 import { syncPlayer } from "@/lib/sync/players"
 
 export async function loginAction(formData: FormData) {
@@ -81,4 +82,13 @@ export async function deleteOverrideAction(formData: FormData) {
   const id = Number(formData.get("brawlhallaId"))
   if (Number.isInteger(id) && id > 0) await deleteOverride(id)
   redirect("/admin?deleted=1")
+}
+
+export async function toggleCronAction(formData: FormData) {
+  await requireAdmin()
+  const key = String(formData.get("key") ?? "")
+  // The form sends the desired next state, so the click is idempotent.
+  const paused = String(formData.get("paused")) === "true"
+  await setCronPaused(key, paused)
+  redirect("/admin#crons")
 }
