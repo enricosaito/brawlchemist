@@ -177,10 +177,18 @@ export function getRankedLeaderboard(opts: {
 
 export function getPlayerRanked(
   brawlhallaId: number,
+  opts: { revalidate?: number } = {},
 ): Promise<ApiResult<PlayerRanked>> {
-  // We bypass the fetch cache here: the sync layer decides freshness via the
-  // DB's last_synced column, not the HTTP layer.
-  return apiFetch<PlayerRanked>(`/player/${brawlhallaId}/ranked`, {}, 0)
+  // The sync layer passes nothing → revalidate 0 (uncached): it gates freshness
+  // on the DB's last_synced column, not the HTTP layer. On-demand page/OG reads
+  // pass a short revalidate so repeat views, link unfurls, and concurrent hits
+  // to the same profile collapse to ~1 upstream call per window instead of one
+  // call per view.
+  return apiFetch<PlayerRanked>(
+    `/player/${brawlhallaId}/ranked`,
+    {},
+    opts.revalidate ?? 0,
+  )
 }
 
 /**
@@ -369,11 +377,14 @@ export function getGuildMembers(
 
 export function getPlayerGuild(
   brawlhallaId: number,
+  opts: { revalidate?: number } = {},
 ): Promise<ApiResult<PlayerGuildResponse>> {
-  // Freshness is gated by the DB's guild_checked_at, not the HTTP layer.
+  // Discovery cron passes nothing → uncached (freshness gated by the DB's
+  // guild_checked_at). On-demand page reads pass a short revalidate to dedupe
+  // repeat/unfurl/concurrent views of the same profile.
   return apiFetch<PlayerGuildResponse>(
     "/v1/player/guild",
     { brawlhalla_id: brawlhallaId },
-    0,
+    opts.revalidate ?? 0,
   )
 }
