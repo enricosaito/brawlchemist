@@ -91,6 +91,11 @@ const EXPLORE_OPTIONS: DropdownOption[] = [
     href: "/tournaments",
     avatar: "/assets/AniAvatar_Crown_of_the_Exalted.webp",
   },
+  {
+    label: "Patch Notes",
+    href: "/patch-notes",
+    avatar: "/assets/AniAvatar_Potion_Shelf.webp",
+  },
 ]
 
 function NavDropdown({

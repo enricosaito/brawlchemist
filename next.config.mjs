@@ -7,6 +7,11 @@ const nextConfig = {
         protocol: "https",
         hostname: "*.public.blob.vercel-storage.com",
       },
+      // Brawlhalla patch-note banners come from the official news CMS.
+      {
+        protocol: "https",
+        hostname: "cms.brawlhalla.com",
+      },
     ],
   },
 }
