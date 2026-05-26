@@ -51,11 +51,6 @@ const LEADERBOARD_OPTIONS: DropdownOption[] = [
     avatar: "/assets/AniAvatar_Forest_Sprites.webp",
   },
   {
-    label: "Guilds",
-    href: "/guilds",
-    avatar: "/assets/AniAvatar_River_Raid.webp",
-  },
-  {
     label: "OTPs",
     href: "/otps",
     avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
@@ -69,7 +64,7 @@ const LEADERBOARD_OPTIONS: DropdownOption[] = [
   // },
 ]
 
-const TIERLIST_OPTIONS: DropdownOption[] = [
+const EXPLORE_OPTIONS: DropdownOption[] = [
   {
     label: "Legends",
     href: "/legends",
@@ -81,17 +76,9 @@ const TIERLIST_OPTIONS: DropdownOption[] = [
     avatar: "/assets/AniAvatar_Cursed_Kunai.webp",
   },
   {
-    label: "Stances",
-    href: "/stances",
-    avatar: "/assets/AniAvatar_Potion_Shelf.webp",
-    comingSoon: true,
-  },
-  {
-    label: "2v2 Comps",
-    // Ampersand in the filename must be URL-encoded so Next/Image can fetch it.
-    href: "/comps",
-    avatar: "/assets/AniAvatar_Ash_%26_Yarra.webp",
-    comingSoon: true,
+    label: "Guilds",
+    href: "/guilds",
+    avatar: "/assets/AniAvatar_River_Raid.webp",
   },
 ]
 
@@ -198,7 +185,7 @@ export function SiteHeader() {
             href="/leaderboards/1v1"
             options={LEADERBOARD_OPTIONS}
           />
-          <NavDropdown label="Tierlist" href="/legends" options={TIERLIST_OPTIONS} />
+          <NavDropdown label="Explore" href="/legends" options={EXPLORE_OPTIONS} />
         </nav>
         <div className="ml-auto flex items-center gap-1">
           <a
