@@ -1,15 +1,47 @@
 import Link from "next/link"
+import { cn } from "@/lib/utils"
 import {
   getOverrideRecord,
   listOverrides,
 } from "@/lib/sync/player-overrides"
 import { getPlayersByIds } from "@/lib/sync/players"
-import { deleteOverrideAction, saveOverrideAction } from "../actions"
+import { listCronControls } from "@/lib/sync/cron-controls"
+import { getPlayerPoolStats } from "@/lib/sync/admin-stats"
+import {
+  deleteOverrideAction,
+  saveOverrideAction,
+  toggleCronAction,
+} from "../actions"
 
 const labelCls =
   "font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
 const inputCls =
   "mt-1 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm outline-none focus:border-copper"
+
+// Tier accent colors for the player-pool breakdown (Tin/Unranked have no token).
+const TIER_COLOR: Record<string, string> = {
+  Valhallan: "text-tier-valhallan",
+  Diamond: "text-tier-diamond",
+  Platinum: "text-tier-platinum",
+  Gold: "text-tier-gold",
+  Silver: "text-tier-silver",
+  Bronze: "text-tier-bronze",
+  Tin: "text-muted-foreground",
+  Unranked: "text-muted-foreground/60",
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3">
+      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-0.5 font-display text-2xl font-semibold tabular-nums">
+        {value.toLocaleString()}
+      </div>
+    </div>
+  )
+}
 
 export default async function AdminPage({
   searchParams,
@@ -33,6 +65,11 @@ export default async function AdminPage({
     ? await getPlayersByIds(overrides.map((o) => o.brawlhallaId))
     : new Map()
 
+  const [poolStats, crons] = await Promise.all([
+    getPlayerPoolStats(),
+    listCronControls(),
+  ])
+
   return (
     <div className="flex flex-col gap-10">
       {(sp.saved || sp.deleted || sp.error) && (
@@ -52,6 +89,106 @@ export default async function AdminPage({
                 : `Saved pro ${sp.saved} (syncing their standing…).`}
         </div>
       )}
+
+      {/* Player pool stats */}
+      <section>
+        <h2 className="font-display text-lg font-semibold">Player pool</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          How much of each tier we&apos;ve fetched into the players table.
+          Valhallan is the Diamond-tier population rated 2,300+ (the ranked API
+          never labels Valhallan). Name-only rows are ladder-harvested and not
+          yet fully fetched.
+        </p>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard label="Total players" value={poolStats.total} />
+          <StatCard label="Fully fetched" value={poolStats.fetched} />
+          <StatCard label="Name-only (ladder)" value={poolStats.nameOnly} />
+          <StatCard label="Guilds" value={poolStats.guilds} />
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+          {poolStats.tiers.map((t) => (
+            <div
+              key={t.tier}
+              className="rounded-xl border border-border/60 bg-card/40 px-3 py-2.5"
+            >
+              <div
+                className={cn(
+                  "font-mono text-[10px] uppercase tracking-wider",
+                  TIER_COLOR[t.tier] ?? "text-muted-foreground",
+                )}
+              >
+                {t.tier}
+              </div>
+              <div className="mt-0.5 font-display text-xl font-semibold tabular-nums">
+                {t.count.toLocaleString()}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Cron controls */}
+      <section id="crons">
+        <h2 className="font-display text-lg font-semibold">Cron jobs</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Pause a sync job if it&apos;s eating the Brawlhalla API rate limit and
+          blocking live profile fetches. A paused job still triggers on schedule
+          but exits immediately without touching the API. The live leaderboard
+          is the heaviest — pause it first.
+        </p>
+
+        <ul className="mt-4 flex flex-col gap-2">
+          {crons.map((c) => (
+            <li
+              key={c.key}
+              className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border/60 bg-card/40 px-4 py-3"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{c.label}</span>
+                  <code className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                    {c.schedule}
+                  </code>
+                </div>
+                <p className="mt-0.5 text-[12px] text-muted-foreground">
+                  {c.description}
+                </p>
+              </div>
+              <span
+                className={cn(
+                  "rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider",
+                  c.paused
+                    ? "border-copper/50 bg-copper/15 text-copper"
+                    : "border-positive/50 bg-positive/15 text-positive",
+                )}
+              >
+                {c.paused ? "Paused" : "Active"}
+              </span>
+              <form action={toggleCronAction}>
+                <input type="hidden" name="key" value={c.key} />
+                <input
+                  type="hidden"
+                  name="paused"
+                  value={c.paused ? "false" : "true"}
+                />
+                <button
+                  type="submit"
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-sm font-semibold text-background transition-colors",
+                    c.paused
+                      ? "bg-positive hover:bg-positive/90"
+                      : "bg-copper hover:bg-copper/90",
+                  )}
+                >
+                  {c.paused ? "Resume" : "Pause"}
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {/* Create / edit form */}
       <section>
