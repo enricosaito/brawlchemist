@@ -51,6 +51,12 @@ const LEADERBOARD_OPTIONS: DropdownOption[] = [
     avatar: "/assets/AniAvatar_Forest_Sprites.webp",
   },
   {
+    label: "Solo 2v2",
+    href: "/leaderboards/solo_2v2",
+    // Ampersand in the filename must be URL-encoded so Next/Image can fetch it.
+    avatar: "/assets/AniAvatar_Ash_%26_Yarra.webp",
+  },
+  {
     label: "OTPs",
     href: "/otps",
     avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",

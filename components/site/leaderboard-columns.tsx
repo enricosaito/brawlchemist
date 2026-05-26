@@ -266,9 +266,9 @@ export function buildLeaderboardColumns(
         </span>
       ),
     },
-    // 1v1: show up to 5 most-played legends. 2v2: textual tier (best-legends
-    // would be ambiguous across the team's two players).
-    gameMode === "1v1"
+    // Single-player modes (1v1, solo 2v2): show up to 5 most-played legends.
+    // Team 2v2: textual tier (best-legends would be ambiguous across the two).
+    gameMode !== "2v2"
       ? {
           id: "best-legends",
           label: "Best Legends",
