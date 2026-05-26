@@ -13,7 +13,7 @@ export function SiteFooter() {
         </div>
         <div className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-wider">
           <a
-            href="https://github.com/enricosaito/brawlchemist"
+            href="/github"
             target="_blank"
             rel="noopener noreferrer"
             className="transition-colors hover:text-tier-valhallan"
@@ -21,7 +21,7 @@ export function SiteFooter() {
             GitHub
           </a>
           <a
-            href="https://x.com/brawlchemist"
+            href="/twitter"
             target="_blank"
             rel="noopener noreferrer"
             className="transition-colors hover:text-tier-valhallan"
@@ -29,7 +29,7 @@ export function SiteFooter() {
             Twitter
           </a>
           <a
-            href="https://discord.gg/jXpe8kjYwQ"
+            href="/discord"
             target="_blank"
             rel="noopener noreferrer"
             className="transition-colors hover:text-tier-valhallan"

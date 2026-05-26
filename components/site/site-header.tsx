@@ -220,7 +220,7 @@ export function SiteHeader() {
         </nav>
         <div className="ml-auto flex items-center gap-1">
           <a
-            href="https://github.com/enricosaito/brawlchemist"
+            href="/github"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="GitHub"
@@ -229,7 +229,7 @@ export function SiteHeader() {
             <GithubIcon className="size-4" />
           </a>
           <a
-            href="https://x.com/brawlchemist"
+            href="/twitter"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="X (Twitter)"
@@ -238,7 +238,7 @@ export function SiteHeader() {
             <XIcon className="size-4" />
           </a>
           <a
-            href="https://discord.gg/jXpe8kjYwQ"
+            href="/discord"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Discord"
