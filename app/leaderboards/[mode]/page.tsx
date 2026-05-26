@@ -114,7 +114,10 @@ export default async function LeaderboardPage({
     sp.region && isApiRegion(sp.region) ? sp.region : "ALL"
   const requestedPage = Math.max(1, Number(sp.page ?? "1") || 1)
   const modePath = `/leaderboards/${gameMode}`
-  const baseQuery = `region=${region}`
+  const baseQuery =
+    gameMode === "1v1" && region === "ALL" && sp.pro === "1"
+      ? `region=${region}&pro=1`
+      : `region=${region}`
 
   // Pro-only view — a toggle available on the ALL 1v1 board.
   const canPro = gameMode === "1v1" && region === "ALL"
@@ -135,7 +138,12 @@ export default async function LeaderboardPage({
   let cutoffs: Awaited<ReturnType<typeof getValhallanCutoffs>> = new Map()
 
   if (proView) {
-    rows = await getProLeaderboard("ALL")
+    // Pros come back as one fully-ranked list; page it 50 at a time like the
+    // live ladder. Each row keeps its global `rank`, so slicing is safe.
+    const allPros = await getProLeaderboard("ALL")
+    totalPages = Math.max(1, Math.ceil(allPros.length / PAGE_SIZE))
+    const proPage = Math.min(requestedPage, totalPages)
+    rows = allPros.slice((proPage - 1) * PAGE_SIZE, proPage * PAGE_SIZE)
   } else {
     const [result, cuts] = await Promise.all([
       getRankedLeaderboard({
@@ -187,7 +195,12 @@ export default async function LeaderboardPage({
         <div className="px-4 pt-8 sm:px-6 sm:pt-10">
           {/* Search · Mode · Region on one line; Valhallan cutoff pushed right. */}
           <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3">
-            <LeaderboardSearch className="w-full sm:w-auto sm:min-w-[220px]" />
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                Players
+              </span>
+              <LeaderboardSearch className="w-full sm:w-auto sm:min-w-[220px]" />
+            </div>
 
             <div className="flex items-center gap-2">
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
