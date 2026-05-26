@@ -1151,7 +1151,18 @@ export default async function PlayerPage({
     }
   }
 
-  const teams = [...(data["2v2"] ?? [])].sort((a, b) => b.rating - a.rating)
+  // Brawlhalla's local 2v2 (two controllers on one account) surfaces in the
+  // ranked "2v2" array as a phantom team whose partner is either id 0 or the
+  // player themselves. Neither is a real teammate and both link nowhere useful,
+  // so hide them from display (front-end only — the API payload is untouched).
+  const teams = [...(data["2v2"] ?? [])]
+    .filter(
+      (t) =>
+        t.brawlhalla_id_one > 0 &&
+        t.brawlhalla_id_two > 0 &&
+        t.brawlhalla_id_one !== t.brawlhalla_id_two,
+    )
+    .sort((a, b) => b.rating - a.rating)
 
   // Resolve each team's *other* player so cards can show their main legend and
   // link to their profile. Looked up from our cache; fail open if it's down.
