@@ -26,6 +26,13 @@ export const players = pgTable("players", {
   /** Single legend with the most games played in the current ranked season. */
   topLegendId: integer("top_legend_id"),
   rankedJson: jsonb("ranked_json"),
+  /** Lightweight ladder snapshot from the search-index harvest (leaderboard
+   * walk): the player's 1v1 rating and region. Kept separate from rankedJson
+   * so name-only rows are searchable with rating/region shown, without a full
+   * /player/{id}/ranked fetch and without affecting the Valhallan aggregation
+   * (which keys off ranked_json). Both null until harvested. */
+  ladderRating: integer("ladder_rating"),
+  ladderRegion: text("ladder_region"),
   /** The player's guild, discovered via GetPlayerGuild. `guildId` is null when
    * they have no guild; `guildCheckedAt` records the last lookup so the guild
    * discovery cron can skip recently-checked players. */

@@ -29,5 +29,12 @@ export const config: VercelConfig = {
       path: "/api/cron/sync-guilds",
       schedule: "13,43 * * * *",
     },
+    {
+      // Search index — walks the 1v1 Diamond+ ladder one region per tick and
+      // upserts lightweight name-only rows so the broad population is
+      // searchable. No per-player fetches; rotates all regions ~every 3h.
+      path: "/api/cron/sync-search-index",
+      schedule: "8,28,48 * * * *",
+    },
   ],
 }
