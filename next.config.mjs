@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Dev-only: log every server-side fetch with its cache status (hit/skip), so
+  // the real upstream Brawlhalla API calls per render are visible in the
+  // terminal. Ignored in production builds.
+  logging: {
+    fetches: { fullUrl: true },
+  },
   images: {
     // Favorite-skin images uploaded through the admin panel live in Vercel Blob.
     remotePatterns: [

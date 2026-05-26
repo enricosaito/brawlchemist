@@ -1,5 +1,6 @@
 import "server-only"
 
+import { unstable_cache } from "next/cache"
 import {
   type ApiGameMode,
   type ApiRegion,
@@ -21,6 +22,15 @@ const PAGE_SIZE = 50
 // Valhallan ladders cap around 150 in NA/EU; 6 pages × 50 is a generous safety.
 const MAX_PAGES = 6
 
+// Cutoffs move slowly (a tier boundary shifts only as the lowest Valhallan
+// gains/loses rating), but recomputing one means walking several leaderboard
+// pages — and the profile, OG-image, leaderboard, and OTP pages all ask for
+// them, the OTP "ALL" view across every region at once. Caching the *result*
+// (not just the underlying fetches) collapses that to one walk per region per
+// hour globally, instead of one per render. This was the dominant on-demand
+// drain on the Brawlhalla API rate limit.
+const CUTOFF_TTL_SECONDS = 60 * 60
+
 /**
  * Walk the leaderboard for a single (queue, region) until tier drops off
  * Valhallan. Returns the lowest-rated Valhallan and the total count. Returns
@@ -29,7 +39,7 @@ const MAX_PAGES = 6
  * Uses the same /v1/leaderboard/ranked endpoint as the discovery sweep —
  * fetch revalidate=300 means the page-1 hit is shared cache.
  */
-export async function getValhallanCutoff(
+async function computeValhallanCutoff(
   gameMode: ApiGameMode,
   region: ApiRegion,
 ): Promise<ValhallanCutoff | null> {
@@ -81,6 +91,17 @@ export async function getValhallanCutoff(
     username: lastValhallan.username,
   }
 }
+
+/**
+ * Cutoff for a single (queue, region), cached for an hour. The cache key
+ * includes the arguments, so each (gameMode, region) pair is memoized
+ * separately and shared across every page that asks for it.
+ */
+export const getValhallanCutoff = unstable_cache(
+  computeValhallanCutoff,
+  ["valhallan-cutoff"],
+  { revalidate: CUTOFF_TTL_SECONDS },
+)
 
 /**
  * Convenience: fetch cutoffs for many regions in parallel.
