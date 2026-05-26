@@ -131,7 +131,12 @@ export async function searchPlayersByUsername(
     .select()
     .from(players)
     .where(ilike(players.username, `%${q}%`))
-    .orderBy(sql`(${players.rankedJson}->>'rating')::int desc nulls last`)
+    // Rank by the best rating we have: the full ranked-season rating when the
+    // profile's been synced, else the lightweight ladder snapshot from the
+    // search-index harvest. Fully-synced, higher-rated players surface first.
+    .orderBy(
+      sql`coalesce((${players.rankedJson}->>'rating')::int, ${players.ladderRating}) desc nulls last`,
+    )
     .limit(limit)
 }
 

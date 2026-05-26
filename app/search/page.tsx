@@ -46,8 +46,10 @@ function PlayerResultRow({
 }) {
   const ranked = (player.rankedJson ?? null) as PlayerRanked | null
   const slug = player.topLegendId ? slugForLegendId(player.topLegendId) : null
-  const rating = ranked?.rating
-  const region = ranked?.region
+  // Fall back to the lightweight ladder snapshot for harvested-but-not-yet-
+  // visited players (no rankedJson until their profile is opened).
+  const rating = ranked?.rating ?? player.ladderRating ?? undefined
+  const region = ranked?.region ?? player.ladderRegion ?? undefined
   // Verified pros lead with their pro handle + badge regardless of whether the
   // search matched their handle or their in-game name; the IGN moves to the
   // meta line so the match stays recognizable.
