@@ -80,6 +80,11 @@ const EXPLORE_OPTIONS: DropdownOption[] = [
     href: "/guilds",
     avatar: "/assets/AniAvatar_River_Raid.webp",
   },
+  {
+    label: "Tournaments",
+    href: "/tournaments",
+    avatar: "/assets/AniAvatar_Crown_of_the_Exalted.webp",
+  },
 ]
 
 function NavDropdown({
