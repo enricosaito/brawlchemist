@@ -71,10 +71,11 @@ function PodiumCard({
   const tier = toTier(entry.tier)
   const username = entry.players.map((p) => p.username).join(" + ")
   const player = entry.players[0]
+  // Single-player modes (1v1, solo 2v2) show best legends + link to the
+  // profile; team 2v2 doesn't (two players, ambiguous).
+  const isSolo = gameMode !== "2v2"
   const slugs =
-    gameMode === "1v1" && player
-      ? topLegendSlugsFor(playersMap.get(player.id))
-      : []
+    isSolo && player ? topLegendSlugsFor(playersMap.get(player.id)) : []
   const winRate = formatWinRate(entry.wins, entry.losses)
   const totalGames = (entry.wins ?? 0) + (entry.losses ?? 0)
 
@@ -89,7 +90,7 @@ function PodiumCard({
   // swap to username + tier on hover. Coordinated via group/pro on the card.
   const proSwap = entry.players.length === 1 && !!player && !!handle
 
-  const href = gameMode === "1v1" && player?.id ? `/player/${player.id}` : null
+  const href = isSolo && player?.id ? `/player/${player.id}` : null
 
   // Whole card is the click target. The pink hover glow (Valhallan token)
   // replaces the old per-name copper hover — only on the linked (1v1) cards.

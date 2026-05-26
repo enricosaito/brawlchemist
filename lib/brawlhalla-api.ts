@@ -16,7 +16,7 @@ import "server-only"
 
 const ORIGIN = "https://api.brawlhalla.com"
 
-export type ApiGameMode = "1v1" | "2v2" | "3v3"
+export type ApiGameMode = "1v1" | "2v2" | "3v3" | "solo_2v2"
 
 export const API_REGIONS = [
   "ALL",
