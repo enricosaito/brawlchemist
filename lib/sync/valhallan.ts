@@ -193,6 +193,33 @@ export async function getTopValhallanMainers(
   return map
 }
 
+/**
+ * Count of distinct Valhallan players who main each legend (top_legend_id ==
+ * that legend). This is the "player diversity" metric: how many different
+ * top-tier players run the legend as their season main, independent of how
+ * many games they've logged. Returns a Map<legendId, playerCount>.
+ */
+export async function getValhallanMainerCounts(
+  opts: { region?: string | null } = {},
+): Promise<Map<number, number>> {
+  const region = opts.region ?? null
+  const result = await db().execute(sql`
+    SELECT top_legend_id, COUNT(*)::int AS players
+    FROM players
+    WHERE top_legend_id IS NOT NULL
+      AND (ranked_json->>'rating')::int >= ${VALHALLAN_MIN_RATING}
+      AND ${regionClause(region)}
+    GROUP BY top_legend_id
+  `)
+  const rows = result.rows as unknown as Array<{
+    top_legend_id: number
+    players: number
+  }>
+  const map = new Map<number, number>()
+  for (const row of rows) map.set(row.top_legend_id, row.players)
+  return map
+}
+
 export interface LegendStat {
   legend_id: number
   /** Total games across all contributing players. */
