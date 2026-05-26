@@ -123,8 +123,7 @@ export async function TopPlayersCard({
                 <Link
                   key={r}
                   role="menuitem"
-                  href={`/?queue=${queue}&region=${r}#top-players`}
-                  scroll={false}
+                  href={`/leaderboards/${queue}?region=${r}`}
                   aria-current={region === r ? "true" : undefined}
                   className={cn(
                     "block rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wider transition-colors",
