@@ -88,6 +88,22 @@ export async function generateMetadata({
   if (!numId) return { title: "Player · Brawlchemist" }
   const res = await loadPlayer(numId)
   if (!res.ok || !res.data?.name) {
+    // No ranked this season — fall back to lifetime stats for the name/desc.
+    const statsRes = await loadStats(numId)
+    if (statsRes.ok && statsRes.data?.name) {
+      const s = statsRes.data
+      const title = `${s.name} · Brawlchemist`
+      const description = [
+        `Level ${s.level}`,
+        `${(s.games ?? 0).toLocaleString()} games`,
+      ].join(" · ")
+      return {
+        title,
+        description,
+        openGraph: { title, description, type: "profile" },
+        twitter: { card: "summary_large_image", title, description },
+      }
+    }
     return { title: "Player · Brawlchemist" }
   }
   const d = res.data
@@ -864,6 +880,181 @@ function ProfileHeader({
   )
 }
 
+/**
+ * Header for players without 1v1 ranked data this season. Leads with the
+ * player's top 2v2 team when they have one, otherwise an account-led header
+ * (level + lifetime games, plus their power rank if they're a pro). Shares the
+ * ProfileHeader card shell + name/meta treatment.
+ */
+function FallbackHeader({
+  name,
+  region,
+  preview,
+  titles,
+  esports,
+  team,
+  account,
+}: {
+  name: string
+  region: string | null
+  preview: PlayerPreview | undefined
+  titles: string[]
+  esports: EsportsProfile | null
+  team: { data: PlayerRanked2v2; valhallan: boolean } | null
+  account: { level: number; games: number } | null
+}) {
+  const tier = team ? deriveTier(team.data.tier, team.valhallan) : null
+  const proPr = esports?.pr1v1 ?? esports?.pr2v2 ?? null
+  const losses = team ? Math.max(0, team.data.games - team.data.wins) : 0
+
+  return (
+    <section className="px-4 pt-10 sm:px-6 sm:pt-14">
+      <div className="mx-auto max-w-[1280px]">
+        <div className="relative rounded-2xl border border-border/60 bg-card/50 p-6 shadow-lg backdrop-blur-sm">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-copper/10 via-transparent to-mystic/10"
+          />
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-stretch">
+            {(tier || preview?.favoriteSkin) && (
+              <div className="flex shrink-0 items-center justify-center gap-3 sm:justify-start">
+                {tier && (
+                  <Image
+                    src={`/assets/ranks/Banner_Rank_${tier}.webp`}
+                    alt={`${tier} rank banner`}
+                    width={182}
+                    height={330}
+                    className="h-36 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-44"
+                    priority
+                  />
+                )}
+                {preview?.favoriteSkin && (
+                  <Image
+                    src={preview.favoriteSkin.src}
+                    alt={preview.favoriteSkin.name}
+                    title={`Favorite skin: ${preview.favoriteSkin.name}`}
+                    width={364}
+                    height={323}
+                    className="h-36 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-44"
+                  />
+                )}
+              </div>
+            )}
+
+            <div className="flex min-w-0 flex-1 flex-col gap-4">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="truncate font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+                    {name}
+                  </h1>
+                  {region && <RegionPill region={region} />}
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
+                  {preview?.verified && (
+                    <span className="inline-flex items-center gap-2">
+                      <ProBadge />
+                      <span className="text-sm font-semibold normal-case text-mystic">
+                        {preview.verified.handle}
+                      </span>
+                    </span>
+                  )}
+                  {esports?.isPro && proPr && (
+                    <span className="inline-flex items-center gap-2">
+                      {preview?.verified && (
+                        <span aria-hidden className="text-muted-foreground/40">
+                          ·
+                        </span>
+                      )}
+                      <span className="text-copper">
+                        PR #{proPr.powerRanking} {proPr.region}
+                      </span>
+                    </span>
+                  )}
+                  {titles.map((title, i) => (
+                    <span key={title} className="inline-flex items-center gap-2">
+                      {(i > 0 || preview?.verified || (esports?.isPro && proPr)) && (
+                        <span aria-hidden className="text-muted-foreground/40">
+                          ·
+                        </span>
+                      )}
+                      <span className="normal-case text-tier-gold">{title}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-auto flex flex-col gap-3 sm:flex-row">
+                {team ? (
+                  <>
+                    <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
+                      <div className="flex items-start justify-between gap-6">
+                        <Metric
+                          label="2v2 Rating"
+                          value={formatElo(team.data.rating)}
+                          accent={tier ? TIER_TEXT_COLOR[tier] : undefined}
+                        />
+                        <Metric label="Peak" value={formatElo(team.data.peak_rating)} />
+                      </div>
+                      {tier && (
+                        <div className="mt-2 font-mono text-[11px] font-medium uppercase tracking-wider">
+                          <span className={TIER_TEXT_COLOR[tier]}>
+                            {tierLabel(team.data.tier, team.valhallan)}
+                          </span>
+                          <span className="ml-1 text-muted-foreground">· 2v2</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
+                      <div className="flex items-start justify-between gap-6">
+                        <Metric
+                          label="Win Rate"
+                          value={winRate(team.data.wins, team.data.games)}
+                          accent="text-positive"
+                        />
+                        <Metric
+                          label="Games"
+                          value={team.data.games.toLocaleString()}
+                          sub={`${team.data.wins.toLocaleString()}W · ${losses.toLocaleString()}L`}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : account ? (
+                  <>
+                    <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
+                      <div className="flex items-start justify-between gap-6">
+                        <Metric label="Level" value={account.level.toLocaleString()} />
+                        <Metric
+                          label="Lifetime Games"
+                          value={account.games.toLocaleString()}
+                        />
+                      </div>
+                    </div>
+                    {esports?.isPro && proPr && (
+                      <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
+                        <Metric
+                          label="Power Rank"
+                          value={`#${proPr.powerRanking}`}
+                          sub={proPr.region}
+                          accent="text-copper"
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : null}
+              </div>
+
+              <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                {team ? "No 1v1 ranked this season" : "No ranked games this season"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default async function PlayerPage({
   params,
 }: {
@@ -895,26 +1086,22 @@ export default async function PlayerPage({
     )
   }
 
+  // The /ranked endpoint returns a name-less shell ({ name: "" }) for accounts
+  // with no ranked play this season. We no longer bail here — a profile can be
+  // built from lifetime account stats and/or the esports profile instead. The
+  // shell is safe to thread through (it carries brawlhalla_id; "2v2"/legends
+  // default to empty).
   const data = res.data
-  // The /ranked endpoint returns an empty object for accounts with no ranked
-  // play this season — there's no name or stats to show.
-  if (!data || !data.name) {
-    return (
-      <Shell>
-        <NoticeCard title="No ranked data">
-          Brawlhalla ID <span className="font-mono">{numId}</span> has no ranked
-          games this season, so there&apos;s nothing to show yet.
-        </NoticeCard>
-      </Shell>
-    )
-  }
+  const hasRankedName = !!data?.name
 
-  // Viewing a profile fetches the live payload anyway — persist it so the
-  // player joins the pool that powers OTPs and the leaderboard enrichment.
-  try {
-    await upsertPlayerRanked(data)
-  } catch {
-    // A cache write failure shouldn't take down the page.
+  // Persist into the pool only when there's a real ranked payload — never write
+  // a blank-name shell (username is NOT NULL and powers search/leaderboards).
+  if (hasRankedName) {
+    try {
+      await upsertPlayerRanked(data)
+    } catch {
+      // A cache write failure shouldn't take down the page.
+    }
   }
 
   // Legend titles: every legend the player has maxed (level 100) earns its
@@ -1018,16 +1205,64 @@ export default async function PlayerPage({
     data.wins,
   )
 
+  // Name from the best available source: ranked → lifetime stats → esports.
+  const displayName =
+    data.name || (statsRes.ok ? statsRes.data.name : "") || esports?.handle || ""
+  // Nothing anywhere — no ranked, no stats, no esports. (Unknown/empty BHID.)
+  if (!displayName) {
+    return (
+      <Shell>
+        <NoticeCard title="Player not found">
+          Brawlhalla ID <span className="font-mono">{numId}</span> doesn&apos;t
+          have any ranked, account, or esports data we can show.
+        </NoticeCard>
+      </Shell>
+    )
+  }
+
+  // Header mode: full 1v1 card → else top 2v2 team → else account-led.
+  const hasOneVOne = hasRankedName && !!data.tier && data.tier !== "none"
+  const topTeam = teams[0] ?? null
+
   return (
     <Shell>
-      <ProfileHeader
-        data={data}
-        titles={titles}
-        valhallan={headerValhallan}
-        fallen={headerFallen}
-        preview={preview}
-        legendStats={legendStatsById}
-      />
+      {hasOneVOne ? (
+        <ProfileHeader
+          data={data}
+          titles={titles}
+          valhallan={headerValhallan}
+          fallen={headerFallen}
+          preview={preview}
+          legendStats={legendStatsById}
+        />
+      ) : topTeam ? (
+        <FallbackHeader
+          name={displayName}
+          region={data.region || null}
+          preview={preview}
+          titles={titles}
+          esports={esports}
+          team={{
+            data: topTeam,
+            valhallan: isValhallan(topTeam.rating, cutoff2v2, topTeam.wins),
+          }}
+          account={null}
+        />
+      ) : (
+        <FallbackHeader
+          name={displayName}
+          region={data.region || null}
+          preview={preview}
+          titles={titles}
+          esports={esports}
+          team={null}
+          account={
+            accountStats
+              ? { level: accountStats.level, games: accountStats.games }
+              : null
+          }
+        />
+      )}
 
       {esports && (esports.isPro || esports.earnings > 0) && (
         <EsportsSection profile={esports} />
