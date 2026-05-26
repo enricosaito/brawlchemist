@@ -2,8 +2,6 @@ import { BadgeCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatElo, formatPercent } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
-import { isFallenValhallan } from "@/lib/tier"
-import { FallenEmblem } from "@/components/site/fallen-valhallan"
 import {
   LegendChip,
   PlayerLink,
@@ -82,7 +80,6 @@ export function buildLeaderboardColumns(
   playersMap: Map<number, PlayerRow>,
   gameMode: ApiGameMode,
   region: ApiRegion,
-  valhallanCutoff: number | null,
   previews: Map<number, PlayerPreview>,
   // On the pro board every row is already a pro, so show the handle + badge in
   // the name but keep the real tier (not the "Pro Player" tag) in the subtext.
@@ -117,17 +114,6 @@ export function buildLeaderboardColumns(
       width: "72px",
       align: "center",
       render: (r) => {
-        if (
-          isFallenValhallan(
-            r.tier,
-            r.rating,
-            r.best_rating,
-            valhallanCutoff,
-            r.wins,
-          )
-        ) {
-          return <FallenEmblem size={32} className="mx-auto" />
-        }
         const tier = toTier(r.tier)
         return tier ? (
           <RankIcon tier={tier} size={32} className="mx-auto" />

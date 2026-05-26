@@ -10,7 +10,6 @@ import { isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getOverridesMap } from "@/lib/sync/player-overrides"
-import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 
 export const metadata = {
@@ -44,10 +43,6 @@ export default async function ProLeaderboardPage({
     }
   }
 
-  // Region cutoff so Fallen Valhallans render the right emblem.
-  const cutoffs = await getValhallanCutoffs("1v1", [region])
-  const cutoff = cutoffs.get(region)?.rating ?? null
-
   // proBoard mode: show the pro handle + verified badge in the name, keep the
   // real Valhallan/Diamond tier in the subtext.
   const overrides = await getOverridesMap()
@@ -55,7 +50,6 @@ export default async function ProLeaderboardPage({
     playersMap,
     "1v1",
     region,
-    cutoff,
     overrides,
     true,
   )

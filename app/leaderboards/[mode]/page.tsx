@@ -188,16 +188,12 @@ export default async function LeaderboardPage({
     }
   }
 
-  const selectedCutoff =
-    region !== "ALL" ? cutoffs.get(region)?.rating ?? null : null
-
   // Pro rows show the blue "Pro Player" tag in place of the tier (the default
   // treatment), including in the toggled pro view.
   const columns = buildLeaderboardColumns(
     playersMap,
     gameMode,
     region,
-    selectedCutoff,
     overrides,
   )
 
