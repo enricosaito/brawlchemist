@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 import { ChevronRight, Users } from "lucide-react"
-import { RegionPill, TIER_TEXT_COLOR } from "@/components/site/primitives"
+import { RegionPill, TIER_TEXT_COLOR, WeaponIcon } from "@/components/site/primitives"
 import { ProBadge } from "@/components/site/pro-badge"
 import { FallenValhallanBadge } from "@/components/site/fallen-valhallan"
 import type { PlayerPreview } from "@/lib/player-previews"
@@ -18,10 +18,10 @@ import {
   isApiRegion,
   type ApiGameMode,
   type ApiRegion,
-  type PlayerGuild,
   type PlayerRanked,
   type PlayerRanked2v2,
   type PlayerRankedLegend,
+  type PlayerStats,
 } from "@/lib/brawlhalla-api"
 import { getPlayersByIds, upsertPlayerRanked } from "@/lib/sync/players"
 import { recordPlayerGuild } from "@/lib/sync/guilds"
@@ -29,7 +29,12 @@ import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 import { deriveTier, isFallenValhallan, isValhallan, tierLabel } from "@/lib/tier"
 import { formatElo, formatPercent } from "@/lib/format"
-import { rosterEntryBySlug, slugForLegendId } from "@/lib/legends-roster"
+import {
+  rosterEntryByLegendId,
+  rosterEntryBySlug,
+  slugForLegendId,
+} from "@/lib/legends-roster"
+import type { WeaponId } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 // Memoize per-request so generateMetadata and the page share one API call.
@@ -179,6 +184,149 @@ function SectionHeading({
         </span>
       )}
     </div>
+  )
+}
+
+interface WeaponShare {
+  weaponId: WeaponId
+  pct: number
+}
+
+interface AccountStats {
+  level: number
+  xp: number
+  games: number
+  playtimeHours: number
+  weapons: WeaponShare[]
+}
+
+/** Derive lifetime account stats + most-used weapons from GetPlayerStats.
+ * Playtime sums each legend's matchtime; weapon share attributes each legend's
+ * time-held-weapon-one/two to that legend's two roster weapons. */
+function computeAccountStats(stats: PlayerStats): AccountStats {
+  const legends = stats.legends ?? []
+  let playtimeSeconds = 0
+  const byWeapon = new Map<WeaponId, number>()
+  for (const l of legends) {
+    playtimeSeconds += l.matchtime ?? 0
+    const entry = rosterEntryByLegendId(l.legend_id)
+    if (!entry) continue
+    const [w1, w2] = entry.weapons
+    byWeapon.set(w1, (byWeapon.get(w1) ?? 0) + (l.timeheldweaponone ?? 0))
+    byWeapon.set(w2, (byWeapon.get(w2) ?? 0) + (l.timeheldweapontwo ?? 0))
+  }
+  const total = [...byWeapon.values()].reduce((a, b) => a + b, 0)
+  const weapons: WeaponShare[] = [...byWeapon.entries()]
+    .filter(([, s]) => s > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([weaponId, s]) => ({
+      weaponId,
+      pct: total > 0 ? (s / total) * 100 : 0,
+    }))
+  return {
+    level: stats.level ?? 0,
+    xp: stats.xp ?? 0,
+    games: stats.games ?? 0,
+    playtimeHours: Math.round(playtimeSeconds / 3600),
+    weapons,
+  }
+}
+
+/** "rocket-lance" → "Rocket Lance". */
+function weaponLabel(weaponId: WeaponId): string {
+  return weaponId
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ")
+}
+
+function AccountTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3">
+      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 font-mono text-xl font-bold tabular-nums">
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function AccountSection({
+  stats,
+  guildId,
+  guildName,
+}: {
+  stats: AccountStats
+  guildId: number | null
+  guildName: string | null
+}) {
+  return (
+    <section className="mt-8 px-4 sm:px-6">
+      <SectionHeading>Account</SectionHeading>
+      <div className="mx-auto max-w-[1280px]">
+        <div className="rounded-2xl border border-border/60 bg-card/50 p-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <AccountTile label="Level" value={stats.level.toLocaleString()} />
+            <AccountTile
+              label="Playtime"
+              value={`${stats.playtimeHours.toLocaleString()}h`}
+            />
+            <AccountTile label="Total XP" value={stats.xp.toLocaleString()} />
+            <AccountTile
+              label="Lifetime Games"
+              value={stats.games.toLocaleString()}
+            />
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-start gap-x-12 gap-y-5 border-t border-border/60 pt-5">
+            {stats.weapons.length > 0 && (
+              <div>
+                <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Main Weapons
+                </div>
+                <div className="flex flex-wrap items-center gap-4">
+                  {stats.weapons.map((w) => (
+                    <div key={w.weaponId} className="flex items-center gap-2">
+                      <WeaponIcon weaponId={w.weaponId} size={32} />
+                      <div className="flex flex-col leading-tight">
+                        <span className="text-sm font-medium">
+                          {weaponLabel(w.weaponId)}
+                        </span>
+                        <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                          {w.pct.toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                Guild
+              </div>
+              {guildId ? (
+                <Link
+                  href={`/guilds/${guildId}`}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2.5 py-1.5 text-sm transition-colors hover:border-tier-valhallan/50 hover:text-foreground"
+                >
+                  <Users className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="max-w-[200px] truncate">
+                    {guildName || "Guild"}
+                  </span>
+                </Link>
+              ) : (
+                <span className="text-sm text-muted-foreground">No guild</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -340,7 +488,6 @@ function ProfileHeader({
   fallen,
   preview,
   legendStats,
-  guild,
 }: {
   data: PlayerRanked
   titles: string[]
@@ -348,7 +495,6 @@ function ProfileHeader({
   fallen: boolean
   preview: PlayerPreview | undefined
   legendStats: Map<number, { level: number; xp: number }>
-  guild: PlayerGuild | null
 }) {
   const tier = deriveTier(data.tier, valhallan)
   const losses = Math.max(0, data.games - data.wins)
@@ -446,18 +592,6 @@ function ProfileHeader({
                       {data.name}
                     </h1>
                     {data.region && <RegionPill region={data.region} />}
-                    {guild?.guild_id && (
-                      <Link
-                        href={`/guilds/${guild.guild_id}`}
-                        className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-tier-valhallan/50 hover:text-foreground"
-                        title={`Guild: ${guild.guild_name}`}
-                      >
-                        <Users className="size-3 shrink-0" />
-                        <span className="max-w-[180px] truncate">
-                          {guild.guild_name || "Guild"}
-                        </span>
-                      </Link>
-                    )}
                   </div>
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
@@ -632,14 +766,22 @@ export default async function PlayerPage({
     loadGuild(numId),
   ])
 
-  // The player's guild powers the header chip; persist it so a profile view
-  // contributes to guild discovery (the row exists from the upsert above).
+  // The player's guild shows in the Account section; persist it so a profile
+  // view contributes to guild discovery (the row exists from the upsert above).
   const guild = guildRes.ok ? guildRes.data.guild ?? null : null
   try {
     await recordPlayerGuild(numId, guild)
   } catch {
     // A cache write failure shouldn't take down the page.
   }
+
+  // Account section: lifetime level/XP/playtime + main weapons + guild. Guild
+  // id/name fall back to the clan embedded in GetPlayerStats when the (flaky)
+  // GetPlayerGuild lookup comes up empty.
+  const accountStats = statsRes.ok ? computeAccountStats(statsRes.data) : null
+  const clan = statsRes.ok ? statsRes.data.clan : undefined
+  const guildId = guild?.guild_id ?? clan?.clan_id ?? null
+  const guildName = guild?.guild_name || clan?.clan_name || null
   let titles: string[] = []
   if (statsRes.ok && legendsRes.ok) {
     const akaById = new Map(
@@ -724,8 +866,15 @@ export default async function PlayerPage({
         fallen={headerFallen}
         preview={preview}
         legendStats={legendStatsById}
-        guild={guild}
       />
+
+      {accountStats && (
+        <AccountSection
+          stats={accountStats}
+          guildId={guildId}
+          guildName={guildName}
+        />
+      )}
 
       {teamViews.length > 0 && (
         <div className="mt-8 px-4 sm:px-6">
