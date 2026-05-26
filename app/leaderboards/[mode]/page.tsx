@@ -208,12 +208,7 @@ export default async function LeaderboardPage({
         <div className="px-4 pt-8 sm:px-6 sm:pt-10">
           {/* Search · Mode · Region on one line; Valhallan cutoff pushed right. */}
           <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                Players
-              </span>
-              <LeaderboardSearch className="w-full sm:w-auto sm:min-w-[220px]" />
-            </div>
+            <LeaderboardSearch className="w-full sm:w-auto sm:min-w-[220px]" />
 
             <div className="flex items-center gap-2">
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
