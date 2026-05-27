@@ -10,7 +10,12 @@ import {
   type GuildMember,
 } from "@/lib/brawlhalla-api"
 import { db } from "@/lib/db"
-import { guilds, players, type GuildRow } from "@/lib/db/schema"
+import {
+  guilds,
+  players,
+  type GuildListRow,
+  type GuildRow,
+} from "@/lib/db/schema"
 
 /**
  * Guild pool + discovery.
@@ -202,10 +207,26 @@ export async function discoverAndSyncGuilds(opts: {
   }
 }
 
-async function fetchGuildLeaderboard(): Promise<GuildRow[]> {
+async function fetchGuildLeaderboard(): Promise<GuildListRow[]> {
   try {
+    // Project the list columns only — `stats_json` / `members_json` are never
+    // shown here and would balloon a 200-row read on every cache refresh.
     return await db()
-      .select()
+      .select({
+        guildId: guilds.guildId,
+        name: guilds.name,
+        rank: guilds.rank,
+        xp: guilds.xp,
+        legacyXp: guilds.legacyXp,
+        guildPoints: guilds.guildPoints,
+        memberCount: guilds.memberCount,
+        createDate: guilds.createDate,
+        tags: guilds.tags,
+        isRecruiting: guilds.isRecruiting,
+        notice: guilds.notice,
+        discordInviteCode: guilds.discordInviteCode,
+        lastSynced: guilds.lastSynced,
+      })
       .from(guilds)
       // Official rank first (lower = better); unranked guilds fall to the
       // bottom, broken by lifetime XP.

@@ -140,17 +140,88 @@ export async function searchPlayersByUsername(
     .limit(limit)
 }
 
+// Every players column except the heavy `ranked_json` blob. Selecting these
+// alone (rankedJson synthesized as null) serves callers that only need the
+// scalar fields — username, top legend, ladder snapshot — without dragging the
+// full ranked payload over the wire.
+const PLAYER_SCALAR_COLUMNS = {
+  brawlhallaId: players.brawlhallaId,
+  username: players.username,
+  topLegendId: players.topLegendId,
+  ladderRating: players.ladderRating,
+  ladderRegion: players.ladderRegion,
+  guildId: players.guildId,
+  guildName: players.guildName,
+  guildCheckedAt: players.guildCheckedAt,
+  lastSynced: players.lastSynced,
+}
+
 /**
- * Bulk-load cached rows for a list of brawlhalla IDs. Used by the leaderboard
- * page to enrich rankings without ever calling the upstream API.
+ * Bulk-load cached rows for a list of brawlhalla IDs. Used to enrich rankings
+ * and teammate cards without ever calling the upstream API.
+ *
+ * `includeRankedJson` (default true) controls whether the full `ranked_json`
+ * payload is pulled. List/teammate views that only render the main legend pass
+ * `false` to skip the blob — `ranked_json` is the single biggest column in the
+ * table, so omitting it on those hot, high-fan-out paths is most of the DB
+ * egress win. Callers that read legends (best-legends columns, podiums) keep
+ * the default.
  */
 export async function getPlayersByIds(
   ids: number[],
+  opts: { includeRankedJson?: boolean } = {},
 ): Promise<Map<number, PlayerRow>> {
   if (ids.length === 0) return new Map()
+  const includeRankedJson = opts.includeRankedJson ?? true
   const rows = await db()
-    .select()
+    .select(
+      includeRankedJson
+        ? { ...PLAYER_SCALAR_COLUMNS, rankedJson: players.rankedJson }
+        : PLAYER_SCALAR_COLUMNS,
+    )
     .from(players)
     .where(inArray(players.brawlhallaId, ids))
-  return new Map(rows.map((r) => [r.brawlhallaId, r]))
+  return new Map(
+    rows.map((r) => [
+      r.brawlhallaId,
+      ("rankedJson" in r ? r : { ...r, rankedJson: null }) as PlayerRow,
+    ]),
+  )
+}
+
+export interface PlayerSuggestion {
+  id: number
+  username: string
+  topLegendId: number | null
+  rating: number | null
+  region: string | null
+}
+
+/**
+ * Username typeahead suggestions. Same matching/ordering as
+ * searchPlayersByUsername, but projects only the five fields the dropdown
+ * renders — rating/region are pulled straight out of `ranked_json` as scalars
+ * instead of returning the whole payload per row, which the live (per-keystroke)
+ * dropdown was doing.
+ */
+export async function searchPlayerSuggestions(
+  query: string,
+  limit = 8,
+): Promise<PlayerSuggestion[]> {
+  const q = query.trim()
+  if (!q) return []
+  return db()
+    .select({
+      id: players.brawlhallaId,
+      username: players.username,
+      topLegendId: players.topLegendId,
+      rating: sql<number | null>`(${players.rankedJson}->>'rating')::int`,
+      region: sql<string | null>`${players.rankedJson}->>'region'`,
+    })
+    .from(players)
+    .where(ilike(players.username, `%${q}%`))
+    .orderBy(
+      sql`coalesce((${players.rankedJson}->>'rating')::int, ${players.ladderRating}) desc nulls last`,
+    )
+    .limit(limit)
 }
