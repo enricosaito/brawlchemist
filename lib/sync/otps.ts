@@ -74,5 +74,5 @@ export async function getOtpsForLegend(opts: {
     ORDER BY rating DESC NULLS LAST
     LIMIT ${limit}
   `)
-  return result.rows as unknown as OtpPlayer[]
+  return result as unknown as OtpPlayer[]
 }

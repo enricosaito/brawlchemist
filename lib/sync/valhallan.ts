@@ -169,7 +169,7 @@ export async function getTopValhallanMainers(
     ORDER BY top_legend_id, rn
   `)
 
-  const rows = result.rows as unknown as Array<{
+  const rows = result as unknown as Array<{
     top_legend_id: number
     brawlhalla_id: number
     username: string
@@ -211,7 +211,7 @@ export async function getValhallanMainerCounts(
       AND ${regionClause(region)}
     GROUP BY top_legend_id
   `)
-  const rows = result.rows as unknown as Array<{
+  const rows = result as unknown as Array<{
     top_legend_id: number
     players: number
   }>
@@ -292,7 +292,7 @@ export async function getValhallanLegendStats(opts: {
     FROM players
     WHERE (ranked_json->>'rating')::int >= ${VALHALLAN_MIN_RATING}
       AND ${regionClause(region)}
-  `)).rows as unknown as { n: number }[]
+  `)) as unknown as { n: number }[]
   const sampleSize = sampleRows[0]?.n ?? 0
 
   if (method === "pooled" || method === "popular") {
@@ -323,7 +323,7 @@ export async function getValhallanLegendStats(opts: {
       ORDER BY ${orderBy}
     `)
     return {
-      legends: result.rows as unknown as LegendStat[],
+      legends: result as unknown as LegendStat[],
       sampleSize,
       method,
     }
@@ -365,7 +365,7 @@ export async function getValhallanLegendStats(opts: {
     ORDER BY win_rate DESC
   `)
   return {
-    legends: result.rows as unknown as LegendStat[],
+    legends: result as unknown as LegendStat[],
     sampleSize,
     method,
   }

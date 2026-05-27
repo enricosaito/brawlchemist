@@ -1,28 +1,29 @@
 import "server-only"
 
-import { neon } from "@neondatabase/serverless"
-import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http"
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js"
+import postgres from "postgres"
 import * as schema from "./schema"
 
 /**
- * Drizzle client backed by Neon's HTTP driver. The HTTP driver is the right
- * pick for Vercel Fluid Compute — no connection pool to babysit, no warmup
- * cost, and it works the same in middleware and server components.
+ * Drizzle client backed by postgres-js, pointed at Supabase's Supavisor pooler
+ * (transaction mode, port 6543). `prepare: false` is required there: the
+ * transaction pooler hands each query a fresh backend connection, so
+ * server-side prepared statements can't be reused across calls.
  *
  * Lazy-initialized so a missing DATABASE_URL doesn't crash unrelated routes
  * (the leaderboard page falls back to rendering without legend enrichment).
  */
-let cached: NeonHttpDatabase<typeof schema> | null = null
+let cached: PostgresJsDatabase<typeof schema> | null = null
 
-export function db(): NeonHttpDatabase<typeof schema> {
+export function db(): PostgresJsDatabase<typeof schema> {
   if (cached) return cached
   const url = process.env.DATABASE_URL
   if (!url) {
     throw new Error(
-      "DATABASE_URL is not set. Install Neon via the Vercel Marketplace and run `vercel env pull .env.local` (or paste the URL into .env.local manually).",
+      "DATABASE_URL is not set. Use the Supabase 'Transaction pooler' connection string (dashboard → Connect) in .env.local / Vercel env.",
     )
   }
-  cached = drizzle(neon(url), { schema })
+  cached = drizzle(postgres(url, { prepare: false }), { schema })
   return cached
 }
 

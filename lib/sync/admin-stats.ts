@@ -63,7 +63,7 @@ export async function getPlayerPoolStats(): Promise<PoolStats> {
       FROM players
       GROUP BY bucket
     `)
-  ).rows as unknown as { bucket: string; n: number }[]
+  ) as unknown as { bucket: string; n: number }[]
 
   const byBucket = new Map<string, number>()
   for (const r of bucketRows) byBucket.set(r.bucket, Number(r.n))
@@ -79,7 +79,7 @@ export async function getPlayerPoolStats(): Promise<PoolStats> {
   try {
     const g = (
       await db().execute(sql`SELECT COUNT(*)::int AS n FROM guilds`)
-    ).rows as unknown as { n: number }[]
+    ) as unknown as { n: number }[]
     guilds = g[0]?.n ?? 0
   } catch (err) {
     console.error("[admin-stats] guild count failed:", err)
