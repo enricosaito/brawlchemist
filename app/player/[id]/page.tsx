@@ -1178,7 +1178,10 @@ export default async function PlayerPage({
   let teammates = new Map<number, PlayerRow>()
   if (teams.length > 0) {
     try {
-      teammates = await getPlayersByIds(teams.map(teammateIdFor))
+      // Cards show only the teammate's name + main legend, so skip ranked_json.
+      teammates = await getPlayersByIds(teams.map(teammateIdFor), {
+        includeRankedJson: false,
+      })
     } catch (err) {
       console.error("[player] teammate lookup failed:", err)
     }

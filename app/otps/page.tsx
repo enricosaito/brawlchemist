@@ -266,14 +266,6 @@ export default async function OtpsPage({
   // Admin-curated pro handles/badges for the player column.
   const overrides = await getOverridesMap()
 
-  // Cached player rows enrich the podium's best-legends row. Fail open.
-  let playersMap = new Map<number, PlayerRow>()
-  try {
-    playersMap = await getPlayersByIds(players.map((p) => p.brawlhalla_id))
-  } catch (err) {
-    console.error("[otps] player cache lookup failed:", err)
-  }
-
   // Top 3 reuse the shared leaderboard podium — adapt OtpPlayer → RankedEntry,
   // deriving the real Valhallan tier (the /ranked tier caps at Diamond).
   const toEntry = (p: OtpPlayer, rank: number): RankedEntry => ({
@@ -294,6 +286,20 @@ export default async function OtpsPage({
     page === 1 ? players.slice(0, 3).map((p, i) => toEntry(p, i + 1)) : []
   const tableStart = page === 1 ? 3 : pageStart
   const tableRows = players.slice(tableStart, pageStart + PAGE_SIZE)
+
+  // Only the podium (top 3 on page 1) renders best legends from ranked_json, so
+  // fetch just those rows rather than every player on the page. Fail open.
+  let playersMap = new Map<number, PlayerRow>()
+  if (podiumEntries.length > 0) {
+    const podiumIds = podiumEntries
+      .map((e) => e.players[0]?.id)
+      .filter((id): id is number => id != null)
+    try {
+      playersMap = await getPlayersByIds(podiumIds)
+    } catch (err) {
+      console.error("[otps] player cache lookup failed:", err)
+    }
+  }
 
   const pickerOptions = [...LEGEND_ROSTER]
     .map((l) => ({ slug: l.slug, name: l.name }))

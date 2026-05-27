@@ -1,7 +1,6 @@
-import { searchPlayersByUsername } from "@/lib/sync/players"
+import { searchPlayerSuggestions } from "@/lib/sync/players"
 import { getOverridesMap } from "@/lib/sync/player-overrides"
 import { slugForLegendId } from "@/lib/legends-roster"
-import type { PlayerRanked } from "@/lib/brawlhalla-api"
 
 // Always dynamic — this reads the query string and the live DB.
 export const dynamic = "force-dynamic"
@@ -19,20 +18,17 @@ export async function GET(req: Request) {
 
   try {
     const [rows, overrides] = await Promise.all([
-      searchPlayersByUsername(q, 8),
+      searchPlayerSuggestions(q, 8),
       getOverridesMap(),
     ])
-    const results = rows.map((p) => {
-      const ranked = (p.rankedJson ?? null) as PlayerRanked | null
-      return {
-        id: p.brawlhallaId,
-        username: p.username,
-        legendSlug: p.topLegendId ? slugForLegendId(p.topLegendId) : null,
-        rating: ranked?.rating ?? null,
-        region: ranked?.region ?? null,
-        pro: !!overrides.get(p.brawlhallaId)?.verified,
-      }
-    })
+    const results = rows.map((p) => ({
+      id: p.id,
+      username: p.username,
+      legendSlug: p.topLegendId ? slugForLegendId(p.topLegendId) : null,
+      rating: p.rating,
+      region: p.region,
+      pro: !!overrides.get(p.id)?.verified,
+    }))
     return Response.json({ results }, { headers })
   } catch (err) {
     console.error("[api/search/players] failed:", err)

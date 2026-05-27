@@ -179,11 +179,16 @@ export default async function LeaderboardPage({
   const page = Math.min(requestedPage, totalPages)
 
   // Cached player rows for legend enrichment. Fail open if the DB is down.
+  // Only the 1v1/solo board renders the best-legends column (which reads
+  // ranked_json); 2v2 shows just the main-legend chip (topLegendId), so it
+  // skips the ranked_json blob.
   let playersMap = new Map<number, PlayerRow>()
   if (rows.length > 0) {
     const ids = rows.flatMap((r) => r.players.map((p) => p.id))
     try {
-      playersMap = await getPlayersByIds(ids)
+      playersMap = await getPlayersByIds(ids, {
+        includeRankedJson: gameMode !== "2v2",
+      })
     } catch (err) {
       console.error("[leaderboards] player cache lookup failed:", err)
     }

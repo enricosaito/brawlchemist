@@ -111,6 +111,17 @@ export type GuildRow = typeof guilds.$inferSelect
 export type GuildInsert = typeof guilds.$inferInsert
 
 /**
+ * Guild leaderboard list shape: every column except the heavy `stats_json` /
+ * `members_json` blobs, which the list view never renders (the guild detail
+ * page loads them separately via getGuildById). Keeping them out of the
+ * leaderboard read collapses the per-row payload — that query runs for up to
+ * 200 guilds and re-runs on every cache refresh, so the blobs were a large
+ * chunk of our DB egress.
+ */
+export type GuildListRow = Omit<GuildRow, "statsJson" | "membersJson">
+
+
+/**
  * cron_controls — admin pause switches for the scheduled sync jobs. Each cron
  * route checks its key here before doing any API work, so a single toggle in
  * /admin can stop a job that's eating the Brawlhalla API rate limit (which is

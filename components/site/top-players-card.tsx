@@ -59,7 +59,9 @@ export async function TopPlayersCard({
   if (rows.length > 0) {
     const ids = rows.flatMap((r) => r.players.map((p) => p.id))
     try {
-      playersMap = await getPlayersByIds(ids)
+      // Only the main-legend chip is read here (topLegendId), so skip the
+      // ranked_json blob.
+      playersMap = await getPlayersByIds(ids, { includeRankedJson: false })
     } catch (err) {
       console.error("[top-players-card] DB lookup failed:", err)
     }

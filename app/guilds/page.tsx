@@ -7,7 +7,7 @@ import { Pagination } from "@/components/site/pagination"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import { getGuildLeaderboard } from "@/lib/sync/guilds"
-import type { GuildRow } from "@/lib/db/schema"
+import type { GuildListRow } from "@/lib/db/schema"
 
 export const metadata: Metadata = {
   title: "Guild Rankings · Brawlchemist",
@@ -18,11 +18,11 @@ const PAGE_SIZE = 50
 
 const num = (n: number | null) => (n == null ? "—" : n.toLocaleString())
 
-function tagsOf(g: GuildRow): string[] {
+function tagsOf(g: GuildListRow): string[] {
   return Array.isArray(g.tags) ? (g.tags as string[]) : []
 }
 
-function buildColumns(): ColDef<GuildRow>[] {
+function buildColumns(): ColDef<GuildListRow>[] {
   return [
     {
       id: "rank",
