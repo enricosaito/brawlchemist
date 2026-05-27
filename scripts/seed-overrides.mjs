@@ -1,6 +1,6 @@
 // Seeds the player_overrides table with the originally-hardcoded verified pros.
 // Idempotent (ON CONFLICT DO UPDATE) — safe to re-run. Usage: node scripts/seed-overrides.mjs
-import { neon } from "@neondatabase/serverless"
+import postgres from "postgres"
 import { config } from "dotenv"
 
 config({ path: ".env.local" })
@@ -15,7 +15,7 @@ if (!url) {
   process.exit(1)
 }
 
-const sql = neon(url)
+const sql = postgres(url, { prepare: false })
 
 const pros = [
   {
@@ -66,3 +66,4 @@ for (const p of pros) {
 }
 
 console.log("done")
+await sql.end()

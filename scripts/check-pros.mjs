@@ -1,6 +1,6 @@
 // Diagnostic: list verified pros and their live /ranked standing.
 // Usage: node scripts/check-pros.mjs
-import { neon } from "@neondatabase/serverless"
+import postgres from "postgres"
 import { config } from "dotenv"
 
 config({ path: ".env.local" })
@@ -15,7 +15,7 @@ if (!url || !key) {
   process.exit(1)
 }
 
-const sql = neon(url)
+const sql = postgres(url, { prepare: false })
 const rows =
   await sql`SELECT brawlhalla_id, handle, pro FROM player_overrides WHERE pro = true ORDER BY handle`
 console.log(`${rows.length} verified pros in DB\n`)
@@ -39,3 +39,5 @@ for (const r of rows) {
     console.log(`${r.handle} (${r.brawlhalla_id}): error ${e.message}`)
   }
 }
+
+await sql.end()
