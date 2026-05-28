@@ -41,14 +41,60 @@ import {
 import type { WeaponId } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
-// Memoize per-request so generateMetadata and the page share one API call.
-// The ranked/guild reads also use a short fetch-cache window (revalidate) so
-// repeat views, link unfurls, and concurrent hits to the same profile collapse
-// to ~1 upstream call per 5 min instead of one per view.
+// Read-through cache for the profile's /ranked payload.
+//
+// 1. Serve the cached `players.ranked_json` row if it's fresher than
+//    PROFILE_FRESH_MS — zero API calls. This is what stops crawlers / repeat
+//    views from continuously consuming the 180/15min Brawlhalla budget.
+// 2. Otherwise hit the API (still gated by the 300s fetch cache so concurrent
+//    hits collapse), and upsert the result back into the pool.
+// 3. If the API errors (most often 429), fall back to the cached row even if
+//    stale, so the page still renders.
+//
+// Memoized per-request via React's cache() so generateMetadata and the page
+// share one resolution, and the upsert at the bottom of the page only fires
+// when we actually fetched live (source === "api").
 const PROFILE_REVALIDATE = 300
-const loadPlayer = cache((id: number) =>
-  getPlayerRanked(id, { revalidate: PROFILE_REVALIDATE }),
-)
+const PROFILE_FRESH_MS = 15 * 60 * 1000
+type LoadedRanked = {
+  data: PlayerRanked | null
+  source: "db-fresh" | "api" | "db-fallback"
+  apiStatus?: number
+  apiError?: string
+}
+const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
+  const cached = (await getPlayersByIds([numId])).get(numId)
+  if (
+    cached?.rankedJson &&
+    Date.now() - cached.lastSynced.getTime() < PROFILE_FRESH_MS
+  ) {
+    return { data: cached.rankedJson as PlayerRanked, source: "db-fresh" }
+  }
+
+  const res = await getPlayerRanked(numId, { revalidate: PROFILE_REVALIDATE })
+  if (res.ok) {
+    return { data: res.data, source: "api" }
+  }
+
+  if (cached?.rankedJson) {
+    console.warn(
+      `[player ${numId}] live /ranked failed (${res.status}: ${res.error}) — served cached ranked_json fallback`,
+    )
+    return {
+      data: cached.rankedJson as PlayerRanked,
+      source: "db-fallback",
+      apiStatus: res.status,
+      apiError: res.error,
+    }
+  }
+
+  return {
+    data: null,
+    source: "api",
+    apiStatus: res.status,
+    apiError: res.error,
+  }
+})
 const loadStats = cache((id: number) => getPlayerStats(id))
 const loadGuild = cache((id: number) =>
   getPlayerGuild(id, { revalidate: PROFILE_REVALIDATE }),
@@ -93,8 +139,8 @@ export async function generateMetadata({
   const { id } = await params
   const numId = parseId(id)
   if (!numId) return { title: "Player · Brawlchemist" }
-  const res = await loadPlayer(numId)
-  if (!res.ok || !res.data?.name) {
+  const ranked = await loadRanked(numId)
+  if (!ranked.data || !ranked.data.name) {
     // No ranked this season — fall back to lifetime stats for the name/desc.
     const statsRes = await loadStats(numId)
     if (statsRes.ok && statsRes.data?.name) {
@@ -113,7 +159,7 @@ export async function generateMetadata({
     }
     return { title: "Player · Brawlchemist" }
   }
-  const d = res.data
+  const d = ranked.data
   const cutoff = await valhallanCutoffRating("1v1", d.region)
   const valhallan = isValhallan(d.rating, cutoff, d.wins)
   const wr = d.games > 0 ? `${((d.wins / d.games) * 100).toFixed(1)}% WR` : null
@@ -1078,31 +1124,17 @@ export default async function PlayerPage({
     )
   }
 
-  const res = await loadPlayer(numId)
-
-  // Live /ranked can fail — most often a 429 from the shared Brawlhalla rate
-  // limit while the sync crons are backfilling. Fall back to the last cached
-  // ranked payload (the pool stores the full GetPlayerRanked json) so the
-  // profile still renders instead of hard-failing.
-  let data: PlayerRanked
-  if (res.ok) {
-    data = res.data
-  } else {
-    const cached = (await getPlayersByIds([numId])).get(numId)
-    if (!cached?.rankedJson) {
-      return (
-        <Shell>
-          <NoticeCard title="Couldn’t load this player">
-            {res.error}
-          </NoticeCard>
-        </Shell>
-      )
-    }
-    console.warn(
-      `[player ${numId}] live /ranked failed (${res.status}: ${res.error}) — served cached ranked_json fallback`,
+  const ranked = await loadRanked(numId)
+  if (!ranked.data) {
+    return (
+      <Shell>
+        <NoticeCard title="Couldn’t load this player">
+          {ranked.apiError ?? "Unknown error"}
+        </NoticeCard>
+      </Shell>
     )
-    data = cached.rankedJson as PlayerRanked
   }
+  const data = ranked.data
 
   // The /ranked endpoint returns a name-less shell ({ name: "" }) for accounts
   // with no ranked play this season. We no longer bail here — a profile can be
@@ -1111,9 +1143,11 @@ export default async function PlayerPage({
   // default to empty).
   const hasRankedName = !!data?.name
 
-  // Persist into the pool only when there's a real ranked payload — never write
-  // a blank-name shell (username is NOT NULL and powers search/leaderboards).
-  if (hasRankedName) {
+  // Persist into the pool only when we actually fetched live (source: "api")
+  // AND there's a real ranked payload — never write a blank-name shell (username
+  // is NOT NULL and powers search/leaderboards). Re-upserting a db-fresh /
+  // db-fallback row would just refresh last_synced for no benefit.
+  if (hasRankedName && ranked.source === "api") {
     try {
       await upsertPlayerRanked(data)
     } catch {
