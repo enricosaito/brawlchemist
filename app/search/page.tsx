@@ -57,6 +57,7 @@ function PlayerResultRow({
   return (
     <Link
       href={`/player/${player.brawlhallaId}`}
+      prefetch={false}
       className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/40 p-4 transition-colors hover:border-tier-valhallan/50 hover:bg-card/70"
     >
       <div className="flex min-w-0 items-center gap-3">
