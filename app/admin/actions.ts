@@ -13,7 +13,11 @@ import {
   type ProfileInput,
 } from "@/lib/sync/profiles"
 import { setCronPaused } from "@/lib/sync/cron-controls"
-import { syncPlayer } from "@/lib/sync/players"
+import { syncManyPlayers, syncPlayer } from "@/lib/sync/players"
+import {
+  discoverValhallanIds,
+  getStaleValhallanIds,
+} from "@/lib/sync/valhallan"
 
 export async function loginAction(formData: FormData) {
   const password = String(formData.get("password") ?? "")
@@ -91,4 +95,40 @@ export async function toggleCronAction(formData: FormData) {
   const paused = String(formData.get("paused")) === "true"
   await setCronPaused(key, paused)
   redirect("/admin#crons")
+}
+
+/**
+ * Walk the 1v1 region=ALL leaderboard for Valhallan-tier ids and sync each
+ * player's full ranked payload into the pool. Cheaper than the per-region
+ * discovery the daily cron does, since "ALL" returns the global top players
+ * in one paginated call.
+ *
+ * Capped at ~40 players per click so the throttled syncs (5s/call) fit within
+ * Vercel's 300s function ceiling. Idempotent (TTL-gated) — re-click to drain.
+ */
+export async function backfillValhallansAction() {
+  await requireAdmin()
+
+  const ids = await discoverValhallanIds("1v1", "ALL")
+  if (ids.length === 0) {
+    redirect("/admin?backfill=none")
+  }
+
+  const stale = await getStaleValhallanIds(new Set(ids))
+  if (stale.length === 0) {
+    redirect("/admin?backfill=caughtup")
+  }
+
+  const PER_CLICK = 40
+  const batch = stale.slice(0, PER_CLICK)
+  const outcomes = await syncManyPlayers(batch, {
+    ttlMs: 7 * 24 * 60 * 60 * 1000,
+  })
+  const synced = outcomes.filter((o) => o.status === "synced").length
+  const failed = outcomes.filter((o) => o.status === "failed").length
+  const remaining = Math.max(stale.length - batch.length, 0)
+
+  redirect(
+    `/admin?backfill=${synced}&remaining=${remaining}${failed ? `&failed=${failed}` : ""}`,
+  )
 }
