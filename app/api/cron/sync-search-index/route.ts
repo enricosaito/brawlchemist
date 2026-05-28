@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import { harvestRegion, regionForTick } from "@/lib/sync/search-index"
+import { isCronPaused } from "@/lib/sync/cron-controls"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
@@ -29,6 +30,9 @@ function authorized(req: Request): boolean {
 export async function GET(req: Request) {
   if (!authorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
+  }
+  if (await isCronPaused("sync-search-index")) {
+    return NextResponse.json({ skipped: true, reason: "paused" })
   }
 
   const url = new URL(req.url)
