@@ -641,6 +641,7 @@ function TeamCard({
   return (
     <Link
       href={`/player/${teammateId}`}
+      prefetch={false}
       className="group relative flex items-center gap-4 overflow-hidden rounded-xl border border-border/60 bg-card/50 p-4 transition-colors hover:border-tier-valhallan/50 hover:bg-card/70"
     >
       {tier && (

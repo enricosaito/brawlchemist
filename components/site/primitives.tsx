@@ -22,6 +22,11 @@ export function PlayerLink({
   return (
     <Link
       href={`/player/${id}`}
+      // Prefetch off: any list of player links (leaderboards, OTPs, legends,
+      // home top players) would otherwise cascade into server renders of each
+      // linked profile, firing loadRanked + recordFetch per row. Clicks still
+      // navigate normally.
+      prefetch={false}
       className={cn(
         "underline-offset-2 transition-colors hover:underline",
         className,
