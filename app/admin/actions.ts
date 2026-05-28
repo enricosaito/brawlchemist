@@ -13,6 +13,7 @@ import {
   type ProfileInput,
 } from "@/lib/sync/profiles"
 import { setCronPaused } from "@/lib/sync/cron-controls"
+import { clearFetchLog, recordFetch } from "@/lib/sync/fetch-log"
 import { syncManyPlayers, syncPlayer } from "@/lib/sync/players"
 import {
   discoverValhallanIds,
@@ -70,12 +71,22 @@ export async function saveProfileAction(formData: FormData) {
   await upsertProfile(input)
 
   // Pull the player's ranked standing now so they appear on the pro board
-  // immediately; the sync-pros cron keeps it fresh afterward. Fail open — the
-  // cron will retry if the API is unavailable right now.
+  // immediately. Fail open — the read-through cache on the profile page will
+  // re-fetch on the next view if the API is unavailable right now.
   try {
-    await syncPlayer(id, { force: true })
+    const outcome = await syncPlayer(id, { force: true })
+    await recordFetch({
+      brawlhallaId: id,
+      source: "admin-save",
+      result: outcome.status === "synced" ? "synced" : "failed",
+    })
   } catch (err) {
     console.error("[admin] pro sync on save failed:", err)
+    await recordFetch({
+      brawlhallaId: id,
+      source: "admin-save",
+      result: "failed",
+    })
   }
 
   redirect(`/admin?saved=${id}`)
@@ -131,4 +142,11 @@ export async function backfillValhallansAction() {
   redirect(
     `/admin?backfill=${synced}&remaining=${remaining}${failed ? `&failed=${failed}` : ""}`,
   )
+}
+
+/** Truncate the fetch_log table (admin maintenance). */
+export async function clearFetchLogAction() {
+  await requireAdmin()
+  await clearFetchLog()
+  redirect("/admin?cleared=log")
 }

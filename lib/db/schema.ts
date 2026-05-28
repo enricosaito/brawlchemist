@@ -4,6 +4,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  serial,
   text,
   timestamp,
   uuid,
@@ -147,3 +148,27 @@ export const cronControls = pgTable("cron_controls", {
 })
 
 export type CronControlRow = typeof cronControls.$inferSelect
+
+/**
+ * fetch_log — diagnostic record of every /ranked call our profile surface
+ * considers (page render, OG image, admin save). Captures the request's
+ * user-agent and referer so /admin can see who is hitting which profiles and
+ * why rows appear in the pool. Pruned manually via the "Clear log" button.
+ */
+export const fetchLog = pgTable("fetch_log", {
+  id: serial("id").primaryKey(),
+  brawlhallaId: integer("brawlhalla_id").notNull(),
+  /** Where the fetch happened: "page-view" | "og-image" | "admin-save". */
+  source: text("source").notNull(),
+  /** Outcome: "cached" (read-through hit, no API), "synced" (API ok, upserted),
+   *  "failed" (API errored — `apiStatus` carries the HTTP status). */
+  result: text("result").notNull(),
+  apiStatus: integer("api_status"),
+  userAgent: text("user_agent"),
+  referer: text("referer"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export type FetchLogRow = typeof fetchLog.$inferSelect

@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og"
 import { getPlayerRanked, isApiRegion } from "@/lib/brawlhalla-api"
 import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
 import { getProfile } from "@/lib/sync/profiles"
+import { recordFetch } from "@/lib/sync/fetch-log"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 
 export const alt = "Brawlchemist player profile"
@@ -35,6 +36,18 @@ export default async function OgImage({
       ? await getPlayerRanked(numId, { revalidate: 300 })
       : null
   const data = res?.ok ? res.data : null
+
+  // Log this OG render so /admin can see crawler / unfurler activity on the
+  // open-graph route (a likely budget drain when many unique profile URLs
+  // get shared or scraped).
+  if (res) {
+    await recordFetch({
+      brawlhallaId: numId,
+      source: "og-image",
+      result: res.ok ? "synced" : "failed",
+      apiStatus: res.ok ? null : res.status,
+    })
+  }
 
   // Tell Valhallan apart from Diamond (both 2000+) using the region's cutoff.
   let valhallan = false
