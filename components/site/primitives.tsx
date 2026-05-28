@@ -1,41 +1,12 @@
 import Image from "next/image"
-import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { getLegend } from "@/lib/mock-data"
 import type { LegendTier, Stance, Tier, WeaponId } from "@/lib/types"
 
-/**
- * PlayerLink — wraps a player's name in a link to their profile. Falls back to
- * plain text when we don't have a Brawlhalla ID (e.g. mock/placeholder rows),
- * so callers can use it unconditionally.
- */
-export function PlayerLink({
-  id,
-  className,
-  children,
-}: {
-  id: number | null | undefined
-  className?: string
-  children: React.ReactNode
-}) {
-  if (id == null) return <span className={className}>{children}</span>
-  return (
-    <Link
-      href={`/player/${id}`}
-      // Prefetch off: any list of player links (leaderboards, OTPs, legends,
-      // home top players) would otherwise cascade into server renders of each
-      // linked profile, firing loadRanked + recordFetch per row. Clicks still
-      // navigate normally.
-      prefetch={false}
-      className={cn(
-        "underline-offset-2 transition-colors hover:underline",
-        className,
-      )}
-    >
-      {children}
-    </Link>
-  )
-}
+// PlayerLink lives in its own client-component file (it carries an interactive
+// right-click context menu). Re-exported here so the existing import path
+// `@/components/site/primitives` keeps working across every caller.
+export { PlayerLink } from "./player-link"
 
 /**
  * Delta — signed numeric change with semantic color.
