@@ -8,10 +8,10 @@ import {
   requireAdmin,
 } from "@/lib/admin-auth"
 import {
-  deleteOverride,
-  upsertOverride,
-  type OverrideInput,
-} from "@/lib/sync/player-overrides"
+  deleteProfile,
+  upsertProfile,
+  type ProfileInput,
+} from "@/lib/sync/profiles"
 import { setCronPaused } from "@/lib/sync/cron-controls"
 import { syncPlayer } from "@/lib/sync/players"
 
@@ -26,7 +26,7 @@ export async function logoutAction() {
   redirect("/admin/login")
 }
 
-export async function saveOverrideAction(formData: FormData) {
+export async function saveProfileAction(formData: FormData) {
   await requireAdmin()
 
   const id = Number(formData.get("brawlhallaId"))
@@ -51,9 +51,9 @@ export async function saveOverrideAction(formData: FormData) {
   }
 
   const skinName = String(formData.get("skinName") ?? "").trim()
-  const input: OverrideInput = {
+  const input: ProfileInput = {
     brawlhallaId: id,
-    pro: formData.get("pro") === "on",
+    isPro: formData.get("isPro") === "on",
     handle: String(formData.get("handle") ?? "").trim() || null,
     favoriteSkin: skinSrc ? { src: skinSrc, name: skinName } : null,
     // Achievements: one championship title per line.
@@ -63,7 +63,7 @@ export async function saveOverrideAction(formData: FormData) {
       .filter(Boolean),
   }
 
-  await upsertOverride(input)
+  await upsertProfile(input)
 
   // Pull the player's ranked standing now so they appear on the pro board
   // immediately; the sync-pros cron keeps it fresh afterward. Fail open — the
@@ -77,10 +77,10 @@ export async function saveOverrideAction(formData: FormData) {
   redirect(`/admin?saved=${id}`)
 }
 
-export async function deleteOverrideAction(formData: FormData) {
+export async function deleteProfileAction(formData: FormData) {
   await requireAdmin()
   const id = Number(formData.get("brawlhallaId"))
-  if (Number.isInteger(id) && id > 0) await deleteOverride(id)
+  if (Number.isInteger(id) && id > 0) await deleteProfile(id)
   redirect("/admin?deleted=1")
 }
 

@@ -6,7 +6,7 @@ import { ArrowUpRight, ChevronRight, Trophy, Users } from "lucide-react"
 import { RegionPill, TIER_TEXT_COLOR, WeaponIcon } from "@/components/site/primitives"
 import { ProBadge } from "@/components/site/pro-badge"
 import type { PlayerPreview } from "@/lib/player-previews"
-import { getOverride } from "@/lib/sync/player-overrides"
+import { getProfile } from "@/lib/sync/profiles"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import {
@@ -1211,7 +1211,7 @@ export default async function PlayerPage({
     teams.length > 0
       ? valhallanCutoffRating("2v2", data.region)
       : Promise.resolve(null),
-    getOverride(numId),
+    getProfile(numId),
     loadEsports(numId),
   ])
   const headerValhallan = isValhallan(data.rating, cutoff1v1, data.wins)

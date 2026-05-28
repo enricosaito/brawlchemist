@@ -1,5 +1,5 @@
-// Seeds the player_overrides table with the originally-hardcoded verified pros.
-// Idempotent (ON CONFLICT DO UPDATE) — safe to re-run. Usage: node scripts/seed-overrides.mjs
+// Seeds the profiles table with the originally-hardcoded verified pros.
+// Idempotent (ON CONFLICT DO UPDATE) — safe to re-run. Usage: node scripts/seed-profiles.mjs
 import postgres from "postgres"
 import { config } from "dotenv"
 
@@ -53,10 +53,10 @@ const pros = [
 
 for (const p of pros) {
   await sql`
-    INSERT INTO player_overrides (brawlhalla_id, pro, handle, favorite_skin, achievements, updated_at)
+    INSERT INTO profiles (brawlhalla_id, is_pro, handle, favorite_skin, achievements, updated_at)
     VALUES (${p.id}, true, ${p.handle}, ${JSON.stringify(p.skin)}::jsonb, ${JSON.stringify(p.achievements)}::jsonb, now())
     ON CONFLICT (brawlhalla_id) DO UPDATE SET
-      pro = excluded.pro,
+      is_pro = excluded.is_pro,
       handle = excluded.handle,
       favorite_skin = excluded.favorite_skin,
       achievements = excluded.achievements,

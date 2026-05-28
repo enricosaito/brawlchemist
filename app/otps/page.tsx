@@ -31,7 +31,7 @@ import {
 import { getOtpsForLegend, type OtpPlayer } from "@/lib/sync/otps"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
-import { getOverridesMap } from "@/lib/sync/player-overrides"
+import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
@@ -264,7 +264,7 @@ export default async function OtpsPage({
     ]),
   )
   // Admin-curated pro handles/badges for the player column.
-  const overrides = await getOverridesMap()
+  const overrides = await getProfilesMap()
 
   // Top 3 reuse the shared leaderboard podium — adapt OtpPlayer → RankedEntry,
   // deriving the real Valhallan tier (the /ranked tier caps at Diamond).

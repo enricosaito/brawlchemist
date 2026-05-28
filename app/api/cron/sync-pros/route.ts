@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { listOverrides } from "@/lib/sync/player-overrides"
+import { listProfiles } from "@/lib/sync/profiles"
 import { syncManyPlayers } from "@/lib/sync/players"
 import { isCronPaused } from "@/lib/sync/cron-controls"
 
@@ -25,8 +25,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ skipped: true, reason: "paused" })
   }
 
-  const overrides = await listOverrides()
-  const proIds = overrides.filter((o) => o.pro).map((o) => o.brawlhallaId)
+  const overrides = await listProfiles()
+  const proIds = overrides.filter((o) => o.isPro).map((o) => o.brawlhallaId)
   const force = new URL(req.url).searchParams.get("force") === "1"
 
   // Refresh pros older than ~45 min (or all when forced). Pro ELO moves slowly

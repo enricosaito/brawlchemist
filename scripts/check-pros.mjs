@@ -17,7 +17,7 @@ if (!url || !key) {
 
 const sql = postgres(url, { prepare: false })
 const rows =
-  await sql`SELECT brawlhalla_id, handle, pro FROM player_overrides WHERE pro = true ORDER BY handle`
+  await sql`SELECT brawlhalla_id, handle, is_pro FROM profiles WHERE is_pro = true ORDER BY handle`
 console.log(`${rows.length} verified pros in DB\n`)
 
 for (const r of rows) {
