@@ -159,9 +159,10 @@ export default async function AdminPage({
           Backfill Valhallans
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Walks the{" "}
-          <span className="font-mono text-foreground">1v1 region=ALL</span>{" "}
-          leaderboard, fetches each Valhallan&apos;s full ranked payload, and
+          Walks both the{" "}
+          <span className="font-mono text-foreground">1v1</span> and{" "}
+          <span className="font-mono text-foreground">2v2</span> region=ALL
+          leaderboards, fetches each Valhallan&apos;s full ranked payload, and
           upserts. Throttled (~5s/sync, ~40 players per click); re-click to
           drain the rest. Idempotent — already-fresh rows are skipped.
         </p>
@@ -170,7 +171,7 @@ export default async function AdminPage({
             type="submit"
             className="rounded-md border border-positive/40 bg-positive/15 px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-wider text-positive transition-colors hover:bg-positive/25"
           >
-            Backfill Valhallans (1v1 ALL)
+            Backfill Valhallans (1v1 + 2v2 ALL)
           </button>
         </form>
       </section>

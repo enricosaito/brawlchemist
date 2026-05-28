@@ -109,10 +109,12 @@ export async function toggleCronAction(formData: FormData) {
 }
 
 /**
- * Walk the 1v1 region=ALL leaderboard for Valhallan-tier ids and sync each
- * player's full ranked payload into the pool. Cheaper than the per-region
- * discovery the daily cron does, since "ALL" returns the global top players
- * in one paginated call.
+ * Walk both 1v1 and 2v2 region=ALL leaderboards for Valhallan-tier ids and
+ * sync each player's full ranked payload. "ALL" is the cheapest discovery —
+ * one paginated combo per queue vs nine regions each. The 2v2 walk catches
+ * top-team players the 1v1 walk misses (each 2v2 entry contributes both
+ * teammates), at the cost of pulling some mid-1v1-tier players (top-2v2
+ * mains often Plat/Gold in 1v1).
  *
  * Capped at ~40 players per click so the throttled syncs (5s/call) fit within
  * Vercel's 300s function ceiling. Idempotent (TTL-gated) — re-click to drain.
@@ -120,12 +122,16 @@ export async function toggleCronAction(formData: FormData) {
 export async function backfillValhallansAction() {
   await requireAdmin()
 
-  const ids = await discoverValhallanIds("1v1", "ALL")
-  if (ids.length === 0) {
+  const discovered = new Set<number>()
+  for (const queue of ["1v1", "2v2"] as const) {
+    const list = await discoverValhallanIds(queue, "ALL")
+    for (const id of list) discovered.add(id)
+  }
+  if (discovered.size === 0) {
     redirect("/admin?backfill=none")
   }
 
-  const stale = await getStaleValhallanIds(new Set(ids))
+  const stale = await getStaleValhallanIds(discovered)
   if (stale.length === 0) {
     redirect("/admin?backfill=caughtup")
   }
