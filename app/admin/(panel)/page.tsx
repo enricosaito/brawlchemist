@@ -231,6 +231,7 @@ export default async function AdminPage({
                     <td className="px-3 py-1.5">
                       <Link
                         href={`/player/${f.brawlhallaId}`}
+                        prefetch={false}
                         className="font-mono text-foreground hover:underline"
                       >
                         #{f.brawlhallaId}
@@ -547,6 +548,7 @@ export default async function AdminPage({
                     </Link>
                     <Link
                       href={`/player/${o.brawlhallaId}`}
+                      prefetch={false}
                       className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
                     >
                       View
