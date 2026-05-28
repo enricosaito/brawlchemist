@@ -3,11 +3,9 @@ import "server-only"
 import { unstable_cache } from "next/cache"
 import { desc, eq, isNull, lt, or, sql } from "drizzle-orm"
 import {
-  getGuildMembers,
   getGuildStats,
   getPlayerGuild,
   type Guild,
-  type GuildMember,
 } from "@/lib/brawlhalla-api"
 import { db } from "@/lib/db"
 import {
@@ -22,7 +20,7 @@ import {
  *
  * The Brawlhalla API can't enumerate guilds, so the `guilds` table is built by
  * walking our player pool: GetPlayerGuild tells us a player's guild id, then
- * GetGuildStats/GetGuildMembers fill in the guild. The leaderboard reads the
+ * GetGuildStats fills in the guild. The leaderboard reads the
  * table ordered by the API's official `rank`, so even a partial pool is
  * correctly ordered. Reads are cached under one tag; the discovery cron and
  * profile views keep it fresh.
@@ -38,35 +36,15 @@ function isFresh(row: GuildRow, ttlMs: number): boolean {
   return Date.now() - row.lastSynced.getTime() < ttlMs
 }
 
-/**
- * GetGuildMembers is flaky — it frequently 500s, especially for large guilds.
- * Retry a couple of times before giving up; returns undefined when we still
- * can't get the list (callers keep the last-known snapshot).
- */
-export async function fetchGuildMembers(
-  guildId: number,
-  attempts = 3,
-): Promise<GuildMember[] | undefined> {
-  for (let i = 0; i < attempts; i++) {
-    const m = await getGuildMembers(guildId)
-    if (m.ok) return m.data.guild_members ?? []
-    if (i < attempts - 1) await sleep(800)
-  }
-  return undefined
-}
-
-/** Upsert a GetGuildStats payload (+ optional member snapshot) into guilds. */
-export async function upsertGuild(
-  stats: Guild,
-  members?: GuildMember[],
-): Promise<void> {
+/** Upsert a GetGuildStats payload into guilds (stats only — no member roster). */
+export async function upsertGuild(stats: Guild): Promise<void> {
   const base = {
     name: stats.name,
     rank: stats.rank ?? null,
     xp: stats.xp ?? null,
     legacyXp: stats.legacy_xp ?? null,
     guildPoints: stats.guild_points ?? null,
-    memberCount: stats.member_count ?? members?.length ?? null,
+    memberCount: stats.member_count ?? null,
     createDate: stats.create_date ?? null,
     tags: Array.isArray(stats.tags) ? stats.tags : [],
     isRecruiting: stats.is_recruiting ?? null,
@@ -75,25 +53,20 @@ export async function upsertGuild(
     statsJson: stats as unknown,
     lastSynced: new Date(),
   }
-  // Only touch members_json when we actually fetched members, so a stats-only
-  // refresh doesn't wipe an existing snapshot.
-  const withMembers =
-    members !== undefined ? { ...base, membersJson: members } : base
 
   await db()
     .insert(guilds)
-    .values({ guildId: stats.guild_id, ...withMembers })
-    .onConflictDoUpdate({ target: guilds.guildId, set: withMembers })
+    .values({ guildId: stats.guild_id, ...base })
+    .onConflictDoUpdate({ target: guilds.guildId, set: base })
 }
 
 /**
- * Fetch a guild's stats (+ members unless disabled) and upsert. TTL-gated:
- * returns "fresh" without an API call when the row is recent. Up to 2 API
- * calls when it does sync.
+ * Fetch a guild's stats and upsert. TTL-gated: returns "fresh" without an API
+ * call when the row is recent; one API call when it does sync.
  */
 export async function syncGuild(
   guildId: number,
-  opts: { ttlMs?: number; force?: boolean; withMembers?: boolean } = {},
+  opts: { ttlMs?: number; force?: boolean } = {},
 ): Promise<"synced" | "fresh" | "failed"> {
   const ttlMs = opts.ttlMs ?? DEFAULT_TTL_MS
   if (!opts.force) {
@@ -108,10 +81,7 @@ export async function syncGuild(
   const stats = await getGuildStats(guildId)
   if (!stats.ok) return "failed"
 
-  const members =
-    opts.withMembers === false ? undefined : await fetchGuildMembers(guildId)
-
-  await upsertGuild(stats.data, members)
+  await upsertGuild(stats.data)
   return "synced"
 }
 
@@ -209,8 +179,8 @@ export async function discoverAndSyncGuilds(opts: {
 
 async function fetchGuildLeaderboard(): Promise<GuildListRow[]> {
   try {
-    // Project the list columns only — `stats_json` / `members_json` are never
-    // shown here and would balloon a 200-row read on every cache refresh.
+    // Project the list columns only — `stats_json` is never shown here and
+    // would balloon a 200-row read on every cache refresh.
     return await db()
       .select({
         guildId: guilds.guildId,

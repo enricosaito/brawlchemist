@@ -2,13 +2,10 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { DataTable, type ColDef } from "@/components/site/data-table"
-import { PlayerLink } from "@/components/site/primitives"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
-import { getGuildStats, type GuildMember } from "@/lib/brawlhalla-api"
-import { fetchGuildMembers, getGuildById, upsertGuild } from "@/lib/sync/guilds"
+import { getGuildStats } from "@/lib/brawlhalla-api"
+import { getGuildById, upsertGuild } from "@/lib/sync/guilds"
 
 interface GuildView {
   guildId: number
@@ -23,7 +20,6 @@ interface GuildView {
   isRecruiting: boolean
   notice: string | null
   discordInviteCode: string | null
-  members: GuildMember[]
 }
 
 const num = (n: number | null) => (n == null ? "—" : n.toLocaleString())
@@ -37,42 +33,22 @@ function fmtDate(unix: number | null): string {
   })
 }
 
-// Leader → Officer → Member → anything else, then by guild points desc.
-const ROLE_ORDER: Record<string, number> = { Leader: 0, Officer: 1, Member: 2 }
-function sortMembers(members: GuildMember[]): GuildMember[] {
-  return [...members].sort((a, b) => {
-    const ra = ROLE_ORDER[a.rank] ?? 3
-    const rb = ROLE_ORDER[b.rank] ?? 3
-    if (ra !== rb) return ra - rb
-    return (b.guild_points ?? 0) - (a.guild_points ?? 0)
-  })
-}
-
 /**
- * Load a guild: prefer a live fetch (and refresh the pool from it), falling
- * back to the cached DB row when the API is unavailable. Returns null when the
- * guild can't be found either way.
+ * Load a guild: prefer a live stats fetch (and refresh the pool from it),
+ * falling back to the cached DB row when the API is unavailable. Returns null
+ * when the guild can't be found either way.
+ *
+ * We deliberately don't fetch member rosters — GetGuildMembers is heavy and
+ * flaky, so we surface the member *count* (from GetGuildStats) and nothing more.
  */
 async function loadGuild(guildId: number): Promise<GuildView | null> {
-  const [stats, liveMembers] = await Promise.all([
-    getGuildStats(guildId),
-    fetchGuildMembers(guildId),
-  ])
+  const stats = await getGuildStats(guildId)
 
   if (stats.ok) {
-    // The members endpoint often 500s; when it does, keep the last snapshot we
-    // stored rather than showing an empty list.
-    let members = liveMembers
-    if (members === undefined) {
-      const prior = await getGuildById(guildId)
-      members = Array.isArray(prior?.membersJson)
-        ? (prior!.membersJson as GuildMember[])
-        : []
-    }
     // Populate/refresh the pool for free on view. Don't let a write error
     // block rendering.
     try {
-      await upsertGuild(stats.data, liveMembers)
+      await upsertGuild(stats.data)
     } catch (err) {
       console.error("[guild] upsert on view failed:", err)
     }
@@ -84,13 +60,12 @@ async function loadGuild(guildId: number): Promise<GuildView | null> {
       xp: s.xp ?? null,
       legacyXp: s.legacy_xp ?? null,
       guildPoints: s.guild_points ?? null,
-      memberCount: s.member_count ?? members.length ?? null,
+      memberCount: s.member_count ?? null,
       createDate: s.create_date ?? null,
       tags: Array.isArray(s.tags) ? s.tags : [],
       isRecruiting: !!s.is_recruiting,
       notice: s.notice || null,
       discordInviteCode: s.discord_invite_code || null,
-      members,
     }
   }
 
@@ -110,9 +85,6 @@ async function loadGuild(guildId: number): Promise<GuildView | null> {
     isRecruiting: !!row.isRecruiting,
     notice: row.notice,
     discordInviteCode: row.discordInviteCode,
-    members: Array.isArray(row.membersJson)
-      ? (row.membersJson as GuildMember[])
-      : [],
   }
 }
 
@@ -126,7 +98,7 @@ export async function generateMetadata({
   const name = row?.name ?? "Guild"
   return {
     title: `${name} · Guild · Brawlchemist`,
-    description: `${name} — Brawlhalla guild stats and members.`,
+    description: `${name} — Brawlhalla guild stats and ranking.`,
   }
 }
 
@@ -143,86 +115,6 @@ function StatTile({ label, value }: { label: string; value: string }) {
   )
 }
 
-function buildMemberColumns(): ColDef<GuildMember>[] {
-  return [
-    {
-      id: "rank",
-      label: "#",
-      width: "56px",
-      align: "right",
-      render: (_, i) => (
-        <span className="font-mono text-xs text-muted-foreground tabular-nums">
-          {i + 1}
-        </span>
-      ),
-    },
-    {
-      id: "member",
-      label: "Member",
-      render: (m) => (
-        <PlayerLink
-          id={m.brawlhalla_id}
-          className="truncate text-sm font-medium"
-        >
-          {m.name}
-        </PlayerLink>
-      ),
-    },
-    {
-      id: "role",
-      label: "Role",
-      width: "110px",
-      render: (m) => (
-        <span
-          className={cn(
-            "font-mono text-[11px] font-medium uppercase tracking-wider",
-            m.rank === "Leader"
-              ? "text-tier-s"
-              : m.rank === "Officer"
-                ? "text-tier-valhallan"
-                : "text-muted-foreground",
-          )}
-        >
-          {m.rank}
-        </span>
-      ),
-    },
-    {
-      id: "points",
-      label: "Weekly Pts",
-      align: "right",
-      width: "120px",
-      render: (m) => (
-        <span className="font-mono text-sm tabular-nums text-tier-s">
-          {num(m.guild_points ?? null)}
-        </span>
-      ),
-    },
-    {
-      id: "xp",
-      label: "Guild XP",
-      align: "right",
-      width: "140px",
-      render: (m) => (
-        <span className="font-mono text-sm tabular-nums">
-          {num(m.xp ?? null)}
-        </span>
-      ),
-    },
-    {
-      id: "joined",
-      label: "Joined",
-      align: "right",
-      width: "130px",
-      render: (m) => (
-        <span className="font-mono text-xs tabular-nums text-muted-foreground">
-          {fmtDate(m.join_date ?? null)}
-        </span>
-      ),
-    },
-  ]
-}
-
 export default async function GuildPage({
   params,
 }: {
@@ -234,8 +126,6 @@ export default async function GuildPage({
 
   const guild = await loadGuild(guildId)
   if (!guild) notFound()
-
-  const members = sortMembers(guild.members)
 
   return (
     <div className="min-h-svh">
@@ -311,27 +201,8 @@ export default async function GuildPage({
               <StatTile label="Total XP" value={num(guild.xp)} />
               <StatTile label="Legacy XP" value={num(guild.legacyXp)} />
               <StatTile label="Weekly Points" value={num(guild.guildPoints)} />
-              <StatTile
-                label="Members"
-                value={num(guild.memberCount ?? members.length)}
-              />
+              <StatTile label="Members" value={num(guild.memberCount)} />
             </div>
-
-            {/* Members */}
-            <h2 className="mb-2 mt-6 font-display text-sm font-semibold uppercase tracking-[0.18em] text-foreground/90">
-              Members
-            </h2>
-            {members.length === 0 ? (
-              <div className="rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">
-                Member list isn&apos;t available for this guild right now.
-              </div>
-            ) : (
-              <DataTable
-                columns={buildMemberColumns()}
-                rows={members}
-                rowKey={(m) => String(m.brawlhalla_id)}
-              />
-            )}
           </div>
         </div>
       </main>
