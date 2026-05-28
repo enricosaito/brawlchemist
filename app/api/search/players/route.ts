@@ -1,5 +1,5 @@
 import { searchPlayerSuggestions } from "@/lib/sync/players"
-import { getOverridesMap } from "@/lib/sync/player-overrides"
+import { getProfilesMap } from "@/lib/sync/profiles"
 import { slugForLegendId } from "@/lib/legends-roster"
 
 // Always dynamic — this reads the query string and the live DB.
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   try {
     const [rows, overrides] = await Promise.all([
       searchPlayerSuggestions(q, 8),
-      getOverridesMap(),
+      getProfilesMap(),
     ])
     const results = rows.map((p) => ({
       id: p.id,

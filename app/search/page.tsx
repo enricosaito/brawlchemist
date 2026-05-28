@@ -8,7 +8,7 @@ import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
 import { searchPlayerBySteamId, type PlayerRanked } from "@/lib/brawlhalla-api"
 import { getPlayersByIds, searchPlayersByUsername } from "@/lib/sync/players"
-import { getOverridesMap } from "@/lib/sync/player-overrides"
+import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { formatElo } from "@/lib/format"
@@ -126,7 +126,7 @@ export default async function SearchPage({
   let searchFailed = false
   if (isUsername) {
     try {
-      overrides = await getOverridesMap()
+      overrides = await getProfilesMap()
       const byName = await searchPlayersByUsername(raw)
       const byId = new Map(byName.map((p) => [p.brawlhallaId, p]))
 

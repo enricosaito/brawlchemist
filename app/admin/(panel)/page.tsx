@@ -1,15 +1,15 @@
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import {
-  getOverrideRecord,
-  listOverrides,
-} from "@/lib/sync/player-overrides"
+  getProfileRecord,
+  listProfiles,
+} from "@/lib/sync/profiles"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { listCronControls } from "@/lib/sync/cron-controls"
 import { getPlayerPoolStats } from "@/lib/sync/admin-stats"
 import {
-  deleteOverrideAction,
-  saveOverrideAction,
+  deleteProfileAction,
+  saveProfileAction,
   toggleCronAction,
 } from "../actions"
 
@@ -57,10 +57,10 @@ export default async function AdminPage({
   const editId = sp.edit ? Number(sp.edit) : null
   const editing =
     editId && Number.isInteger(editId)
-      ? await getOverrideRecord(editId)
+      ? await getProfileRecord(editId)
       : null
 
-  const overrides = await listOverrides()
+  const overrides = await listProfiles()
   const players = overrides.length
     ? await getPlayersByIds(overrides.map((o) => o.brawlhallaId))
     : new Map()
@@ -205,7 +205,7 @@ export default async function AdminPage({
         </p>
 
         <form
-          action={saveOverrideAction}
+          action={saveProfileAction}
           className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-border/60 bg-card/40 p-5 sm:grid-cols-2"
         >
           <div className="sm:col-span-1">
@@ -226,9 +226,9 @@ export default async function AdminPage({
           <div className="flex items-end sm:col-span-1">
             <label className="flex items-center gap-2 text-sm">
               <input
-                name="pro"
+                name="isPro"
                 type="checkbox"
-                defaultChecked={editing ? editing.pro : true}
+                defaultChecked={editing ? editing.isPro : true}
                 className="size-4 accent-mystic"
               />
               Verified pro (PRO badge)
@@ -370,7 +370,7 @@ export default async function AdminPage({
                       not synced yet
                     </span>
                   )}
-                  {o.pro && (
+                  {o.isPro && (
                     <span className="rounded border border-mystic/50 bg-mystic/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-mystic">
                       Pro{o.handle ? ` · ${o.handle}` : ""}
                     </span>
@@ -400,7 +400,7 @@ export default async function AdminPage({
                     >
                       View
                     </Link>
-                    <form action={deleteOverrideAction}>
+                    <form action={deleteProfileAction}>
                       <input
                         type="hidden"
                         name="brawlhallaId"

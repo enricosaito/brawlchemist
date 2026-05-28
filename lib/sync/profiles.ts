@@ -3,18 +3,19 @@ import "server-only"
 import { revalidateTag, unstable_cache } from "next/cache"
 import { desc, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { playerOverrides, type PlayerOverrideRow } from "@/lib/db/schema"
+import { profiles, type ProfileRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 
 /**
- * Admin-curated presentation overrides (verified-pro status, favorite skin,
- * accolades) layered onto players by brawlhalla id. These have no API source —
- * they're maintained through /admin and stored in the player_overrides table.
+ * Per-player presentation profiles (verified-pro status, favorite skin,
+ * accolades) keyed by brawlhalla id. Today these are admin-curated (no API
+ * source) and maintained through /admin; the `userId` column reserves a future
+ * auth owner so players can eventually claim their own profile.
  *
  * Reads are cached app-wide under one tag and busted on every write, so the
  * profile/podium/search pay ~nothing for them between edits.
  */
-const TAG = "player-overrides"
+const TAG = "profiles"
 
 export interface FavoriteSkin {
   src: string
@@ -22,9 +23,9 @@ export interface FavoriteSkin {
 }
 
 /** Admin-facing row shape (the raw record, not the read-side PlayerPreview). */
-export interface OverrideRecord {
+export interface ProfileRecord {
   brawlhallaId: number
-  pro: boolean
+  isPro: boolean
   handle: string | null
   favoriteSkin: FavoriteSkin | null
   achievements: string[]
@@ -32,9 +33,9 @@ export interface OverrideRecord {
 }
 
 /** Fields the admin form can set. */
-export interface OverrideInput {
+export interface ProfileInput {
   brawlhallaId: number
-  pro: boolean
+  isPro: boolean
   handle: string | null
   favoriteSkin: FavoriteSkin | null
   achievements: string[]
@@ -56,10 +57,10 @@ function parseAchievements(value: unknown): string[] {
     : []
 }
 
-function toRecord(row: PlayerOverrideRow): OverrideRecord {
+function toRecord(row: ProfileRow): ProfileRecord {
   return {
     brawlhallaId: row.brawlhallaId,
-    pro: row.pro,
+    isPro: row.isPro,
     handle: row.handle,
     favoriteSkin: parseSkin(row.favoriteSkin),
     achievements: parseAchievements(row.achievements),
@@ -68,88 +69,88 @@ function toRecord(row: PlayerOverrideRow): OverrideRecord {
 }
 
 /** Read-side projection consumed across the public UI. */
-function toPreview(row: PlayerOverrideRow): PlayerPreview {
+function toPreview(row: ProfileRow): PlayerPreview {
   const skin = parseSkin(row.favoriteSkin)
   const achievements = parseAchievements(row.achievements)
   return {
     favoriteSkin: skin ?? undefined,
-    verified: row.pro ? { handle: row.handle ?? "" } : undefined,
+    verified: row.isPro ? { handle: row.handle ?? "" } : undefined,
     achievements: achievements.length ? achievements : undefined,
   }
 }
 
 // unstable_cache can't serialize a Map, so cache a plain object keyed by id
 // (string keys after JSON), then hydrate to a Map at the call site.
-const getOverridesObject = unstable_cache(
+const getProfilesObject = unstable_cache(
   async (): Promise<Record<string, PlayerPreview>> => {
-    let rows: PlayerOverrideRow[]
+    let rows: ProfileRow[]
     try {
-      rows = await db().select().from(playerOverrides)
+      rows = await db().select().from(profiles)
     } catch (err) {
-      // Fail open — the UI renders fine without overrides.
-      console.error("[overrides] read failed:", err)
+      // Fail open — the UI renders fine without profiles.
+      console.error("[profiles] read failed:", err)
       return {}
     }
     const obj: Record<string, PlayerPreview> = {}
     for (const r of rows) obj[String(r.brawlhallaId)] = toPreview(r)
     return obj
   },
-  ["player-overrides-map"],
+  ["profiles-map"],
   { tags: [TAG], revalidate: 3600 },
 )
 
-/** All overrides as a Map<brawlhallaId, PlayerPreview> (cached). */
-export async function getOverridesMap(): Promise<Map<number, PlayerPreview>> {
-  const obj = await getOverridesObject()
+/** All profiles as a Map<brawlhallaId, PlayerPreview> (cached). */
+export async function getProfilesMap(): Promise<Map<number, PlayerPreview>> {
+  const obj = await getProfilesObject()
   const map = new Map<number, PlayerPreview>()
   for (const [k, v] of Object.entries(obj)) map.set(Number(k), v)
   return map
 }
 
 /** A single player's preview, or undefined (cached via the map). */
-export async function getOverride(
+export async function getProfile(
   brawlhallaId: number,
 ): Promise<PlayerPreview | undefined> {
-  return (await getOverridesMap()).get(brawlhallaId)
+  return (await getProfilesMap()).get(brawlhallaId)
 }
 
 // ---- Admin reads/writes (uncached; admin sees fresh data) -------------------
 
-export async function listOverrides(): Promise<OverrideRecord[]> {
+export async function listProfiles(): Promise<ProfileRecord[]> {
   const rows = await db()
     .select()
-    .from(playerOverrides)
-    .orderBy(desc(playerOverrides.updatedAt))
+    .from(profiles)
+    .orderBy(desc(profiles.updatedAt))
   return rows.map(toRecord)
 }
 
-export async function getOverrideRecord(
+export async function getProfileRecord(
   brawlhallaId: number,
-): Promise<OverrideRecord | null> {
+): Promise<ProfileRecord | null> {
   const [row] = await db()
     .select()
-    .from(playerOverrides)
-    .where(eq(playerOverrides.brawlhallaId, brawlhallaId))
+    .from(profiles)
+    .where(eq(profiles.brawlhallaId, brawlhallaId))
     .limit(1)
   return row ? toRecord(row) : null
 }
 
-export async function upsertOverride(input: OverrideInput): Promise<void> {
+export async function upsertProfile(input: ProfileInput): Promise<void> {
   const values = {
     brawlhallaId: input.brawlhallaId,
-    pro: input.pro,
+    isPro: input.isPro,
     handle: input.handle,
     favoriteSkin: input.favoriteSkin,
     achievements: input.achievements,
     updatedAt: new Date(),
   }
   await db()
-    .insert(playerOverrides)
+    .insert(profiles)
     .values(values)
     .onConflictDoUpdate({
-      target: playerOverrides.brawlhallaId,
+      target: profiles.brawlhallaId,
       set: {
-        pro: values.pro,
+        isPro: values.isPro,
         handle: values.handle,
         favoriteSkin: values.favoriteSkin,
         achievements: values.achievements,
@@ -159,9 +160,7 @@ export async function upsertOverride(input: OverrideInput): Promise<void> {
   revalidateTag(TAG, "max")
 }
 
-export async function deleteOverride(brawlhallaId: number): Promise<void> {
-  await db()
-    .delete(playerOverrides)
-    .where(eq(playerOverrides.brawlhallaId, brawlhallaId))
+export async function deleteProfile(brawlhallaId: number): Promise<void> {
+  await db().delete(profiles).where(eq(profiles.brawlhallaId, brawlhallaId))
   revalidateTag(TAG, "max")
 }

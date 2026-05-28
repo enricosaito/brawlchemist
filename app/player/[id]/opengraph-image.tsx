@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og"
 import { getPlayerRanked, isApiRegion } from "@/lib/brawlhalla-api"
 import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
-import { getOverride } from "@/lib/sync/player-overrides"
+import { getProfile } from "@/lib/sync/profiles"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 
 export const alt = "Brawlchemist player profile"
@@ -49,7 +49,7 @@ export default async function OgImage({
   const games = data?.games ?? 0
   const wins = data?.wins ?? 0
   const wr = games > 0 ? `${((wins / games) * 100).toFixed(1)}%` : "—"
-  const preview = data ? await getOverride(data.brawlhalla_id) : undefined
+  const preview = data ? await getProfile(data.brawlhalla_id) : undefined
   const verified = preview?.verified ?? null
 
   const stats = [

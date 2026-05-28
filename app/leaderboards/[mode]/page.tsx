@@ -22,7 +22,7 @@ import {
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
-import { getOverridesMap } from "@/lib/sync/player-overrides"
+import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerRow } from "@/lib/db/schema"
 
 const QUEUES: { id: ApiGameMode; label: string }[] = [
@@ -143,7 +143,7 @@ export default async function LeaderboardPage({
 
   // Admin-curated previews (PRO badge/handle, favorite skin) for the podium
   // and the table's pro name treatment.
-  const overrides = await getOverridesMap()
+  const overrides = await getProfilesMap()
 
   // Data source: verified pros (toggle on) or the live ladder.
   let rows: RankedEntry[] = []

@@ -13,7 +13,7 @@ import {
 import { getLegend } from "@/lib/mock-data"
 import { slugForLegendId } from "@/lib/legends-roster"
 import { API_REGIONS, isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
-import { getOverridesMap } from "@/lib/sync/player-overrides"
+import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerPreview } from "@/lib/player-previews"
 import {
   type AggregationMethod,
@@ -254,7 +254,7 @@ export default async function LegendsPage({
       }),
       getTopValhallanMainers({ region: regionFilter, perLegend: 1 }),
       getValhallanMainerCounts({ region: regionFilter }),
-      getOverridesMap(),
+      getProfilesMap(),
     ])
 
   const columns = buildColumns(method, mainers, mainerCounts, overrides)

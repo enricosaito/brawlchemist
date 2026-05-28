@@ -9,7 +9,7 @@ import { CURRENT_PATCH } from "@/lib/mock-data"
 import { isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getPlayersByIds } from "@/lib/sync/players"
-import { getOverridesMap } from "@/lib/sync/player-overrides"
+import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerRow } from "@/lib/db/schema"
 
 export const metadata = {
@@ -45,7 +45,7 @@ export default async function ProLeaderboardPage({
 
   // proBoard mode: show the pro handle + verified badge in the name, keep the
   // real Valhallan/Diamond tier in the subtext.
-  const overrides = await getOverridesMap()
+  const overrides = await getProfilesMap()
   const columns = buildLeaderboardColumns(
     playersMap,
     "1v1",

@@ -6,6 +6,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uuid,
 } from "drizzle-orm/pg-core"
 
 /**
@@ -48,29 +49,39 @@ export type PlayerRow = typeof players.$inferSelect
 export type PlayerInsert = typeof players.$inferInsert
 
 /**
- * player_overrides — editable, admin-curated presentation data layered on top
- * of a player by brawlhalla id: verified-pro status (+ display handle),
- * favorite skin, and esports accolades. These have no API source, so they're
- * maintained by hand through the /admin page (and were previously hardcoded in
- * lib/player-previews.ts). Read everywhere a `PlayerPreview` is consumed.
+ * profiles — per-player presentation data keyed by brawlhalla id: verified-pro
+ * status (+ display handle), favorite skin, and esports accolades. Today these
+ * are admin-curated (no API source) through the /admin page; `userId` reserves
+ * the link to a future auth owner so a player can eventually claim their own
+ * profile. Read everywhere a `PlayerPreview` is consumed.
  */
-export const playerOverrides = pgTable("player_overrides", {
+export const profiles = pgTable("profiles", {
+  /** The Brawlhalla player this profile describes. Natural identity, and every
+   * consumer joins on it, so it stays the primary key. */
   brawlhallaId: integer("brawlhalla_id").primaryKey(),
   /** Verified pro — shows the PRO badge. */
-  pro: boolean("pro").notNull().default(false),
+  isPro: boolean("is_pro").notNull().default(false),
   /** Optional handle shown next to the PRO badge (e.g. "Kyna"). */
   handle: text("handle"),
   /** Favorite skin shape: { src, name } | null. */
   favoriteSkin: jsonb("favorite_skin"),
   /** Championship titles as a string[] (jsonb), e.g. ["2v2 World Champion '24"]. */
   achievements: jsonb("achievements"),
+  /** Future auth owner — the Supabase `auth.users` id of whoever claims this
+   * player. Null = unclaimed (the current admin-curated state). Unique so one
+   * auth user owns at most one profile. No FK yet (auth isn't wired up); the
+   * column just reserves the link, so "claim your player" becomes a populate. */
+  userId: uuid("user_id").unique(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 })
 
-export type PlayerOverrideRow = typeof playerOverrides.$inferSelect
-export type PlayerOverrideInsert = typeof playerOverrides.$inferInsert
+export type ProfileRow = typeof profiles.$inferSelect
+export type ProfileInsert = typeof profiles.$inferInsert
 
 /**
  * guilds — one row per guild we've discovered (via the player pool / profile

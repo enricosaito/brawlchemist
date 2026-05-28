@@ -9,7 +9,7 @@ import {
   getRankedLeaderboard,
 } from "@/lib/brawlhalla-api"
 import { getPlayersByIds } from "@/lib/sync/players"
-import { getOverridesMap } from "@/lib/sync/player-overrides"
+import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { Tier } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
@@ -68,7 +68,7 @@ export async function TopPlayersCard({
   }
 
   // Admin-curated previews drive the verified-pro treatment (handle + check).
-  const overrides = await getOverridesMap()
+  const overrides = await getProfilesMap()
 
   return (
     <PreviewCard

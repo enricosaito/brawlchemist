@@ -7,7 +7,7 @@ import {
   type PlayerRanked,
   type RankedEntry,
 } from "@/lib/brawlhalla-api"
-import { listOverrides } from "@/lib/sync/player-overrides"
+import { listProfiles } from "@/lib/sync/profiles"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
 import { isValhallan } from "@/lib/tier"
@@ -20,11 +20,12 @@ import { isValhallan } from "@/lib/tier"
  * (live-fetching 50 pros per request was getting rate-limited). `region` of
  * "ALL" keeps every region; a specific region filters to it. The /ranked
  * payload caps at Diamond, so the real Valhallan tier is derived from each
- * player's region cutoff. Cached 5 min, tagged `player-overrides`.
+ * player's region cutoff. Cached 5 min, tagged `profiles` so editing a pro
+ * in /admin busts this board too.
  */
 async function fetchProLeaderboard(region: ApiRegion): Promise<RankedEntry[]> {
-  const overrides = await listOverrides()
-  const proIds = overrides.filter((o) => o.pro).map((o) => o.brawlhallaId)
+  const overrides = await listProfiles()
+  const proIds = overrides.filter((o) => o.isPro).map((o) => o.brawlhallaId)
   if (proIds.length === 0) return []
 
   const rowsById = await getPlayersByIds(proIds)
@@ -81,5 +82,5 @@ async function fetchProLeaderboard(region: ApiRegion): Promise<RankedEntry[]> {
 export const getProLeaderboard = unstable_cache(
   fetchProLeaderboard,
   ["pro-leaderboard"],
-  { tags: ["player-overrides"], revalidate: 300 },
+  { tags: ["profiles"], revalidate: 300 },
 )
