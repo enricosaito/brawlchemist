@@ -1080,14 +1080,28 @@ export default async function PlayerPage({
 
   const res = await loadPlayer(numId)
 
-  if (!res.ok) {
-    return (
-      <Shell>
-        <NoticeCard title="Couldn’t load this player">
-          {res.error}
-        </NoticeCard>
-      </Shell>
+  // Live /ranked can fail — most often a 429 from the shared Brawlhalla rate
+  // limit while the sync crons are backfilling. Fall back to the last cached
+  // ranked payload (the pool stores the full GetPlayerRanked json) so the
+  // profile still renders instead of hard-failing.
+  let data: PlayerRanked
+  if (res.ok) {
+    data = res.data
+  } else {
+    const cached = (await getPlayersByIds([numId])).get(numId)
+    if (!cached?.rankedJson) {
+      return (
+        <Shell>
+          <NoticeCard title="Couldn’t load this player">
+            {res.error}
+          </NoticeCard>
+        </Shell>
+      )
+    }
+    console.warn(
+      `[player ${numId}] live /ranked failed (${res.status}: ${res.error}) — served cached ranked_json fallback`,
     )
+    data = cached.rankedJson as PlayerRanked
   }
 
   // The /ranked endpoint returns a name-less shell ({ name: "" }) for accounts
@@ -1095,7 +1109,6 @@ export default async function PlayerPage({
   // built from lifetime account stats and/or the esports profile instead. The
   // shell is safe to thread through (it carries brawlhalla_id; "2v2"/legends
   // default to empty).
-  const data = res.data
   const hasRankedName = !!data?.name
 
   // Persist into the pool only when there's a real ranked payload — never write

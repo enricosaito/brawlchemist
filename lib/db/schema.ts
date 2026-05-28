@@ -88,9 +88,10 @@ export type ProfileInsert = typeof profiles.$inferInsert
  * views). The Brawlhalla API has no "list guilds" endpoint, so this table *is*
  * our guild leaderboard: rows are ordered by the API's official `rank`.
  *
- * `stats_json` / `members_json` keep the full GetGuildStats payload and the
- * GetGuildMembers snapshot as jsonb (drift-safe, like players.ranked_json). xp
- * values use bigint — a large guild's lifetime XP can exceed the int4 ceiling.
+ * `stats_json` keeps the full GetGuildStats payload as jsonb (drift-safe, like
+ * players.ranked_json). We don't store member rosters — the detail page reads
+ * live stats only. xp values use bigint — a large guild's lifetime XP can
+ * exceed the int4 ceiling.
  */
 export const guilds = pgTable("guilds", {
   guildId: integer("guild_id").primaryKey(),
@@ -111,8 +112,6 @@ export const guilds = pgTable("guilds", {
   discordInviteCode: text("discord_invite_code"),
   /** Full GetGuildStats payload. */
   statsJson: jsonb("stats_json"),
-  /** GetGuildMembers snapshot: GuildMember[]. */
-  membersJson: jsonb("members_json"),
   lastSynced: timestamp("last_synced", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -122,14 +121,13 @@ export type GuildRow = typeof guilds.$inferSelect
 export type GuildInsert = typeof guilds.$inferInsert
 
 /**
- * Guild leaderboard list shape: every column except the heavy `stats_json` /
- * `members_json` blobs, which the list view never renders (the guild detail
- * page loads them separately via getGuildById). Keeping them out of the
- * leaderboard read collapses the per-row payload — that query runs for up to
- * 200 guilds and re-runs on every cache refresh, so the blobs were a large
- * chunk of our DB egress.
+ * Guild leaderboard list shape: every column except the heavy `stats_json`
+ * blob, which the list view never renders (the guild detail page loads it
+ * separately via getGuildById). Keeping it out of the leaderboard read
+ * collapses the per-row payload — that query runs for up to 200 guilds and
+ * re-runs on every cache refresh, so the blob was a large chunk of our egress.
  */
-export type GuildListRow = Omit<GuildRow, "statsJson" | "membersJson">
+export type GuildListRow = Omit<GuildRow, "statsJson">
 
 
 /**
