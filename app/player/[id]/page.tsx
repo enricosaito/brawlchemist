@@ -29,6 +29,7 @@ import {
 } from "@/lib/brawltools-api"
 import { getPlayersByIds, upsertPlayerRanked } from "@/lib/sync/players"
 import { recordPlayerGuild } from "@/lib/sync/guilds"
+import { recordFetch } from "@/lib/sync/fetch-log"
 import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
@@ -64,36 +65,53 @@ type LoadedRanked = {
 }
 const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
   const cached = (await getPlayersByIds([numId])).get(numId)
+
+  let result: LoadedRanked
   if (
     cached?.rankedJson &&
     Date.now() - cached.lastSynced.getTime() < PROFILE_FRESH_MS
   ) {
-    return { data: cached.rankedJson as PlayerRanked, source: "db-fresh" }
-  }
-
-  const res = await getPlayerRanked(numId, { revalidate: PROFILE_REVALIDATE })
-  if (res.ok) {
-    return { data: res.data, source: "api" }
-  }
-
-  if (cached?.rankedJson) {
-    console.warn(
-      `[player ${numId}] live /ranked failed (${res.status}: ${res.error}) — served cached ranked_json fallback`,
-    )
-    return {
-      data: cached.rankedJson as PlayerRanked,
-      source: "db-fallback",
-      apiStatus: res.status,
-      apiError: res.error,
+    result = { data: cached.rankedJson as PlayerRanked, source: "db-fresh" }
+  } else {
+    const res = await getPlayerRanked(numId, { revalidate: PROFILE_REVALIDATE })
+    if (res.ok) {
+      result = { data: res.data, source: "api" }
+    } else if (cached?.rankedJson) {
+      console.warn(
+        `[player ${numId}] live /ranked failed (${res.status}: ${res.error}) — served cached ranked_json fallback`,
+      )
+      result = {
+        data: cached.rankedJson as PlayerRanked,
+        source: "db-fallback",
+        apiStatus: res.status,
+        apiError: res.error,
+      }
+    } else {
+      result = {
+        data: null,
+        source: "api",
+        apiStatus: res.status,
+        apiError: res.error,
+      }
     }
   }
 
-  return {
-    data: null,
-    source: "api",
-    apiStatus: res.status,
-    apiError: res.error,
-  }
+  // Record this view so /admin can see who's hitting which profiles and why.
+  // We're inside React's cache() so this fires exactly once per request even
+  // though generateMetadata and the page body both call loadRanked.
+  await recordFetch({
+    brawlhallaId: numId,
+    source: "page-view",
+    result:
+      result.source === "db-fresh"
+        ? "cached"
+        : result.source === "api" && result.data
+          ? "synced"
+          : "failed",
+    apiStatus: result.apiStatus,
+  })
+
+  return result
 })
 const loadStats = cache((id: number) => getPlayerStats(id))
 const loadGuild = cache((id: number) =>

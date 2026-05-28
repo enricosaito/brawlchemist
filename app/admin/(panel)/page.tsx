@@ -7,8 +7,10 @@ import {
 import { getPlayersByIds } from "@/lib/sync/players"
 import { listCronControls } from "@/lib/sync/cron-controls"
 import { getPlayerPoolStats } from "@/lib/sync/admin-stats"
+import { getRecentFetches } from "@/lib/sync/fetch-log"
 import {
   backfillValhallansAction,
+  clearFetchLogAction,
   deleteProfileAction,
   saveProfileAction,
   toggleCronAction,
@@ -29,6 +31,14 @@ const TIER_COLOR: Record<string, string> = {
   Bronze: "text-tier-bronze",
   Tin: "text-muted-foreground",
   Unranked: "text-muted-foreground/60",
+}
+
+function timeAgo(d: Date): string {
+  const s = Math.round((Date.now() - d.getTime()) / 1000)
+  if (s < 60) return `${s}s ago`
+  if (s < 3600) return `${Math.round(s / 60)}m ago`
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`
+  return `${Math.round(s / 86400)}d ago`
 }
 
 function StatCard({ label, value }: { label: string; value: number }) {
@@ -55,6 +65,7 @@ export default async function AdminPage({
     backfill?: string
     remaining?: string
     failed?: string
+    cleared?: string
   }>
 }) {
   const sp = await searchParams
@@ -69,14 +80,15 @@ export default async function AdminPage({
     ? await getPlayersByIds(overrides.map((o) => o.brawlhallaId))
     : new Map()
 
-  const [poolStats, crons] = await Promise.all([
+  const [poolStats, crons, fetches] = await Promise.all([
     getPlayerPoolStats(),
     listCronControls(),
+    getRecentFetches(50),
   ])
 
   return (
     <div className="flex flex-col gap-10">
-      {(sp.saved || sp.deleted || sp.error || sp.backfill) && (
+      {(sp.saved || sp.deleted || sp.error || sp.backfill || sp.cleared) && (
         <div
           className={
             sp.error
@@ -90,13 +102,15 @@ export default async function AdminPage({
               ? "Couldn’t save — check the Brawlhalla ID."
               : sp.deleted
                 ? "Pro removed."
-                : sp.backfill === "none"
-                  ? "No Valhallans discovered — leaderboard returned empty."
-                  : sp.backfill === "caughtup"
-                    ? "All Valhallans already cached — nothing to backfill."
-                    : sp.backfill
-                      ? `Backfilled ${sp.backfill} Valhallan${sp.backfill === "1" ? "" : "s"}.${sp.remaining && Number(sp.remaining) > 0 ? ` ${sp.remaining} stale remaining — click again to continue.` : ""}${sp.failed ? ` (${sp.failed} failed — likely rate-limited.)` : ""}`
-                      : `Saved pro ${sp.saved} (syncing their standing…).`}
+                : sp.cleared === "log"
+                  ? "Fetch log cleared."
+                  : sp.backfill === "none"
+                    ? "No Valhallans discovered — leaderboard returned empty."
+                    : sp.backfill === "caughtup"
+                      ? "All Valhallans already cached — nothing to backfill."
+                      : sp.backfill
+                        ? `Backfilled ${sp.backfill} Valhallan${sp.backfill === "1" ? "" : "s"}.${sp.remaining && Number(sp.remaining) > 0 ? ` ${sp.remaining} stale remaining — click again to continue.` : ""}${sp.failed ? ` (${sp.failed} failed — likely rate-limited.)` : ""}`
+                        : `Saved pro ${sp.saved} (syncing their standing…).`}
         </div>
       )}
 
@@ -157,6 +171,111 @@ export default async function AdminPage({
             className="rounded-md border border-positive/40 bg-positive/15 px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-wider text-positive transition-colors hover:bg-positive/25"
           >
             Backfill Valhallans (1v1 ALL)
+          </button>
+        </form>
+      </section>
+
+      {/* Recent fetches log */}
+      <section>
+        <h2 className="font-display text-lg font-semibold">Recent fetches</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Every <span className="font-mono text-foreground">/ranked</span> call
+          the profile page or OG-image route considered, plus admin saves. The
+          request&apos;s user-agent and referer are captured so you can spot
+          crawlers vs. organic traffic. Showing the latest {fetches.length}{" "}
+          entries.
+        </p>
+
+        {fetches.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            No fetches recorded yet.
+          </p>
+        ) : (
+          <div className="mt-3 overflow-x-auto rounded-xl border border-border/60 bg-card/40">
+            <table className="min-w-full text-xs">
+              <thead className="bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">When</th>
+                  <th className="px-3 py-2 text-left font-medium">Source</th>
+                  <th className="px-3 py-2 text-left font-medium">Player</th>
+                  <th className="px-3 py-2 text-left font-medium">Result</th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    User-Agent
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium">Referer</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fetches.map((f) => (
+                  <tr key={f.id} className="border-t border-border/40">
+                    <td
+                      className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-muted-foreground"
+                      title={f.createdAt.toISOString()}
+                    >
+                      {timeAgo(f.createdAt)}
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <span
+                        className={cn(
+                          "rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider",
+                          f.source === "page-view"
+                            ? "border-mystic/40 text-mystic"
+                            : f.source === "og-image"
+                              ? "border-copper/40 text-copper"
+                              : "border-positive/40 text-positive",
+                        )}
+                      >
+                        {f.source}
+                      </span>
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <Link
+                        href={`/player/${f.brawlhallaId}`}
+                        className="font-mono text-foreground hover:underline"
+                      >
+                        #{f.brawlhallaId}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <span
+                        className={cn(
+                          "rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider",
+                          f.result === "cached"
+                            ? "border-positive/40 text-positive"
+                            : f.result === "synced"
+                              ? "border-mystic/40 text-mystic"
+                              : "border-negative/40 text-negative",
+                        )}
+                      >
+                        {f.result}
+                        {f.apiStatus ? ` ${f.apiStatus}` : ""}
+                      </span>
+                    </td>
+                    <td
+                      className="max-w-[280px] truncate px-3 py-1.5 text-muted-foreground"
+                      title={f.userAgent ?? ""}
+                    >
+                      {f.userAgent ?? "—"}
+                    </td>
+                    <td
+                      className="max-w-[200px] truncate px-3 py-1.5 text-muted-foreground"
+                      title={f.referer ?? ""}
+                    >
+                      {f.referer ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <form action={clearFetchLogAction} className="mt-3">
+          <button
+            type="submit"
+            className="rounded-md border border-negative/40 bg-negative/15 px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-wider text-negative transition-colors hover:bg-negative/25"
+          >
+            Clear log
           </button>
         </form>
       </section>
