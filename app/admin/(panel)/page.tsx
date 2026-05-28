@@ -8,6 +8,7 @@ import { getPlayersByIds } from "@/lib/sync/players"
 import { listCronControls } from "@/lib/sync/cron-controls"
 import { getPlayerPoolStats } from "@/lib/sync/admin-stats"
 import {
+  backfillValhallansAction,
   deleteProfileAction,
   saveProfileAction,
   toggleCronAction,
@@ -51,6 +52,9 @@ export default async function AdminPage({
     saved?: string
     deleted?: string
     error?: string
+    backfill?: string
+    remaining?: string
+    failed?: string
   }>
 }) {
   const sp = await searchParams
@@ -72,7 +76,7 @@ export default async function AdminPage({
 
   return (
     <div className="flex flex-col gap-10">
-      {(sp.saved || sp.deleted || sp.error) && (
+      {(sp.saved || sp.deleted || sp.error || sp.backfill) && (
         <div
           className={
             sp.error
@@ -86,7 +90,13 @@ export default async function AdminPage({
               ? "Couldn’t save — check the Brawlhalla ID."
               : sp.deleted
                 ? "Pro removed."
-                : `Saved pro ${sp.saved} (syncing their standing…).`}
+                : sp.backfill === "none"
+                  ? "No Valhallans discovered — leaderboard returned empty."
+                  : sp.backfill === "caughtup"
+                    ? "All Valhallans already cached — nothing to backfill."
+                    : sp.backfill
+                      ? `Backfilled ${sp.backfill} Valhallan${sp.backfill === "1" ? "" : "s"}.${sp.remaining && Number(sp.remaining) > 0 ? ` ${sp.remaining} stale remaining — click again to continue.` : ""}${sp.failed ? ` (${sp.failed} failed — likely rate-limited.)` : ""}`
+                      : `Saved pro ${sp.saved} (syncing their standing…).`}
         </div>
       )}
 
@@ -127,6 +137,28 @@ export default async function AdminPage({
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Manual Valhallan backfill */}
+      <section>
+        <h2 className="font-display text-lg font-semibold">
+          Backfill Valhallans
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Walks the{" "}
+          <span className="font-mono text-foreground">1v1 region=ALL</span>{" "}
+          leaderboard, fetches each Valhallan&apos;s full ranked payload, and
+          upserts. Throttled (~5s/sync, ~40 players per click); re-click to
+          drain the rest. Idempotent — already-fresh rows are skipped.
+        </p>
+        <form action={backfillValhallansAction} className="mt-3">
+          <button
+            type="submit"
+            className="rounded-md border border-positive/40 bg-positive/15 px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-wider text-positive transition-colors hover:bg-positive/25"
+          >
+            Backfill Valhallans (1v1 ALL)
+          </button>
+        </form>
       </section>
 
       {/* Cron controls */}

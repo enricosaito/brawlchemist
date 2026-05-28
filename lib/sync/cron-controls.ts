@@ -24,27 +24,6 @@ export const CRON_JOBS = [
       "Refreshes top players' ranked stats every 5 min. The heaviest job on the API — pause this first if profiles are rate-limited.",
   },
   {
-    key: "sync-pros",
-    label: "Pro players",
-    schedule: "7,22,37,52 * * * *",
-    description:
-      "Refreshes verified pros' standings for the pro leaderboard. Few players, throttled.",
-  },
-  {
-    key: "sync-guilds",
-    label: "Guild discovery",
-    schedule: "13,43 * * * *",
-    description:
-      "Walks top players' guilds for the guild leaderboard. Throttled, gradual.",
-  },
-  {
-    key: "sync-search-index",
-    label: "Search index",
-    schedule: "8,28,48 * * * *",
-    description:
-      "Walks the Diamond+ ladder for searchable rows. No per-player fetches.",
-  },
-  {
     key: "sync-valhallan",
     label: "Tier-list aggregation",
     schedule: "0 6 * * *",
