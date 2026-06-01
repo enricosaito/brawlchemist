@@ -59,7 +59,7 @@ export default function RootLayout({
       <body>
         <ThemeProvider defaultTheme="dark">{children}</ThemeProvider>
       </body>
-      <GoogleAnalytics gaId="G-180QHWJ909" />
+      <GoogleAnalytics gaId="G-L7WXF6YDF1" />
     </html>
   )
 }
