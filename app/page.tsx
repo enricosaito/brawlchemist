@@ -1,3 +1,4 @@
+import { BackgroundMusic } from "@/components/site/launcher/background-music"
 import { LauncherHero } from "@/components/site/launcher/launcher-hero"
 import { SidebarNav } from "@/components/site/launcher/sidebar-nav"
 import { VideoBackground } from "@/components/site/launcher/video-background"
@@ -33,6 +34,8 @@ export default async function Page({
     <>
       {/* Animated starfield behind everything, darkened for contrast. */}
       <VideoBackground />
+      {/* Loops the piano theme while the mute toggle is on (off by default). */}
+      <BackgroundMusic />
 
       {/*
         Homepage launcher. Left third = the (bigger) game-menu rail; right two

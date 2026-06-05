@@ -6,16 +6,15 @@ import { cn } from "@/lib/utils"
 import {
   getSoundServerSnapshot,
   getSoundSnapshot,
-  playToggleOn,
   setSoundEnabled,
   subscribeSound,
 } from "@/lib/ui-sound"
 
 /**
- * SoundToggle — game-style UI sound switch. Reads the persisted value via
- * useSyncExternalStore (server snapshot = off, so hydration is deterministic),
- * and plays a confirmation chime when switched on. When off, the whole sound
- * layer is silent.
+ * SoundToggle — mute switch for the background music. Reads the persisted value
+ * via useSyncExternalStore (server snapshot = off, so hydration is
+ * deterministic). The toggle click is the user gesture that lets the
+ * BackgroundMusic player start audible playback.
  */
 export function SoundToggle({ className }: { className?: string }) {
   const on = useSyncExternalStore(
@@ -25,9 +24,7 @@ export function SoundToggle({ className }: { className?: string }) {
   )
 
   function toggle() {
-    const next = !on
-    setSoundEnabled(next)
-    if (next) playToggleOn()
+    setSoundEnabled(!on)
   }
 
   return (
@@ -35,11 +32,11 @@ export function SoundToggle({ className }: { className?: string }) {
       type="button"
       onClick={toggle}
       aria-pressed={on}
-      aria-label={on ? "Mute UI sounds" : "Enable UI sounds"}
-      title={on ? "Sound on" : "Sound off"}
+      aria-label={on ? "Mute music" : "Play music"}
+      title={on ? "Music on" : "Music off"}
       className={cn(
         "flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-        on && "text-copper hover:text-copper",
+        on && "text-pink hover:text-pink",
         className,
       )}
     >
