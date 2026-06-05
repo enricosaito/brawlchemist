@@ -44,9 +44,11 @@ function toTier(value: string | null): Tier | null {
 export async function TopPlayersCard({
   queue,
   region,
+  className,
 }: {
   queue: ApiGameMode
   region: HomeRegion
+  className?: string
 }) {
   const lb = await getRankedLeaderboard({
     gameMode: queue,
@@ -75,6 +77,7 @@ export async function TopPlayersCard({
       title="Live Rankings"
       href={`/leaderboards/${queue}?region=${region}`}
       viewAllLabel="view leaderboard"
+      className={className}
       meta={
         <>
           <div

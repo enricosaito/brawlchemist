@@ -96,10 +96,10 @@ function NavItem({
       onPointerEnter={playHover}
       style={{ ["--rise-delay" as string]: `${120 + index * 45}ms` }}
       className={cn(
-        "menu-btn animate-slide-in group flex items-center gap-3 px-4 py-3 font-wordmark text-lg uppercase tracking-wide",
-        // Resting state — restrained, semi-transparent panel.
-        "border-y border-r border-border/40 bg-card/40 text-muted-foreground",
-        "hover:bg-card/80 hover:text-foreground",
+        "menu-btn animate-slide-in group flex items-center gap-4 px-4 py-3.5 font-wordmark text-xl uppercase tracking-wide",
+        // Resting state — frosted glass over the video.
+        "border-y border-r border-white/10 bg-card/25 text-muted-foreground backdrop-blur-md",
+        "hover:bg-card/55 hover:text-foreground",
         // Active state — the copper "PLAY" button from the reference.
         "data-[active=true]:border-copper/50 data-[active=true]:bg-gradient-to-r data-[active=true]:from-copper data-[active=true]:to-copper/70 data-[active=true]:text-primary-foreground data-[active=true]:shadow-[0_0_24px_-6px_var(--copper)]",
       )}
@@ -107,11 +107,11 @@ function NavItem({
       <Image
         src={entry.avatar}
         alt=""
-        width={32}
-        height={32}
+        width={40}
+        height={40}
         unoptimized
         className={cn(
-          "size-8 shrink-0 select-none rounded-md object-contain transition-transform duration-200 group-hover:scale-110",
+          "size-10 shrink-0 select-none rounded-md object-contain transition-transform duration-200 group-hover:scale-110",
           // Slight desaturation when resting; full color on hover/active.
           "opacity-80 grayscale-[0.35] group-hover:opacity-100 group-hover:grayscale-0",
           active && "opacity-100 grayscale-0",
@@ -149,15 +149,15 @@ function Wordmark() {
   return (
     <Link
       href="/"
-      className="group flex items-center gap-2 font-wordmark text-2xl font-extrabold tracking-tight"
+      className="group flex items-center gap-2.5 font-wordmark text-3xl font-extrabold tracking-tight"
     >
       <Image
         src="/assets/Brawlchemist.png"
         alt=""
-        width={36}
-        height={36}
+        width={40}
+        height={40}
         priority
-        className="size-8 shrink-0 transition-transform group-hover:rotate-12"
+        className="size-9 shrink-0 transition-transform group-hover:rotate-12"
       />
       <span className="bg-gradient-to-r from-tier-s to-tier-valhallan bg-clip-text text-transparent">
         brawlchemist
@@ -281,9 +281,9 @@ export function SidebarNav() {
         </div>
       </div>
 
-      {/* Tablet + desktop rail. On tablet (md–lg) it sticks while the page
-          scrolls; on lg it lives in a fixed-height grid cell. */}
-      <aside className="hidden h-full flex-col gap-6 overflow-y-auto px-5 py-6 md:sticky md:top-0 md:flex md:h-svh md:[grid-area:nav] lg:[grid-area:nav] xl:px-7">
+      {/* Tablet + desktop rail — frosted glass panel, sticky full-height while
+          the right column scrolls. */}
+      <aside className="hidden h-full flex-col gap-7 overflow-y-auto border-r border-white/10 bg-card/30 px-5 py-7 backdrop-blur-xl md:sticky md:top-0 md:flex md:h-svh xl:px-7">
         <Wordmark />
         <div className="flex-1">
           <NavList />

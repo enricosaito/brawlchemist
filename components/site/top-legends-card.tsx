@@ -21,7 +21,11 @@ const FEATURED_SLUGS = [
   "asuri",
 ] as const
 
-export async function TopLegendsCard() {
+export async function TopLegendsCard({
+  className,
+}: {
+  className?: string
+} = {}) {
   // Live popular-method stats across the competitive Valhallan pool. Falls
   // back gracefully if the DB lookup fails (e.g. DATABASE_URL not set).
   let liveStats = new Map<number, { winRate: number; games: number }>()
@@ -65,6 +69,7 @@ export async function TopLegendsCard() {
       title="Top legends"
       href="/legends"
       viewAllLabel="view full tier list"
+      className={className}
       meta={
         <>
           <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">

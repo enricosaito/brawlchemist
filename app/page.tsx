@@ -1,9 +1,6 @@
 import { LauncherHero } from "@/components/site/launcher/launcher-hero"
-import {
-  RightPanel,
-  WhatsNewCard,
-} from "@/components/site/launcher/right-panel"
 import { SidebarNav } from "@/components/site/launcher/sidebar-nav"
+import { VideoBackground } from "@/components/site/launcher/video-background"
 import { SiteFooter } from "@/components/site/site-footer"
 import { TopLegendsCard } from "@/components/site/top-legends-card"
 import {
@@ -19,6 +16,10 @@ function isHomeRegion(v: string | undefined): v is HomeRegion {
   return !!v && (HOME_REGIONS as readonly string[]).includes(v)
 }
 
+// Frosted-glass surface for the data cards: heavy blur softens the moving
+// starfield behind, the dark tint keeps tables/text legible.
+const GLASS = "bg-card/55 backdrop-blur-2xl border-white/10"
+
 export default async function Page({
   searchParams,
 }: {
@@ -30,41 +31,32 @@ export default async function Page({
 
   return (
     <>
+      {/* Animated starfield behind everything, darkened for contrast. */}
+      <VideoBackground />
+
       {/*
-        Homepage launcher — Brawlhalla-style 3-column screen. The global top
-        navbar (SiteHeader) is intentionally absent here; the left rail is the
-        navigation. Inner pages still render SiteHeader so data gets full width.
+        Homepage launcher. Left third = the (bigger) game-menu rail; right two
+        thirds = hero + search on top, 3-col data cards below — the old
+        homepage shape, now floating as frosted glass over the video.
 
-        Desktop (lg+): fixed-height single screen — left rail + right rail
-        scroll internally, center hero stays put.
-        Tablet (md–lg): 2-col grid via named areas — visible rail spanning both
-        rows, hero on top, data cards stacked beneath; the page scrolls.
-        Below md: everything stacks and scrolls; the rail becomes a drawer.
+        md+: 2-col grid (rail sticks full-height while the right column scrolls).
+        Below md: everything stacks; the rail becomes a hamburger drawer.
       */}
-      <div className="relative isolate min-h-svh md:grid md:grid-cols-[240px_minmax(0,1fr)] md:[grid-template-areas:'nav_main'_'nav_side'] lg:h-svh lg:grid-cols-[clamp(260px,28%,360px)_minmax(0,1fr)_clamp(300px,26%,400px)] lg:overflow-hidden lg:[grid-template-areas:'nav_main_side']">
-        {/* Page-wide ambient backdrop. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(120%_80%_at_50%_-10%,oklch(0.2_0.03_285/0.5),transparent_60%)]"
-        />
-
+      <div className="relative min-h-svh md:grid md:grid-cols-[clamp(280px,30%,420px)_minmax(0,1fr)]">
         <SidebarNav />
 
-        <LauncherHero
-          featuredPatch={CURRENT_PATCH}
-          className="md:[grid-area:main]"
-        />
+        <main className="flex flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+          <LauncherHero featuredPatch={CURRENT_PATCH} />
 
-        <RightPanel className="md:[grid-area:side]">
-          <WhatsNewCard patch={CURRENT_PATCH} />
-          <TopPlayersCard queue={queue} region={region} />
-          <TopLegendsCard />
-          <WeaponMetaCard />
-        </RightPanel>
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <TopPlayersCard queue={queue} region={region} className={GLASS} />
+            <TopLegendsCard className={GLASS} />
+            <WeaponMetaCard className={GLASS} />
+          </section>
+        </main>
       </div>
 
-      {/* Footer only below lg — the desktop launcher is a fixed single screen. */}
-      <div className="lg:hidden">
+      <div className="relative backdrop-blur-md">
         <SiteFooter />
       </div>
     </>
