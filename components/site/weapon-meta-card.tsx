@@ -5,7 +5,11 @@ import { getValhallanWeaponStats } from "@/lib/sync/valhallan"
 import { PreviewCard } from "./preview-card"
 import { LegendChip, WeaponIcon } from "./primitives"
 
-export async function WeaponMetaCard() {
+export async function WeaponMetaCard({
+  className,
+}: {
+  className?: string
+} = {}) {
   const { weapons } = await getValhallanWeaponStats()
   // weapons comes pre-sorted by games desc from the aggregation.
   const top = weapons.slice(0, 6)
@@ -15,6 +19,7 @@ export async function WeaponMetaCard() {
       title="Popular weapons"
       href="/weapons"
       viewAllLabel="view weapon meta"
+      className={className}
       meta={
         <>
           <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
