@@ -1,10 +1,10 @@
-import { Hero } from "@/components/site/hero"
-import { MetaStrip } from "@/components/site/meta-strip"
-// Recent Notable Matches is hidden for now — it's WIP on mock data. Restore the
-// import + the <RecentMatches /> block below once it's backed by real matches.
-// import { RecentMatches } from "@/components/site/recent-matches"
+import { LauncherHero } from "@/components/site/launcher/launcher-hero"
+import {
+  RightPanel,
+  WhatsNewCard,
+} from "@/components/site/launcher/right-panel"
+import { SidebarNav } from "@/components/site/launcher/sidebar-nav"
 import { SiteFooter } from "@/components/site/site-footer"
-import { SiteHeader } from "@/components/site/site-header"
 import { TopLegendsCard } from "@/components/site/top-legends-card"
 import {
   HOME_REGIONS,
@@ -13,6 +13,7 @@ import {
 } from "@/components/site/top-players-card"
 import { WeaponMetaCard } from "@/components/site/weapon-meta-card"
 import type { ApiGameMode } from "@/lib/brawlhalla-api"
+import { CURRENT_PATCH } from "@/lib/mock-data"
 
 function isHomeRegion(v: string | undefined): v is HomeRegion {
   return !!v && (HOME_REGIONS as readonly string[]).includes(v)
@@ -28,33 +29,44 @@ export default async function Page({
   const region: HomeRegion = isHomeRegion(params.region) ? params.region : "ALL"
 
   return (
-    <div className="min-h-svh">
-      <SiteHeader />
-      <main>
-        <Hero />
+    <>
+      {/*
+        Homepage launcher — Brawlhalla-style 3-column screen. The global top
+        navbar (SiteHeader) is intentionally absent here; the left rail is the
+        navigation. Inner pages still render SiteHeader so data gets full width.
 
-        <div className="rune-divider mx-auto max-w-[1280px]" />
+        Desktop (lg+): fixed-height single screen — left rail + right rail
+        scroll internally, center hero stays put.
+        Tablet (md–lg): 2-col grid via named areas — visible rail spanning both
+        rows, hero on top, data cards stacked beneath; the page scrolls.
+        Below md: everything stacks and scrolls; the rail becomes a drawer.
+      */}
+      <div className="relative isolate min-h-svh md:grid md:grid-cols-[240px_minmax(0,1fr)] md:[grid-template-areas:'nav_main'_'nav_side'] lg:h-svh lg:grid-cols-[clamp(260px,28%,360px)_minmax(0,1fr)_clamp(300px,26%,400px)] lg:overflow-hidden lg:[grid-template-areas:'nav_main_side']">
+        {/* Page-wide ambient backdrop. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(120%_80%_at_50%_-10%,oklch(0.2_0.03_285/0.5),transparent_60%)]"
+        />
 
-        <div className="mt-5">
-          <MetaStrip />
-        </div>
+        <SidebarNav />
 
-        <section className="mx-auto mb-12 mt-5 max-w-[1280px] px-4 sm:mb-16 sm:px-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <TopPlayersCard queue={queue} region={region} />
-            <TopLegendsCard />
-            <WeaponMetaCard />
-          </div>
-        </section>
+        <LauncherHero
+          featuredPatch={CURRENT_PATCH}
+          className="md:[grid-area:main]"
+        />
 
-        {/* Hidden until backed by real data — WIP on mock data. The divider
-            above only separated the cards from this section, so it's gone too.
-        <div className="my-8 px-4 sm:px-6">
-          <div className="rune-divider mx-auto max-w-[1280px]" />
-        </div>
-        <RecentMatches /> */}
-      </main>
-      <SiteFooter />
-    </div>
+        <RightPanel className="md:[grid-area:side]">
+          <WhatsNewCard patch={CURRENT_PATCH} />
+          <TopPlayersCard queue={queue} region={region} />
+          <TopLegendsCard />
+          <WeaponMetaCard />
+        </RightPanel>
+      </div>
+
+      {/* Footer only below lg — the desktop launcher is a fixed single screen. */}
+      <div className="lg:hidden">
+        <SiteFooter />
+      </div>
+    </>
   )
 }
