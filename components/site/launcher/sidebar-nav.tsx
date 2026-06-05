@@ -6,7 +6,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { playClick, playHover } from "@/lib/ui-sound"
 import { SoundToggle } from "./sound-toggle"
 
 /* ---------------------------------------------------------------------------
@@ -89,19 +88,15 @@ function NavItem({
     <Link
       href={entry.href}
       data-active={active}
-      onClick={() => {
-        playClick()
-        onNavigate?.()
-      }}
-      onPointerEnter={playHover}
+      onClick={onNavigate}
       style={{ ["--rise-delay" as string]: `${120 + index * 45}ms` }}
       className={cn(
-        "menu-btn animate-slide-in group flex items-center gap-4 px-4 py-3.5 font-wordmark text-xl uppercase tracking-wide",
-        // Resting state — frosted glass over the video.
-        "border-y border-r border-white/10 bg-card/25 text-muted-foreground backdrop-blur-md",
-        "hover:bg-card/55 hover:text-foreground",
-        // Active state — the copper "PLAY" button from the reference.
-        "data-[active=true]:border-copper/50 data-[active=true]:bg-gradient-to-r data-[active=true]:from-copper data-[active=true]:to-copper/70 data-[active=true]:text-primary-foreground data-[active=true]:shadow-[0_0_24px_-6px_var(--copper)]",
+        "menu-btn animate-slide-in group flex items-center gap-4 rounded-2xl px-4 py-3.5 font-wordmark text-xl uppercase tracking-wide",
+        // Resting state — a frosted glass card floating over the video.
+        "border border-white/10 bg-card/30 text-muted-foreground backdrop-blur-md",
+        "hover:border-pink/50 hover:bg-card/55 hover:text-foreground",
+        // Active state — pink-tinted glass with a pink glow (glow lives in CSS).
+        "data-[active=true]:border-pink/60 data-[active=true]:bg-gradient-to-r data-[active=true]:from-pink/25 data-[active=true]:to-pink/10 data-[active=true]:text-foreground",
       )}
     >
       <Image
@@ -125,7 +120,7 @@ function NavItem({
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   return (
-    <nav className="flex flex-col gap-2" aria-label="Primary">
+    <nav className="flex flex-col gap-3" aria-label="Primary">
       <span
         className="animate-slide-in mb-1 px-1 font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground"
         style={{ ["--rise-delay" as string]: "60ms" }}
@@ -281,9 +276,10 @@ export function SidebarNav() {
         </div>
       </div>
 
-      {/* Tablet + desktop rail — frosted glass panel, sticky full-height while
-          the right column scrolls. */}
-      <aside className="hidden h-full flex-col gap-7 overflow-y-auto border-r border-white/10 bg-card/30 px-5 py-7 backdrop-blur-xl md:sticky md:top-0 md:flex md:h-svh xl:px-7">
+      {/* Tablet + desktop rail — transparent column (no panel/divider) so each
+          nav item reads as its own glass card floating over the video. Sticks
+          full-height while the right column scrolls. */}
+      <aside className="hidden h-full flex-col gap-7 overflow-y-auto px-5 py-7 md:sticky md:top-0 md:flex md:h-svh xl:px-7">
         <Wordmark />
         <div className="flex-1">
           <NavList />
