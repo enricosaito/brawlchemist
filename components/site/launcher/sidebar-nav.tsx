@@ -19,6 +19,8 @@ interface NavEntry {
   avatar: string
   /** Prefixes that should mark this entry active (besides exact href). */
   match?: string[]
+  /** Renders a pulsing "live" dot on the avatar. */
+  live?: boolean
 }
 
 const NAV: NavEntry[] = [
@@ -26,6 +28,12 @@ const NAV: NavEntry[] = [
     label: "Home",
     href: "/",
     avatar: "/assets/AniAvatar_Potion_Shelf.webp",
+  },
+  {
+    label: "Live",
+    href: "/live",
+    avatar: "/assets/AniAvatar_Ash_%26_Yarra.webp",
+    live: true,
   },
   {
     label: "Leaderboards",
@@ -99,19 +107,30 @@ function NavItem({
         "data-[active=true]:border-pink/60 data-[active=true]:bg-gradient-to-r data-[active=true]:from-pink/25 data-[active=true]:to-pink/10 data-[active=true]:text-foreground",
       )}
     >
-      <Image
-        src={entry.avatar}
-        alt=""
-        width={40}
-        height={40}
-        unoptimized
-        className={cn(
-          "size-10 shrink-0 select-none rounded-md object-contain transition-transform duration-200 group-hover:scale-110",
-          // Slight desaturation when resting; full color on hover/active.
-          "opacity-80 grayscale-[0.35] group-hover:opacity-100 group-hover:grayscale-0",
-          active && "opacity-100 grayscale-0",
+      <span className="relative shrink-0">
+        <Image
+          src={entry.avatar}
+          alt=""
+          width={40}
+          height={40}
+          unoptimized
+          className={cn(
+            "size-10 select-none rounded-md object-contain transition-transform duration-200 group-hover:scale-110",
+            // Slight desaturation when resting; full color on hover/active.
+            "opacity-80 grayscale-[0.35] group-hover:opacity-100 group-hover:grayscale-0",
+            active && "opacity-100 grayscale-0",
+          )}
+        />
+        {entry.live && (
+          <span
+            aria-hidden
+            className="absolute -right-0.5 -top-0.5 flex size-2.5"
+          >
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-negative opacity-75" />
+            <span className="relative inline-flex size-2.5 rounded-full border border-card bg-negative" />
+          </span>
         )}
-      />
+      </span>
       <span className="flex-1 truncate">{entry.label}</span>
     </Link>
   )

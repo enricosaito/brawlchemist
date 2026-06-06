@@ -11,6 +11,13 @@ export const config: VercelConfig = {
       schedule: "*/5 * * * *",
     },
     {
+      // Live ranked queue — polls the top-500 ladder for 1v1 + 2v2 and diffs
+      // it to flag who's actively playing (powers /live). Every 5 min so the
+      // 10-minute "active" window always has fresh data.
+      path: "/api/cron/sync-live",
+      schedule: "*/5 * * * *",
+    },
+    {
       // Legend/weapon tier-list aggregations from the Valhallan population.
       // These move slowly, so once a day (off-peak) is plenty.
       path: "/api/cron/sync-valhallan",

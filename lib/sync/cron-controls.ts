@@ -24,6 +24,13 @@ export const CRON_JOBS = [
       "Refreshes top players' ranked stats every 5 min. The heaviest job on the API — pause this first if profiles are rate-limited.",
   },
   {
+    key: "sync-live",
+    label: "Live ranked queue",
+    schedule: "*/5 * * * *",
+    description:
+      "Polls the 1v1 + 2v2 top 500 every 5 min to power the Live page (active players with ELO/rank deltas). ~20 API calls per run.",
+  },
+  {
     key: "sync-valhallan",
     label: "Tier-list aggregation",
     schedule: "0 6 * * *",

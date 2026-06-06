@@ -1,6 +1,7 @@
 import {
   bigint,
   boolean,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -172,3 +173,45 @@ export const fetchLog = pgTable("fetch_log", {
 })
 
 export type FetchLogRow = typeof fetchLog.$inferSelect
+
+/**
+ * live_ranked — rolling snapshot of the top ~500 ladder entries per queue, used
+ * to power the /live "ranked queue" page. One row per leaderboard entry (a
+ * player in 1v1, a team in 2v2), keyed by `queue:entityKey`.
+ *
+ * The Brawlhalla API has no "who's playing right now" endpoint, so we derive it:
+ * a cron polls the ALL ladder every few minutes and diffs each entry against its
+ * stored snapshot. A rising `games` count means the entry played since the last
+ * poll → we stamp `last_active_at`. `session_start_*` capture the rating/rank at
+ * the moment an active streak began (reset after a gap), so the page can show
+ * the ELO/rank gained this session (eloDiff/rankDiff are computed at read time).
+ */
+export const liveRanked = pgTable(
+  "live_ranked",
+  {
+    /** `${queue}:${sortedPlayerIds}` — natural identity across polls. */
+    id: text("id").primaryKey(),
+    /** "1v1" | "2v2". */
+    queue: text("queue").notNull(),
+    /** Entry region from the ALL ladder (e.g. "us-e"); null if the API omits it. */
+    region: text("region"),
+    rank: integer("rank").notNull(),
+    rating: integer("rating").notNull(),
+    /** wins + losses; null when the API returned them null. Activity signal. */
+    games: integer("games"),
+    /** Entry members: [{ id, name }] — 1 for 1v1, 2 for 2v2. */
+    players: jsonb("players").notNull(),
+    /** Rating/rank when the current active streak began. */
+    sessionStartRating: integer("session_start_rating").notNull(),
+    sessionStartRank: integer("session_start_rank").notNull(),
+    /** Last poll at which this entry's game count rose. Null = never seen active. */
+    lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("live_ranked_queue_active_idx").on(t.queue, t.lastActiveAt)],
+)
+
+export type LiveRankedRow = typeof liveRanked.$inferSelect
+export type LiveRankedInsert = typeof liveRanked.$inferInsert
