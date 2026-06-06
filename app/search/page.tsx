@@ -4,8 +4,6 @@ import { LegendChip, RegionPill } from "@/components/site/primitives"
 import { PageHero } from "@/components/site/page-hero"
 import { PlayerSearchForm } from "@/components/site/player-search-form"
 import { ProBadge } from "@/components/site/pro-badge"
-import { SiteFooter } from "@/components/site/site-footer"
-import { SiteHeader } from "@/components/site/site-header"
 import { searchPlayerBySteamId, type PlayerRanked } from "@/lib/brawlhalla-api"
 import { getPlayersByIds, searchPlayersByUsername } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
@@ -158,9 +156,7 @@ export default async function SearchPage({
   const steamMiss = raw !== "" && !!asSteamId64(raw)
 
   return (
-    <div className="min-h-svh">
-      <SiteHeader />
-      <main className="pb-16">
+    <main className="pb-16">
         <PageHero
           title="Player Search"
           subtitle="Search by in-game name, Brawlhalla ID, or Steam ID (steamID64 or a steamcommunity.com profile link)."
@@ -232,7 +228,5 @@ export default async function SearchPage({
           </div>
         </div>
       </main>
-      <SiteFooter />
-    </div>
   )
 }

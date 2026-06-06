@@ -2,8 +2,6 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
-import { SiteFooter } from "@/components/site/site-footer"
-import { SiteHeader } from "@/components/site/site-header"
 import { getGuildStats } from "@/lib/brawlhalla-api"
 import { getGuildById, upsertGuild } from "@/lib/sync/guilds"
 
@@ -128,9 +126,7 @@ export default async function GuildPage({
   if (!guild) notFound()
 
   return (
-    <div className="min-h-svh">
-      <SiteHeader />
-      <main className="pb-16">
+    <main className="pb-16">
         <div className="px-4 pt-6 sm:px-6 sm:pt-8">
           <div className="mx-auto max-w-[1280px]">
             <Link
@@ -206,7 +202,5 @@ export default async function GuildPage({
           </div>
         </div>
       </main>
-      <SiteFooter />
-    </div>
   )
 }

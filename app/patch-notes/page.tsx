@@ -2,8 +2,6 @@ import type { Metadata } from "next"
 import Image from "next/image"
 import { ArrowUpRight, Newspaper } from "lucide-react"
 import { PageHero } from "@/components/site/page-hero"
-import { SiteFooter } from "@/components/site/site-footer"
-import { SiteHeader } from "@/components/site/site-header"
 import { getPatchNotes, type PatchNote } from "@/lib/brawlhalla-news"
 
 export const metadata: Metadata = {
@@ -76,9 +74,7 @@ export default async function PatchNotesPage() {
   const notes = await getPatchNotes()
 
   return (
-    <div className="min-h-svh">
-      <SiteHeader />
-      <main className="pb-16">
+    <main className="pb-16">
         <PageHero
           title="Patch Notes"
           subtitle="The latest Brawlhalla balance changes, bug fixes, and content updates — straight from the official Brawlhalla news."
@@ -112,7 +108,5 @@ export default async function PatchNotesPage() {
           </div>
         </div>
       </main>
-      <SiteFooter />
-    </div>
   )
 }

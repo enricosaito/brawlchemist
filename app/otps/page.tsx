@@ -13,8 +13,6 @@ import { LeaderboardPodium } from "@/components/site/leaderboard-podium"
 import { LeaderboardSearch } from "@/components/site/leaderboard-search"
 import { LegendPicker } from "@/components/site/legend-picker"
 import { Pagination } from "@/components/site/pagination"
-import { SiteFooter } from "@/components/site/site-footer"
-import { SiteHeader } from "@/components/site/site-header"
 import { formatElo, formatPercent } from "@/lib/format"
 import { getLegend } from "@/lib/mock-data"
 import {
@@ -306,9 +304,7 @@ export default async function OtpsPage({
     .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
-    <div className="min-h-svh">
-      <SiteHeader />
-      <main className="pb-16">
+    <main className="pb-16">
         <div className="px-4 pt-8 sm:px-6 sm:pt-10">
           <div className="mx-auto mb-4 max-w-[1280px]">
             <LegendPicker
@@ -428,7 +424,5 @@ export default async function OtpsPage({
           )}
         </div>
       </main>
-      <SiteFooter />
-    </div>
   )
 }

@@ -7,8 +7,6 @@ import { RegionPill, TIER_TEXT_COLOR, WeaponIcon } from "@/components/site/primi
 import { ProBadge } from "@/components/site/pro-badge"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { getProfile } from "@/lib/sync/profiles"
-import { SiteFooter } from "@/components/site/site-footer"
-import { SiteHeader } from "@/components/site/site-header"
 import {
   getPlayerGuild,
   getPlayerRanked,
@@ -201,13 +199,7 @@ export async function generateMetadata({
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-svh">
-      <SiteHeader />
-      <main className="pb-16">{children}</main>
-      <SiteFooter />
-    </div>
-  )
+  return <main className="pb-16">{children}</main>
 }
 
 function NoticeCard({ title, children }: { title: string; children: React.ReactNode }) {
