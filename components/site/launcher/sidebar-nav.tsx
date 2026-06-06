@@ -26,15 +26,15 @@ interface NavEntry {
 const NAV: NavEntry[] = [
   // Home isn't listed — the wordmark/logo is the way back to "/".
   {
+    label: "Power Rankings",
+    href: "/power-rankings",
+    avatar: "/assets/AniAvatar_Retro_Mjolnir.webp",
+  },
+  {
     label: "Leaderboards",
     href: "/leaderboards/1v1",
     avatar: "/assets/AniAvatar_Volkonomicon.webp",
     match: ["/leaderboards"],
-  },
-  {
-    label: "Power Rankings",
-    href: "/power-rankings",
-    avatar: "/assets/AniAvatar_Retro_Mjolnir.webp",
   },
   {
     label: "Ranked Queue",
@@ -45,7 +45,7 @@ const NAV: NavEntry[] = [
   {
     label: "Tournaments",
     href: "/tournaments",
-    avatar: "/assets/AniAvatar_BCX_2019_Brawler.webp",
+    avatar: "/assets/AniAvatar_BCX_2017_Brawler.webp",
   },
   {
     label: "Weapons",

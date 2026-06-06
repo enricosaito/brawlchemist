@@ -285,11 +285,24 @@
         will-change: transform, opacity;
     }
 
+    /* Page entrance — a quick fade + small upward jump applied by
+       app/template.tsx every time a route renders (leaderboards, queue,
+       legends, …). Faster + subtler than the launcher rise so data pages feel
+       snappy, not theatrical. */
+    @keyframes page-enter {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    .animate-page-enter {
+        animation: page-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
     /* Honor reduced-motion: no entrances, no drift, no parallax transition. */
     @media (prefers-reduced-motion: reduce) {
         .animate-rise,
         .animate-slide-in,
-        .animate-drift {
+        .animate-drift,
+        .animate-page-enter {
             animation: none;
         }
     }

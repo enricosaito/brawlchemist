@@ -319,9 +319,11 @@ export default async function LeaderboardPage({
                   showRegion={region === "ALL"}
                 />
               )}
+              {/* The podium highlights the top 3, but the table still lists
+                  them — starting at #4 read like rows were missing. */}
               <DataTable
                 columns={columns}
-                rows={page === 1 ? rows.slice(3) : rows}
+                rows={rows}
                 rowKey={(r) => `${r.rank}-${r.players[0]?.id ?? "x"}`}
                 searchValue={(r) => r.players.map((p) => p.username).join(" ")}
               />

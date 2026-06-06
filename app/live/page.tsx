@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { DataTable, type ColDef } from "@/components/site/data-table"
 import { LiveAutoRefresh } from "@/components/site/live-auto-refresh"
 import { PageHero } from "@/components/site/page-hero"
 import { Delta, PlayerLink, RegionPill } from "@/components/site/primitives"
@@ -43,6 +42,81 @@ function LivePill({ count }: { count: number }) {
   )
 }
 
+/**
+ * LiveCard — one active player/team, styled after the leaderboard podium
+ * cards. Solo cards link to the player profile (whole card is the target);
+ * team cards keep per-player links since the destination is ambiguous.
+ */
+function LiveCard({ row }: { row: LiveRow }) {
+  const solo = row.players.length === 1
+  const player = row.players[0]
+  const href = solo && player ? `/player/${player.id}` : null
+
+  const baseClass =
+    "relative flex flex-col gap-1.5 overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-4 shadow-lg backdrop-blur-sm"
+  const interactiveClass =
+    "transition hover:border-tier-valhallan/60 hover:shadow-[0_0_24px_-4px_oklch(0.76_0.24_0_/_0.55)]"
+
+  const body = (
+    <>
+      {/* Rank + movement, region pushed right. */}
+      <div className="flex items-center gap-2">
+        <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/40 px-1.5 font-display text-sm font-bold tabular-nums text-foreground">
+          {row.rank.toLocaleString()}
+        </span>
+        <Delta value={row.rankDiff} />
+        {row.region && (
+          <RegionPill region={row.region.toUpperCase()} className="ml-auto" />
+        )}
+      </div>
+
+      {/* Identity. */}
+      <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+        {solo ? (
+          <span className="min-w-0 truncate text-base font-semibold leading-tight">
+            {player?.name ?? "—"}
+          </span>
+        ) : (
+          row.players.map((p, i) => (
+            <span key={p.id} className="inline-flex items-center gap-1.5">
+              {i > 0 && <span className="text-muted-foreground">+</span>}
+              <PlayerLink
+                id={p.id}
+                className="truncate text-base font-semibold leading-tight"
+              >
+                {p.name}
+              </PlayerLink>
+            </span>
+          ))
+        )}
+      </div>
+
+      {/* Rating + session ELO movement. */}
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono text-3xl font-bold tabular-nums text-foreground">
+          {row.rating.toLocaleString()}
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          ELO
+        </span>
+        <Delta value={row.eloDiff} />
+      </div>
+
+      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        last played {relTime(row.lastActiveAt)}
+      </span>
+    </>
+  )
+
+  return href ? (
+    <Link href={href} className={cn(baseClass, interactiveClass)}>
+      {body}
+    </Link>
+  ) : (
+    <div className={cn(baseClass, interactiveClass)}>{body}</div>
+  )
+}
+
 const FILTER_BTN =
   "rounded-md px-2.5 py-1 font-mono text-xs uppercase tracking-wider transition-colors"
 
@@ -57,76 +131,6 @@ export default async function LivePage({
     sp.region && isApiRegion(sp.region) ? sp.region : "ALL"
 
   const rows = await getLiveQueue({ queue, region })
-  const isTeam = queue === "2v2"
-
-  const columns: ColDef<LiveRow>[] = [
-    {
-      id: "rank",
-      label: "Rank",
-      width: "92px",
-      render: (r) => (
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-sm tabular-nums text-muted-foreground">
-            {r.rank.toLocaleString()}
-          </span>
-          <Delta value={r.rankDiff} />
-        </div>
-      ),
-    },
-    {
-      id: "player",
-      label: isTeam ? "Team" : "Player",
-      render: (r) => (
-        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-          {r.players.map((p, i) => (
-            <span key={p.id} className="inline-flex items-center gap-1.5">
-              {i > 0 && <span className="text-muted-foreground">+</span>}
-              <PlayerLink id={p.id} className="truncate font-medium">
-                {p.name}
-              </PlayerLink>
-            </span>
-          ))}
-        </div>
-      ),
-    },
-    {
-      id: "rating",
-      label: "Rating",
-      align: "right",
-      width: "150px",
-      render: (r) => (
-        <div className="flex items-center justify-end gap-2">
-          <span className="font-mono text-sm tabular-nums">
-            {r.rating.toLocaleString()}
-          </span>
-          <Delta value={r.eloDiff} className="min-w-[3.25rem] justify-end" />
-        </div>
-      ),
-    },
-    {
-      id: "region",
-      label: "Region",
-      align: "center",
-      width: "92px",
-      render: (r) =>
-        r.region ? (
-          <RegionPill region={r.region.toUpperCase()} />
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        ),
-    },
-    {
-      id: "active",
-      label: "Last played",
-      align: "right",
-      width: "110px",
-      render: (r) => (
-        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {relTime(r.lastActiveAt)}
-        </span>
-      ),
-    },
-  ]
 
   return (
     <main className="pb-16">
@@ -201,12 +205,11 @@ export default async function LivePage({
             region filter to ALL.
           </div>
         ) : (
-          <DataTable
-            columns={columns}
-            rows={rows}
-            rowKey={(r) => r.id}
-            searchValue={(r) => r.players.map((p) => p.name).join(" ")}
-          />
+          <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {rows.map((row) => (
+              <LiveCard key={row.id} row={row} />
+            ))}
+          </div>
         )}
       </div>
     </main>
