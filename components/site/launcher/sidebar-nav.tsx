@@ -32,20 +32,20 @@ const NAV: NavEntry[] = [
     match: ["/leaderboards"],
   },
   {
+    label: "Power Rankings",
+    href: "/power-rankings",
+    avatar: "/assets/AniAvatar_Retro_Mjolnir.webp",
+  },
+  {
     label: "Ranked Queue",
     href: "/live",
     avatar: "/assets/AniAvatar_Ash_%26_Yarra.webp",
     live: true,
   },
   {
-    label: "OTPs",
-    href: "/otps",
-    avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
-  },
-  {
-    label: "Legends",
-    href: "/legends",
-    avatar: "/assets/AniAvatar_Metamorphosis.webp",
+    label: "Tournaments",
+    href: "/tournaments",
+    avatar: "/assets/AniAvatar_BCX_2019_Brawler.webp",
   },
   {
     label: "Weapons",
@@ -53,14 +53,19 @@ const NAV: NavEntry[] = [
     avatar: "/assets/AniAvatar_Cursed_Kunai.webp",
   },
   {
+    label: "Legends",
+    href: "/legends",
+    avatar: "/assets/AniAvatar_Metamorphosis.webp",
+  },
+  {
     label: "Guilds",
     href: "/guilds",
     avatar: "/assets/AniAvatar_River_Raid.webp",
   },
   {
-    label: "Tournaments",
-    href: "/tournaments",
-    avatar: "/assets/AniAvatar_Crown_of_the_Exalted.webp",
+    label: "OTPs",
+    href: "/otps",
+    avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
   },
   {
     label: "Patch Notes",
