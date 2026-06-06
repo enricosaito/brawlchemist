@@ -122,6 +122,61 @@ export async function getYearTournaments(
   return [...byId.values()].sort((a, b) => b.startTime - a.startTime)
 }
 
+// ---- Power-rankings board (GET /v2/pr) -------------------------------------
+//
+// The official esports power rankings, paged per region + mode. There is NO
+// "ALL" region here (400) — boards are strictly regional. `totalPages` is
+// relative to the requested maxResults; `lastUpdated` is a YYYY-MM-DD string
+// for the whole board.
+
+export const PR_REGIONS = ["NA", "EU", "SA", "SEA", "MENA"] as const
+export type PrRegion = (typeof PR_REGIONS)[number]
+
+export function isPrRegion(v: string | undefined): v is PrRegion {
+  return !!v && (PR_REGIONS as readonly string[]).includes(v)
+}
+
+/** One row of the PR board. `playerName` may carry a sponsor/team prefix
+ * ("LGN | BBBalloonBoy"); `playerId` is the ESPORTS id (not a brawlhalla_id). */
+export interface PrPlayer {
+  playerId: number
+  playerName: string
+  top8: number
+  top32: number
+  gold: number
+  silver: number
+  bronze: number
+  powerRanking: number
+  points: number
+  earnings: number
+}
+
+export interface PrBoard {
+  prPlayers: PrPlayer[]
+  totalPages: number
+  lastUpdated: string
+}
+
+/** One page of a region's power rankings. Cached an hour — PR only moves
+ * after tournaments conclude. */
+export function listPowerRankings(opts: {
+  gameMode: EsportsGameMode
+  region: PrRegion
+  page?: number
+  maxResults?: number
+}): Promise<ApiResult<PrBoard>> {
+  return apiFetch<PrBoard>(
+    "/v2/pr",
+    {
+      gameMode: opts.gameMode,
+      region: opts.region,
+      page: opts.page ?? 1,
+      maxResults: opts.maxResults ?? 25,
+    },
+    3600,
+  )
+}
+
 // ---- Players / power rankings ---------------------------------------------
 //
 // The esports profile of a Brawlhalla account. `GetPlayerByBhId` is the bridge
