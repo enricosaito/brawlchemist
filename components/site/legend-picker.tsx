@@ -1,10 +1,15 @@
 "use client"
 
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LegendChip } from "./primitives"
+
+// useLayoutEffect on the client, useEffect on the server — avoids the SSR
+// warning while still measuring before paint in the browser.
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect
 
 interface LegendOption {
   slug: string
@@ -35,6 +40,42 @@ export function LegendPicker({
     return options.filter((o) => o.name.toLowerCase().includes(q))
   }, [options, query])
 
+  // Balance the chip rows so the last row isn't a lonely few (e.g. 32/32/2).
+  // Measure how many fit, then cap the row width to the evenly-distributed
+  // count: ceil(N / rows). With 68 legends that turns 32/32/4 into 23/23/22.
+  const rowRef = useRef<HTMLDivElement>(null)
+  const [maxWidth, setMaxWidth] = useState<number>()
+
+  useIsomorphicLayoutEffect(() => {
+    const row = rowRef.current
+    const parent = row?.parentElement
+    if (!row || !parent) return
+
+    const balance = () => {
+      const items = row.children
+      const n = items.length
+      if (n === 0) {
+        setMaxWidth(undefined)
+        return
+      }
+      const GAP = 6 // gap-1.5 → 0.375rem
+      const unit = (items[0] as HTMLElement).offsetWidth + GAP
+      const perRow = Math.max(1, Math.floor((parent.clientWidth + GAP) / unit))
+      if (n <= perRow) {
+        setMaxWidth(undefined) // already one row — no cap needed
+        return
+      }
+      const rows = Math.ceil(n / perRow)
+      const balanced = Math.ceil(n / rows)
+      setMaxWidth(balanced * unit)
+    }
+
+    balance()
+    const ro = new ResizeObserver(balance)
+    ro.observe(parent)
+    return () => ro.disconnect()
+  }, [filtered.length])
+
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -58,7 +99,11 @@ export function LegendPicker({
           No legend matches “{query}”.
         </div>
       ) : (
-        <div className="flex flex-wrap gap-1.5">
+        <div
+          ref={rowRef}
+          style={{ maxWidth }}
+          className="mx-auto flex flex-wrap justify-center gap-1.5"
+        >
           {filtered.map((entry) => {
             const isSelected = entry.slug === selectedSlug
             return (

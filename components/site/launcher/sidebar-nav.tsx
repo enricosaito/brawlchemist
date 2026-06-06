@@ -91,7 +91,7 @@ function NavItem({
       onClick={onNavigate}
       style={{ ["--rise-delay" as string]: `${120 + index * 45}ms` }}
       className={cn(
-        "menu-btn animate-slide-in group flex items-center gap-4 rounded-2xl px-4 py-3.5 font-wordmark text-xl uppercase tracking-wide",
+        "menu-btn animate-slide-in group flex items-center gap-4 rounded-2xl px-4 py-3.5 text-base font-semibold uppercase tracking-wide",
         // Resting state — a frosted glass card floating over the video.
         "border border-white/10 bg-card/30 text-muted-foreground backdrop-blur-md",
         "hover:border-pink/50 hover:bg-card/55 hover:text-foreground",
@@ -125,7 +125,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
         className="animate-slide-in mb-1 px-1 font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground"
         style={{ ["--rise-delay" as string]: "60ms" }}
       >
-        Navigate
+        the brawlhalla stats lab
       </span>
       {NAV.map((entry, i) => (
         <NavItem
