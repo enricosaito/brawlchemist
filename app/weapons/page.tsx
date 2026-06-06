@@ -7,8 +7,6 @@ import {
 } from "@/components/site/popularity-label"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { PageHero } from "@/components/site/page-hero"
-import { SiteFooter } from "@/components/site/site-footer"
-import { SiteHeader } from "@/components/site/site-header"
 import { CURRENT_PATCH, WEAPON_NAMES } from "@/lib/mock-data"
 import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import { API_REGIONS, isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
@@ -144,9 +142,7 @@ export default async function WeaponsPage({
   })
 
   return (
-    <div className="min-h-svh">
-      <SiteHeader />
-      <main className="pb-16">
+    <main className="pb-16">
         <PageHero
           title="Weapons"
           subtitle="All weapons in the roster, ranked by games played in the elite Valhallan pool. Stats aggregate from every legend that wields the weapon — full attribution, so pick rates sum to 200% (each game counts twice)."
@@ -201,7 +197,5 @@ export default async function WeaponsPage({
           )}
         </div>
       </main>
-      <SiteFooter />
-    </div>
   )
 }

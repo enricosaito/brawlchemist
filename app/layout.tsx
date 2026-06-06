@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Cinzel } from "next/font/google"
 import { GoogleAnalytics } from "@next/third-parties/google"
 
 import "./globals.css"
+import { AppShell } from "@/components/site/launcher/app-shell"
 import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 
@@ -57,7 +58,9 @@ export default function RootLayout({
       )}
     >
       <body>
-        <ThemeProvider defaultTheme="dark">{children}</ThemeProvider>
+        <ThemeProvider defaultTheme="dark">
+          <AppShell>{children}</AppShell>
+        </ThemeProvider>
       </body>
       <GoogleAnalytics gaId="G-L7WXF6YDF1" />
     </html>

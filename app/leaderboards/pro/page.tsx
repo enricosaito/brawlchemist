@@ -3,8 +3,6 @@ import { cn } from "@/lib/utils"
 import { DataTable } from "@/components/site/data-table"
 import { buildLeaderboardColumns } from "@/components/site/leaderboard-columns"
 import { PageHero } from "@/components/site/page-hero"
-import { SiteFooter } from "@/components/site/site-footer"
-import { SiteHeader } from "@/components/site/site-header"
 import { CURRENT_PATCH } from "@/lib/mock-data"
 import { isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
@@ -55,9 +53,7 @@ export default async function ProLeaderboardPage({
   )
 
   return (
-    <div className="min-h-svh">
-      <SiteHeader />
-      <main className="pb-16">
+    <main className="pb-16">
         <PageHero
           title="Pro Players"
           subtitle="Verified pro players, ranked by current 1v1 rating in each region."
@@ -107,7 +103,5 @@ export default async function ProLeaderboardPage({
           )}
         </div>
       </main>
-      <SiteFooter />
-    </div>
   )
 }

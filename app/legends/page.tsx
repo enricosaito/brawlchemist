@@ -3,8 +3,6 @@ import { BadgeCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { PageHero } from "@/components/site/page-hero"
-import { SiteFooter } from "@/components/site/site-footer"
-import { SiteHeader } from "@/components/site/site-header"
 import { LegendChip, PlayerLink, RegionPill } from "@/components/site/primitives"
 import {
   PopularityLabel,
@@ -269,9 +267,7 @@ export default async function LegendsPage({
   })()
 
   return (
-    <div className="min-h-svh">
-      <SiteHeader />
-      <main className="pb-16">
+    <main className="pb-16">
         <PageHero
           title="Legends"
           subtitle={`Per-legend stats across elite Valhallan players (rating ≥ 2400). ${methodCopy}`}
@@ -344,7 +340,5 @@ export default async function LegendsPage({
           )}
         </div>
       </main>
-      <SiteFooter />
-    </div>
   )
 }

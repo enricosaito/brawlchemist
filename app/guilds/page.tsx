@@ -4,8 +4,6 @@ import { Users } from "lucide-react"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { LeaderboardSearch } from "@/components/site/leaderboard-search"
 import { Pagination } from "@/components/site/pagination"
-import { SiteFooter } from "@/components/site/site-footer"
-import { SiteHeader } from "@/components/site/site-header"
 import { getGuildLeaderboard } from "@/lib/sync/guilds"
 import type { GuildListRow } from "@/lib/db/schema"
 
@@ -118,9 +116,7 @@ export default async function GuildsPage({
   const pageRows = guilds.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
-    <div className="min-h-svh">
-      <SiteHeader />
-      <main className="pb-16">
+    <main className="pb-16">
         <div className="px-4 pt-8 sm:px-6 sm:pt-10">
           <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3">
             <LeaderboardSearch className="w-full sm:w-auto sm:min-w-[220px]" />
@@ -165,7 +161,5 @@ export default async function GuildsPage({
           )}
         </div>
       </main>
-      <SiteFooter />
-    </div>
   )
 }

@@ -1,8 +1,4 @@
-import { BackgroundMusic } from "@/components/site/launcher/background-music"
 import { LauncherHero } from "@/components/site/launcher/launcher-hero"
-import { SidebarNav } from "@/components/site/launcher/sidebar-nav"
-import { VideoBackground } from "@/components/site/launcher/video-background"
-import { SiteFooter } from "@/components/site/site-footer"
 import { TopLegendsCard } from "@/components/site/top-legends-card"
 import {
   HOME_REGIONS,
@@ -30,38 +26,17 @@ export default async function Page({
   const queue: ApiGameMode = params.queue === "2v2" ? "2v2" : "1v1"
   const region: HomeRegion = isHomeRegion(params.region) ? params.region : "ALL"
 
+  // The launcher chrome (nav rail, video, music) lives in AppShell; this page
+  // is just the home content rendered in the right two-thirds.
   return (
-    <>
-      {/* Animated starfield behind everything, darkened for contrast. */}
-      <VideoBackground />
-      {/* Loops the piano theme while the mute toggle is on (off by default). */}
-      <BackgroundMusic />
+    <main className="flex flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+      <LauncherHero featuredPatch={CURRENT_PATCH} />
 
-      {/*
-        Homepage launcher. Left third = the (bigger) game-menu rail; right two
-        thirds = hero + search on top, 3-col data cards below — the old
-        homepage shape, now floating as frosted glass over the video.
-
-        md+: 2-col grid (rail sticks full-height while the right column scrolls).
-        Below md: everything stacks; the rail becomes a hamburger drawer.
-      */}
-      <div className="relative min-h-svh md:grid md:grid-cols-[clamp(280px,30%,420px)_minmax(0,1fr)]">
-        <SidebarNav />
-
-        <main className="flex flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
-          <LauncherHero featuredPatch={CURRENT_PATCH} />
-
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <TopPlayersCard queue={queue} region={region} className={GLASS} />
-            <TopLegendsCard className={GLASS} />
-            <WeaponMetaCard className={GLASS} />
-          </section>
-        </main>
-      </div>
-
-      <div className="relative backdrop-blur-md">
-        <SiteFooter />
-      </div>
-    </>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <TopPlayersCard queue={queue} region={region} className={GLASS} />
+        <TopLegendsCard className={GLASS} />
+        <WeaponMetaCard className={GLASS} />
+      </section>
+    </main>
   )
 }

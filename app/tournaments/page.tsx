@@ -2,8 +2,6 @@ import type { Metadata } from "next"
 import { Calendar, Globe, MapPin, Trophy } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PageHero } from "@/components/site/page-hero"
-import { SiteFooter } from "@/components/site/site-footer"
-import { SiteHeader } from "@/components/site/site-header"
 import { getTournamentsSplit, type Tournament } from "@/lib/brawltools-api"
 
 export const metadata: Metadata = {
@@ -108,9 +106,7 @@ export default async function TournamentsPage() {
   const { tournaments, upcoming, recent, year } = await getTournamentsSplit()
 
   return (
-    <div className="min-h-svh">
-      <SiteHeader />
-      <main className="pb-16">
+    <main className="pb-16">
         <PageHero
           title="Tournaments"
           subtitle={`Brawlhalla esports events in ${year} — upcoming first, then recent results. Official championships and community tournaments across all regions.`}
@@ -164,7 +160,5 @@ export default async function TournamentsPage() {
           </div>
         </div>
       </main>
-      <SiteFooter />
-    </div>
   )
 }
