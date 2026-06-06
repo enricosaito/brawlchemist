@@ -6,7 +6,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { LiveCountBadge } from "./live-count-badge"
 import { SoundToggle } from "./sound-toggle"
 
 /* ---------------------------------------------------------------------------
@@ -128,7 +127,13 @@ function NavItem({
         )}
       </span>
       <span className="min-w-0 flex-1 truncate">{entry.label}</span>
-      {entry.live && <LiveCountBadge />}
+      {entry.live && (
+        // Static "live feed" tag — narrow md–lg rails hide it so the label
+        // never truncates (the pulsing avatar dot still signals live there).
+        <span className="ml-auto shrink-0 rounded-full bg-negative/15 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-negative md:max-xl:hidden">
+          Live
+        </span>
+      )}
     </Link>
   )
 }
@@ -137,12 +142,6 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   return (
     <nav className="flex flex-col gap-3" aria-label="Primary">
-      <span
-        className="animate-slide-in mb-1 px-1 font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground"
-        style={{ ["--rise-delay" as string]: "60ms" }}
-      >
-        the brawlhalla stats lab
-      </span>
       {NAV.map((entry, i) => (
         <NavItem
           key={entry.href}

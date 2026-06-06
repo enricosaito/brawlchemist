@@ -55,7 +55,7 @@ export function LauncherHero({
       {/* Featured banner — links to the latest patch read. */}
       <Link
         href="/patch-notes"
-        className="animate-rise group mt-5 inline-flex items-center gap-3 rounded-full border border-copper/40 bg-card/40 px-5 py-2 backdrop-blur-md transition-colors hover:border-copper/70 hover:bg-card/70"
+        className="animate-rise group mt-5 inline-flex items-center gap-3 rounded-full bg-card/40 px-5 py-2 backdrop-blur-md transition-colors hover:bg-card/70"
         style={{ ["--rise-delay" as string]: "420ms" }}
       >
         <span className="rounded-full bg-copper/15 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">

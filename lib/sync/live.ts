@@ -232,35 +232,4 @@ export async function getLiveQueue(opts: {
   }))
 }
 
-/** Count of currently-live entries for a queue (for the nav/header badge). */
-export async function getLiveCount(queue: LiveQueue): Promise<number> {
-  const cutoff = new Date(Date.now() - ACTIVE_WINDOW_MS)
-  try {
-    const [row] = await db()
-      .select({ n: sql<number>`count(*)::int` })
-      .from(liveRanked)
-      .where(
-        and(
-          eq(liveRanked.queue, queue),
-          gte(liveRanked.lastActiveAt, cutoff),
-        ),
-      )
-    return row?.n ?? 0
-  } catch {
-    return 0
-  }
-}
 
-/** Total currently-live entries across all tracked queues (nav badge). */
-export async function getLiveTotal(): Promise<number> {
-  const cutoff = new Date(Date.now() - ACTIVE_WINDOW_MS)
-  try {
-    const [row] = await db()
-      .select({ n: sql<number>`count(*)::int` })
-      .from(liveRanked)
-      .where(gte(liveRanked.lastActiveAt, cutoff))
-    return row?.n ?? 0
-  } catch {
-    return 0
-  }
-}

@@ -206,8 +206,8 @@ export function PlayerSearchForm({
         onSubmit={onSubmit}
         className="group relative"
       >
-        <div className="absolute inset-0 -z-10 rounded-xl bg-copper/10 opacity-60 blur-xl transition-opacity group-focus-within:opacity-100" />
-        <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-card/70 px-4 py-3 shadow-[0_1px_0_0_oklch(1_0_0_/_0.04)_inset] backdrop-blur-md transition-colors focus-within:border-copper/60">
+        <div className="absolute inset-0 -z-10 rounded-xl bg-pink/10 opacity-0 blur-xl transition-opacity group-focus-within:opacity-100 group-hover:opacity-60" />
+        <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-card/70 px-4 py-3 shadow-[0_1px_0_0_oklch(1_0_0_/_0.04)_inset] backdrop-blur-md transition-colors hover:border-pink/50 focus-within:border-pink/60">
           {loading ? (
             <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
           ) : (
