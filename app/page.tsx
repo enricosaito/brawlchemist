@@ -6,7 +6,6 @@ import {
   TopPlayersCard,
 } from "@/components/site/top-players-card"
 import { WeaponMetaCard } from "@/components/site/weapon-meta-card"
-import type { ApiGameMode } from "@/lib/brawlhalla-api"
 import { CURRENT_PATCH } from "@/lib/mock-data"
 
 function isHomeRegion(v: string | undefined): v is HomeRegion {
@@ -20,10 +19,9 @@ const GLASS = "bg-card/55 backdrop-blur-2xl border-white/10"
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ queue?: string; region?: string }>
+  searchParams: Promise<{ region?: string }>
 }) {
   const params = await searchParams
-  const queue: ApiGameMode = params.queue === "2v2" ? "2v2" : "1v1"
   const region: HomeRegion = isHomeRegion(params.region) ? params.region : "ALL"
 
   // The launcher chrome (nav rail, video, music) lives in AppShell; this page
@@ -35,7 +33,7 @@ export default async function Page({
       <LauncherHero featuredPatch={CURRENT_PATCH} className="mt-auto" />
 
       <section className="mb-auto grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <TopPlayersCard queue={queue} region={region} className={GLASS} />
+        <TopPlayersCard region={region} className={GLASS} />
         <TopLegendsCard className={GLASS} />
         <WeaponMetaCard className={GLASS} />
       </section>

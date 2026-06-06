@@ -48,6 +48,11 @@ const NAV: NavEntry[] = [
     avatar: "/assets/AniAvatar_BCX_2017_Brawler.webp",
   },
   {
+    label: "Patch Notes",
+    href: "/patch-notes",
+    avatar: "/assets/AniAvatar_Forest_Sprites.webp",
+  },
+  {
     label: "Weapons",
     href: "/weapons",
     avatar: "/assets/AniAvatar_Cursed_Kunai.webp",
@@ -66,11 +71,6 @@ const NAV: NavEntry[] = [
     label: "OTPs",
     href: "/otps",
     avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
-  },
-  {
-    label: "Patch Notes",
-    href: "/patch-notes",
-    avatar: "/assets/AniAvatar_Forest_Sprites.webp",
   },
 ]
 

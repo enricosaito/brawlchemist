@@ -86,9 +86,6 @@ function PodiumCard({
   const skin = primaryPreview?.favoriteSkin
   const handle = primaryPreview?.verified?.handle
   const verified = entry.players.some((p) => previews.get(p.id)?.verified)
-  // Single pro with a handle: show [PRO] handle (tier hidden) by default, and
-  // swap to username + tier on hover. Coordinated via group/pro on the card.
-  const proSwap = entry.players.length === 1 && !!player && !!handle
 
   const href = isSolo && player?.id ? `/player/${player.id}` : null
 
@@ -205,11 +202,10 @@ function PodiumCard({
     </>
   )
 
+  // No group/pro on the card: podium pros always show their handle (the
+  // hover-swap to the in-game name stays a table-only affordance).
   return href ? (
-    <Link
-      href={href}
-      className={`${baseClass} ${interactiveClass}${proSwap ? " group/pro" : ""}`}
-    >
+    <Link href={href} className={`${baseClass} ${interactiveClass}`}>
       {body}
     </Link>
   ) : (
