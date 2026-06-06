@@ -25,22 +25,18 @@ interface NavEntry {
 }
 
 const NAV: NavEntry[] = [
-  {
-    label: "Home",
-    href: "/",
-    avatar: "/assets/AniAvatar_Potion_Shelf.webp",
-  },
-  {
-    label: "Live Ranked Queue",
-    href: "/live",
-    avatar: "/assets/AniAvatar_Ash_%26_Yarra.webp",
-    live: true,
-  },
+  // Home isn't listed — the wordmark/logo is the way back to "/".
   {
     label: "Leaderboards",
     href: "/leaderboards/1v1",
     avatar: "/assets/AniAvatar_Volkonomicon.webp",
     match: ["/leaderboards"],
+  },
+  {
+    label: "Ranked Queue",
+    href: "/live",
+    avatar: "/assets/AniAvatar_Ash_%26_Yarra.webp",
+    live: true,
   },
   {
     label: "OTPs",
@@ -75,7 +71,6 @@ const NAV: NavEntry[] = [
 ]
 
 function isActive(pathname: string, entry: NavEntry): boolean {
-  if (entry.href === "/") return pathname === "/"
   if (pathname === entry.href) return true
   return (entry.match ?? [entry.href]).some((p) => pathname.startsWith(p))
 }
@@ -225,9 +220,9 @@ function SocialFooter() {
 }
 
 /**
- * SidebarNav — the Brawlhalla-style vertical launcher menu. On lg+ it's a
- * static left rail that scrolls internally; below lg it collapses to a
- * hamburger that opens a slide-in drawer.
+ * SidebarNav — the Brawlhalla-style vertical launcher menu. On md+ it's a
+ * scroll-locked left rail (only the page column scrolls); below md it
+ * collapses to a hamburger that opens a slide-in drawer.
  */
 export function SidebarNav() {
   const [open, setOpen] = useState(false)
@@ -306,8 +301,8 @@ export function SidebarNav() {
 
       {/* Tablet + desktop rail — transparent column (no panel/divider) so each
           nav item reads as its own glass card floating over the video. Sticks
-          full-height while the right column scrolls. */}
-      <aside className="hidden h-full flex-col gap-7 overflow-y-auto px-5 py-7 md:sticky md:top-0 md:flex md:h-svh xl:px-7">
+          full-height and never scrolls itself; only the right column scrolls. */}
+      <aside className="hidden h-full flex-col gap-7 overflow-hidden px-5 py-7 md:sticky md:top-0 md:flex md:h-svh xl:px-7">
         <Wordmark />
         <div className="flex-1">
           <NavList />

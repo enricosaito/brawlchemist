@@ -31,7 +31,7 @@ export async function WeaponMetaCard({
         </>
       }
     >
-      <ol className="divide-y divide-border/60">
+      <ol className="grid auto-rows-fr divide-y divide-border/60">
         {top.map((weapon, i) => {
           const topLegends = weapon.top_legend_ids
             .map((id) => {

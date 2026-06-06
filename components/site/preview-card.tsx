@@ -43,7 +43,10 @@ export function PreviewCard({
         </h2>
         <div className="flex flex-wrap items-center gap-2 text-xs">{meta}</div>
       </header>
-      <div className="flex-1">{children}</div>
+      {/* Single-cell grid so the slotted row list stretches to fill the card —
+          paired with auto-rows-fr on the list, rows share the height evenly
+          and line up across sibling cards in the home grid. */}
+      <div className="grid flex-1">{children}</div>
       <footer className="border-t border-border/60 px-2 py-1.5">
         <Link
           href={href}

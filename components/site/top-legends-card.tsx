@@ -81,7 +81,7 @@ export async function TopLegendsCard({
         </>
       }
     >
-      <ol className="divide-y divide-border/60">
+      <ol className="grid auto-rows-fr divide-y divide-border/60">
         {rows.map(({ legend, live }) => {
           if (!legend) return null
           // Prefer the live aggregation when available; fall back to mock
@@ -92,7 +92,7 @@ export async function TopLegendsCard({
             <li key={legend.id}>
               <Link
                 href={`/otps?legend=${legend.id}`}
-                className="flex min-h-16 items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
+                className="flex h-full min-h-16 items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
               >
                 <TierLetter tier={legend.tier} />
                 <LegendChip legendId={legend.id} size="md" showName={false} />
