@@ -163,35 +163,42 @@ function Wordmark() {
 
 function SocialFooter() {
   return (
-    <div className="flex items-center gap-1">
-      <a
-        href="/github"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="GitHub"
-        className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <GithubIcon className="size-4" />
-      </a>
-      <a
-        href="/twitter"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="X (Twitter)"
-        className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <XIcon className="size-4" />
-      </a>
-      <a
-        href="/discord"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Discord"
-        className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <DiscordIcon className="size-4" />
-      </a>
-      <SoundToggle className="ml-auto" />
+    <div className="flex flex-col gap-3">
+      <p className="text-[11px] leading-relaxed text-muted-foreground/80">
+        Tracking live data from the Brawlhalla Developer API.
+        <br />
+        Not affiliated with or endorsed by Blue Mammoth Games.
+      </p>
+      <div className="flex items-center gap-1">
+        <a
+          href="/github"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="GitHub"
+          className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <GithubIcon className="size-4" />
+        </a>
+        <a
+          href="/twitter"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="X (Twitter)"
+          className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <XIcon className="size-4" />
+        </a>
+        <a
+          href="/discord"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Discord"
+          className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <DiscordIcon className="size-4" />
+        </a>
+        <SoundToggle className="ml-auto" />
+      </div>
     </div>
   )
 }

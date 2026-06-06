@@ -36,7 +36,7 @@ export function SoundToggle({ className }: { className?: string }) {
       title={on ? "Music on" : "Music off"}
       className={cn(
         "flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-        on && "text-pink hover:text-pink",
+        on && "text-foreground hover:text-foreground",
         className,
       )}
     >
