@@ -66,7 +66,9 @@ export async function TopPlayersCard({
   return (
     <PreviewCard
       title="Live Rankings"
-      href="/leaderboards/1v1?region=ALL&pro=1"
+      // Pros-only is a homepage-card treatment — the leaderboard link opens
+      // the regular (unfiltered) board.
+      href="/leaderboards/1v1?region=ALL"
       viewAllLabel="view full leaderboard"
       className={className}
       meta={

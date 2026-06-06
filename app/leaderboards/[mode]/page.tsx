@@ -31,11 +31,15 @@ const QUEUES: { id: ApiGameMode; label: string }[] = [
 
 const PAGE_SIZE = 50
 
-/** ALL ⟷ PRO switch — shown only on the ALL 1v1 board. Flips to verified
- * pros only. Each click navigates to the opposite state. */
-function ProToggle({ pro }: { pro: boolean }) {
-  const allHref = "/leaderboards/1v1?region=ALL"
-  const proHref = "/leaderboards/1v1?region=ALL&pro=1"
+/** The three biggest ladders — their Valhallan cutoffs headline the global
+ * (ALL) board, since a combined cutoff doesn't exist. */
+const GLOBAL_CUTOFF_REGIONS: ApiRegion[] = ["US-E", "EU", "BRZ"]
+
+/** ALL ⟷ PRO switch — shown on every 1v1 board (the pro list filters per
+ * region). Each click navigates to the opposite state, keeping the region. */
+function ProToggle({ pro, region }: { pro: boolean; region: ApiRegion }) {
+  const allHref = `/leaderboards/1v1?region=${region}`
+  const proHref = `/leaderboards/1v1?region=${region}&pro=1`
   return (
     <Link
       href={pro ? allHref : proHref}
@@ -126,18 +130,16 @@ export default async function LeaderboardPage({
     sp.region && isApiRegion(sp.region) ? sp.region : "ALL"
   const requestedPage = Math.max(1, Number(sp.page ?? "1") || 1)
   const modePath = `/leaderboards/${gameMode}`
-  const baseQuery =
-    gameMode === "1v1" && region === "ALL" && sp.pro === "1"
-      ? `region=${region}&pro=1`
-      : `region=${region}`
 
-  // Pro-only view — a toggle available on the ALL 1v1 board.
-  const canPro = gameMode === "1v1" && region === "ALL"
+  // Pro-only view — a toggle available on every 1v1 board (region-aware).
+  const canPro = gameMode === "1v1"
   const proView = canPro && sp.pro === "1"
+  const baseQuery = proView ? `region=${region}&pro=1` : `region=${region}`
 
-  // The Valhallan cutoff is region-specific, so it only shows for a single
-  // region — hidden on the ALL board where it'd be a variable breakdown.
-  const cutoffRegions: ApiRegion[] = region === "ALL" ? [] : [region]
+  // The Valhallan cutoff is region-specific; the ALL board shows the three
+  // main ladders' cutoffs side by side.
+  const cutoffRegions: ApiRegion[] =
+    region === "ALL" ? GLOBAL_CUTOFF_REGIONS : [region]
 
   // Admin-curated previews (PRO badge/handle, favorite skin) for the podium
   // and the table's pro name treatment.
@@ -150,9 +152,14 @@ export default async function LeaderboardPage({
   let cutoffs: Awaited<ReturnType<typeof getValhallanCutoffs>> = new Map()
 
   if (proView) {
-    // Pros come back as one fully-ranked list; page it 50 at a time like the
-    // live ladder. Each row keeps its global `rank`, so slicing is safe.
-    const allPros = await getProLeaderboard("ALL")
+    // Pros come back as one fully-ranked list (filtered per region); page it
+    // 50 at a time like the live ladder. Each row keeps its `rank`, so
+    // slicing is safe.
+    const [allPros, cuts] = await Promise.all([
+      getProLeaderboard(region),
+      getValhallanCutoffs(gameMode, cutoffRegions),
+    ])
+    cutoffs = cuts
     totalPages = Math.max(1, Math.ceil(allPros.length / PAGE_SIZE))
     const proPage = Math.min(requestedPage, totalPages)
     rows = allPros.slice((proPage - 1) * PAGE_SIZE, proPage * PAGE_SIZE)
@@ -236,7 +243,7 @@ export default async function LeaderboardPage({
               </div>
             </div>
 
-            {canPro && <ProToggle pro={proView} />}
+            {canPro && <ProToggle pro={proView} region={region} />}
 
             <div className="flex items-center gap-2">
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -261,39 +268,43 @@ export default async function LeaderboardPage({
               </div>
             </div>
 
-            {cutoffs.size > 0 && (
-              <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Valhallan cutoff
-                </span>
-                <div className="flex flex-wrap items-center gap-1">
-                  {cutoffRegions.map((r) => {
-                    const c = cutoffs.get(r)
-                    if (!c) return null
-                    return (
-                      <span
-                        key={r}
-                        className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground"
-                        title={`#${c.rank} ${c.username} — ${c.count} Valhallans total`}
-                      >
-                        <Image
-                          src="/assets/valhallan-helm.png"
-                          alt=""
-                          width={16}
-                          height={16}
-                          className="shrink-0 select-none object-contain"
-                        />
-                        <span className="text-muted-foreground">{r}</span>
-                        <span className="tabular-nums">
-                          {c.rating.toLocaleString()}
-                        </span>
-                      </span>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
           </div>
+
+          {/* Valhallan cutoffs — their own line above the board (the filter
+              row got crowded once the pro toggle went region-wide). The ALL
+              board shows the three main ladders side by side. */}
+          {cutoffs.size > 0 && (
+            <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center justify-end gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                Valhallan cutoff
+              </span>
+              <div className="flex flex-wrap items-center gap-1">
+                {cutoffRegions.map((r) => {
+                  const c = cutoffs.get(r)
+                  if (!c) return null
+                  return (
+                    <span
+                      key={r}
+                      className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground"
+                      title={`#${c.rank} ${c.username} — ${c.count} Valhallans total`}
+                    >
+                      <Image
+                        src="/assets/valhallan-helm.png"
+                        alt=""
+                        width={16}
+                        height={16}
+                        className="shrink-0 select-none object-contain"
+                      />
+                      <span className="text-muted-foreground">{r}</span>
+                      <span className="tabular-nums">
+                        {c.rating.toLocaleString()}
+                      </span>
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {loadError ? (
             <div className="mx-auto max-w-[1280px] rounded-xl border border-negative/30 bg-negative/5 p-6 text-sm text-muted-foreground">
