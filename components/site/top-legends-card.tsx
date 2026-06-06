@@ -92,7 +92,7 @@ export async function TopLegendsCard({
             <li key={legend.id}>
               <Link
                 href={`/otps?legend=${legend.id}`}
-                className="flex h-full min-h-16 items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
+                className="flex h-full min-h-14 items-center gap-3 px-4 py-2 transition-colors hover:bg-muted/40"
               >
                 <TierLetter tier={legend.tier} />
                 <LegendChip legendId={legend.id} size="md" showName={false} />

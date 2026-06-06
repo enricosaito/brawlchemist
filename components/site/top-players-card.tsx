@@ -161,8 +161,8 @@ export async function TopPlayersCard({
               <li
                 key={`${entry.rank}-${firstId ?? "x"}`}
                 className={cn(
-                  "flex min-h-16 items-center transition-colors hover:bg-muted/40",
-                  is1v1 ? "gap-3 px-4 py-2.5" : "gap-2 px-3 py-2",
+                  "flex min-h-14 items-center transition-colors hover:bg-muted/40",
+                  is1v1 ? "gap-3 px-4 py-2" : "gap-2 px-3 py-1.5",
                 )}
               >
                 <span className="w-4 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums">

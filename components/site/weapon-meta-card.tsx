@@ -43,7 +43,7 @@ export async function WeaponMetaCard({
           return (
             <li
               key={weapon.weapon_id}
-              className="flex min-h-16 items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
+              className="flex min-h-14 items-center gap-3 px-4 py-2 transition-colors hover:bg-muted/40"
             >
               <span className="w-4 text-right font-mono text-xs text-muted-foreground tabular-nums">
                 {i + 1}

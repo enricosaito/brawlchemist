@@ -285,11 +285,13 @@ const STANCE_INFO: Record<Stance, { label: string; src: string }> = {
   dexterity: { label: "Dexterity", src: "/assets/stances/dexterity.png" },
   speed: { label: "Speed", src: "/assets/stances/speed.png" },
   strength: { label: "Strength", src: "/assets/stances/strength.png" },
-  superdef: { label: "Super Defense", src: "/assets/stances/superdef.png" },
+  // Long "Super" labels abbreviate (matching "Super Dex") so stance lines
+  // never wrap inside compact card rows.
+  superdef: { label: "Super Def.", src: "/assets/stances/superdef.png" },
   superdex: { label: "Super Dex", src: "/assets/stances/superdex.png" },
   superspeed: { label: "Super Speed", src: "/assets/stances/superspeed.png" },
   superstrength: {
-    label: "Super Strength",
+    label: "Super Str.",
     src: "/assets/stances/superstrength.webp",
   },
 }

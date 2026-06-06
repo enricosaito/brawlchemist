@@ -29,7 +29,8 @@ export default async function Page({
   // The launcher chrome (nav rail, video, music) lives in AppShell; this page
   // is just the home content rendered in the right two-thirds.
   return (
-    <main className="flex flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+    // Tight vertical rhythm so hero + cards fit a 1080p viewport unscrolled.
+    <main className="flex flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
       <LauncherHero featuredPatch={CURRENT_PATCH} />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
