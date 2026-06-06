@@ -50,7 +50,7 @@ const NAV: NavEntry[] = [
   {
     label: "Patch Notes",
     href: "/patch-notes",
-    avatar: "/assets/AniAvatar_Forest_Sprites.webp",
+    avatar: "/assets/AniAvatar_Tome_of_Rituals.webp",
   },
   {
     label: "Weapons",

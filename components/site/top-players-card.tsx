@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { BadgeCheck, ChevronDown } from "lucide-react"
+import { ArrowUpRight, BadgeCheck, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
@@ -135,8 +135,27 @@ export async function TopPlayersCard({
             return (
               <li
                 key={`${entry.rank}-${player.id}`}
-                className="flex min-h-14 items-center gap-3 px-4 py-2 transition-colors hover:bg-muted/40"
+                className="group/row relative flex min-h-14 items-center gap-3 overflow-hidden px-4 py-2"
               >
+                {/* Hover affordance — a glass panel slides in from the left
+                    (iOS-style) and turns the whole row into a profile link.
+                    pointer-events gate so touch/no-hover still hits the
+                    inline links underneath. */}
+                <Link
+                  href={`/player/${player.id}`}
+                  aria-label={`View ${handle ?? player.username}'s profile`}
+                  tabIndex={-1}
+                  className={cn(
+                    "pointer-events-none absolute inset-0 z-10 flex -translate-x-full items-center justify-center gap-1.5",
+                    "bg-gradient-to-r from-card/90 via-card/70 to-card/40 backdrop-blur-md",
+                    "font-mono text-xs uppercase tracking-[0.2em] text-foreground",
+                    "transition-transform duration-300 ease-out motion-reduce:transition-none",
+                    "group-hover/row:pointer-events-auto group-hover/row:translate-x-0",
+                  )}
+                >
+                  View Profile
+                  <ArrowUpRight className="size-3.5" />
+                </Link>
                 <span className="w-4 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums">
                   {entry.rank}
                 </span>
