@@ -250,3 +250,17 @@ export async function getLiveCount(queue: LiveQueue): Promise<number> {
     return 0
   }
 }
+
+/** Total currently-live entries across all tracked queues (nav badge). */
+export async function getLiveTotal(): Promise<number> {
+  const cutoff = new Date(Date.now() - ACTIVE_WINDOW_MS)
+  try {
+    const [row] = await db()
+      .select({ n: sql<number>`count(*)::int` })
+      .from(liveRanked)
+      .where(gte(liveRanked.lastActiveAt, cutoff))
+    return row?.n ?? 0
+  } catch {
+    return 0
+  }
+}

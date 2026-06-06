@@ -6,6 +6,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { LiveCountBadge } from "./live-count-badge"
 import { SoundToggle } from "./sound-toggle"
 
 /* ---------------------------------------------------------------------------
@@ -30,7 +31,7 @@ const NAV: NavEntry[] = [
     avatar: "/assets/AniAvatar_Potion_Shelf.webp",
   },
   {
-    label: "Live",
+    label: "Live Ranked Queue",
     href: "/live",
     avatar: "/assets/AniAvatar_Ash_%26_Yarra.webp",
     live: true,
@@ -131,7 +132,8 @@ function NavItem({
           </span>
         )}
       </span>
-      <span className="flex-1 truncate">{entry.label}</span>
+      <span className="min-w-0 flex-1 truncate">{entry.label}</span>
+      {entry.live && <LiveCountBadge />}
     </Link>
   )
 }
