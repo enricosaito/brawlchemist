@@ -10,7 +10,7 @@ import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { Tier } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
-import { LegendChip, PlayerLink, RankIcon, TIER_TEXT_COLOR } from "./primitives"
+import { LegendChip, PlayerLink, RankIcon } from "./primitives"
 
 // All API regions (ALL first), shown in the home region dropdown.
 export const HOME_REGIONS = API_REGIONS
@@ -65,9 +65,9 @@ export async function TopPlayersCard({
 
   return (
     <PreviewCard
-      title="Top Pros"
+      title="Live Rankings"
       href="/leaderboards/1v1?region=ALL&pro=1"
-      viewAllLabel="view pro leaderboard"
+      viewAllLabel="view full leaderboard"
       className={className}
       meta={
         <div className="group/region relative">
@@ -158,16 +158,9 @@ export async function TopPlayersCard({
                       <BadgeCheck className="size-3.5 shrink-0 text-foreground" />
                     </span>
                   </PlayerLink>
-                  {tier && (
-                    <span
-                      className={cn(
-                        "font-mono text-[10px] uppercase tracking-wider",
-                        TIER_TEXT_COLOR[tier],
-                      )}
-                    >
-                      {tier}
-                    </span>
-                  )}
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-mystic">
+                    Pro Player
+                  </span>
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-0.5">
                   <span className="font-mono text-sm tabular-nums">
