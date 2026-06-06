@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { ArrowUpRight } from "lucide-react"
 import { CURRENT_PATCH, WEAPON_NAMES } from "@/lib/mock-data"
 import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import { getValhallanWeaponStats } from "@/lib/sync/valhallan"
@@ -43,8 +44,20 @@ export async function WeaponMetaCard({
           return (
             <li
               key={weapon.weapon_id}
-              className="flex min-h-14 items-center gap-3 px-4 py-2 transition-colors hover:bg-muted/40"
+              className="group/row relative flex min-h-14 items-center gap-3 overflow-hidden px-4 py-2"
             >
+              {/* Same iOS-style hover affordance as Live Rankings — slides in
+                  and links to the weapon meta page. pointer-events gated so
+                  touch keeps the inline legend links. */}
+              <Link
+                href="/weapons"
+                aria-label={`View ${WEAPON_NAMES[weapon.weapon_id]} weapon meta`}
+                tabIndex={-1}
+                className="pointer-events-none absolute inset-0 z-10 flex -translate-x-full items-center justify-center gap-1.5 bg-gradient-to-r from-card/90 via-card/70 to-card/40 font-mono text-xs uppercase tracking-[0.2em] text-foreground backdrop-blur-md transition-transform duration-300 ease-out group-hover/row:pointer-events-auto group-hover/row:translate-x-0 motion-reduce:transition-none"
+              >
+                View Weapon Meta
+                <ArrowUpRight className="size-3.5" />
+              </Link>
               <span className="w-4 text-right font-mono text-xs text-muted-foreground tabular-nums">
                 {i + 1}
               </span>

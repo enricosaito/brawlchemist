@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { ArrowUpRight } from "lucide-react"
 import { CURRENT_PATCH, getLegend } from "@/lib/mock-data"
 import { formatPercent } from "@/lib/format"
 import { legendIdForSlug } from "@/lib/legends-roster"
@@ -92,8 +93,18 @@ export async function TopLegendsCard({
             <li key={legend.id}>
               <Link
                 href={`/otps?legend=${legend.id}`}
-                className="flex h-full min-h-14 items-center gap-3 px-4 py-2 transition-colors hover:bg-muted/40"
+                className="group/row relative flex h-full min-h-14 items-center gap-3 overflow-hidden px-4 py-2"
               >
+                {/* Same iOS-style hover affordance as Live Rankings — the row
+                    already links to the filtered OTPs page, so this panel is
+                    purely visual. */}
+                <span
+                  aria-hidden
+                  className="absolute inset-0 z-10 flex -translate-x-full items-center justify-center gap-1.5 bg-gradient-to-r from-card/90 via-card/70 to-card/40 font-mono text-xs uppercase tracking-[0.2em] text-foreground backdrop-blur-md transition-transform duration-300 ease-out group-hover/row:translate-x-0 motion-reduce:transition-none"
+                >
+                  View {legend.name} Mains
+                  <ArrowUpRight className="size-3.5" />
+                </span>
                 <TierLetter tier={legend.tier} />
                 <LegendChip legendId={legend.id} size="md" showName={false} />
                 <div className="flex min-w-0 flex-1 flex-col">
