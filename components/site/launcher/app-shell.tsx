@@ -1,7 +1,6 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import { SiteFooter } from "@/components/site/site-footer"
 import { BackgroundMusic } from "./background-music"
 import { SidebarNav } from "./sidebar-nav"
 import { VideoBackground } from "./video-background"
@@ -29,12 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <BackgroundMusic />
       <div className="relative min-h-svh md:grid md:grid-cols-[clamp(280px,30%,420px)_minmax(0,1fr)]">
         <SidebarNav />
-        <div className="flex min-w-0 flex-col">
-          <div className="flex-1">{children}</div>
-          <div className="backdrop-blur-md">
-            <SiteFooter />
-          </div>
-        </div>
+        <div className="min-w-0">{children}</div>
       </div>
     </>
   )
