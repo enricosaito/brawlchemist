@@ -205,7 +205,7 @@ export default async function LeaderboardPage({
     <main className="pb-16">
         <div className="px-4 pt-8 sm:px-6 sm:pt-10">
           {/* Search · Mode · Region on one line; Valhallan cutoff pushed right. */}
-          <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3">
+          <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-3 gap-y-3">
             <LeaderboardSearch className="w-full sm:w-auto sm:min-w-[220px]" />
 
             <div className="flex items-center gap-2">
@@ -224,7 +224,7 @@ export default async function LeaderboardPage({
                     aria-selected={gameMode === q.id}
                     href={`/leaderboards/${q.id}?region=${region}`}
                     className={cn(
-                      "rounded-md px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors",
+                      "rounded-md px-2.5 py-1 font-mono text-xs uppercase tracking-wider transition-colors",
                       gameMode === q.id
                         ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
                         : "text-muted-foreground hover:text-foreground",
@@ -235,6 +235,8 @@ export default async function LeaderboardPage({
                 ))}
               </div>
             </div>
+
+            {canPro && <ProToggle pro={proView} />}
 
             <div className="flex items-center gap-2">
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -247,7 +249,7 @@ export default async function LeaderboardPage({
                     href={`${modePath}?region=${r}`}
                     aria-current={region === r ? "true" : undefined}
                     className={cn(
-                      "rounded-md px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors",
+                      "rounded-md px-2.5 py-1 font-mono text-xs uppercase tracking-wider transition-colors",
                       region === r
                         ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
                         : "text-muted-foreground hover:text-foreground",
@@ -258,8 +260,6 @@ export default async function LeaderboardPage({
                 ))}
               </div>
             </div>
-
-            {canPro && <ProToggle pro={proView} />}
 
             {cutoffs.size > 0 && (
               <div className="flex flex-wrap items-center gap-2 sm:ml-auto">

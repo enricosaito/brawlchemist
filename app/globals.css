@@ -296,11 +296,13 @@
 }
 
 @layer components {
-    /* Floating glass nav card. Rounded corners (no clip-path), lifts and picks
-       up a pink glow on hover/active. Shape, glass fill, and color come from
-       Tailwind on the element (see SidebarNav); this class owns the motion +
-       glow so they can't be dropped by tailwind-merge. */
+    /* Floating glass nav card. Rounded corners (no clip-path), lifts on hover
+       and shows a pink bookmark + soft glow when active. Shape, glass fill, and
+       color come from Tailwind on the element (see SidebarNav); this class owns
+       the motion, glow, and bookmark so they can't be dropped by
+       tailwind-merge. */
     .menu-btn {
+        position: relative;
         transition:
             transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
             background-color 0.18s ease,
@@ -310,17 +312,27 @@
     }
     .menu-btn:hover {
         transform: translateX(6px) scale(1.015);
-        box-shadow: 0 0 22px -4px var(--pink);
+        box-shadow: 0 0 14px -6px var(--pink);
     }
     .menu-btn[data-active="true"] {
-        box-shadow:
-            0 0 28px -3px var(--pink),
-            inset 0 0 0 1px color-mix(in oklch, var(--pink) 45%, transparent);
+        box-shadow: 0 0 13px -5px var(--pink);
+    }
+    /* Pink bookmark pill hugging the left edge of the active card. */
+    .menu-btn[data-active="true"]::before {
+        content: "";
+        position: absolute;
+        left: 0.4rem;
+        top: 0.65rem;
+        bottom: 0.65rem;
+        width: 3px;
+        border-radius: 999px;
+        background: var(--pink);
+        box-shadow: 0 0 8px var(--pink);
     }
     .menu-btn:focus-visible {
         outline: 2px solid var(--ring);
         outline-offset: 2px;
-        box-shadow: 0 0 22px -4px var(--pink);
+        box-shadow: 0 0 14px -6px var(--pink);
     }
     @media (prefers-reduced-motion: reduce) {
         .menu-btn:hover {
