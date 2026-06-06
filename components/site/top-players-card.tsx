@@ -145,9 +145,9 @@ export async function TopPlayersCard({
         </>
       }
     >
-      <ol id="top-players" className="divide-y divide-border/60">
+      <ol id="top-players" className="grid auto-rows-fr divide-y divide-border/60">
         {rows.length === 0 ? (
-          <li className="px-4 py-8 text-center text-xs text-muted-foreground">
+          <li className="flex items-center justify-center px-4 py-8 text-center text-xs text-muted-foreground">
             No rankings for {queue} · {region}.
           </li>
         ) : (

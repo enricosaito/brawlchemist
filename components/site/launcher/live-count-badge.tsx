@@ -4,9 +4,9 @@ import { useEffect, useState } from "react"
 
 /**
  * LiveCountBadge — polls the count of players active right now and shows it as
- * a compact chip on the Live nav item (tooltip spells out "N playing now").
- * Hidden when zero/unknown so the rail stays clean off-peak. Pauses while the
- * tab is hidden.
+ * a compact "LIVE - N" chip on the Ranked Queue nav item (tooltip spells out
+ * "N playing now"). Hidden when zero/unknown so the rail stays clean off-peak.
+ * Pauses while the tab is hidden.
  */
 export function LiveCountBadge() {
   const [count, setCount] = useState<number | null>(null)
@@ -35,9 +35,12 @@ export function LiveCountBadge() {
   return (
     <span
       title={`${count} playing now`}
-      className="ml-auto shrink-0 rounded-full bg-negative/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-negative"
+      // Narrow rails (md–lg) hide the chip so the label never truncates — the
+      // pulsing avatar dot still signals live there. Mobile drawer is wide
+      // enough, so only the md-to-xl band hides it.
+      className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-negative/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-negative md:max-xl:hidden"
     >
-      {count}
+      LIVE - {count}
     </span>
   )
 }
