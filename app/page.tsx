@@ -29,11 +29,12 @@ export default async function Page({
   // The launcher chrome (nav rail, video, music) lives in AppShell; this page
   // is just the home content rendered in the right two-thirds.
   return (
-    // Tight vertical rhythm so hero + cards fit a 1080p viewport unscrolled.
-    <main className="flex flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-      <LauncherHero featuredPatch={CURRENT_PATCH} />
+    // Tight vertical rhythm so hero + cards fit a 1080p viewport unscrolled;
+    // the auto margins center the pair vertically when there's room to spare.
+    <main className="flex min-h-svh flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <LauncherHero featuredPatch={CURRENT_PATCH} className="mt-auto" />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="mb-auto grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <TopPlayersCard queue={queue} region={region} className={GLASS} />
         <TopLegendsCard className={GLASS} />
         <WeaponMetaCard className={GLASS} />
