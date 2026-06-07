@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
-import Image from "next/image"
 import { ArrowUpRight, Newspaper } from "lucide-react"
 import { PageHero } from "@/components/site/page-hero"
+import { PatchCardImage } from "@/components/site/patch-card-image"
 import { getPatchNotes, type PatchNote } from "@/lib/brawlhalla-news"
 
 export const metadata: Metadata = {
@@ -22,7 +22,7 @@ function fmtDate(unixSeconds: number): string {
   })
 }
 
-function PatchCard({ note }: { note: PatchNote }) {
+function PatchCard({ note, priority }: { note: PatchNote; priority: boolean }) {
   return (
     <a
       href={note.url}
@@ -30,18 +30,7 @@ function PatchCard({ note }: { note: PatchNote }) {
       rel="noopener noreferrer"
       className="group flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40 transition-colors hover:border-tier-valhallan/40"
     >
-      {note.image && (
-        <div className="relative aspect-[2/1] w-full overflow-hidden border-b border-border/60 bg-muted/30">
-          <Image
-            src={note.image}
-            alt=""
-            fill
-            unoptimized
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 360px"
-            className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-          />
-        </div>
-      )}
+      {note.image && <PatchCardImage src={note.image} priority={priority} />}
       <div className="flex flex-col gap-2 p-4 sm:p-5">
         <div className="flex items-center gap-2">
           {note.version && (
@@ -100,8 +89,9 @@ export default async function PatchNotesPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {notes.map((note) => (
-                  <PatchCard key={note.id} note={note} />
+                {/* The first grid row is above the fold — preload its banners. */}
+                {notes.map((note, i) => (
+                  <PatchCard key={note.id} note={note} priority={i < 3} />
                 ))}
               </div>
             )}
