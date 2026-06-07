@@ -138,12 +138,13 @@ function PrPodium({
               </span>
             </div>
 
+            {/* Earnings are the featured metric; points demote to the meta row. */}
             <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-3xl font-bold tabular-nums text-foreground">
-                {fmtPoints(p.points)}
+              <span className="font-mono text-3xl font-bold tabular-nums text-positive">
+                {fmtEarnings(p.earnings)}
               </span>
               <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                PR points
+                earned
               </span>
             </div>
 
@@ -160,7 +161,7 @@ function PrPodium({
                 title="Bronze placements"
               />
               <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                {fmtEarnings(p.earnings)} earned
+                {fmtPoints(p.points)} PR points
               </span>
             </div>
           </>
@@ -238,27 +239,15 @@ export default async function PowerRankingsPage({
         </PlayerLink>
       ),
     },
+    // Earnings lead the metric columns; points close them out.
     {
-      id: "points",
-      label: "Points",
+      id: "earnings",
+      label: "Earnings",
       align: "right",
-      width: "110px",
+      width: "120px",
       render: (p) => (
-        <span className="font-mono text-sm tabular-nums">
-          {fmtPoints(p.points)}
-        </span>
-      ),
-    },
-    {
-      id: "medals",
-      label: "Medals",
-      align: "center",
-      width: "170px",
-      render: (p) => (
-        <span className="inline-flex items-center gap-3">
-          <MedalCount count={p.gold} tone="gold" title="Gold placements" />
-          <MedalCount count={p.silver} tone="silver" title="Silver placements" />
-          <MedalCount count={p.bronze} tone="bronze" title="Bronze placements" />
+        <span className="font-mono text-sm tabular-nums text-positive">
+          {fmtEarnings(p.earnings)}
         </span>
       ),
     },
@@ -285,13 +274,26 @@ export default async function PowerRankingsPage({
       ),
     },
     {
-      id: "earnings",
-      label: "Earnings",
-      align: "right",
-      width: "120px",
+      id: "medals",
+      label: "Medals",
+      align: "center",
+      width: "170px",
       render: (p) => (
-        <span className="font-mono text-sm tabular-nums text-positive">
-          {fmtEarnings(p.earnings)}
+        <span className="inline-flex items-center gap-3">
+          <MedalCount count={p.gold} tone="gold" title="Gold placements" />
+          <MedalCount count={p.silver} tone="silver" title="Silver placements" />
+          <MedalCount count={p.bronze} tone="bronze" title="Bronze placements" />
+        </span>
+      ),
+    },
+    {
+      id: "points",
+      label: "Points",
+      align: "right",
+      width: "110px",
+      render: (p) => (
+        <span className="font-mono text-sm tabular-nums">
+          {fmtPoints(p.points)}
         </span>
       ),
     },
