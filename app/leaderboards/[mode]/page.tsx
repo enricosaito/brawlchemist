@@ -27,6 +27,7 @@ const QUEUES: { id: ApiGameMode; label: string }[] = [
   { id: "1v1", label: "1v1" },
   { id: "2v2", label: "2v2" },
   { id: "solo_2v2", label: "Solo 2v2" },
+  { id: "3v3", label: "3v3" },
 ]
 
 const PAGE_SIZE = 50
@@ -83,7 +84,9 @@ function ProToggle({ pro, region }: { pro: boolean; region: ApiRegion }) {
 
 /** Valid path modes. "pro" is a separate static route, not handled here. */
 function parseMode(mode: string): ApiGameMode | null {
-  return mode === "1v1" || mode === "2v2" || mode === "solo_2v2" ? mode : null
+  return mode === "1v1" || mode === "2v2" || mode === "solo_2v2" || mode === "3v3"
+    ? mode
+    : null
 }
 
 export async function generateMetadata({
@@ -104,7 +107,12 @@ export async function generateMetadata({
             description:
               "Top Brawlhalla solo-queue 2v2 players, ranked live per region.",
           }
-        : {
+        : mode === "3v3"
+          ? {
+              title: "3v3 Ranking",
+              description: "Top Brawlhalla 3v3 players, ranked live per region.",
+            }
+          : {
             title: "1v1 Ranking",
             description: "Top Brawlhalla 1v1 players, ranked live per region.",
           }
