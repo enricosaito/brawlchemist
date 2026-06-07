@@ -51,6 +51,38 @@ function fmtPoints(points: number): string {
   return Math.round(points).toLocaleString()
 }
 
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+]
+
+/** "2026-05-06" → "May 06th, 2026" (board's lastUpdated; day stays padded). */
+function fmtUpdated(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!m) return iso
+  const [, year, month, day] = m
+  const d = Number(day)
+  const suffix =
+    d % 10 === 1 && d !== 11
+      ? "st"
+      : d % 10 === 2 && d !== 12
+        ? "nd"
+        : d % 10 === 3 && d !== 13
+          ? "rd"
+          : "th"
+  return `${MONTHS[Number(month) - 1]} ${day}${suffix}, ${year}`
+}
+
 function fmtEarnings(earnings: number): string {
   return `$${Math.round(earnings).toLocaleString()}`
 }
@@ -304,19 +336,6 @@ export default async function PowerRankingsPage({
       <PageHero
         title="Power Rankings"
         subtitle="The official Brawlhalla esports rankings — PR points earned from placements at official tournaments, per region."
-        meta={
-          <>
-            {board?.lastUpdated && (
-              <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                <Calendar className="size-2.5" />
-                updated {board.lastUpdated}
-              </span>
-            )}
-            <span className="inline-flex items-center rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              via brawltools
-            </span>
-          </>
-        }
       />
 
       <div className="px-4 sm:px-6">
@@ -372,6 +391,19 @@ export default async function PowerRankingsPage({
                 </Link>
               ))}
             </div>
+          </div>
+
+          {/* Board provenance — rides the filter row, pushed to the right. */}
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+            {board?.lastUpdated && (
+              <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wide text-muted-foreground">
+                <Calendar className="size-2.5" />
+                Updated {fmtUpdated(board.lastUpdated)}
+              </span>
+            )}
+            <span className="inline-flex items-center rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wide text-muted-foreground">
+              Via Brawltools
+            </span>
           </div>
         </div>
 
