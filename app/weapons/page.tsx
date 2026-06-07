@@ -16,13 +16,13 @@ const REGION_OPTIONS = API_REGIONS
 
 /**
  * Popularity band for a weapon. Only ~14 weapons split the pool, so the bands
- * are deliberately forgiving and top out at "Very Popular": ≥10% → Very
- * Popular, 2–10% → Popular, <2% → Unpopular.
+ * are deliberately forgiving and bottom out at "Popular" (no weapon reads as
+ * unpopular): ≥10% → Most Popular, 6–10% → Very Popular, <6% → Popular.
  */
 function weaponPopularityTier(pickRate: number): PopularityTier {
-  if (pickRate >= 10) return "very-popular"
-  if (pickRate >= 2) return "popular"
-  return "unpopular"
+  if (pickRate >= 10) return "most"
+  if (pickRate >= 6) return "very-popular"
+  return "popular"
 }
 
 const columns: ColDef<WeaponStat>[] = [
