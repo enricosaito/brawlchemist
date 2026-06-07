@@ -192,7 +192,8 @@ interface EsportsPlayer {
   playerId: number
   sggPlayerId?: number
   cmPlayerId?: string
-  brawlhallaId: number
+  /** null for competitors who never linked an in-game account. */
+  brawlhallaId: number | null
   name: string
   twitter?: string
   twitch?: string
@@ -237,6 +238,33 @@ function getPlayerByBhId(
     {},
     PLAYER_TTL,
   )
+}
+
+/** The reverse bridge — esports playerId → player record (incl. brawlhallaId).
+ * 404s for unknown ids. */
+function getPlayerById(
+  playerId: number,
+): Promise<ApiResult<PlayerByBhIdResponse>> {
+  return apiFetch<PlayerByBhIdResponse>(`/v2/player/${playerId}`, {}, PLAYER_TTL)
+}
+
+/**
+ * Resolve esports playerIds → brawlhalla_ids so PR-board rows can link to
+ * player profiles. One fetch per id, but each is cached PLAYER_TTL (6h) by the
+ * Next fetch cache — a 25-row page costs 25 calls cold, then nothing until the
+ * TTL lapses. Ids that 404 or have no linked account are absent from the map.
+ */
+export async function resolveBrawlhallaIds(
+  playerIds: number[],
+): Promise<Map<number, number>> {
+  const entries = await Promise.all(
+    playerIds.map(async (id) => {
+      const res = await getPlayerById(id)
+      const bhId = res.ok ? res.data.player.brawlhallaId : null
+      return bhId ? ([id, bhId] as const) : null
+    }),
+  )
+  return new Map(entries.filter((e): e is [number, number] => e !== null))
 }
 
 function getPlayerPr(

@@ -9,10 +9,12 @@ import {
   isPrRegion,
   listPowerRankings,
   PR_REGIONS,
+  resolveBrawlhallaIds,
   type EsportsGameMode,
   type PrPlayer,
   type PrRegion,
 } from "@/lib/brawltools-api"
+import { PlayerLink } from "@/components/site/player-link"
 
 export const metadata: Metadata = {
   title: "Power Rankings · Brawlchemist",
@@ -91,22 +93,32 @@ function PlayerName({ raw }: { raw: string }) {
 }
 
 /** Top-3 podium, mirroring the leaderboards treatment — metal-toned rank ring,
- * big points, medal tallies, earnings. */
-function PrPodium({ entries }: { entries: PrPlayer[] }) {
+ * big points, medal tallies, earnings. Cards link to the player's profile when
+ * the esports id resolves to a brawlhalla account (same hover treatment as the
+ * leaderboard podium). */
+function PrPodium({
+  entries,
+  bhIds,
+}: {
+  entries: PrPlayer[]
+  bhIds: Map<number, number>
+}) {
   const RING = [
     "border-[#f7ce46]/60",
     "border-[#c7ccd6]/60",
     "border-[#cd8d4c]/60",
   ]
+  const baseClass =
+    "relative flex flex-col gap-1.5 overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-5 shadow-lg backdrop-blur-sm"
+  const interactiveClass =
+    "transition hover:border-tier-valhallan/60 hover:shadow-[0_0_24px_-4px_oklch(0.76_0.24_0_/_0.55)]"
   return (
     <div className="mx-auto mb-4 grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {entries.map((p, i) => {
         const { team, name } = splitName(p.playerName)
-        return (
-          <div
-            key={p.playerId}
-            className="relative flex flex-col gap-1.5 overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-5 shadow-lg backdrop-blur-sm"
-          >
+        const bhId = bhIds.get(p.playerId)
+        const body = (
+          <>
             <div className="flex items-center gap-2">
               <span
                 className={cn(
@@ -151,6 +163,20 @@ function PrPodium({ entries }: { entries: PrPlayer[] }) {
                 {fmtEarnings(p.earnings)} earned
               </span>
             </div>
+          </>
+        )
+        return bhId ? (
+          <Link
+            key={p.playerId}
+            href={`/player/${bhId}`}
+            prefetch={false}
+            className={`${baseClass} ${interactiveClass}`}
+          >
+            {body}
+          </Link>
+        ) : (
+          <div key={p.playerId} className={baseClass}>
+            {body}
           </div>
         )
       })}
@@ -184,6 +210,13 @@ export default async function PowerRankingsPage({
   const totalPages = Math.max(1, board?.totalPages ?? 1)
   const page = Math.min(requestedPage, totalPages)
 
+  // esports playerId → brawlhalla_id, so rows can link to player profiles.
+  // Unresolvable ids (no linked account) just render as plain text.
+  const bhIds =
+    rows.length > 0
+      ? await resolveBrawlhallaIds(rows.map((p) => p.playerId))
+      : new Map<number, number>()
+
   const columns: ColDef<PrPlayer>[] = [
     {
       id: "pr",
@@ -198,7 +231,12 @@ export default async function PowerRankingsPage({
     {
       id: "player",
       label: "Player",
-      render: (p) => <PlayerName raw={p.playerName} />,
+      // PlayerLink degrades to plain text for unresolved ids.
+      render: (p) => (
+        <PlayerLink id={bhIds.get(p.playerId)}>
+          <PlayerName raw={p.playerName} />
+        </PlayerLink>
+      ),
     },
     {
       id: "points",
@@ -348,7 +386,7 @@ export default async function PowerRankingsPage({
           </div>
         ) : (
           <div className="mx-auto max-w-[1280px]">
-            {page === 1 && <PrPodium entries={rows.slice(0, 3)} />}
+            {page === 1 && <PrPodium entries={rows.slice(0, 3)} bhIds={bhIds} />}
             <DataTable
               columns={columns}
               rows={rows}
