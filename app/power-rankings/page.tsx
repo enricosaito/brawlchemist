@@ -9,10 +9,12 @@ import {
   isPrRegion,
   listPowerRankings,
   PR_REGIONS,
+  resolveBrawlhallaIds,
   type EsportsGameMode,
   type PrPlayer,
   type PrRegion,
 } from "@/lib/brawltools-api"
+import { PlayerLink } from "@/components/site/player-link"
 
 export const metadata: Metadata = {
   title: "Power Rankings · Brawlchemist",
@@ -47,6 +49,38 @@ function splitName(raw: string): { team: string | null; name: string } {
 
 function fmtPoints(points: number): string {
   return Math.round(points).toLocaleString()
+}
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+]
+
+/** "2026-05-06" → "May 06th, 2026" (board's lastUpdated; day stays padded). */
+function fmtUpdated(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!m) return iso
+  const [, year, month, day] = m
+  const d = Number(day)
+  const suffix =
+    d % 10 === 1 && d !== 11
+      ? "st"
+      : d % 10 === 2 && d !== 12
+        ? "nd"
+        : d % 10 === 3 && d !== 13
+          ? "rd"
+          : "th"
+  return `${MONTHS[Number(month) - 1]} ${day}${suffix}, ${year}`
 }
 
 function fmtEarnings(earnings: number): string {
@@ -91,22 +125,32 @@ function PlayerName({ raw }: { raw: string }) {
 }
 
 /** Top-3 podium, mirroring the leaderboards treatment — metal-toned rank ring,
- * big points, medal tallies, earnings. */
-function PrPodium({ entries }: { entries: PrPlayer[] }) {
+ * big points, medal tallies, earnings. Cards link to the player's profile when
+ * the esports id resolves to a brawlhalla account (same hover treatment as the
+ * leaderboard podium). */
+function PrPodium({
+  entries,
+  bhIds,
+}: {
+  entries: PrPlayer[]
+  bhIds: Map<number, number>
+}) {
   const RING = [
     "border-[#f7ce46]/60",
     "border-[#c7ccd6]/60",
     "border-[#cd8d4c]/60",
   ]
+  const baseClass =
+    "relative flex flex-col gap-1.5 overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-5 shadow-lg backdrop-blur-sm"
+  const interactiveClass =
+    "transition hover:border-tier-valhallan/60 hover:shadow-[0_0_24px_-4px_oklch(0.76_0.24_0_/_0.55)]"
   return (
     <div className="mx-auto mb-4 grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {entries.map((p, i) => {
         const { team, name } = splitName(p.playerName)
-        return (
-          <div
-            key={p.playerId}
-            className="relative flex flex-col gap-1.5 overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-5 shadow-lg backdrop-blur-sm"
-          >
+        const bhId = bhIds.get(p.playerId)
+        const body = (
+          <>
             <div className="flex items-center gap-2">
               <span
                 className={cn(
@@ -126,12 +170,13 @@ function PrPodium({ entries }: { entries: PrPlayer[] }) {
               </span>
             </div>
 
+            {/* Earnings are the featured metric; points demote to the meta row. */}
             <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-3xl font-bold tabular-nums text-foreground">
-                {fmtPoints(p.points)}
+              <span className="font-mono text-3xl font-bold tabular-nums text-positive">
+                {fmtEarnings(p.earnings)}
               </span>
               <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                PR points
+                earned
               </span>
             </div>
 
@@ -148,9 +193,23 @@ function PrPodium({ entries }: { entries: PrPlayer[] }) {
                 title="Bronze placements"
               />
               <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                {fmtEarnings(p.earnings)} earned
+                {fmtPoints(p.points)} PR points
               </span>
             </div>
+          </>
+        )
+        return bhId ? (
+          <Link
+            key={p.playerId}
+            href={`/player/${bhId}`}
+            prefetch={false}
+            className={`${baseClass} ${interactiveClass}`}
+          >
+            {body}
+          </Link>
+        ) : (
+          <div key={p.playerId} className={baseClass}>
+            {body}
           </div>
         )
       })}
@@ -184,6 +243,13 @@ export default async function PowerRankingsPage({
   const totalPages = Math.max(1, board?.totalPages ?? 1)
   const page = Math.min(requestedPage, totalPages)
 
+  // esports playerId → brawlhalla_id, so rows can link to player profiles.
+  // Unresolvable ids (no linked account) just render as plain text.
+  const bhIds =
+    rows.length > 0
+      ? await resolveBrawlhallaIds(rows.map((p) => p.playerId))
+      : new Map<number, number>()
+
   const columns: ColDef<PrPlayer>[] = [
     {
       id: "pr",
@@ -198,29 +264,22 @@ export default async function PowerRankingsPage({
     {
       id: "player",
       label: "Player",
-      render: (p) => <PlayerName raw={p.playerName} />,
-    },
-    {
-      id: "points",
-      label: "Points",
-      align: "right",
-      width: "110px",
+      // PlayerLink degrades to plain text for unresolved ids.
       render: (p) => (
-        <span className="font-mono text-sm tabular-nums">
-          {fmtPoints(p.points)}
-        </span>
+        <PlayerLink id={bhIds.get(p.playerId)}>
+          <PlayerName raw={p.playerName} />
+        </PlayerLink>
       ),
     },
+    // Earnings lead the metric columns; points close them out.
     {
-      id: "medals",
-      label: "Medals",
-      align: "center",
-      width: "170px",
+      id: "earnings",
+      label: "Earnings",
+      align: "right",
+      width: "120px",
       render: (p) => (
-        <span className="inline-flex items-center gap-3">
-          <MedalCount count={p.gold} tone="gold" title="Gold placements" />
-          <MedalCount count={p.silver} tone="silver" title="Silver placements" />
-          <MedalCount count={p.bronze} tone="bronze" title="Bronze placements" />
+        <span className="font-mono text-sm tabular-nums text-positive">
+          {fmtEarnings(p.earnings)}
         </span>
       ),
     },
@@ -247,13 +306,26 @@ export default async function PowerRankingsPage({
       ),
     },
     {
-      id: "earnings",
-      label: "Earnings",
-      align: "right",
-      width: "120px",
+      id: "medals",
+      label: "Medals",
+      align: "center",
+      width: "170px",
       render: (p) => (
-        <span className="font-mono text-sm tabular-nums text-positive">
-          {fmtEarnings(p.earnings)}
+        <span className="inline-flex items-center gap-3">
+          <MedalCount count={p.gold} tone="gold" title="Gold placements" />
+          <MedalCount count={p.silver} tone="silver" title="Silver placements" />
+          <MedalCount count={p.bronze} tone="bronze" title="Bronze placements" />
+        </span>
+      ),
+    },
+    {
+      id: "points",
+      label: "Points",
+      align: "right",
+      width: "110px",
+      render: (p) => (
+        <span className="font-mono text-sm tabular-nums">
+          {fmtPoints(p.points)}
         </span>
       ),
     },
@@ -264,19 +336,6 @@ export default async function PowerRankingsPage({
       <PageHero
         title="Power Rankings"
         subtitle="The official Brawlhalla esports rankings — PR points earned from placements at official tournaments, per region."
-        meta={
-          <>
-            {board?.lastUpdated && (
-              <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                <Calendar className="size-2.5" />
-                updated {board.lastUpdated}
-              </span>
-            )}
-            <span className="inline-flex items-center rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              via brawltools
-            </span>
-          </>
-        }
       />
 
       <div className="px-4 sm:px-6">
@@ -333,6 +392,19 @@ export default async function PowerRankingsPage({
               ))}
             </div>
           </div>
+
+          {/* Board provenance — rides the filter row, pushed to the right. */}
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+            {board?.lastUpdated && (
+              <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wide text-muted-foreground">
+                <Calendar className="size-2.5" />
+                Updated {fmtUpdated(board.lastUpdated)}
+              </span>
+            )}
+            <span className="inline-flex items-center rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wide text-muted-foreground">
+              Via Brawltools
+            </span>
+          </div>
         </div>
 
         {!result.ok ? (
@@ -348,7 +420,7 @@ export default async function PowerRankingsPage({
           </div>
         ) : (
           <div className="mx-auto max-w-[1280px]">
-            {page === 1 && <PrPodium entries={rows.slice(0, 3)} />}
+            {page === 1 && <PrPodium entries={rows.slice(0, 3)} bhIds={bhIds} />}
             <DataTable
               columns={columns}
               rows={rows}
