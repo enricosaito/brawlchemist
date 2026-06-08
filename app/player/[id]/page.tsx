@@ -26,6 +26,7 @@ import {
   type PlayerRanked2v2,
   type PlayerRankedLegend,
   type PlayerStats,
+  type PlayerStatsLegend,
 } from "@/lib/brawlhalla-api"
 import {
   getEsportsProfile,
@@ -728,19 +729,24 @@ function MostPlayedLegend({ legend }: { legend: TopLegend }) {
   )
 }
 
+const MAX_MASTERY_LEVEL = 100
+
 /**
- * LegendsSection — the full per-legend ranked breakdown this season, mined
- * from the cached /ranked payload (zero extra API cost). Most-played first;
- * the game count carries the visual weight. "WR Δ" compares the legend's win
- * rate to the player's overall 1v1 average.
+ * LegendsSection — the per-legend breakdown for the Legends tab. Ranked
+ * games / win rate come from the cached /ranked payload; Mastery (level + XP)
+ * and weapon time-held come from the already-fetched GetPlayerStats payload —
+ * both zero extra API cost. Most-played first.
  */
 function LegendsSection({
   legends,
   overallWinRate,
+  statsByLegendId,
 }: {
   legends: PlayerRankedLegend[]
   /** The player's overall 1v1 win rate this season (0–100), or null. */
   overallWinRate: number | null
+  /** Lifetime per-legend stats (level/xp + weapon time held) by legend id. */
+  statsByLegendId: Map<number, PlayerStatsLegend>
 }) {
   const played = [...legends]
     .filter((l) => l.games > 0)
@@ -753,11 +759,23 @@ function LegendsSection({
 
   const columns: ColDef<PlayerRankedLegend>[] = [
     {
+      id: "index",
+      label: "#",
+      width: "44px",
+      align: "right",
+      cellClass: PAD,
+      render: (_l, i) => (
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+          {i + 1}
+        </span>
+      ),
+    },
+    {
       id: "legend",
       label: "Legend",
       // Fixed width keeps the name column from stretching, so Games sits
       // right beside the legend and the row reads linearly.
-      width: "180px",
+      width: "170px",
       cellClass: PAD,
       render: (l) => {
         const slug = slugForLegendId(l.legend_id)
@@ -776,7 +794,7 @@ function LegendsSection({
       id: "games",
       label: "Games",
       align: "left",
-      width: "100px",
+      width: "90px",
       cellClass: PAD,
       render: (l) => (
         <span className="flex flex-col items-start gap-0.5">
@@ -792,37 +810,10 @@ function LegendsSection({
       ),
     },
     {
-      id: "rating",
-      label: "Rating",
-      align: "right",
-      width: "110px",
-      cellClass: PAD,
-      render: (l) => (
-        <span className="font-mono text-sm tabular-nums">
-          {formatElo(l.rating)}
-          <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-            ELO
-          </span>
-        </span>
-      ),
-    },
-    {
-      id: "peak",
-      label: "Peak",
-      align: "right",
-      width: "90px",
-      cellClass: PAD,
-      render: (l) => (
-        <span className="font-mono text-sm tabular-nums text-muted-foreground">
-          {formatElo(l.peak_rating)}
-        </span>
-      ),
-    },
-    {
       id: "record",
       label: "W – L",
       align: "right",
-      width: "110px",
+      width: "100px",
       cellClass: PAD,
       render: (l) => (
         <span className="font-mono text-xs tabular-nums text-muted-foreground">
@@ -834,53 +825,106 @@ function LegendsSection({
         </span>
       ),
     },
+    // Win rate, with the delta-vs-overall stacked beneath it.
     {
       id: "winrate",
       label: "Win Rate",
       align: "right",
       width: "100px",
       cellClass: PAD,
-      render: (l) => (
-        <span className="font-mono text-sm tabular-nums">
-          {winRate(l.wins, l.games)}
-        </span>
-      ),
-    },
-    {
-      id: "wrdelta",
-      label: "WR Δ",
-      align: "right",
-      width: "100px",
-      thClass: "whitespace-nowrap",
-      cellClass: PAD,
       render: (l) => {
         const wr = l.games > 0 ? (l.wins / l.games) * 100 : null
-        if (wr == null || overallWinRate == null) {
-          return <span className="font-mono text-xs text-muted-foreground">—</span>
-        }
-        const delta = wr - overallWinRate
-        const flat = Math.abs(delta) < 0.05
+        const delta = wr != null && overallWinRate != null ? wr - overallWinRate : null
+        const flat = delta != null && Math.abs(delta) < 0.05
         // Tiny samples make wild deltas — keep the number but mute the color
         // until the legend has a meaningful game count.
         const lowSample = l.games < 10
         return (
-          <span
-            title={
-              lowSample
-                ? "Win rate vs overall average — muted under 10 games (small sample)"
-                : "Win rate vs this player's overall 1v1 average"
-            }
-            className={cn(
-              "font-mono text-sm tabular-nums",
-              flat || lowSample
-                ? "text-muted-foreground"
-                : delta > 0
-                  ? "text-positive"
-                  : "text-negative",
+          <span className="flex flex-col items-end gap-0.5">
+            <span className="font-mono text-sm tabular-nums">
+              {winRate(l.wins, l.games)}
+            </span>
+            {delta != null && (
+              <span
+                title={
+                  lowSample
+                    ? "vs overall average — muted under 10 games (small sample)"
+                    : "vs this player's overall 1v1 win rate"
+                }
+                className={cn(
+                  "font-mono text-[10px] tabular-nums",
+                  flat || lowSample
+                    ? "text-muted-foreground"
+                    : delta > 0
+                      ? "text-positive"
+                      : "text-negative",
+                )}
+              >
+                {flat ? "±0.0%" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)}%`} vs avg
+              </span>
             )}
-          >
-            {flat ? "±0.0%" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)}%`}
           </span>
+        )
+      },
+    },
+    // Mastery — lifetime legend level (caps at 100) + total XP.
+    {
+      id: "mastery",
+      label: "Mastery",
+      align: "right",
+      width: "110px",
+      cellClass: PAD,
+      render: (l) => {
+        const s = statsByLegendId.get(l.legend_id)
+        if (!s) {
+          return <span className="font-mono text-xs text-muted-foreground">—</span>
+        }
+        const maxed = s.level >= MAX_MASTERY_LEVEL
+        return (
+          <span className="flex flex-col items-end gap-0.5">
+            <span
+              className={cn(
+                "font-mono text-sm font-semibold tabular-nums",
+                maxed ? "text-tier-gold" : "text-foreground",
+              )}
+            >
+              Lv {s.level}
+            </span>
+            <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+              {s.xp.toLocaleString()} XP
+            </span>
+          </span>
+        )
+      },
+    },
+    // Weapons — the legend's two weapons with lifetime share of time held.
+    {
+      id: "weapons",
+      label: "Weapons",
+      width: "150px",
+      cellClass: PAD,
+      render: (l) => {
+        const roster = rosterEntryByLegendId(l.legend_id)
+        const s = statsByLegendId.get(l.legend_id)
+        if (!roster) {
+          return <span className="font-mono text-xs text-muted-foreground">—</span>
+        }
+        const t1 = s?.timeheldweaponone ?? 0
+        const t2 = s?.timeheldweapontwo ?? 0
+        const total = t1 + t2
+        const pcts: [number, number] =
+          total > 0 ? [(t1 / total) * 100, (t2 / total) * 100] : [0, 0]
+        return (
+          <div className="flex items-center gap-3">
+            {roster.weapons.map((w, i) => (
+              <span key={w} className="inline-flex items-center gap-1.5">
+                <WeaponIcon weaponId={w} size={22} />
+                <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                  {total > 0 ? `${pcts[i].toFixed(0)}%` : "—"}
+                </span>
+              </span>
+            ))}
+          </div>
         )
       },
     },
@@ -1440,9 +1484,14 @@ export default async function PlayerPage({
 
   // Per-legend level/XP (from GetPlayerStats) for the Most Played hover cards.
   const legendStatsById = new Map<number, { level: number; xp: number }>()
+  // Full lifetime per-legend stats (level/xp + weapon time held), keyed by
+  // legend id — feeds the Legends tab's Mastery + Weapons columns. Same
+  // GetPlayerStats payload, no extra API call.
+  const fullLegendStatsById = new Map<number, PlayerStatsLegend>()
   if (statsRes.ok) {
     for (const l of statsRes.data.legends ?? []) {
       legendStatsById.set(l.legend_id, { level: l.level, xp: l.xp })
+      fullLegendStatsById.set(l.legend_id, l)
     }
   }
 
@@ -1616,6 +1665,7 @@ export default async function PlayerPage({
           overallWinRate={
             hasOneVOne && data.games > 0 ? (data.wins / data.games) * 100 : null
           }
+          statsByLegendId={fullLegendStatsById}
         />
       )}
 
