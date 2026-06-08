@@ -8,6 +8,7 @@ import {
 } from "@/lib/brawlhalla-api"
 import { db } from "@/lib/db"
 import { players, type PlayerRow } from "@/lib/db/schema"
+import { maybeInsertSnapshot } from "@/lib/sync/snapshots"
 
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000
 
@@ -49,6 +50,15 @@ export async function upsertPlayerRanked(ranked: PlayerRanked): Promise<void> {
         lastSynced: new Date(),
       },
     })
+
+  // Rating-history snapshot — every fresh /ranked payload flows through here
+  // (profile views + both sync crons), so this is the one place history is
+  // recorded. Best-effort: never fail the upsert (page render / cron tick).
+  try {
+    await maybeInsertSnapshot(ranked)
+  } catch (err) {
+    console.error("[players] snapshot insert failed:", err)
+  }
 }
 
 export interface SyncOutcome {
