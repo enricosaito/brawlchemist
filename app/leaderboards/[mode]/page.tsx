@@ -45,7 +45,7 @@ function ProToggle({ pro, region }: { pro: boolean; region: ApiRegion }) {
     <Link
       href={pro ? allHref : proHref}
       aria-label={pro ? "Show all players" : "Show verified pros only"}
-      className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-2.5 py-2.5 sm:ml-auto"
+      className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-2"
     >
       <span
         className={cn(
@@ -219,11 +219,14 @@ export default async function LeaderboardPage({
   return (
     <main className="pb-16">
         <div className="px-4 pt-8 sm:px-6 sm:pt-10">
-          {/* Search · Mode · Region on one line; Valhallan cutoff pushed right. */}
-          <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-3 gap-y-3">
-            <LeaderboardSearch className="w-full sm:w-auto sm:min-w-[220px]" />
+          {/* One compact control row: Search · Mode · Pro toggle · Region,
+              with the Valhallan cutoff chips closing it out on the right.
+              Paddings run slightly tighter than other pages so the whole set
+              fits a single line on desktop. */}
+          <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-2.5 gap-y-3">
+            <LeaderboardSearch className="w-full sm:w-auto sm:min-w-[200px]" />
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
                 Mode
               </span>
@@ -239,7 +242,7 @@ export default async function LeaderboardPage({
                     aria-selected={gameMode === q.id}
                     href={`/leaderboards/${q.id}?region=${region}`}
                     className={cn(
-                      "rounded-md px-2.5 py-1 font-mono text-xs uppercase tracking-wider transition-colors",
+                      "rounded-md px-2 py-1 font-mono text-xs uppercase tracking-wider transition-colors",
                       gameMode === q.id
                         ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
                         : "text-muted-foreground hover:text-foreground",
@@ -253,18 +256,18 @@ export default async function LeaderboardPage({
 
             {canPro && <ProToggle pro={proView} region={region} />}
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
                 Region
               </span>
-              <div className="flex flex-wrap items-center gap-1 rounded-md border border-border/60 bg-muted/40 p-1">
+              <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-border/60 bg-muted/40 p-1">
                 {API_REGIONS.map((r) => (
                   <Link
                     key={r}
                     href={`${modePath}?region=${r}`}
                     aria-current={region === r ? "true" : undefined}
                     className={cn(
-                      "rounded-md px-2.5 py-1 font-mono text-xs uppercase tracking-wider transition-colors",
+                      "rounded-md px-2 py-1 font-mono text-xs uppercase tracking-wider transition-colors",
                       region === r
                         ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
                         : "text-muted-foreground hover:text-foreground",
@@ -276,29 +279,23 @@ export default async function LeaderboardPage({
               </div>
             </div>
 
-          </div>
-
-          {/* Valhallan cutoffs — their own line above the board (the filter
-              row got crowded once the pro toggle went region-wide). The ALL
-              board shows the three main ladders side by side. */}
-          {cutoffs.size > 0 && (
-            <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center justify-end gap-2">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                Valhallan cutoff
-              </span>
-              <div className="flex flex-wrap items-center gap-1">
+            {/* Valhallan cutoffs — close out the control row; the helm icon
+                carries the meaning and the tooltip holds the detail. The ALL
+                board shows the three main ladders side by side. */}
+            {cutoffs.size > 0 && (
+              <div className="ml-auto flex flex-wrap items-center gap-1">
                 {cutoffRegions.map((r) => {
                   const c = cutoffs.get(r)
                   if (!c) return null
                   return (
                     <span
                       key={r}
-                      className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground"
-                      title={`#${c.rank} ${c.username} — ${c.count} Valhallans total`}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/60 px-2 py-1.5 font-mono text-[10px] uppercase tracking-wider text-foreground"
+                      title={`${r} Valhallan cutoff — #${c.rank} ${c.username}, ${c.count} Valhallans total`}
                     >
                       <Image
                         src="/assets/valhallan-helm.png"
-                        alt=""
+                        alt="Valhallan cutoff"
                         width={16}
                         height={16}
                         className="shrink-0 select-none object-contain"
@@ -311,8 +308,8 @@ export default async function LeaderboardPage({
                   )
                 })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {loadError ? (
             <div className="mx-auto max-w-[1280px] rounded-xl border border-negative/30 bg-negative/5 p-6 text-sm text-muted-foreground">
