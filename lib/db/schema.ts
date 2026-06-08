@@ -5,6 +5,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -215,3 +216,32 @@ export const liveRanked = pgTable(
 
 export type LiveRankedRow = typeof liveRanked.$inferSelect
 export type LiveRankedInsert = typeof liveRanked.$inferInsert
+
+/**
+ * ranked_snapshots — a player's 1v1 rating over time, powering the profile's
+ * rating-history chart. Rows are piggybacked onto upsertPlayerRanked (the
+ * single point where every fresh /ranked payload lands: profile views,
+ * sync-leaderboard, sync-valhallan), so history accrues at ZERO extra API
+ * cost. Writes dedupe on unchanged (rating, games) — storage stays
+ * proportional to actual matches played, not to traffic.
+ *
+ * The composite PK doubles as the read index (`WHERE brawlhalla_id ORDER BY
+ * taken_at`). No tier column (derivable from rating + cutoffs at read time)
+ * and no peak column (max of the series). Pruned to 180 days by the daily
+ * sync-valhallan cron.
+ */
+export const rankedSnapshots = pgTable(
+  "ranked_snapshots",
+  {
+    brawlhallaId: integer("brawlhalla_id").notNull(),
+    rating: integer("rating").notNull(),
+    /** wins + losses at snapshot time — dedupe key + "played since" signal. */
+    games: integer("games").notNull(),
+    takenAt: timestamp("taken_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.brawlhallaId, t.takenAt] })],
+)
+
+export type RankedSnapshotRow = typeof rankedSnapshots.$inferSelect

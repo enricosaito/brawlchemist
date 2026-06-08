@@ -18,6 +18,20 @@ import type { Tier } from "./types"
  */
 export const VALHALLAN_MIN_WINS = 100
 
+/**
+ * Fixed rating floor of each tier (Valhallan has none — it's a regional top-N
+ * with a moving cutoff, see above). Used for the rating-history chart's
+ * threshold lines.
+ */
+export const TIER_FLOOR: Record<Exclude<Tier, "Valhallan">, number> = {
+  Tin: 200,
+  Bronze: 910,
+  Silver: 1130,
+  Gold: 1390,
+  Platinum: 1680,
+  Diamond: 2000,
+}
+
 export const KNOWN_TIERS: readonly Tier[] = [
   "Tin",
   "Bronze",

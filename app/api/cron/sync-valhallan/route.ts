@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server"
+import { lt } from "drizzle-orm"
+import { db } from "@/lib/db"
+import { rankedSnapshots } from "@/lib/db/schema"
 import { syncManyPlayers } from "@/lib/sync/players"
 import {
   discoverAllValhallanIds,
@@ -11,6 +14,8 @@ export const maxDuration = 300
 
 const DEFAULT_LIMIT = 50
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+/** Rating-history snapshots older than this are pruned by the daily tick. */
+const SNAPSHOT_RETENTION_MS = 180 * 24 * 60 * 60 * 1000
 
 function authorized(req: Request): boolean {
   const expected = process.env.CRON_SECRET
@@ -58,6 +63,24 @@ export async function GET(req: Request) {
     ttlMs: WEEK_MS,
     force,
   })
+
+  // Piggybacked housekeeping: prune rating-history snapshots past retention.
+  // Best-effort — a prune failure shouldn't fail the sync tick.
+  let pruned = 0
+  try {
+    const res = await db()
+      .delete(rankedSnapshots)
+      .where(
+        lt(
+          rankedSnapshots.takenAt,
+          new Date(Date.now() - SNAPSHOT_RETENTION_MS),
+        ),
+      )
+    pruned = res.count ?? 0
+  } catch (err) {
+    console.error("[sync-valhallan] snapshot prune failed:", err)
+  }
+
   const summary = {
     discovered: discovered.size,
     stale: stale.length,
@@ -65,6 +88,7 @@ export async function GET(req: Request) {
     synced: outcomes.filter((o) => o.status === "synced").length,
     fresh: outcomes.filter((o) => o.status === "fresh").length,
     failed: outcomes.filter((o) => o.status === "failed").length,
+    pruned,
   }
   return NextResponse.json(summary)
 }

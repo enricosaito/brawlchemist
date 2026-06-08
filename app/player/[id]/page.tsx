@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ArrowUpRight, ChevronRight, Trophy, Users } from "lucide-react"
 import { RegionPill, TIER_TEXT_COLOR, WeaponIcon } from "@/components/site/primitives"
 import { ProBadge } from "@/components/site/pro-badge"
+import { RatingHistoryCard } from "@/components/player/rating-history-card"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { getProfile } from "@/lib/sync/profiles"
 import {
@@ -1329,6 +1330,14 @@ export default async function PlayerPage({
               ? { level: accountStats.level, games: accountStats.games }
               : null
           }
+        />
+      )}
+
+      {hasOneVOne && (
+        <RatingHistoryCard
+          brawlhallaId={numId}
+          valhallanCutoff={cutoff1v1}
+          tier={deriveTier(data.tier, headerValhallan)}
         />
       )}
 
