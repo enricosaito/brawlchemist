@@ -232,4 +232,66 @@ export async function getLiveQueue(opts: {
   }))
 }
 
+/** Movers window — entries whose latest session happened within the last day. */
+const MOVERS_WINDOW_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Today's biggest climbers and droppers for a queue: entries active in the
+ * last 24h, ranked by their latest session's ELO delta. The delta covers one
+ * session (anchors reset after a 10-minute idle gap), so this reads as "the
+ * biggest single-session swings today" — which is the interesting story
+ * anyway. Same table the live feed reads; zero API cost.
+ */
+export async function getDailyMovers(opts: {
+  queue: LiveQueue
+  region?: string | null
+  limit?: number
+}): Promise<{ gainers: LiveRow[]; losers: LiveRow[] }> {
+  const { queue, region, limit = 5 } = opts
+  const cutoff = new Date(Date.now() - MOVERS_WINDOW_MS)
+
+  const conds = [
+    eq(liveRanked.queue, queue),
+    gte(liveRanked.lastActiveAt, cutoff),
+  ]
+  if (region && region.toUpperCase() !== "ALL") {
+    conds.push(sql`upper(${liveRanked.region}) = ${region.toUpperCase()}`)
+  }
+
+  let rows
+  try {
+    rows = await db()
+      .select()
+      .from(liveRanked)
+      .where(and(...conds))
+  } catch (err) {
+    console.error("[live] movers read failed:", err)
+    return { gainers: [], losers: [] }
+  }
+
+  const moved: LiveRow[] = rows
+    .map((r) => ({
+      id: r.id,
+      rank: r.rank,
+      rating: r.rating,
+      eloDiff: r.rating - r.sessionStartRating,
+      rankDiff: r.sessionStartRank - r.rank,
+      region: r.region,
+      players: (r.players as LivePlayer[]) ?? [],
+      lastActiveAt: r.lastActiveAt as Date,
+    }))
+    .filter((r) => r.eloDiff !== 0)
+
+  const gainers = [...moved]
+    .filter((r) => r.eloDiff > 0)
+    .sort((a, b) => b.eloDiff - a.eloDiff)
+    .slice(0, limit)
+  const losers = [...moved]
+    .filter((r) => r.eloDiff < 0)
+    .sort((a, b) => a.eloDiff - b.eloDiff)
+    .slice(0, limit)
+
+  return { gainers, losers }
+}
+
 
