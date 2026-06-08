@@ -491,8 +491,8 @@ function EsportsSection({ profile }: { profile: EsportsProfile }) {
   )[0]
 
   return (
-    <section className="mt-8 px-4 sm:px-6">
-      <SectionHeading>Esports</SectionHeading>
+    // No section heading — the active "Esports" tab already names the view.
+    <section className="mt-6 px-4 sm:px-6">
       <div className="mx-auto max-w-[1280px]">
         <div className="rounded-2xl border border-border/60 bg-card/50 p-5">
           <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -1591,6 +1591,8 @@ export default async function PlayerPage({
     ...(showEsports ? [{ key: "esports", label: "Esports" }] : []),
   ]
   const tab = tabs.some((t) => t.key === sp.tab) ? (sp.tab as string) : "overview"
+  // Best three teams (already rating-sorted) for the Overview side column.
+  const overviewTeams = teamViews.slice(0, 3)
 
   return (
     <Shell>
@@ -1635,20 +1637,62 @@ export default async function PlayerPage({
 
       {tab === "overview" && (
         <>
-          {hasOneVOne && (
-            <RatingHistoryCard
-              brawlhallaId={numId}
-              valhallanCutoff={cutoff1v1}
-              tier={deriveTier(data.tier, headerValhallan)}
-            />
-          )}
-
           {accountStats && (
             <AccountSection
               stats={accountStats}
               guildId={guildId}
               guildName={guildName}
             />
+          )}
+
+          {hasOneVOne && (
+            <section className="mt-8 px-4 sm:px-6">
+              <div
+                className={cn(
+                  "mx-auto grid max-w-[1280px] grid-cols-1 gap-4",
+                  overviewTeams.length > 0 && "lg:grid-cols-3",
+                )}
+              >
+                <div className={overviewTeams.length > 0 ? "lg:col-span-2" : ""}>
+                  <RatingHistoryCard
+                    embedded
+                    brawlhallaId={numId}
+                    valhallanCutoff={cutoff1v1}
+                    tier={deriveTier(data.tier, headerValhallan)}
+                  />
+                </div>
+
+                {overviewTeams.length > 0 && (
+                  <div>
+                    <div className="mb-3 flex items-center gap-2">
+                      <h2 className="font-display text-lg font-semibold">
+                        Top 2v2 Teams
+                      </h2>
+                      {teamViews.length > overviewTeams.length && (
+                        <Link
+                          href={`/player/${numId}?tab=teams`}
+                          scroll={false}
+                          className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          all {teamViews.length} →
+                        </Link>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      {overviewTeams.map((view) => (
+                        <TeamCard
+                          key={`${view.team.brawlhalla_id_one}-${view.team.brawlhalla_id_two}`}
+                          view={view}
+                          ownerName={data.name}
+                          ownerSlug={ownerSlug}
+                          valhallanCutoff={cutoff2v2}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
           )}
 
           {!hasOneVOne && !accountStats && (
