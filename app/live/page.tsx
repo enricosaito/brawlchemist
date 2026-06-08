@@ -1,10 +1,17 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { BadgeCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LiveAutoRefresh } from "@/components/site/live-auto-refresh"
 import { PageHero } from "@/components/site/page-hero"
-import { Delta, PlayerLink, RegionPill } from "@/components/site/primitives"
+import {
+  Delta,
+  LegendChip,
+  PlayerLink,
+  RegionPill,
+} from "@/components/site/primitives"
 import { API_REGIONS, isApiRegion } from "@/lib/brawlhalla-api"
+import { slugForLegendId } from "@/lib/legends-roster"
 import {
   getLiveQueue,
   isLiveQueue,
@@ -12,6 +19,10 @@ import {
   type LiveQueue,
   type LiveRow,
 } from "@/lib/sync/live"
+import { getPlayersByIds } from "@/lib/sync/players"
+import { getProfilesMap } from "@/lib/sync/profiles"
+import type { PlayerRow } from "@/lib/db/schema"
+import type { PlayerPreview } from "@/lib/player-previews"
 
 // Time-sensitive + reads "now − 10 min" — never cache the render.
 export const dynamic = "force-dynamic"
@@ -46,11 +57,28 @@ function LivePill({ count }: { count: number }) {
  * LiveCard — one active player/team, styled after the leaderboard podium
  * cards. Solo cards link to the player profile (whole card is the target);
  * team cards keep per-player links since the destination is ambiguous.
+ * Enriched from our own DB (no API cost): main-legend chip per player and
+ * the pro handle + badge for verified pros.
  */
-function LiveCard({ row }: { row: LiveRow }) {
+function LiveCard({
+  row,
+  playersMap,
+  previews,
+}: {
+  row: LiveRow
+  playersMap: Map<number, PlayerRow>
+  previews: Map<number, PlayerPreview>
+}) {
   const solo = row.players.length === 1
   const player = row.players[0]
   const href = solo && player ? `/player/${player.id}` : null
+
+  const slugFor = (id: number) => {
+    const lid = playersMap.get(id)?.topLegendId
+    return lid ? slugForLegendId(lid) : null
+  }
+  const soloSlug = player ? slugFor(player.id) : null
+  const soloHandle = player ? previews.get(player.id)?.verified?.handle : null
 
   const baseClass =
     "relative flex flex-col gap-1.5 overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-4 shadow-lg backdrop-blur-sm"
@@ -70,24 +98,43 @@ function LiveCard({ row }: { row: LiveRow }) {
         )}
       </div>
 
-      {/* Identity. */}
+      {/* Identity — main-legend chip leads; verified pros show their handle
+          + badge instead of the in-game name. */}
       <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
         {solo ? (
-          <span className="min-w-0 truncate text-base font-semibold leading-tight">
-            {player?.name ?? "—"}
+          <span className="inline-flex min-w-0 items-center gap-2">
+            {soloSlug && (
+              <LegendChip legendId={soloSlug} size="md" showName={false} />
+            )}
+            <span className="min-w-0 truncate text-base font-semibold leading-tight">
+              {soloHandle ?? player?.name ?? "—"}
+            </span>
+            {soloHandle && (
+              <BadgeCheck className="size-4 shrink-0 text-foreground" />
+            )}
           </span>
         ) : (
-          row.players.map((p, i) => (
-            <span key={p.id} className="inline-flex items-center gap-1.5">
-              {i > 0 && <span className="text-muted-foreground">+</span>}
-              <PlayerLink
-                id={p.id}
-                className="truncate text-base font-semibold leading-tight"
-              >
-                {p.name}
-              </PlayerLink>
-            </span>
-          ))
+          row.players.map((p, i) => {
+            const slug = slugFor(p.id)
+            const handle = previews.get(p.id)?.verified?.handle
+            return (
+              <span key={p.id} className="inline-flex min-w-0 items-center gap-1.5">
+                {i > 0 && <span className="text-muted-foreground">+</span>}
+                {slug && (
+                  <LegendChip legendId={slug} size="sm" showName={false} />
+                )}
+                <PlayerLink
+                  id={p.id}
+                  className="truncate text-base font-semibold leading-tight"
+                >
+                  {handle ?? p.name}
+                </PlayerLink>
+                {handle && (
+                  <BadgeCheck className="size-3.5 shrink-0 text-foreground" />
+                )}
+              </span>
+            )
+          })
         )}
       </div>
 
@@ -131,6 +178,23 @@ export default async function LivePage({
     sp.region && isApiRegion(sp.region) ? sp.region : "ALL"
 
   const rows = await getLiveQueue({ queue, region })
+
+  // Enrichment from our own cache — main-legend chips (scalar columns only,
+  // no ranked_json) and verified-pro handles. Zero Brawlhalla API cost; both
+  // fail open to plain names.
+  let playersMap = new Map<number, PlayerRow>()
+  let previews = new Map<number, PlayerPreview>()
+  if (rows.length > 0) {
+    const ids = rows.flatMap((r) => r.players.map((p) => p.id))
+    const [players, profiles] = await Promise.allSettled([
+      getPlayersByIds(ids, { includeRankedJson: false }),
+      getProfilesMap(),
+    ])
+    if (players.status === "fulfilled") playersMap = players.value
+    else console.error("[live] player cache lookup failed:", players.reason)
+    if (profiles.status === "fulfilled") previews = profiles.value
+    else console.error("[live] profiles lookup failed:", profiles.reason)
+  }
 
   return (
     <main className="pb-16">
@@ -207,7 +271,12 @@ export default async function LivePage({
         ) : (
           <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {rows.map((row) => (
-              <LiveCard key={row.id} row={row} />
+              <LiveCard
+                key={row.id}
+                row={row}
+                playersMap={playersMap}
+                previews={previews}
+              />
             ))}
           </div>
         )}
