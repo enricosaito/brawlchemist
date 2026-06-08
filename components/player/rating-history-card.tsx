@@ -23,12 +23,16 @@ export async function RatingHistoryCard({
   brawlhallaId,
   valhallanCutoff,
   tier,
+  embedded = false,
 }: {
   brawlhallaId: number
   /** The region's live Valhallan cutoff — drawn as the top threshold line. */
   valhallanCutoff: number | null
   /** Player's current tier — drives the line color. */
   tier: Tier | null
+  /** When true, drop the outer section/width wrapper so a parent can place
+   * the card in its own layout (e.g. an Overview grid column). */
+  embedded?: boolean
 }) {
   let history: Awaited<ReturnType<typeof getRatingHistory>> = []
   try {
@@ -37,21 +41,31 @@ export async function RatingHistoryCard({
     console.error("[rating-history] read failed:", err)
   }
 
-  const card = (body: React.ReactNode) => (
-    <section className="mt-8 px-4 sm:px-6">
-      <div className="mx-auto mb-3 flex max-w-[1280px] items-center gap-2">
-        <h2 className="font-display text-lg font-semibold">Rating History</h2>
-        <span className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          Last {WINDOW_DAYS}d
-        </span>
-      </div>
-      <div className="mx-auto max-w-[1280px]">
+  const heading = (
+    <div className="mb-3 flex items-center gap-2">
+      <h2 className="font-display text-lg font-semibold">Rating History</h2>
+      <span className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        Last {WINDOW_DAYS}d
+      </span>
+    </div>
+  )
+
+  const card = (body: React.ReactNode) => {
+    const inner = (
+      <>
+        {heading}
         <div className="rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-sm sm:p-6">
           {body}
         </div>
-      </div>
-    </section>
-  )
+      </>
+    )
+    if (embedded) return inner
+    return (
+      <section className="mt-8 px-4 sm:px-6">
+        <div className="mx-auto max-w-[1280px]">{inner}</div>
+      </section>
+    )
+  }
 
   // History accrues from each fresh sync — brand-new (to us) players start
   // empty. One point can't draw a line either.
