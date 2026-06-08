@@ -13,6 +13,7 @@ import {
 import { API_REGIONS, isApiRegion } from "@/lib/brawlhalla-api"
 import { slugForLegendId } from "@/lib/legends-roster"
 import {
+  getDailyMovers,
   getLiveQueue,
   isLiveQueue,
   LIVE_QUEUES,
@@ -164,6 +165,108 @@ function LiveCard({
   )
 }
 
+/**
+ * MoverRow — one line of the daily-movers panel: legend chip, identity
+ * (pro handle + badge when verified), region, and the session ELO swing.
+ * Solo rows link to the profile.
+ */
+function MoverRow({
+  row,
+  playersMap,
+  previews,
+}: {
+  row: LiveRow
+  playersMap: Map<number, PlayerRow>
+  previews: Map<number, PlayerPreview>
+}) {
+  const solo = row.players.length === 1
+  const player = row.players[0]
+  const lid = player ? playersMap.get(player.id)?.topLegendId : null
+  const slug = lid ? slugForLegendId(lid) : null
+  const handle = player ? previews.get(player.id)?.verified?.handle : null
+  const name = solo
+    ? (handle ?? player?.name ?? "—")
+    : row.players.map((p) => previews.get(p.id)?.verified?.handle ?? p.name).join(" + ")
+
+  const body = (
+    <>
+      {slug ? (
+        <LegendChip legendId={slug} size="sm" showName={false} />
+      ) : (
+        <span
+          className="size-6 shrink-0 rounded-md border border-border/60 bg-muted/30"
+          aria-hidden
+        />
+      )}
+      <span className="inline-flex min-w-0 flex-1 items-center gap-1.5">
+        <span className="min-w-0 truncate text-sm font-medium">{name}</span>
+        {solo && handle && (
+          <BadgeCheck className="size-3.5 shrink-0 text-foreground" />
+        )}
+      </span>
+      {row.region && <RegionPill region={row.region.toUpperCase()} />}
+      <span className="font-mono text-xs tabular-nums text-muted-foreground">
+        {row.rating.toLocaleString()}
+      </span>
+      <Delta value={row.eloDiff} />
+    </>
+  )
+
+  const rowClass =
+    "flex min-h-10 items-center gap-2.5 px-3 py-1.5 transition-colors"
+
+  return solo && player ? (
+    <Link
+      href={`/player/${player.id}`}
+      prefetch={false}
+      className={cn(rowClass, "hover:bg-muted/40")}
+    >
+      {body}
+    </Link>
+  ) : (
+    <div className={rowClass}>{body}</div>
+  )
+}
+
+/** One movers panel (gainers or losers). */
+function MoversPanel({
+  title,
+  tone,
+  rows,
+  playersMap,
+  previews,
+}: {
+  title: string
+  tone: "positive" | "negative"
+  rows: LiveRow[]
+  playersMap: Map<number, PlayerRow>
+  previews: Map<number, PlayerPreview>
+}) {
+  if (rows.length === 0) return null
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
+      <div
+        className={cn(
+          "border-b border-border/60 px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em]",
+          tone === "positive" ? "text-positive" : "text-negative",
+        )}
+      >
+        {title}
+      </div>
+      <div className="divide-y divide-border/40">
+        {rows.map((row) => (
+          <MoverRow
+            key={row.id}
+            row={row}
+            playersMap={playersMap}
+            previews={previews}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const FILTER_BTN =
   "rounded-md px-2.5 py-1 font-mono text-xs uppercase tracking-wider transition-colors"
 
@@ -177,15 +280,19 @@ export default async function LivePage({
   const region =
     sp.region && isApiRegion(sp.region) ? sp.region : "ALL"
 
-  const rows = await getLiveQueue({ queue, region })
+  const [rows, movers] = await Promise.all([
+    getLiveQueue({ queue, region }),
+    getDailyMovers({ queue, region, limit: 5 }),
+  ])
 
   // Enrichment from our own cache — main-legend chips (scalar columns only,
   // no ranked_json) and verified-pro handles. Zero Brawlhalla API cost; both
   // fail open to plain names.
   let playersMap = new Map<number, PlayerRow>()
   let previews = new Map<number, PlayerPreview>()
-  if (rows.length > 0) {
-    const ids = rows.flatMap((r) => r.players.map((p) => p.id))
+  const allRows = [...rows, ...movers.gainers, ...movers.losers]
+  if (allRows.length > 0) {
+    const ids = allRows.flatMap((r) => r.players.map((p) => p.id))
     const [players, profiles] = await Promise.allSettled([
       getPlayersByIds(ids, { includeRankedJson: false }),
       getProfilesMap(),
@@ -260,6 +367,38 @@ export default async function LivePage({
             </div>
           </div>
         </div>
+
+        {/* Daily movers — the biggest single-session ELO swings in the last
+            24h. Rendered above the live grid so the page tells a story even
+            when the 10-minute window is quiet. */}
+        {(movers.gainers.length > 0 || movers.losers.length > 0) && (
+          <section className="mx-auto mb-6 max-w-[1280px]">
+            <div className="mb-3 flex items-center gap-2">
+              <h2 className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-foreground/90">
+                Daily movers
+              </h2>
+              <span className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                last 24h sessions
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <MoversPanel
+                title="Top climbers"
+                tone="positive"
+                rows={movers.gainers}
+                playersMap={playersMap}
+                previews={previews}
+              />
+              <MoversPanel
+                title="Biggest drops"
+                tone="negative"
+                rows={movers.losers}
+                playersMap={playersMap}
+                previews={previews}
+              />
+            </div>
+          </section>
+        )}
 
         {rows.length === 0 ? (
           <div className="mx-auto max-w-[1280px] rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">

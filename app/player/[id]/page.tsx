@@ -3,7 +3,14 @@ import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowUpRight, ChevronRight, Trophy, Users } from "lucide-react"
-import { RegionPill, TIER_TEXT_COLOR, WeaponIcon } from "@/components/site/primitives"
+import {
+  LegendChip,
+  RegionPill,
+  TIER_TEXT_COLOR,
+  WeaponIcon,
+} from "@/components/site/primitives"
+import { DataTable, type ColDef } from "@/components/site/data-table"
+import { toTier } from "@/components/site/leaderboard-columns"
 import { ProBadge } from "@/components/site/pro-badge"
 import { RatingHistoryCard } from "@/components/player/rating-history-card"
 import type { PlayerPreview } from "@/lib/player-previews"
@@ -722,6 +729,189 @@ function MostPlayedLegend({ legend }: { legend: TopLegend }) {
   )
 }
 
+/**
+ * LegendsSection — the full per-legend ranked breakdown this season, mined
+ * from the cached /ranked payload (zero extra API cost). Most-played first.
+ */
+function LegendsSection({ legends }: { legends: PlayerRankedLegend[] }) {
+  const played = [...legends]
+    .filter((l) => l.games > 0)
+    .sort((a, b) => b.games - a.games)
+  const totalGames = played.reduce((sum, l) => sum + l.games, 0)
+
+  const columns: ColDef<PlayerRankedLegend>[] = [
+    {
+      id: "legend",
+      label: "Legend",
+      render: (l) => {
+        const slug = slugForLegendId(l.legend_id)
+        return slug ? (
+          <LegendChip legendId={slug} size="md" />
+        ) : (
+          <span className="text-sm text-muted-foreground">
+            Legend #{l.legend_id}
+          </span>
+        )
+      },
+    },
+    {
+      id: "tier",
+      label: "Tier",
+      width: "110px",
+      render: (l) => {
+        const tier = toTier(l.tier)
+        return (
+          <span
+            className={cn(
+              "font-mono text-[11px] font-medium uppercase tracking-wider",
+              tier ? TIER_TEXT_COLOR[tier] : "text-muted-foreground",
+            )}
+          >
+            {l.tier ?? "—"}
+          </span>
+        )
+      },
+    },
+    {
+      id: "rating",
+      label: "Rating",
+      align: "right",
+      width: "110px",
+      render: (l) => (
+        <span className="font-mono text-sm tabular-nums">
+          {formatElo(l.rating)}
+          <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+            ELO
+          </span>
+        </span>
+      ),
+    },
+    {
+      id: "peak",
+      label: "Peak",
+      align: "right",
+      width: "90px",
+      render: (l) => (
+        <span className="font-mono text-sm tabular-nums text-muted-foreground">
+          {formatElo(l.peak_rating)}
+        </span>
+      ),
+    },
+    {
+      id: "games",
+      label: "Games",
+      align: "right",
+      width: "90px",
+      render: (l) => (
+        <span className="font-mono text-sm tabular-nums">
+          {l.games.toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      id: "pick",
+      label: "Pick %",
+      align: "right",
+      width: "90px",
+      render: (l) => (
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+          {totalGames > 0 ? `${((l.games / totalGames) * 100).toFixed(1)}%` : "—"}
+        </span>
+      ),
+    },
+    {
+      id: "record",
+      label: "W – L",
+      align: "right",
+      width: "110px",
+      render: (l) => (
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+          <span className="text-positive">{l.wins.toLocaleString()}</span>
+          <span className="px-1 opacity-60">–</span>
+          <span className="text-negative">
+            {Math.max(0, l.games - l.wins).toLocaleString()}
+          </span>
+        </span>
+      ),
+    },
+    {
+      id: "winrate",
+      label: "Win Rate",
+      align: "right",
+      width: "100px",
+      render: (l) => (
+        <span className="font-mono text-sm tabular-nums">
+          {winRate(l.wins, l.games)}
+        </span>
+      ),
+    },
+  ]
+
+  return (
+    <section className="mt-8 px-4 sm:px-6">
+      <SectionHeading count={played.length}>Ranked Legends</SectionHeading>
+      <div className="mx-auto max-w-[1280px]">
+        <DataTable
+          columns={columns}
+          rows={played}
+          rowKey={(l) => String(l.legend_id)}
+        />
+      </div>
+    </section>
+  )
+}
+
+interface ProfileTab {
+  key: string
+  label: string
+  count?: number
+}
+
+/** Link-based tab bar under the profile header. `scroll={false}` keeps the
+ * viewport in place when switching. */
+function ProfileTabs({
+  tabs,
+  active,
+  baseHref,
+}: {
+  tabs: ProfileTab[]
+  active: string
+  baseHref: string
+}) {
+  return (
+    <div className="mt-8 px-4 sm:px-6">
+      <div
+        role="tablist"
+        aria-label="Profile sections"
+        className="mx-auto flex max-w-[1280px] items-center gap-1 overflow-x-auto border-b border-border/60"
+      >
+        {tabs.map((t) => (
+          <Link
+            key={t.key}
+            role="tab"
+            aria-selected={active === t.key}
+            href={t.key === "overview" ? baseHref : `${baseHref}?tab=${t.key}`}
+            scroll={false}
+            className={cn(
+              "-mb-px inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 font-mono text-xs uppercase tracking-wider transition-colors",
+              active === t.key
+                ? "border-tier-valhallan text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t.label}
+            {t.count != null && (
+              <span className="rounded border border-border/60 bg-muted/40 px-1 py-px font-mono text-[9px] tabular-nums">
+                {t.count}
+              </span>
+            )}
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function ProfileHeader({
   data,
   titles,
@@ -1119,10 +1309,13 @@ function FallbackHeader({
 
 export default async function PlayerPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ tab?: string }>
 }) {
   const { id } = await params
+  const sp = await searchParams
   const numId = parseId(id)
 
   if (!numId) {
@@ -1294,6 +1487,22 @@ export default async function PlayerPage({
   const hasOneVOne = hasRankedName && !!data.tier && data.tier !== "none"
   const topTeam = teams[0] ?? null
 
+  // Tabbed sections below the header. Tabs only appear when they have
+  // content; Overview (rating history + esports) is always first.
+  const playedLegends = (data.legends ?? []).filter((l) => l.games > 0)
+  const showEsports = !!esports && (esports.isPro || esports.earnings > 0)
+  const tabs: ProfileTab[] = [
+    { key: "overview", label: "Overview" },
+    ...(playedLegends.length > 0
+      ? [{ key: "legends", label: "Legends", count: playedLegends.length }]
+      : []),
+    ...(teamViews.length > 0
+      ? [{ key: "teams", label: "2v2 Teams", count: teamViews.length }]
+      : []),
+    ...(accountStats ? [{ key: "account", label: "Account" }] : []),
+  ]
+  const tab = tabs.some((t) => t.key === sp.tab) ? (sp.tab as string) : "overview"
+
   return (
     <Shell>
       {hasOneVOne ? (
@@ -1333,27 +1542,31 @@ export default async function PlayerPage({
         />
       )}
 
-      {hasOneVOne && (
-        <RatingHistoryCard
-          brawlhallaId={numId}
-          valhallanCutoff={cutoff1v1}
-          tier={deriveTier(data.tier, headerValhallan)}
-        />
+      <ProfileTabs tabs={tabs} active={tab} baseHref={`/player/${numId}`} />
+
+      {tab === "overview" && (
+        <>
+          {hasOneVOne && (
+            <RatingHistoryCard
+              brawlhallaId={numId}
+              valhallanCutoff={cutoff1v1}
+              tier={deriveTier(data.tier, headerValhallan)}
+            />
+          )}
+
+          {showEsports && <EsportsSection profile={esports} />}
+
+          {!hasOneVOne && !showEsports && (
+            <p className="mt-10 text-center font-mono text-xs uppercase tracking-wider text-muted-foreground">
+              No 1v1 ranked play this season — see the other tabs.
+            </p>
+          )}
+        </>
       )}
 
-      {esports && (esports.isPro || esports.earnings > 0) && (
-        <EsportsSection profile={esports} />
-      )}
+      {tab === "legends" && <LegendsSection legends={playedLegends} />}
 
-      {accountStats && (
-        <AccountSection
-          stats={accountStats}
-          guildId={guildId}
-          guildName={guildName}
-        />
-      )}
-
-      {teamViews.length > 0 && (
+      {tab === "teams" && (
         <div className="mt-8 px-4 sm:px-6">
           <SectionHeading count={teamViews.length}>2v2 Teams</SectionHeading>
           <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1368,6 +1581,14 @@ export default async function PlayerPage({
             ))}
           </div>
         </div>
+      )}
+
+      {tab === "account" && accountStats && (
+        <AccountSection
+          stats={accountStats}
+          guildId={guildId}
+          guildName={guildName}
+        />
       )}
     </Shell>
   )
