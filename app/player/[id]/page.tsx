@@ -755,6 +755,9 @@ function LegendsSection({
     {
       id: "legend",
       label: "Legend",
+      // Fixed width keeps the name column from stretching, so Games sits
+      // right beside the legend and the row reads linearly.
+      width: "180px",
       cellClass: PAD,
       render: (l) => {
         const slug = slugForLegendId(l.legend_id)
@@ -772,11 +775,11 @@ function LegendsSection({
     {
       id: "games",
       label: "Games",
-      align: "right",
-      width: "110px",
+      align: "left",
+      width: "100px",
       cellClass: PAD,
       render: (l) => (
-        <span className="flex flex-col items-end gap-0.5">
+        <span className="flex flex-col items-start gap-0.5">
           <span className="font-mono text-lg font-bold leading-none tabular-nums text-foreground">
             {l.games.toLocaleString()}
           </span>
@@ -857,12 +860,19 @@ function LegendsSection({
         }
         const delta = wr - overallWinRate
         const flat = Math.abs(delta) < 0.05
+        // Tiny samples make wild deltas — keep the number but mute the color
+        // until the legend has a meaningful game count.
+        const lowSample = l.games < 10
         return (
           <span
-            title="Win rate vs this player's overall 1v1 average"
+            title={
+              lowSample
+                ? "Win rate vs overall average — muted under 10 games (small sample)"
+                : "Win rate vs this player's overall 1v1 average"
+            }
             className={cn(
               "font-mono text-sm tabular-nums",
-              flat
+              flat || lowSample
                 ? "text-muted-foreground"
                 : delta > 0
                   ? "text-positive"
@@ -877,8 +887,8 @@ function LegendsSection({
   ]
 
   return (
-    <section className="mt-8 px-4 sm:px-6">
-      <SectionHeading count={played.length}>Ranked Legends</SectionHeading>
+    // No section heading — the active "Legends" tab already names the view.
+    <section className="mt-6 px-4 sm:px-6">
       <div className="mx-auto max-w-[1280px]">
         <DataTable
           columns={columns}
