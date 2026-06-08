@@ -99,6 +99,33 @@ export function listEvents(opts: {
   return apiFetch<ListEventsResponse>("/v2/event", params, 3600)
 }
 
+// A year-mode rarely exceeds ~100 events (2026 1v1 mid-season: 31; 2019: ~90),
+// so draining a few 50-result pages covers a full year — no cursor UI needed.
+const EVENT_PAGE_CAP = 4
+
+/**
+ * Every event of a (year, gameMode), nextToken pages drained up to a cap.
+ * Returns null when the first page fails (later-page failures yield a partial
+ * list). NOTE: `isOfficial=false` upstream means "include community" — it
+ * returns BOTH kinds. There is no community-only param, so official/community
+ * filtering happens client-side on the full list.
+ */
+async function listYearModeEvents(
+  year: number,
+  gameMode: EsportsGameMode,
+): Promise<Tournament[] | null> {
+  const all: Tournament[] = []
+  let nextToken: string | undefined
+  for (let page = 0; page < EVENT_PAGE_CAP; page++) {
+    const res = await listEvents({ gameMode, year, maxResults: 50, nextToken })
+    if (!res.ok) return page === 0 ? null : all
+    all.push(...res.data.tournaments)
+    if (!res.data.nextToken) break
+    nextToken = res.data.nextToken
+  }
+  return all
+}
+
 /**
  * All of a year's tournaments across both game modes, merged + de-duped by id.
  * Returns null only if BOTH mode fetches fail (one failing still yields a
@@ -108,15 +135,15 @@ export async function getYearTournaments(
   year: number,
 ): Promise<Tournament[] | null> {
   const [ones, twos] = await Promise.all([
-    listEvents({ gameMode: 1, year, maxResults: 50 }),
-    listEvents({ gameMode: 2, year, maxResults: 50 }),
+    listYearModeEvents(year, 1),
+    listYearModeEvents(year, 2),
   ])
-  if (!ones.ok && !twos.ok) return null
+  if (ones === null && twos === null) return null
 
   const byId = new Map<string, Tournament>()
-  for (const res of [ones, twos]) {
-    if (res.ok) {
-      for (const t of res.data.tournaments) byId.set(t.id, t)
+  for (const list of [ones, twos]) {
+    if (list) {
+      for (const t of list) byId.set(t.id, t)
     }
   }
   return [...byId.values()].sort((a, b) => b.startTime - a.startTime)
