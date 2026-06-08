@@ -10,7 +10,6 @@ import {
   WeaponIcon,
 } from "@/components/site/primitives"
 import { DataTable, type ColDef } from "@/components/site/data-table"
-import { toTier } from "@/components/site/leaderboard-columns"
 import { ProBadge } from "@/components/site/pro-badge"
 import { RatingHistoryCard } from "@/components/player/rating-history-card"
 import type { PlayerPreview } from "@/lib/player-previews"
@@ -731,22 +730,36 @@ function MostPlayedLegend({ legend }: { legend: TopLegend }) {
 
 /**
  * LegendsSection — the full per-legend ranked breakdown this season, mined
- * from the cached /ranked payload (zero extra API cost). Most-played first.
+ * from the cached /ranked payload (zero extra API cost). Most-played first;
+ * the game count carries the visual weight. "WR Δ" compares the legend's win
+ * rate to the player's overall 1v1 average.
  */
-function LegendsSection({ legends }: { legends: PlayerRankedLegend[] }) {
+function LegendsSection({
+  legends,
+  overallWinRate,
+}: {
+  legends: PlayerRankedLegend[]
+  /** The player's overall 1v1 win rate this season (0–100), or null. */
+  overallWinRate: number | null
+}) {
   const played = [...legends]
     .filter((l) => l.games > 0)
     .sort((a, b) => b.games - a.games)
   const totalGames = played.reduce((sum, l) => sum + l.games, 0)
 
+  // Roomier rows than the default table — this is a browsing surface, not a
+  // dense ladder.
+  const PAD = "py-3.5"
+
   const columns: ColDef<PlayerRankedLegend>[] = [
     {
       id: "legend",
       label: "Legend",
+      cellClass: PAD,
       render: (l) => {
         const slug = slugForLegendId(l.legend_id)
         return slug ? (
-          <LegendChip legendId={slug} size="md" />
+          <LegendChip legendId={slug} size="lg" className="font-medium" />
         ) : (
           <span className="text-sm text-muted-foreground">
             Legend #{l.legend_id}
@@ -754,29 +767,33 @@ function LegendsSection({ legends }: { legends: PlayerRankedLegend[] }) {
         )
       },
     },
+    // Games lead the metrics and carry the emphasis — pick % rides along as
+    // muted context beneath.
     {
-      id: "tier",
-      label: "Tier",
+      id: "games",
+      label: "Games",
+      align: "right",
       width: "110px",
-      render: (l) => {
-        const tier = toTier(l.tier)
-        return (
-          <span
-            className={cn(
-              "font-mono text-[11px] font-medium uppercase tracking-wider",
-              tier ? TIER_TEXT_COLOR[tier] : "text-muted-foreground",
-            )}
-          >
-            {l.tier ?? "—"}
+      cellClass: PAD,
+      render: (l) => (
+        <span className="flex flex-col items-end gap-0.5">
+          <span className="font-mono text-lg font-bold leading-none tabular-nums text-foreground">
+            {l.games.toLocaleString()}
           </span>
-        )
-      },
+          <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+            {totalGames > 0
+              ? `${((l.games / totalGames) * 100).toFixed(1)}% pick`
+              : "—"}
+          </span>
+        </span>
+      ),
     },
     {
       id: "rating",
       label: "Rating",
       align: "right",
       width: "110px",
+      cellClass: PAD,
       render: (l) => (
         <span className="font-mono text-sm tabular-nums">
           {formatElo(l.rating)}
@@ -791,31 +808,10 @@ function LegendsSection({ legends }: { legends: PlayerRankedLegend[] }) {
       label: "Peak",
       align: "right",
       width: "90px",
+      cellClass: PAD,
       render: (l) => (
         <span className="font-mono text-sm tabular-nums text-muted-foreground">
           {formatElo(l.peak_rating)}
-        </span>
-      ),
-    },
-    {
-      id: "games",
-      label: "Games",
-      align: "right",
-      width: "90px",
-      render: (l) => (
-        <span className="font-mono text-sm tabular-nums">
-          {l.games.toLocaleString()}
-        </span>
-      ),
-    },
-    {
-      id: "pick",
-      label: "Pick %",
-      align: "right",
-      width: "90px",
-      render: (l) => (
-        <span className="font-mono text-xs tabular-nums text-muted-foreground">
-          {totalGames > 0 ? `${((l.games / totalGames) * 100).toFixed(1)}%` : "—"}
         </span>
       ),
     },
@@ -824,6 +820,7 @@ function LegendsSection({ legends }: { legends: PlayerRankedLegend[] }) {
       label: "W – L",
       align: "right",
       width: "110px",
+      cellClass: PAD,
       render: (l) => (
         <span className="font-mono text-xs tabular-nums text-muted-foreground">
           <span className="text-positive">{l.wins.toLocaleString()}</span>
@@ -839,11 +836,43 @@ function LegendsSection({ legends }: { legends: PlayerRankedLegend[] }) {
       label: "Win Rate",
       align: "right",
       width: "100px",
+      cellClass: PAD,
       render: (l) => (
         <span className="font-mono text-sm tabular-nums">
           {winRate(l.wins, l.games)}
         </span>
       ),
+    },
+    {
+      id: "wrdelta",
+      label: "WR Δ",
+      align: "right",
+      width: "100px",
+      thClass: "whitespace-nowrap",
+      cellClass: PAD,
+      render: (l) => {
+        const wr = l.games > 0 ? (l.wins / l.games) * 100 : null
+        if (wr == null || overallWinRate == null) {
+          return <span className="font-mono text-xs text-muted-foreground">—</span>
+        }
+        const delta = wr - overallWinRate
+        const flat = Math.abs(delta) < 0.05
+        return (
+          <span
+            title="Win rate vs this player's overall 1v1 average"
+            className={cn(
+              "font-mono text-sm tabular-nums",
+              flat
+                ? "text-muted-foreground"
+                : delta > 0
+                  ? "text-positive"
+                  : "text-negative",
+            )}
+          >
+            {flat ? "±0.0%" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)}%`}
+          </span>
+        )
+      },
     },
   ]
 
@@ -1488,7 +1517,8 @@ export default async function PlayerPage({
   const topTeam = teams[0] ?? null
 
   // Tabbed sections below the header. Tabs only appear when they have
-  // content; Overview (rating history + esports) is always first.
+  // content; Overview (rating history + account) is always first, esports
+  // gets its own tab for tracked competitors.
   const playedLegends = (data.legends ?? []).filter((l) => l.games > 0)
   const showEsports = !!esports && (esports.isPro || esports.earnings > 0)
   const tabs: ProfileTab[] = [
@@ -1499,7 +1529,7 @@ export default async function PlayerPage({
     ...(teamViews.length > 0
       ? [{ key: "teams", label: "2v2 Teams", count: teamViews.length }]
       : []),
-    ...(accountStats ? [{ key: "account", label: "Account" }] : []),
+    ...(showEsports ? [{ key: "esports", label: "Esports" }] : []),
   ]
   const tab = tabs.some((t) => t.key === sp.tab) ? (sp.tab as string) : "overview"
 
@@ -1554,9 +1584,15 @@ export default async function PlayerPage({
             />
           )}
 
-          {showEsports && <EsportsSection profile={esports} />}
+          {accountStats && (
+            <AccountSection
+              stats={accountStats}
+              guildId={guildId}
+              guildName={guildName}
+            />
+          )}
 
-          {!hasOneVOne && !showEsports && (
+          {!hasOneVOne && !accountStats && (
             <p className="mt-10 text-center font-mono text-xs uppercase tracking-wider text-muted-foreground">
               No 1v1 ranked play this season — see the other tabs.
             </p>
@@ -1564,7 +1600,14 @@ export default async function PlayerPage({
         </>
       )}
 
-      {tab === "legends" && <LegendsSection legends={playedLegends} />}
+      {tab === "legends" && (
+        <LegendsSection
+          legends={playedLegends}
+          overallWinRate={
+            hasOneVOne && data.games > 0 ? (data.wins / data.games) * 100 : null
+          }
+        />
+      )}
 
       {tab === "teams" && (
         <div className="mt-8 px-4 sm:px-6">
@@ -1583,13 +1626,7 @@ export default async function PlayerPage({
         </div>
       )}
 
-      {tab === "account" && accountStats && (
-        <AccountSection
-          stats={accountStats}
-          guildId={guildId}
-          guildName={guildName}
-        />
-      )}
+      {tab === "esports" && showEsports && <EsportsSection profile={esports} />}
     </Shell>
   )
 }
