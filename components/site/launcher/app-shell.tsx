@@ -1,6 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation"
+import type { SessionUser } from "@/lib/auth/session"
 import { BackgroundMusic } from "./background-music"
 import { SidebarNav } from "./sidebar-nav"
 import { VideoBackground } from "./video-background"
@@ -15,7 +16,13 @@ import { VideoBackground } from "./video-background"
  * full-bleed. Switching in/out of /admin is the only time the shell mounts or
  * unmounts.
  */
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  user,
+}: {
+  children: React.ReactNode
+  user: SessionUser | null
+}) {
   const pathname = usePathname()
 
   if (pathname?.startsWith("/admin")) {
@@ -27,7 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <VideoBackground />
       <BackgroundMusic />
       <div className="relative min-h-svh md:grid md:grid-cols-[clamp(280px,30%,420px)_minmax(0,1fr)]">
-        <SidebarNav />
+        <SidebarNav user={user} />
         <div className="min-w-0">{children}</div>
       </div>
     </>
