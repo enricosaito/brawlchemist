@@ -326,3 +326,17 @@ export async function getClaimedBrawlhallaId(
 ): Promise<number | null> {
   return profileOwnedBy(userId)
 }
+
+/**
+ * Ownership of a player relative to a viewer, for the profile-page CTA.
+ * "other" deliberately doesn't reveal who the owner is.
+ */
+export async function getClaimState(
+  brawlhallaId: number,
+  userId: string | null,
+): Promise<"unclaimed" | "mine" | "other"> {
+  const owner = await ownerOf(brawlhallaId)
+  if (!owner) return "unclaimed"
+  if (userId && owner === userId) return "mine"
+  return "other"
+}
