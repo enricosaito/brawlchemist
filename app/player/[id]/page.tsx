@@ -9,6 +9,7 @@ import {
   TIER_TEXT_COLOR,
   WeaponIcon,
 } from "@/components/site/primitives"
+import { ClaimBanner } from "@/components/site/claim-banner"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { ProBadge } from "@/components/site/pro-badge"
 import { RatingHistoryCard } from "@/components/player/rating-history-card"
@@ -1615,6 +1616,8 @@ export default async function PlayerPage({
           }
         />
       )}
+
+      <ClaimBanner brawlhallaId={numId} />
 
       <ProfileTabs tabs={tabs} active={tab} baseHref={`/player/${numId}`} />
 
