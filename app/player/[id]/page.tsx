@@ -10,6 +10,7 @@ import {
   WeaponIcon,
 } from "@/components/site/primitives"
 import { ClaimBanner } from "@/components/site/claim-banner"
+import { ProfileCustomization } from "@/components/site/profile-customization"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { ProBadge } from "@/components/site/pro-badge"
 import { RatingHistoryCard } from "@/components/player/rating-history-card"
@@ -1623,6 +1624,8 @@ export default async function PlayerPage({
 
       {tab === "overview" && (
         <>
+          <ProfileCustomization brawlhallaId={numId} />
+
           {accountStats && (
             <AccountSection
               stats={accountStats}

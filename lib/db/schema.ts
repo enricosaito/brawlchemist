@@ -175,6 +175,30 @@ export type AppUserRow = typeof appUsers.$inferSelect
 export type AppUserInsert = typeof appUsers.$inferInsert
 
 /**
+ * user_customizations — the public-facing customization a verified owner sets on
+ * their claimed profile, keyed 1:1 by brawlhalla id. Kept separate from
+ * `profiles` so admin pro-curation (isPro, achievements, favoriteSkin) and
+ * user-set fields never overwrite each other. Ownership is enforced in app code
+ * via `profiles.userId` — only the owner can write this row. Read fails open on
+ * the public profile (no customization → plain rendering).
+ */
+export const userCustomizations = pgTable("user_customizations", {
+  brawlhallaId: integer("brawlhalla_id").primaryKey(),
+  /** Short freeform bio (length-capped; rendered as plain text). */
+  bio: text("bio"),
+  /** Allow-listed social links: [{ kind, url }] (https only). */
+  socialLinks: jsonb("social_links"),
+  /** Up to a few legend ids the owner wants to highlight. */
+  favoriteLegendIds: jsonb("favorite_legend_ids"),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export type UserCustomizationRow = typeof userCustomizations.$inferSelect
+export type UserCustomizationInsert = typeof userCustomizations.$inferInsert
+
+/**
  * guilds — one row per guild we've discovered (via the player pool / profile
  * views). The Brawlhalla API has no "list guilds" endpoint, so this table *is*
  * our guild leaderboard: rows are ordered by the API's official `rank`.
