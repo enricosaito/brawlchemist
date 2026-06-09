@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm"
 import {
   bigint,
   boolean,
@@ -9,6 +10,7 @@ import {
   serial,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
 
@@ -70,11 +72,19 @@ export const profiles = pgTable("profiles", {
   favoriteSkin: jsonb("favorite_skin"),
   /** Championship titles as a string[] (jsonb), e.g. ["2v2 World Champion '24"]. */
   achievements: jsonb("achievements"),
-  /** Future auth owner — the Supabase `auth.users` id of whoever claims this
-   * player. Null = unclaimed (the current admin-curated state). Unique so one
-   * auth user owns at most one profile. No FK yet (auth isn't wired up); the
-   * column just reserves the link, so "claim your player" becomes a populate. */
+  /** Auth owner — the Supabase `auth.users` id of whoever claimed this player
+   * via the ELO challenge (or an admin/CM assignment). Null = unclaimed (the
+   * original admin-curated state). Unique so one auth user owns at most one
+   * profile. No FK (auth.users lives in a different schema and we connect with a
+   * service role); the link is enforced in app code. */
   userId: uuid("user_id").unique(),
+  /** When this player was first claimed by `userId` (null = unclaimed). */
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  /** How ownership was established: 'quiz' (ELO challenge) | 'cm' | 'admin'. */
+  claimMethod: text("claim_method"),
+  /** When ownership reached verified trust (today: same instant as claimedAt for
+   * the quiz path; reserved so a stronger tier can diverge later). */
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -85,6 +95,57 @@ export const profiles = pgTable("profiles", {
 
 export type ProfileRow = typeof profiles.$inferSelect
 export type ProfileInsert = typeof profiles.$inferInsert
+
+/**
+ * profile_claims — the "prove it's you" verification ledger for player claims.
+ *
+ * A logged-in user proves ownership of a Brawlhalla ID by answering the exact
+ * season ranked rating of one of their *mid-to-least-played* legends — a value
+ * that lives in our stored `players.ranked_json` but is never rendered on the
+ * public page, so it's known to the account owner but not to onlookers. The
+ * challenge is generated and graded entirely from our own DB, so claims add
+ * ZERO Brawlhalla API calls.
+ *
+ * One row per (userId, brawlhallaId): `challenge` holds the server-only answer,
+ * `attempts` counts wrong tries inside a rolling 24h window (createdAt = window
+ * start), and a partial-unique index guarantees a single verified owner per
+ * player. Ownership itself lives on `profiles.userId`; this table is the
+ * in-flight state + audit trail.
+ */
+export const profileClaims = pgTable(
+  "profile_claims",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Claimant — a Supabase `auth.users` id. */
+    userId: uuid("user_id").notNull(),
+    brawlhallaId: integer("brawlhalla_id").notNull(),
+    /** 'pending' | 'verified' | 'revoked'. */
+    status: text("status").notNull().default("pending"),
+    /** 'quiz' | 'cm' | 'admin'. */
+    method: text("method").notNull().default("quiz"),
+    /** SERVER-ONLY — never sent to the client: { legendId, legendName,
+     * correctRating }. Only the legend name leaves the server (the question). */
+    challenge: jsonb("challenge"),
+    /** Wrong answers inside the current 24h window. */
+    attempts: integer("attempts").notNull().default(0),
+    /** When the current challenge stops accepting answers (regenerate to renew). */
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("profile_claims_user_player_idx").on(t.userId, t.brawlhallaId),
+    index("profile_claims_player_status_idx").on(t.brawlhallaId, t.status),
+    uniqueIndex("profile_claims_one_verified_idx")
+      .on(t.brawlhallaId)
+      .where(sql`${t.status} = 'verified'`),
+  ],
+)
+
+export type ProfileClaimRow = typeof profileClaims.$inferSelect
+export type ProfileClaimInsert = typeof profileClaims.$inferInsert
 
 /**
  * guilds — one row per guild we've discovered (via the player pool / profile
