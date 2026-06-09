@@ -261,25 +261,6 @@ function Metric({
   )
 }
 
-function SectionHeading({
-  children,
-  count,
-}: {
-  children: React.ReactNode
-  count?: number
-}) {
-  return (
-    <div className="mx-auto mb-3 flex max-w-[1280px] items-center gap-2">
-      <h2 className="font-display text-lg font-semibold">{children}</h2>
-      {count != null && (
-        <span className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          {count}
-        </span>
-      )}
-    </div>
-  )
-}
-
 interface WeaponShare {
   weaponId: WeaponId
   pct: number
@@ -358,11 +339,13 @@ function AccountSection({
 }) {
   return (
     <section className="mt-8 px-4 sm:px-6">
-      <SectionHeading>Account</SectionHeading>
       <div className="mx-auto max-w-[1280px]">
         <div className="rounded-2xl border border-border/60 bg-card/50 p-5">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <AccountTile label="Level" value={stats.level.toLocaleString()} />
+            <AccountTile
+              label="Account Level"
+              value={stats.level.toLocaleString()}
+            />
             <AccountTile
               label="Playtime"
               value={`${stats.playtimeHours.toLocaleString()}h`}
@@ -1715,7 +1698,6 @@ export default async function PlayerPage({
 
       {tab === "teams" && (
         <div className="mt-8 px-4 sm:px-6">
-          <SectionHeading count={teamViews.length}>2v2 Teams</SectionHeading>
           <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2">
             {teamViews.map((view) => (
               <TeamCard

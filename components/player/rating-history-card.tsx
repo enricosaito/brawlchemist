@@ -5,13 +5,12 @@ import { TIER_FLOOR } from "@/lib/tier"
 import type { Tier } from "@/lib/types"
 import {
   RatingChart,
+  type Band,
   type ChartPoint,
   type TierLine,
 } from "./rating-chart"
 
 const WINDOW_DAYS = 30
-/** Breathing room above/below the series before tier lines are considered. */
-const Y_PAD = 30
 
 /**
  * RatingHistoryCard — the profile's "rating over time" section (dpm.lol-style).
@@ -86,25 +85,75 @@ export async function RatingHistoryCard({
   const lo = Math.min(...ratings)
   const hi = Math.max(...ratings)
   const peak = hi
-  const delta = points[points.length - 1].rating - points[0].rating
+  const current = points[points.length - 1].rating
+  const delta = current - points[0].rating
 
-  // Y-domain: pad the series, then stretch to include any tier line that sits
-  // close enough to be worth showing (within one extra pad of the data).
-  let yMin = lo - Y_PAD
-  let yMax = hi + Y_PAD
-  const candidates: TierLine[] = (
+  // --- Tier-anchored Y domain ------------------------------------------------
+  // Bracket the series with the nearest tier boundaries so the chart reads as
+  // "where in the ladder am I" (dpm.lol-style) rather than a line floating in
+  // padded space. A boundary further than REACH from the data is ignored (we
+  // don't zoom out to a distant Diamond floor and flatten everything); that
+  // side falls back to a data-proportional pad. MIN_RANGE stops a pair of
+  // near-equal snapshots from zooming in absurdly.
+  const boundaries: TierLine[] = (
     Object.entries(TIER_FLOOR) as [Exclude<Tier, "Valhallan">, number][]
   ).map(([t, rating]) => ({ tier: t, rating }))
   if (valhallanCutoff != null) {
-    candidates.push({ tier: "Valhallan", rating: valhallanCutoff })
+    boundaries.push({ tier: "Valhallan", rating: valhallanCutoff })
   }
-  const tierLines = candidates.filter(
-    (l) => l.rating >= lo - Y_PAD * 2 && l.rating <= hi + Y_PAD * 2,
+  boundaries.sort((a, b) => a.rating - b.rating)
+
+  const dataRange = hi - lo
+  const REACH = Math.max(150, dataRange * 1.6)
+  const PAD = Math.max(24, Math.round(dataRange * 0.5))
+
+  const above = boundaries.find((b) => b.rating > hi)
+  const below = [...boundaries].reverse().find((b) => b.rating < lo)
+
+  let yMax = above && above.rating - hi <= REACH ? above.rating + 8 : hi + PAD
+  let yMin = below && lo - below.rating <= REACH ? below.rating - 8 : lo - PAD
+
+  const MIN_RANGE = 90
+  if (yMax - yMin < MIN_RANGE) {
+    const mid = (yMax + yMin) / 2
+    yMin = mid - MIN_RANGE / 2
+    yMax = mid + MIN_RANGE / 2
+  }
+
+  // Threshold lines: every boundary inside the visible domain.
+  const tierLines = boundaries.filter(
+    (b) => b.rating >= yMin && b.rating <= yMax,
   )
-  for (const l of tierLines) {
-    yMin = Math.min(yMin, l.rating - 10)
-    yMax = Math.max(yMax, l.rating + 10)
+
+  // Tier zones: contiguous bands spanning the domain, each owned by the tier
+  // whose floor sits at-or-below the band's midpoint.
+  const inside = boundaries.filter((b) => b.rating > yMin && b.rating < yMax)
+  const edges = [yMin, ...inside.map((b) => b.rating), yMax]
+  const bands: Band[] = []
+  for (let i = 0; i < edges.length - 1; i++) {
+    const bandLo = edges[i]
+    const bandHi = edges[i + 1]
+    const mid = (bandLo + bandHi) / 2
+    let bandTier: Tier = boundaries[0]?.tier ?? "Tin"
+    for (const b of boundaries) if (b.rating <= mid) bandTier = b.tier
+    bands.push({ tier: bandTier, lo: bandLo, hi: bandHi })
   }
+
+  // Honest span label — data often covers far less than the 30d window.
+  const spanDays =
+    (points[points.length - 1].t - points[0].t) / 86_400_000
+  const spanLabel =
+    spanDays >= WINDOW_DAYS * 0.8
+      ? `Last ${WINDOW_DAYS}d`
+      : spanDays < 1
+        ? "Past 24h"
+        : `Last ${Math.ceil(spanDays)}d`
+
+  // Distance to the Valhallan cutoff — the framing the top band visualizes.
+  const toValhallan =
+    valhallanCutoff != null && current < valhallanCutoff
+      ? valhallanCutoff - current
+      : null
 
   return card(
     <>
@@ -125,12 +174,19 @@ export async function RatingHistoryCard({
           {delta >= 0 ? "+" : ""}
           {delta.toLocaleString()}
           <span className="text-[9px] uppercase tracking-wider opacity-80">
-            Last {WINDOW_DAYS}d
+            {spanLabel}
           </span>
         </span>
+        {toValhallan != null && toValhallan <= 600 && (
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-tier-valhallan/30 bg-tier-valhallan/10 px-2 py-1 font-mono text-xs tabular-nums text-tier-valhallan">
+            {toValhallan.toLocaleString()}
+            <span className="text-[9px] uppercase tracking-wider opacity-80">
+              to Valhallan
+            </span>
+          </span>
+        )}
         <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          Peak{" "}
-          <span className="text-foreground">{peak.toLocaleString()}</span>
+          Peak <span className="text-foreground">{peak.toLocaleString()}</span>
           <span className="px-1.5 opacity-60">·</span>
           {points.length} snapshots
         </span>
@@ -139,6 +195,7 @@ export async function RatingHistoryCard({
       <RatingChart
         points={points}
         tierLines={tierLines}
+        bands={bands}
         yMin={yMin}
         yMax={yMax}
         lineTier={tier ?? "Diamond"}
