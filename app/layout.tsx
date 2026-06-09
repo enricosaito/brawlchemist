@@ -5,6 +5,7 @@ import { GoogleAnalytics } from "@next/third-parties/google"
 import "./globals.css"
 import { AppShell } from "@/components/site/launcher/app-shell"
 import { ThemeProvider } from "@/components/theme-provider"
+import { getSessionUser } from "@/lib/auth/session"
 import { cn } from "@/lib/utils"
 
 const fontSans = Geist({ subsets: ["latin"], variable: "--font-sans" })
@@ -39,11 +40,12 @@ export const metadata: Metadata = {
     "Search players, read the meta, track rankings and weapon trends for Brawlhalla 1v1 and 2v2 ranked.",
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const user = await getSessionUser()
   return (
     <html
       lang="en"
@@ -59,7 +61,7 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider defaultTheme="dark">
-          <AppShell>{children}</AppShell>
+          <AppShell user={user}>{children}</AppShell>
         </ThemeProvider>
       </body>
       <GoogleAnalytics gaId="G-L7WXF6YDF1" />

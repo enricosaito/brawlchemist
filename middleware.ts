@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { updateSession } from "@/lib/supabase/middleware"
 
 /**
- * Edge enforcement of the crawl policy declared in app/robots.ts. robots.txt
- * is advisory; this middleware returns a hard 403 for AI training crawlers and
- * aggressive SEO scrapers, so /ranked never fires from one of their profile
- * link follows.
+ * Edge enforcement of the crawl policy declared in app/robots.ts plus Supabase
+ * auth-session refresh. robots.txt is advisory; this middleware returns a hard
+ * 403 for AI training crawlers and aggressive SEO scrapers, so /ranked never
+ * fires from one of their profile link follows. For everyone else it rotates a
+ * stale auth cookie so sessions survive across navigations.
  *
- * Keep in sync with `BLOCKED_USER_AGENTS` in app/robots.ts.
+ * Keep `BLOCKED_BOTS` in sync with `BLOCKED_USER_AGENTS` in app/robots.ts.
  */
 const BLOCKED_BOTS = [
   // OpenAI
@@ -43,7 +45,7 @@ const BLOCKED_BOTS = [
   "YouBot",
 ]
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const ua = req.headers.get("user-agent") ?? ""
   if (BLOCKED_BOTS.some((name) => ua.includes(name))) {
     return new NextResponse(
@@ -54,7 +56,7 @@ export function middleware(req: NextRequest) {
       },
     )
   }
-  return NextResponse.next()
+  return updateSession(req, NextResponse.next({ request: req }))
 }
 
 export const config = {

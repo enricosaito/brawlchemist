@@ -148,6 +148,33 @@ export type ProfileClaimRow = typeof profileClaims.$inferSelect
 export type ProfileClaimInsert = typeof profileClaims.$inferInsert
 
 /**
+ * app_users — our application row mirroring a Supabase `auth.users` identity,
+ * created on first sign-in. Holds per-account preferences (favorite legends,
+ * default region/mode, UI settings) and the plan flag for future premium gating.
+ * Exists independently of any profile claim — a signed-in user may never claim a
+ * player and still have prefs here. `id` equals the auth user id (no FK: auth
+ * lives in another schema and we connect with a service role).
+ */
+export const appUsers = pgTable("app_users", {
+  id: uuid("id").primaryKey(),
+  /** Mirror of the auth email, for admin lookups (auth.users isn't joinable here). */
+  email: text("email"),
+  /** 'free' | 'premium' — entitlement gate for future paid features. */
+  plan: text("plan").notNull().default("free"),
+  /** Viewer prefs: { favoriteLegendIds, defaultRegion, defaultMode, ... }. */
+  prefs: jsonb("prefs"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export type AppUserRow = typeof appUsers.$inferSelect
+export type AppUserInsert = typeof appUsers.$inferInsert
+
+/**
  * guilds — one row per guild we've discovered (via the player pool / profile
  * views). The Brawlhalla API has no "list guilds" endpoint, so this table *is*
  * our guild leaderboard: rows are ordered by the API's official `rank`.
