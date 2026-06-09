@@ -5,7 +5,9 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Menu, X } from "lucide-react"
+import type { SessionUser } from "@/lib/auth/session"
 import { cn } from "@/lib/utils"
+import { AccountControl } from "./account-control"
 import { SoundToggle } from "./sound-toggle"
 
 /* ---------------------------------------------------------------------------
@@ -228,7 +230,7 @@ function SocialFooter() {
  * scroll-locked left rail (only the page column scrolls); below md it
  * collapses to a hamburger that opens a slide-in drawer.
  */
-export function SidebarNav() {
+export function SidebarNav({ user }: { user: SessionUser | null }) {
   const [open, setOpen] = useState(false)
 
   // Lock body scroll while the mobile drawer is open, and close on Escape.
@@ -299,6 +301,7 @@ export function SidebarNav() {
           <div className="flex-1 overflow-y-auto">
             <NavList onNavigate={() => setOpen(false)} />
           </div>
+          <AccountControl user={user} />
           <SocialFooter />
         </div>
       </div>
@@ -311,6 +314,7 @@ export function SidebarNav() {
         <div className="flex-1">
           <NavList />
         </div>
+        <AccountControl user={user} />
         <SocialFooter />
       </aside>
     </>
