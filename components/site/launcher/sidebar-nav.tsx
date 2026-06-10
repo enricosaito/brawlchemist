@@ -71,22 +71,6 @@ const NAV: NavEntry[] = [
   },
 ]
 
-/**
- * "My Profile" entry — shown only once a user has a claimed profile, pointing
- * at their own public player page. Unclaimed/logged-out visitors get nothing
- * here; claiming is reached through the sign-in flow + account control instead.
- * Its avatar reuses the slot freed by the old OTPs link.
- */
-function profileEntry(claimedId: number | null): NavEntry | null {
-  if (claimedId == null) return null
-  return {
-    label: "My Profile",
-    href: `/player/${claimedId}`,
-    avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
-    match: [`/player/${claimedId}`],
-  }
-}
-
 function isActive(pathname: string, entry: NavEntry): boolean {
   if (pathname === entry.href) return true
   return (entry.match ?? [entry.href]).some((p) => pathname.startsWith(p))
@@ -156,20 +140,11 @@ function NavItem({
   )
 }
 
-function NavList({
-  claimedId,
-  onNavigate,
-}: {
-  claimedId: number | null
-  onNavigate?: () => void
-}) {
+function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
-  // "My Profile" rides at the end of the rail once a profile is claimed.
-  const profile = profileEntry(claimedId)
-  const entries = profile ? [...NAV, profile] : NAV
   return (
     <nav className="flex flex-col gap-3" aria-label="Primary">
-      {entries.map((entry, i) => (
+      {NAV.map((entry, i) => (
         <NavItem
           key={entry.href}
           entry={entry}
@@ -325,10 +300,7 @@ export function SidebarNav({
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">
-            <NavList
-              claimedId={claimedId}
-              onNavigate={() => setOpen(false)}
-            />
+            <NavList onNavigate={() => setOpen(false)} />
           </div>
           <AccountControl user={user} claimedId={claimedId} />
           <SocialFooter />
@@ -340,8 +312,11 @@ export function SidebarNav({
           full-height and never scrolls itself; only the right column scrolls. */}
       <aside className="hidden h-full flex-col gap-7 overflow-hidden px-5 py-7 md:sticky md:top-0 md:flex md:h-svh xl:px-7">
         <Wordmark />
-        <div className="flex-1">
-          <NavList claimedId={claimedId} />
+        {/* min-h-0 lets the nav yield so the account control + social footer
+            (icons + music) stay pinned and visible; overflow-hidden keeps the
+            rail non-scrollable. On normal viewports nothing is clipped. */}
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <NavList />
         </div>
         <AccountControl user={user} claimedId={claimedId} />
         <SocialFooter />

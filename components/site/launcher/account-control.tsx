@@ -25,7 +25,7 @@ export function AccountControl({
     return (
       <Link
         href={`/login?next=${encodeURIComponent(pathname)}`}
-        className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-card/30 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur-md transition-colors hover:border-pink/50 hover:bg-card/55 hover:text-foreground"
+        className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-card/30 px-3 py-2.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur-md transition-colors hover:border-pink/50 hover:bg-card/55 hover:text-foreground"
       >
         <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-muted/40">
           <UserRound className="size-4" />
