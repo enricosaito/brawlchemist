@@ -10,6 +10,9 @@ import {
   WeaponIcon,
 } from "@/components/site/primitives"
 import { ClaimBanner } from "@/components/site/claim-banner"
+import { BannerPicker } from "@/components/site/banner-picker"
+import { resolveBanner } from "@/lib/profile/banners"
+import { getCustomization } from "@/lib/sync/customizations"
 import { ProfileCustomization } from "@/components/site/profile-customization"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { ProBadge } from "@/components/site/pro-badge"
@@ -987,6 +990,8 @@ function ProfileHeader({
   preview,
   legendStats,
   claimSlot,
+  bannerId,
+  bannerSlot,
 }: {
   data: PlayerRanked
   titles: string[]
@@ -994,6 +999,8 @@ function ProfileHeader({
   preview: PlayerPreview | undefined
   legendStats: Map<number, { level: number; xp: number }>
   claimSlot?: React.ReactNode
+  bannerId?: string | null
+  bannerSlot?: React.ReactNode
 }) {
   const tier = deriveTier(data.tier, valhallan)
   const losses = Math.max(0, data.games - data.wins)
@@ -1050,13 +1057,17 @@ function ProfileHeader({
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
       <div className="mx-auto max-w-[1280px]">
         <div className="relative rounded-2xl border border-border/60 bg-card/50 p-6 shadow-lg backdrop-blur-sm">
-          {/* On-brand ambient wash — copper→mystic, kept off the data surfaces.
-              Rounded to match the card; the card itself isn't clipped so the
-              Most Played hover tooltips can extend past its edges. */}
+          {/* On-brand ambient wash — the owner's chosen banner preset (default
+              copper→mystic), kept off the data surfaces. Rounded to match the
+              card; the card itself isn't clipped so the Most Played hover
+              tooltips can extend past its edges. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-copper/10 via-transparent to-mystic/10"
+            className={`pointer-events-none absolute inset-0 rounded-2xl ${resolveBanner(bannerId).wash}`}
           />
+          {bannerSlot && (
+            <div className="absolute right-4 top-4 z-20">{bannerSlot}</div>
+          )}
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-stretch">
             {(tier || preview?.favoriteSkin) && (
               <div className="flex shrink-0 items-center justify-center gap-3 sm:justify-start">
@@ -1218,6 +1229,8 @@ function FallbackHeader({
   team,
   account,
   claimSlot,
+  bannerId,
+  bannerSlot,
 }: {
   name: string
   region: string | null
@@ -1227,6 +1240,8 @@ function FallbackHeader({
   team: { data: PlayerRanked2v2; valhallan: boolean } | null
   account: { level: number; games: number } | null
   claimSlot?: React.ReactNode
+  bannerId?: string | null
+  bannerSlot?: React.ReactNode
 }) {
   const tier = team ? deriveTier(team.data.tier, team.valhallan) : null
   const proPr = esports?.pr1v1 ?? esports?.pr2v2 ?? null
@@ -1238,8 +1253,11 @@ function FallbackHeader({
         <div className="relative rounded-2xl border border-border/60 bg-card/50 p-6 shadow-lg backdrop-blur-sm">
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-copper/10 via-transparent to-mystic/10"
+            className={`pointer-events-none absolute inset-0 rounded-2xl ${resolveBanner(bannerId).wash}`}
           />
+          {bannerSlot && (
+            <div className="absolute right-4 top-4 z-20">{bannerSlot}</div>
+          )}
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-stretch">
             {(tier || preview?.favoriteSkin) && (
               <div className="flex shrink-0 items-center justify-center gap-3 sm:justify-start">
@@ -1585,6 +1603,11 @@ export default async function PlayerPage({
   // Best three teams (already rating-sorted) for the Overview side column.
   const overviewTeams = teamViews.slice(0, 3)
 
+  // Owner-chosen header banner (cached, fails open to the default wash). The
+  // picker itself is gated to the owner inside BannerPicker.
+  const { bannerId } = await getCustomization(numId)
+  const bannerPicker = <BannerPicker brawlhallaId={numId} />
+
   return (
     <Shell>
       {hasOneVOne ? (
@@ -1595,6 +1618,8 @@ export default async function PlayerPage({
           preview={preview}
           legendStats={legendStatsById}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
+          bannerId={bannerId}
+          bannerSlot={bannerPicker}
         />
       ) : topTeam ? (
         <FallbackHeader
@@ -1609,6 +1634,8 @@ export default async function PlayerPage({
           }}
           account={null}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
+          bannerId={bannerId}
+          bannerSlot={bannerPicker}
         />
       ) : (
         <FallbackHeader
@@ -1624,6 +1651,8 @@ export default async function PlayerPage({
               : null
           }
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
+          bannerId={bannerId}
+          bannerSlot={bannerPicker}
         />
       )}
 

@@ -190,6 +190,11 @@ export const userCustomizations = pgTable("user_customizations", {
   socialLinks: jsonb("social_links"),
   /** Up to a few legend ids the owner wants to highlight. */
   favoriteLegendIds: jsonb("favorite_legend_ids"),
+  /** Chosen header banner preset id (see lib/profile/banners.ts). Null = the
+   * default copper→mystic wash. Validated against the preset allow-list on
+   * read/write — an unknown id falls back to the default, never a broken
+   * surface. */
+  bannerId: text("banner_id"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

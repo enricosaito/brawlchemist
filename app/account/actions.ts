@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { getClaimedBrawlhallaId } from "@/lib/sync/claims"
 import {
   getCustomizationRecord,
+  setBanner,
   SOCIAL_KINDS,
   upsertCustomization,
   type SocialLink,
@@ -75,6 +76,32 @@ export async function saveBioAction(
     return { ok: true }
   } catch (err) {
     console.error("[saveBioAction] failed:", err)
+    return { ok: false, error: "save" }
+  }
+}
+
+/**
+ * Set the signed-in owner's header banner from their own public profile. Same
+ * ownership gate as the bio editor — only the brawlhalla id this user actually
+ * owns can be touched, so a forged request can't restyle someone else's page.
+ * Banner id validation (allow-list → default) happens in setBanner.
+ */
+export async function saveBannerAction(
+  brawlhallaId: number,
+  bannerId: string,
+): Promise<{ ok: boolean; error?: "auth" | "forbidden" | "save" }> {
+  const userId = await authedUserId()
+  if (!userId) return { ok: false, error: "auth" }
+
+  const owned = await getClaimedBrawlhallaId(userId)
+  if (!owned || owned !== brawlhallaId) return { ok: false, error: "forbidden" }
+
+  try {
+    await setBanner(brawlhallaId, bannerId)
+    revalidatePath(`/player/${brawlhallaId}`)
+    return { ok: true }
+  } catch (err) {
+    console.error("[saveBannerAction] failed:", err)
     return { ok: false, error: "save" }
   }
 }
