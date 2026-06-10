@@ -330,7 +330,7 @@ export function SidebarNav({
               onNavigate={() => setOpen(false)}
             />
           </div>
-          <AccountControl user={user} />
+          <AccountControl user={user} claimedId={claimedId} />
           <SocialFooter />
         </div>
       </div>
@@ -343,7 +343,7 @@ export function SidebarNav({
         <div className="flex-1">
           <NavList claimedId={claimedId} />
         </div>
-        <AccountControl user={user} />
+        <AccountControl user={user} claimedId={claimedId} />
         <SocialFooter />
       </aside>
     </>

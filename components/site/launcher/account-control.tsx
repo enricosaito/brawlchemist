@@ -9,9 +9,16 @@ import type { SessionUser } from "@/lib/auth/session"
 /**
  * Account control for the launcher rail/drawer. Signed-out: a "Sign in" link
  * carrying the current path as `next` so auth returns the user where they were.
- * Signed-in: avatar + name with a sign-out button (server action).
+ * Signed-in: avatar + name (links to the user's own profile, or /account until
+ * they've claimed one) with a sign-out button (server action).
  */
-export function AccountControl({ user }: { user: SessionUser | null }) {
+export function AccountControl({
+  user,
+  claimedId,
+}: {
+  user: SessionUser | null
+  claimedId: number | null
+}) {
   const pathname = usePathname() ?? "/"
 
   if (!user) {
@@ -29,13 +36,14 @@ export function AccountControl({ user }: { user: SessionUser | null }) {
   }
 
   const label = user.name ?? user.email ?? "Account"
+  const profileHref = claimedId != null ? `/player/${claimedId}` : "/account"
 
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-card/30 px-3 py-2.5 backdrop-blur-md">
       <Link
-        href="/account"
+        href={profileHref}
         className="group flex min-w-0 flex-1 items-center gap-3"
-        title="Your account"
+        title={claimedId != null ? "Your profile" : "Your account"}
       >
         {user.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- Discord CDN host, no optimizer needed
