@@ -72,24 +72,18 @@ const NAV: NavEntry[] = [
 ]
 
 /**
- * The profile entry is account-aware: it points a logged-in owner at their own
- * claimed player page ("My Profile"), and everyone else at the claim/verify
- * flow ("Link Profile"). Its avatar reuses the slot freed by the old OTPs link.
+ * "My Profile" entry — shown only once a user has a claimed profile, pointing
+ * at their own public player page. Unclaimed/logged-out visitors get nothing
+ * here; claiming is reached through the sign-in flow + account control instead.
+ * Its avatar reuses the slot freed by the old OTPs link.
  */
-function profileEntry(claimedId: number | null): NavEntry {
-  if (claimedId != null) {
-    return {
-      label: "My Profile",
-      href: `/player/${claimedId}`,
-      avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
-      match: [`/player/${claimedId}`],
-    }
-  }
+function profileEntry(claimedId: number | null): NavEntry | null {
+  if (claimedId == null) return null
   return {
-    label: "Link Profile",
-    href: "/claim",
+    label: "My Profile",
+    href: `/player/${claimedId}`,
     avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
-    match: ["/claim"],
+    match: [`/player/${claimedId}`],
   }
 }
 
@@ -170,8 +164,9 @@ function NavList({
   onNavigate?: () => void
 }) {
   const pathname = usePathname()
-  // Profile entry rides at the end of the rail, after the content destinations.
-  const entries = [...NAV, profileEntry(claimedId)]
+  // "My Profile" rides at the end of the rail once a profile is claimed.
+  const profile = profileEntry(claimedId)
+  const entries = profile ? [...NAV, profile] : NAV
   return (
     <nav className="flex flex-col gap-3" aria-label="Primary">
       {entries.map((entry, i) => (
@@ -345,10 +340,7 @@ export function SidebarNav({
           full-height and never scrolls itself; only the right column scrolls. */}
       <aside className="hidden h-full flex-col gap-7 overflow-hidden px-5 py-7 md:sticky md:top-0 md:flex md:h-svh xl:px-7">
         <Wordmark />
-        {/* The nav list scrolls within itself (min-h-0) so the account control
-            and social footer below stay pinned and visible even when the rail
-            is taller than a short viewport. */}
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex-1">
           <NavList claimedId={claimedId} />
         </div>
         <AccountControl user={user} />
