@@ -11,6 +11,7 @@ import {
 } from "@/components/site/primitives"
 import { ClaimBanner } from "@/components/site/claim-banner"
 import { BannerPicker } from "@/components/site/banner-picker"
+import { RecentVisitRecorder } from "@/components/site/recent-visit-recorder"
 import { resolveBanner } from "@/lib/profile/banners"
 import { getCustomization } from "@/lib/sync/customizations"
 import { ProfileCustomization } from "@/components/site/profile-customization"
@@ -1608,8 +1609,26 @@ export default async function PlayerPage({
   const { bannerId } = await getCustomization(numId)
   const bannerPicker = <BannerPicker brawlhallaId={numId} />
 
+  // Device-local recent-visit crumb: mirror the search-result shape so the home
+  // dropdown renders this identically to a live suggestion. Top legend = most
+  // games this season; rating/region collapse to null when absent.
+  const recentTopLegend = [...(data.legends ?? [])]
+    .filter((l) => l.games > 0)
+    .sort((a, b) => b.games - a.games)[0]
+  const recentLegendSlug = recentTopLegend
+    ? slugForLegendId(recentTopLegend.legend_id)
+    : null
+
   return (
     <Shell>
+      <RecentVisitRecorder
+        id={numId}
+        username={displayName}
+        legendSlug={recentLegendSlug}
+        rating={typeof data.rating === "number" && data.rating > 0 ? data.rating : null}
+        region={data.region || null}
+        pro={!!preview?.verified}
+      />
       {hasOneVOne ? (
         <ProfileHeader
           data={data}

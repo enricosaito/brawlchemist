@@ -4,18 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Loader2, Search } from "lucide-react"
+import { Loader2, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import {
+  clearRecentVisits,
+  getRecentVisits,
+  removeRecentVisit,
+  type RecentVisit,
+} from "@/lib/recent-visits"
 import { ProBadge } from "./pro-badge"
 
-interface SearchResult {
-  id: number
-  username: string
-  legendSlug: string | null
-  rating: number | null
-  region: string | null
-  pro?: boolean
-}
+type SearchResult = RecentVisit
 
 type Kind = "empty" | "name" | "id" | "steam"
 
@@ -64,6 +63,9 @@ export function PlayerSearchForm({
   const router = useRouter()
   const [value, setValue] = useState(defaultValue ?? "")
   const [results, setResults] = useState<SearchResult[]>([])
+  // Device-local recent visits, loaded on focus (localStorage isn't readable
+  // during SSR, so this starts empty and fills client-side on first focus).
+  const [recents, setRecents] = useState<RecentVisit[]>([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
@@ -136,6 +138,15 @@ export function PlayerSearchForm({
   }, [])
 
   const options: Option[] = useMemo(() => {
+    // Empty input → recent visits (device-local). Typing any character switches
+    // kind away from "empty" and the live search/ID/Steam flows take over.
+    if (kind === "empty") {
+      return recents.map((r) => ({
+        type: "player" as const,
+        href: `/player/${r.id}`,
+        result: r,
+      }))
+    }
     if (kind === "name") {
       if (trimmed.length < 2) return []
       return results.map((r) => ({
@@ -165,7 +176,7 @@ export function PlayerSearchForm({
       ]
     }
     return []
-  }, [kind, results, trimmed])
+  }, [kind, results, trimmed, recents])
 
   function go(href: string) {
     setOpen(false)
@@ -174,12 +185,26 @@ export function PlayerSearchForm({
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!trimmed) return
+    // A highlighted option wins even when the input is empty (Enter on a recent).
     if (highlight >= 0 && options[highlight]) {
       go(options[highlight].href)
       return
     }
+    if (!trimmed) return
     go(`/search?q=${encodeURIComponent(trimmed)}`)
+  }
+
+  function handleRemoveRecent(id: number) {
+    removeRecentVisit(id)
+    setRecents(getRecentVisits())
+    setHighlight(-1)
+  }
+
+  function handleClearRecents() {
+    clearRecentVisits()
+    setRecents([])
+    setHighlight(-1)
+    setOpen(false)
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -196,7 +221,11 @@ export function PlayerSearchForm({
     }
   }
 
-  const showDropdown = open && trimmed !== ""
+  // Recents show only on an empty input; once the user types, the live flows own
+  // the dropdown. An empty input with no recents shows nothing (no bare box).
+  const inRecents = kind === "empty"
+  const showDropdown =
+    open && (trimmed !== "" || (inRecents && recents.length > 0))
 
   return (
     <div ref={boxRef} className={cn("relative w-full max-w-xl", className)}>
@@ -232,7 +261,10 @@ export function PlayerSearchForm({
               openDropdown()
               setHighlight(-1)
             }}
-            onFocus={openDropdown}
+            onFocus={() => {
+              setRecents(getRecentVisits())
+              openDropdown()
+            }}
             onKeyDown={onKeyDown}
           />
           {showHint && (
@@ -258,10 +290,28 @@ export function PlayerSearchForm({
             }}
             className="z-[100] overflow-hidden rounded-xl border border-border/80 bg-card/95 text-left shadow-xl backdrop-blur-md"
           >
+            {inRecents && (
+              <div className="flex items-center justify-between border-b border-border/60 px-3 py-1.5">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Recent
+                </span>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleClearRecents}
+                  className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70 transition-colors hover:text-foreground"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
             {options.length > 0 ? (
               <ul className="max-h-80 overflow-y-auto py-1">
                 {options.map((opt, i) => (
-                  <li key={opt.type === "player" ? opt.result.id : opt.href}>
+                  <li
+                    key={opt.type === "player" ? opt.result.id : opt.href}
+                    className="flex items-stretch"
+                  >
                     <button
                       type="button"
                       role="option"
@@ -269,7 +319,7 @@ export function PlayerSearchForm({
                       onMouseEnter={() => setHighlight(i)}
                       onClick={() => go(opt.href)}
                       className={cn(
-                        "flex w-full items-center gap-3 px-3 py-2 text-left transition-colors",
+                        "flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left transition-colors",
                         i === highlight ? "bg-muted/60" : "hover:bg-muted/40",
                       )}
                     >
@@ -319,6 +369,20 @@ export function PlayerSearchForm({
                         </>
                       )}
                     </button>
+                    {inRecents && opt.type === "player" && (
+                      <button
+                        type="button"
+                        aria-label={`Remove ${opt.result.username} from recent visits`}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleRemoveRecent(opt.result.id)}
+                        className={cn(
+                          "flex shrink-0 items-center px-2.5 text-muted-foreground/40 transition-colors hover:text-foreground",
+                          i === highlight ? "bg-muted/60" : "hover:bg-muted/40",
+                        )}
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
