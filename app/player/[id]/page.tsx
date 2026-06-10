@@ -11,6 +11,7 @@ import {
 } from "@/components/site/primitives"
 import { ClaimBanner } from "@/components/site/claim-banner"
 import { BannerPicker } from "@/components/site/banner-picker"
+import { FavoriteToggle } from "@/components/site/favorite-toggle"
 import { RecentVisitRecorder } from "@/components/site/recent-visit-recorder"
 import { resolveBanner } from "@/lib/profile/banners"
 import { getCustomization } from "@/lib/sync/customizations"
@@ -991,6 +992,7 @@ function ProfileHeader({
   preview,
   legendStats,
   claimSlot,
+  favoriteSlot,
   bannerId,
   bannerSlot,
 }: {
@@ -1000,6 +1002,7 @@ function ProfileHeader({
   preview: PlayerPreview | undefined
   legendStats: Map<number, { level: number; xp: number }>
   claimSlot?: React.ReactNode
+  favoriteSlot?: React.ReactNode
   bannerId?: string | null
   bannerSlot?: React.ReactNode
 }) {
@@ -1104,6 +1107,7 @@ function ProfileHeader({
                     </h1>
                     {data.region && <RegionPill region={data.region} />}
                     {claimSlot}
+                    {favoriteSlot}
                   </div>
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
@@ -1230,6 +1234,7 @@ function FallbackHeader({
   team,
   account,
   claimSlot,
+  favoriteSlot,
   bannerId,
   bannerSlot,
 }: {
@@ -1241,6 +1246,7 @@ function FallbackHeader({
   team: { data: PlayerRanked2v2; valhallan: boolean } | null
   account: { level: number; games: number } | null
   claimSlot?: React.ReactNode
+  favoriteSlot?: React.ReactNode
   bannerId?: string | null
   bannerSlot?: React.ReactNode
 }) {
@@ -1293,6 +1299,7 @@ function FallbackHeader({
                   </h1>
                   {region && <RegionPill region={region} />}
                   {claimSlot}
+                  {favoriteSlot}
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
                   {preview?.verified && (
@@ -1608,6 +1615,9 @@ export default async function PlayerPage({
   // picker itself is gated to the owner inside BannerPicker.
   const { bannerId } = await getCustomization(numId)
   const bannerPicker = <BannerPicker brawlhallaId={numId} />
+  // Track/untrack star — signed-in viewers toggle, signed-out get a sign-in
+  // nudge. Self-contained + fails open inside FavoriteToggle.
+  const favoriteToggle = <FavoriteToggle brawlhallaId={numId} />
 
   // Device-local recent-visit crumb: mirror the search-result shape so the home
   // dropdown renders this identically to a live suggestion. Top legend = most
@@ -1637,6 +1647,7 @@ export default async function PlayerPage({
           preview={preview}
           legendStats={legendStatsById}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
+          favoriteSlot={favoriteToggle}
           bannerId={bannerId}
           bannerSlot={bannerPicker}
         />
@@ -1653,6 +1664,7 @@ export default async function PlayerPage({
           }}
           account={null}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
+          favoriteSlot={favoriteToggle}
           bannerId={bannerId}
           bannerSlot={bannerPicker}
         />
@@ -1670,6 +1682,7 @@ export default async function PlayerPage({
               : null
           }
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
+          favoriteSlot={favoriteToggle}
           bannerId={bannerId}
           bannerSlot={bannerPicker}
         />

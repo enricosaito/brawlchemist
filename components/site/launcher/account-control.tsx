@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BadgeCheck, LogOut, UserRound } from "lucide-react"
+import { BadgeCheck, LogOut, Star, UserRound } from "lucide-react"
 import { signOutAction } from "@/app/auth/actions"
 import type { SessionUser } from "@/lib/auth/session"
 import { cn } from "@/lib/utils"
@@ -83,6 +83,15 @@ export function AccountControl({
         )}
         <span className="min-w-0 flex-1 truncate normal-case">{label}</span>
         {claimed?.isPro && <BadgeCheck className="size-4 shrink-0 text-mystic" />}
+      </Link>
+      <Link
+        href="/favorites"
+        data-active={pathname.startsWith("/favorites")}
+        aria-label="Favorites"
+        title="Favorites"
+        className="flex w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-card/30 text-muted-foreground backdrop-blur-md transition-colors hover:border-pink/50 hover:bg-card/55 hover:text-foreground data-[active=true]:border-pink/60 data-[active=true]:bg-gradient-to-r data-[active=true]:from-pink/25 data-[active=true]:to-pink/10 data-[active=true]:text-foreground"
+      >
+        <Star className="size-4" />
       </Link>
       <form action={signOutAction} className="flex">
         <input type="hidden" name="next" value={pathname} />
