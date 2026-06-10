@@ -8,7 +8,10 @@ import { DataTable } from "@/components/site/data-table"
 import { buildLeaderboardColumns } from "@/components/site/leaderboard-columns"
 import { LeaderboardPodium } from "@/components/site/leaderboard-podium"
 import { LeaderboardSearch } from "@/components/site/leaderboard-search"
+import { LegendFilter } from "@/components/site/legend-filter"
+import { OtpBoard } from "@/components/site/otp-board"
 import { Pagination } from "@/components/site/pagination"
+import { LEGEND_ROSTER, rosterEntryBySlug } from "@/lib/legends-roster"
 import {
   API_REGIONS,
   type ApiGameMode,
@@ -127,7 +130,12 @@ export default async function LeaderboardPage({
   searchParams,
 }: {
   params: Promise<{ mode: string }>
-  searchParams: Promise<{ region?: string; page?: string; pro?: string }>
+  searchParams: Promise<{
+    region?: string
+    page?: string
+    pro?: string
+    legend?: string
+  }>
 }) {
   const { mode } = await params
   const gameMode = parseMode(mode)
@@ -139,8 +147,18 @@ export default async function LeaderboardPage({
   const requestedPage = Math.max(1, Number(sp.page ?? "1") || 1)
   const modePath = `/leaderboards/${gameMode}`
 
-  // Pro-only view — a toggle available on every 1v1 board (region-aware).
-  const canPro = gameMode === "1v1"
+  // Legend filter — folds the old /otps "mains" board into the 1v1 ladder. The
+  // OTP data is 1v1-only, so the filter is offered only there; an invalid slug
+  // falls through to the normal ladder.
+  const canFilterLegend = gameMode === "1v1"
+  const legendActive =
+    canFilterLegend && sp.legend && rosterEntryBySlug(sp.legend)
+      ? sp.legend
+      : null
+
+  // Pro-only view — a toggle available on every 1v1 board (region-aware). It's
+  // mutually exclusive with the legend filter (mains aren't pro-scoped).
+  const canPro = gameMode === "1v1" && !legendActive
   const proView = canPro && sp.pro === "1"
   const baseQuery = proView ? `region=${region}&pro=1` : `region=${region}`
 
@@ -159,7 +177,11 @@ export default async function LeaderboardPage({
   let loadError: string | null = null
   let cutoffs: Awaited<ReturnType<typeof getValhallanCutoffs>> = new Map()
 
-  if (proView) {
+  if (legendActive) {
+    // OtpBoard owns its own rows; we only need the cutoff chips for the
+    // control row here.
+    cutoffs = await getValhallanCutoffs(gameMode, cutoffRegions)
+  } else if (proView) {
     // Pros come back as one fully-ranked list (filtered per region); page it
     // 50 at a time like the live ladder. Each row keeps its `rank`, so
     // slicing is safe.
@@ -216,6 +238,14 @@ export default async function LeaderboardPage({
     overrides,
   )
 
+  // Roster options for the legend filter, sorted by display name.
+  const legendOptions = [...LEGEND_ROSTER]
+    .map((l) => ({ slug: l.slug, name: l.name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  // Region links carry the active legend so switching ladders keeps the filter.
+  const legendSuffix = legendActive ? `&legend=${legendActive}` : ""
+
   return (
     <main className="pb-16">
         <div className="px-4 pt-8 sm:px-6 sm:pt-10">
@@ -254,6 +284,15 @@ export default async function LeaderboardPage({
               </div>
             </div>
 
+            {canFilterLegend && (
+              <LegendFilter
+                options={legendOptions}
+                selectedSlug={legendActive}
+                region={region}
+                basePath={modePath}
+              />
+            )}
+
             {canPro && <ProToggle pro={proView} region={region} />}
 
             <div className="flex items-center gap-1.5">
@@ -264,7 +303,7 @@ export default async function LeaderboardPage({
                 {API_REGIONS.map((r) => (
                   <Link
                     key={r}
-                    href={`${modePath}?region=${r}`}
+                    href={`${modePath}?region=${r}${legendSuffix}`}
                     aria-current={region === r ? "true" : undefined}
                     className={cn(
                       "rounded-md px-2 py-1 font-mono text-xs uppercase tracking-wider transition-colors",
@@ -311,7 +350,14 @@ export default async function LeaderboardPage({
             )}
           </div>
 
-          {loadError ? (
+          {legendActive ? (
+            <OtpBoard
+              legendSlug={legendActive}
+              region={region}
+              page={requestedPage}
+              basePath={modePath}
+            />
+          ) : loadError ? (
             <div className="mx-auto max-w-[1280px] rounded-xl border border-negative/30 bg-negative/5 p-6 text-sm text-muted-foreground">
               <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-negative">
                 Leaderboard unavailable

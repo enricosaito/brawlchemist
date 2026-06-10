@@ -6,6 +6,7 @@ import "./globals.css"
 import { AppShell } from "@/components/site/launcher/app-shell"
 import { ThemeProvider } from "@/components/theme-provider"
 import { getSessionUser } from "@/lib/auth/session"
+import { getClaimedBrawlhallaId } from "@/lib/sync/claims"
 import { cn } from "@/lib/utils"
 
 const fontSans = Geist({ subsets: ["latin"], variable: "--font-sans" })
@@ -46,6 +47,16 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   const user = await getSessionUser()
+  // Drives the rail's "Link Profile" → "My Profile" swap. Fails open: a DB
+  // hiccup must never take down the whole shell.
+  let claimedId: number | null = null
+  if (user) {
+    try {
+      claimedId = await getClaimedBrawlhallaId(user.id)
+    } catch (err) {
+      console.error("[layout] claim lookup failed:", err)
+    }
+  }
   return (
     <html
       lang="en"
@@ -61,7 +72,9 @@ export default async function RootLayout({
     >
       <body>
         <ThemeProvider defaultTheme="dark">
-          <AppShell user={user}>{children}</AppShell>
+          <AppShell user={user} claimedId={claimedId}>
+            {children}
+          </AppShell>
         </ThemeProvider>
       </body>
       <GoogleAnalytics gaId="G-L7WXF6YDF1" />

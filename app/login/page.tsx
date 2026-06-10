@@ -1,10 +1,6 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { Mail } from "lucide-react"
-import {
-  sendMagicLinkAction,
-  signInWithDiscordAction,
-} from "@/app/auth/actions"
+import { signInWithDiscordAction } from "@/app/auth/actions"
 import { getSessionUser } from "@/lib/auth/session"
 
 export const metadata = { title: "Sign in · Brawlchemist" }
@@ -12,18 +8,17 @@ export const metadata = { title: "Sign in · Brawlchemist" }
 const ERRORS: Record<string, string> = {
   auth: "Sign-in failed. Please try again.",
   discord: "Couldn't reach Discord. Please try again.",
-  email: "Enter a valid email address.",
   missing_code: "That link is incomplete or expired.",
 }
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; sent?: string; next?: string }>
+  searchParams: Promise<{ error?: string; next?: string }>
 }) {
   // Already signed in → nothing to do here.
   if (await getSessionUser()) redirect("/")
-  const { error, sent, next = "/" } = await searchParams
+  const { error, next = "/" } = await searchParams
 
   return (
     <div className="flex min-h-svh items-center justify-center px-4 py-16">
@@ -33,62 +28,21 @@ export default async function LoginPage({
           Claim your Brawlhalla profile and save your preferences.
         </p>
 
-        {sent ? (
-          <div className="mt-5 rounded-md border border-positive/40 bg-positive/10 px-3 py-3 text-sm">
-            Check your inbox — we sent you a sign-in link.
-          </div>
-        ) : (
-          <>
-            <form action={signInWithDiscordAction} className="mt-5">
-              <input type="hidden" name="next" value={next} />
-              <button
-                type="submit"
-                className="flex w-full items-center justify-center gap-2 rounded-md bg-[#5865F2] px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#4752c4]"
-              >
-                <DiscordMark className="h-4 w-4" />
-                Continue with Discord
-              </button>
-            </form>
+        <form action={signInWithDiscordAction} className="mt-5">
+          <input type="hidden" name="next" value={next} />
+          <button
+            type="submit"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-[#5865F2] px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#4752c4]"
+          >
+            <DiscordMark className="h-4 w-4" />
+            Continue with Discord
+          </button>
+        </form>
 
-            <div className="my-4 flex items-center gap-3">
-              <span className="h-px flex-1 bg-border/60" />
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                or
-              </span>
-              <span className="h-px flex-1 bg-border/60" />
-            </div>
-
-            <form action={sendMagicLinkAction} className="space-y-2">
-              <input type="hidden" name="next" value={next} />
-              <label
-                htmlFor="email"
-                className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
-              >
-                Email magic link
-              </label>
-              <input
-                id="email"
-                type="email"
-                name="email"
-                required
-                placeholder="you@example.com"
-                className="w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm outline-none focus:border-copper"
-              />
-              <button
-                type="submit"
-                className="flex w-full items-center justify-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm font-semibold transition-colors hover:bg-muted/70"
-              >
-                <Mail className="h-4 w-4" />
-                Email me a link
-              </button>
-            </form>
-
-            {error && (
-              <p className="mt-3 font-mono text-[11px] uppercase tracking-wider text-negative">
-                {ERRORS[error] ?? "Something went wrong."}
-              </p>
-            )}
-          </>
+        {error && (
+          <p className="mt-3 font-mono text-[11px] uppercase tracking-wider text-negative">
+            {ERRORS[error] ?? "Something went wrong."}
+          </p>
         )}
 
         <p className="mt-5 text-center text-xs text-muted-foreground">

@@ -1,0 +1,372 @@
+import {
+  LegendChip,
+  PlayerLink,
+  RankIcon,
+  RegionPill,
+  TIER_TEXT_COLOR,
+} from "@/components/site/primitives"
+import { cn } from "@/lib/utils"
+import { BadgeCheck } from "lucide-react"
+import { DataTable, type ColDef } from "@/components/site/data-table"
+import { LeaderboardPodium } from "@/components/site/leaderboard-podium"
+import { Pagination } from "@/components/site/pagination"
+import { formatElo, formatPercent } from "@/lib/format"
+import { getLegend } from "@/lib/mock-data"
+import { rosterEntryBySlug, type RosterEntry } from "@/lib/legends-roster"
+import {
+  isApiRegion,
+  type ApiRegion,
+  type RankedEntry,
+} from "@/lib/brawlhalla-api"
+import { getOtpsForLegend, type OtpPlayer } from "@/lib/sync/otps"
+import { getPlayersByIds } from "@/lib/sync/players"
+import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
+import { getProfilesMap } from "@/lib/sync/profiles"
+import type { PlayerRow } from "@/lib/db/schema"
+import type { PlayerPreview } from "@/lib/player-previews"
+import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
+
+const PAGE_SIZE = 50
+// Upper bound on the OTP board depth. The DB only holds Valhallan-discovered
+// players, so even popular legends rarely exceed this; the CTE computes every
+// candidate regardless of LIMIT, so raising it past 50 is essentially free.
+const MAX_OTPS = 200
+
+function formatWinRate(wins: number | null, games: number | null): string {
+  if (wins == null || games == null || games === 0) return "—"
+  return formatPercent((wins / games) * 100)
+}
+
+function buildColumns(
+  legendSlug: string,
+  valhallanById: Map<number, boolean>,
+  previews: Map<number, PlayerPreview>,
+  // The top 3 render in the podium, so the table starts at this rank.
+  rankOffset = 0,
+): ColDef<OtpPlayer>[] {
+  return [
+    {
+      id: "rank",
+      label: "#",
+      width: "56px",
+      align: "right",
+      render: (_, i) => (
+        <span className="font-mono text-xs text-muted-foreground tabular-nums">
+          {i + 1 + rankOffset}
+        </span>
+      ),
+    },
+    {
+      id: "rank-icon",
+      label: "Rank",
+      width: "72px",
+      align: "center",
+      render: (p) => {
+        const tier = deriveTier(p.tier, valhallanById.get(p.brawlhalla_id) ?? false)
+        return tier ? (
+          <RankIcon tier={tier} size={32} className="mx-auto" />
+        ) : null
+      },
+    },
+    {
+      id: "player",
+      label: "Player",
+      render: (p) => {
+        const val = valhallanById.get(p.brawlhalla_id) ?? false
+        const tier = deriveTier(p.tier, val)
+        const tierText = tierLabel(p.tier, val)
+        // Verified pros lead with their handle + badge and a "Pro Player" tag;
+        // hovering the row reveals the in-game name and the real rank below it.
+        const handle = previews.get(p.brawlhalla_id)?.verified?.handle
+        return (
+          <div className="flex items-center gap-2">
+            <LegendChip legendId={legendSlug} size="md" showName={false} />
+            <div
+              className={cn(
+                "flex min-w-0 flex-col gap-0.5",
+                handle && "group/pro",
+              )}
+            >
+              <PlayerLink
+                id={p.brawlhalla_id}
+                className="text-sm font-medium leading-5"
+              >
+                {handle ? (
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    <span className="min-w-0 truncate">
+                      <span className="group-hover/pro:hidden">{handle}</span>
+                      <span className="hidden group-hover/pro:inline">
+                        {p.username}
+                      </span>
+                    </span>
+                    <BadgeCheck className="size-3.5 shrink-0 text-foreground group-hover/pro:hidden" />
+                  </span>
+                ) : (
+                  <span className="truncate">{p.username}</span>
+                )}
+              </PlayerLink>
+              {handle ? (
+                <>
+                  <span className="mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-mystic group-hover/pro:hidden">
+                    Pro Player
+                  </span>
+                  {tier && (
+                    <span
+                      className={cn(
+                        "mt-0.5 hidden font-mono text-[10px] font-medium uppercase tracking-wider group-hover/pro:block",
+                        TIER_TEXT_COLOR[tier],
+                      )}
+                    >
+                      {tierText}
+                    </span>
+                  )}
+                </>
+              ) : tier ? (
+                <span
+                  className={cn(
+                    "mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
+                    TIER_TEXT_COLOR[tier],
+                  )}
+                >
+                  {tierText}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        )
+      },
+    },
+    {
+      id: "region",
+      label: "Region",
+      width: "84px",
+      render: (p) =>
+        p.region ? (
+          <RegionPill region={p.region} />
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        ),
+    },
+    {
+      id: "rating",
+      label: "Rating",
+      align: "right",
+      width: "100px",
+      render: (p) => (
+        <span className="font-mono text-sm tabular-nums">
+          {p.rating != null ? formatElo(p.rating) : "—"}
+        </span>
+      ),
+    },
+    {
+      id: "peak",
+      label: "Peak",
+      align: "right",
+      width: "100px",
+      render: (p) => (
+        <span className="font-mono text-sm tabular-nums text-muted-foreground">
+          {p.peak_rating != null ? formatElo(p.peak_rating) : "—"}
+        </span>
+      ),
+    },
+    {
+      id: "pick-rate",
+      label: "Pick Rate",
+      align: "right",
+      width: "110px",
+      render: (p) => {
+        const lGames = p.legend_games ?? 0
+        const total = p.games ?? 0
+        const share = total > 0 ? (lGames / total) * 100 : 0
+        return (
+          <span className="font-mono text-sm tabular-nums text-tier-s">
+            {share.toFixed(1)}%
+          </span>
+        )
+      },
+    },
+    {
+      id: "winrate",
+      label: "Legend WR",
+      align: "right",
+      width: "100px",
+      render: (p) => (
+        <span className="font-mono text-sm tabular-nums text-positive">
+          {formatWinRate(p.legend_wins, p.legend_games)}
+        </span>
+      ),
+    },
+  ]
+}
+
+/**
+ * OtpBoard — the legend-filtered "mains" leaderboard (formerly the standalone
+ * /otps page). Rendered inside the 1v1 leaderboard when a legend filter is
+ * active. Owns only the board itself; the legend picker + region pills live in
+ * the host page's control row. `basePath` keeps pagination self-referential
+ * wherever it's mounted.
+ */
+export async function OtpBoard({
+  legendSlug,
+  region,
+  page: requestedPage,
+  basePath,
+}: {
+  legendSlug: string
+  /** "ALL" or a specific API region. */
+  region: string
+  page: number
+  basePath: string
+}) {
+  const selectedLegend: RosterEntry =
+    rosterEntryBySlug(legendSlug) ?? rosterEntryBySlug("cassidy")!
+  const legendData = getLegend(legendSlug)
+  const regionFilter = region === "ALL" ? null : region
+
+  const players = await getOtpsForLegend({
+    legendId: selectedLegend.legendId,
+    region: regionFilter,
+    limit: MAX_OTPS,
+  })
+  const totalPages = Math.max(1, Math.ceil(players.length / PAGE_SIZE))
+  const page = Math.min(Math.max(1, requestedPage), totalPages)
+  const pageStart = (page - 1) * PAGE_SIZE
+
+  // Valhallan vs Diamond (both 2000+) hinges on each player's regional ladder
+  // cutoff. Fetch only the regions present here (cached, shared with the
+  // leaderboard) and mark who clears it with the 100-win requirement.
+  const regions = [
+    ...new Set(
+      players
+        .map((p) => p.region)
+        .filter(
+          (r): r is ApiRegion => !!r && r !== "ALL" && isApiRegion(r),
+        ),
+    ),
+  ]
+  const cutoffs = await getValhallanCutoffs("1v1", regions)
+  const cutoffFor = (region: string | null) =>
+    region && isApiRegion(region) ? cutoffs.get(region)?.rating ?? null : null
+  const valhallanById = new Map<number, boolean>(
+    players.map((p) => [
+      p.brawlhalla_id,
+      isValhallan(p.rating, cutoffFor(p.region), p.wins),
+    ]),
+  )
+  // Admin-curated pro handles/badges for the player column.
+  const overrides = await getProfilesMap()
+
+  // Top 3 reuse the shared leaderboard podium — adapt OtpPlayer → RankedEntry,
+  // deriving the real Valhallan tier (the /ranked tier caps at Diamond).
+  const toEntry = (p: OtpPlayer, rank: number): RankedEntry => ({
+    players: [{ id: p.brawlhalla_id, username: p.username }],
+    best_rating: p.peak_rating,
+    rank,
+    rating: p.rating,
+    wins: p.wins,
+    losses:
+      p.games != null && p.wins != null ? Math.max(0, p.games - p.wins) : null,
+    region: p.region,
+    tier: (valhallanById.get(p.brawlhalla_id) ?? false) ? "Valhallan" : p.tier,
+  })
+  // Page 1 leads with the podium (top 3), so its table starts at rank 4. Later
+  // pages are a plain table window. `tableStart` doubles as the rank offset so
+  // the # column stays globally correct across pages.
+  const podiumEntries =
+    page === 1 ? players.slice(0, 3).map((p, i) => toEntry(p, i + 1)) : []
+  const tableStart = page === 1 ? 3 : pageStart
+  const tableRows = players.slice(tableStart, pageStart + PAGE_SIZE)
+
+  // Only the podium (top 3 on page 1) renders best legends from ranked_json, so
+  // fetch just those rows rather than every player on the page. Fail open.
+  let playersMap = new Map<number, PlayerRow>()
+  if (podiumEntries.length > 0) {
+    const podiumIds = podiumEntries
+      .map((e) => e.players[0]?.id)
+      .filter((id): id is number => id != null)
+    try {
+      playersMap = await getPlayersByIds(podiumIds)
+    } catch (err) {
+      console.error("[otps] player cache lookup failed:", err)
+    }
+  }
+
+  if (players.length === 0) {
+    return (
+      <div className="mx-auto max-w-[1280px] rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">
+        No one in our DB mains{" "}
+        <span className="font-medium text-foreground">
+          {selectedLegend.name}
+        </span>{" "}
+        {region === "ALL" ? "this season." : `in ${region} this season.`} The DB
+        only includes Valhallan-discovered players — try a more popular legend,
+        or widen the region filter to ALL.
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-[1280px]">
+      {legendData && (
+        <div className="mb-3 flex items-center gap-3 rounded-xl border border-border/60 bg-card/40 px-4 py-3">
+          <LegendChip legendId={legendSlug} size="lg" showName={false} />
+          <div className="flex flex-col">
+            <span className="font-display text-lg font-semibold">
+              {selectedLegend.name} mains
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              {region === "ALL" ? "all regions" : `region: ${region}`} · top{" "}
+              {players.length}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {podiumEntries.length > 0 && (
+        <LeaderboardPodium
+          entries={podiumEntries}
+          playersMap={playersMap}
+          gameMode="1v1"
+          previews={overrides}
+          showRegion={region === "ALL"}
+        />
+      )}
+
+      {tableRows.length > 0 && (
+        <>
+          <DataTable
+            columns={buildColumns(
+              legendSlug,
+              valhallanById,
+              overrides,
+              tableStart,
+            )}
+            rows={tableRows}
+            rowKey={(p) => String(p.brawlhalla_id)}
+            searchValue={(p) =>
+              [p.username, overrides.get(p.brawlhalla_id)?.verified?.handle]
+                .filter(Boolean)
+                .join(" ")
+            }
+          />
+          <p
+            id="leaderboard-no-match"
+            hidden
+            className="mt-3 text-sm text-muted-foreground"
+          >
+            No players match your search.
+          </p>
+        </>
+      )}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        ariaLabel="OTP pagination"
+        hrefFor={(p) =>
+          `${basePath}?region=${region}&legend=${legendSlug}&page=${p}`
+        }
+      />
+    </div>
+  )
+}

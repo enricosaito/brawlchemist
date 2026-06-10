@@ -71,7 +71,7 @@ export async function WeaponMetaCard({
                     {topLegends.map((l, idx) => (
                       <Link
                         key={l.id}
-                        href={`/otps?legend=${l.slug}`}
+                        href={`/leaderboards/1v1?legend=${l.slug}`}
                         className="flex min-w-0 items-center gap-1 rounded transition-colors hover:text-foreground"
                       >
                         <LegendChip

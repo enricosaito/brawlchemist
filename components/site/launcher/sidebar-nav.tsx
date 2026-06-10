@@ -69,12 +69,29 @@ const NAV: NavEntry[] = [
     href: "/guilds",
     avatar: "/assets/AniAvatar_River_Raid.webp",
   },
-  {
-    label: "OTPs",
-    href: "/otps",
-    avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
-  },
 ]
+
+/**
+ * The profile entry is account-aware: it points a logged-in owner at their own
+ * claimed player page ("My Profile"), and everyone else at the claim/verify
+ * flow ("Link Profile"). Its avatar reuses the slot freed by the old OTPs link.
+ */
+function profileEntry(claimedId: number | null): NavEntry {
+  if (claimedId != null) {
+    return {
+      label: "My Profile",
+      href: `/player/${claimedId}`,
+      avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
+      match: [`/player/${claimedId}`],
+    }
+  }
+  return {
+    label: "Link Profile",
+    href: "/claim",
+    avatar: "/assets/AniAvatar_Kazuya_Mishima.webp",
+    match: ["/claim"],
+  }
+}
 
 function isActive(pathname: string, entry: NavEntry): boolean {
   if (pathname === entry.href) return true
@@ -145,11 +162,19 @@ function NavItem({
   )
 }
 
-function NavList({ onNavigate }: { onNavigate?: () => void }) {
+function NavList({
+  claimedId,
+  onNavigate,
+}: {
+  claimedId: number | null
+  onNavigate?: () => void
+}) {
   const pathname = usePathname()
+  // Profile entry rides at the end of the rail, after the content destinations.
+  const entries = [...NAV, profileEntry(claimedId)]
   return (
     <nav className="flex flex-col gap-3" aria-label="Primary">
-      {NAV.map((entry, i) => (
+      {entries.map((entry, i) => (
         <NavItem
           key={entry.href}
           entry={entry}
@@ -230,7 +255,13 @@ function SocialFooter() {
  * scroll-locked left rail (only the page column scrolls); below md it
  * collapses to a hamburger that opens a slide-in drawer.
  */
-export function SidebarNav({ user }: { user: SessionUser | null }) {
+export function SidebarNav({
+  user,
+  claimedId,
+}: {
+  user: SessionUser | null
+  claimedId: number | null
+}) {
   const [open, setOpen] = useState(false)
 
   // Lock body scroll while the mobile drawer is open, and close on Escape.
@@ -299,7 +330,10 @@ export function SidebarNav({ user }: { user: SessionUser | null }) {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">
-            <NavList onNavigate={() => setOpen(false)} />
+            <NavList
+              claimedId={claimedId}
+              onNavigate={() => setOpen(false)}
+            />
           </div>
           <AccountControl user={user} />
           <SocialFooter />
@@ -311,8 +345,11 @@ export function SidebarNav({ user }: { user: SessionUser | null }) {
           full-height and never scrolls itself; only the right column scrolls. */}
       <aside className="hidden h-full flex-col gap-7 overflow-hidden px-5 py-7 md:sticky md:top-0 md:flex md:h-svh xl:px-7">
         <Wordmark />
-        <div className="flex-1">
-          <NavList />
+        {/* The nav list scrolls within itself (min-h-0) so the account control
+            and social footer below stay pinned and visible even when the rail
+            is taller than a short viewport. */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <NavList claimedId={claimedId} />
         </div>
         <AccountControl user={user} />
         <SocialFooter />

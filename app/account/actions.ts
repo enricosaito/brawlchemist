@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { getClaimedBrawlhallaId } from "@/lib/sync/claims"
 import {
+  getCustomizationRecord,
   SOCIAL_KINDS,
   upsertCustomization,
   type SocialLink,
@@ -45,4 +46,35 @@ export async function saveCustomizationAction(formData: FormData) {
   await upsertCustomization(brawlhallaId, { bio, socialLinks, favoriteLegendIds })
   revalidatePath(`/player/${brawlhallaId}`)
   redirect("/account?saved=1")
+}
+
+/**
+ * Inline bio save from the owner's own public profile (the Overview edit
+ * affordance). Ownership-gated against the user's claimed id, and preserves
+ * existing favorites/links so a bio edit never clobbers the rest. Returns a
+ * result (no redirect) so the client can stay in place.
+ */
+export async function saveBioAction(
+  brawlhallaId: number,
+  bio: string,
+): Promise<{ ok: boolean; error?: "auth" | "forbidden" | "save" }> {
+  const userId = await authedUserId()
+  if (!userId) return { ok: false, error: "auth" }
+
+  const owned = await getClaimedBrawlhallaId(userId)
+  if (!owned || owned !== brawlhallaId) return { ok: false, error: "forbidden" }
+
+  try {
+    const existing = await getCustomizationRecord(brawlhallaId)
+    await upsertCustomization(brawlhallaId, {
+      bio,
+      socialLinks: existing.socialLinks,
+      favoriteLegendIds: existing.favoriteLegendIds,
+    })
+    revalidatePath(`/player/${brawlhallaId}`)
+    return { ok: true }
+  } catch (err) {
+    console.error("[saveBioAction] failed:", err)
+    return { ok: false, error: "save" }
+  }
 }
