@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { userCustomizations, type UserCustomizationRow } from "@/lib/db/schema"
 import { rosterEntryByLegendId } from "@/lib/legends-roster"
+import { DEFAULT_BANNER_ID, isValidBannerId } from "@/lib/profile/banners"
 
 /**
  * Public-facing profile customization (bio, social links, favorite legends) set
@@ -41,6 +42,8 @@ export interface Customization {
   bio: string | null
   socialLinks: SocialLink[]
   favoriteLegendIds: number[]
+  /** Header banner preset id, or null for the default wash (see lib/profile/banners). */
+  bannerId: string | null
 }
 
 export interface CustomizationInput {
@@ -54,7 +57,12 @@ const MAX_LINKS = 5
 const MAX_FAVORITES = 3
 const URL_MAX = 200
 
-const EMPTY: Customization = { bio: null, socialLinks: [], favoriteLegendIds: [] }
+const EMPTY: Customization = {
+  bio: null,
+  socialLinks: [],
+  favoriteLegendIds: [],
+  bannerId: null,
+}
 
 function customizationTag(brawlhallaId: number): string {
   return `customization-${brawlhallaId}`
@@ -101,17 +109,24 @@ function parseFavorites(value: unknown): number[] {
   return [...seen]
 }
 
+function parseBannerId(value: unknown): string | null {
+  return typeof value === "string" && isValidBannerId(value) ? value : null
+}
+
 function toCustomization(row: UserCustomizationRow): Customization {
   const bio = typeof row.bio === "string" && row.bio.trim() ? row.bio : null
   return {
     bio,
     socialLinks: parseSocialLinks(row.socialLinks),
     favoriteLegendIds: parseFavorites(row.favoriteLegendIds),
+    bannerId: parseBannerId(row.bannerId),
   }
 }
 
-/** Validate + normalize raw form input into the stored shape. */
-export function normalizeInput(input: CustomizationInput): Customization {
+/** Validate + normalize raw form input. Banner is managed separately (setBanner). */
+export function normalizeInput(
+  input: CustomizationInput,
+): Omit<Customization, "bannerId"> {
   const bio = input.bio.trim().slice(0, BIO_MAX)
   return {
     bio: bio || null,
@@ -179,6 +194,32 @@ export async function upsertCustomization(
         favoriteLegendIds: values.favoriteLegendIds,
         updatedAt: values.updatedAt,
       },
+    })
+  revalidateTag(customizationTag(brawlhallaId), "max")
+}
+
+/**
+ * Write the owner's chosen header banner and bust its cache. Kept independent of
+ * upsertCustomization (whose conflict-set never touches banner_id) so a banner
+ * change can't clobber bio/links and vice-versa. The default preset is stored as
+ * null — an unknown id is coerced to null too, so the read always fails open to
+ * the default wash. Caller MUST have checked ownership.
+ */
+export async function setBanner(
+  brawlhallaId: number,
+  rawBannerId: string,
+): Promise<void> {
+  const bannerId =
+    isValidBannerId(rawBannerId) && rawBannerId !== DEFAULT_BANNER_ID
+      ? rawBannerId
+      : null
+  const now = new Date()
+  await db()
+    .insert(userCustomizations)
+    .values({ brawlhallaId, bannerId, updatedAt: now })
+    .onConflictDoUpdate({
+      target: userCustomizations.brawlhallaId,
+      set: { bannerId, updatedAt: now },
     })
   revalidateTag(customizationTag(brawlhallaId), "max")
 }
