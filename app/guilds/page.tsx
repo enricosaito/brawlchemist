@@ -8,7 +8,7 @@ import { getGuildLeaderboard } from "@/lib/sync/guilds"
 import type { GuildListRow } from "@/lib/db/schema"
 
 export const metadata: Metadata = {
-  title: "Guild Rankings · Brawlchemist",
+  title: "Brawlchemist | Guild Rankings",
   description: "Top Brawlhalla guilds, ranked by official guild rank.",
 }
 

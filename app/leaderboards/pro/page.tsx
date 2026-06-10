@@ -11,7 +11,7 @@ import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerRow } from "@/lib/db/schema"
 
 export const metadata = {
-  title: "Pro Players · Brawlchemist",
+  title: "Brawlchemist | Pro Players",
   description: "Verified pro players ranked by current 1v1 rating, per region.",
 }
 

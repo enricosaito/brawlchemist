@@ -29,7 +29,7 @@ import type { PlayerPreview } from "@/lib/player-previews"
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Live Ranked Queue — Brawlchemist",
+  title: "Brawlchemist | Live Ranked Queue",
   description:
     "Brawlhalla players actively climbing ranked right now — live ELO and rank movement across the top 500.",
 }

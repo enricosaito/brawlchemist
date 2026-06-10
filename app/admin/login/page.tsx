@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { isAdmin } from "@/lib/admin-auth"
 import { loginAction } from "../actions"
 
-export const metadata = { title: "Admin · Brawlchemist" }
+export const metadata = { title: "Brawlchemist | Admin" }
 
 export default async function AdminLoginPage({
   searchParams,

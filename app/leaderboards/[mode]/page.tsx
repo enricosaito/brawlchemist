@@ -112,15 +112,15 @@ export async function generateMetadata({
           }
         : mode === "3v3"
           ? {
-              title: "3v3 Ranking",
+              title: "3v3 Leaderboard",
               description: "Top Brawlhalla 3v3 players, ranked live per region.",
             }
           : {
-            title: "1v1 Ranking",
+            title: "1v1 Leaderboard",
             description: "Top Brawlhalla 1v1 players, ranked live per region.",
           }
   return {
-    title: `${meta.title} · Brawlchemist`,
+    title: `Brawlchemist | ${meta.title}`,
     description: meta.description,
   }
 }

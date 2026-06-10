@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://brawlchemist.com",
   ),
-  title: "Brawlchemist — Brawlhalla Stats Lab",
+  title: "Brawlchemist | Brawlhalla Stats Lab",
   description:
     "Search players, read the meta, track rankings and weapon trends for Brawlhalla 1v1 and 2v2 ranked.",
 }

@@ -4,7 +4,7 @@ import { ClaimWizard } from "@/components/site/claim-wizard"
 import { getSessionUser } from "@/lib/auth/session"
 import { getClaimedBrawlhallaId } from "@/lib/sync/claims"
 
-export const metadata = { title: "Claim your profile · Brawlchemist" }
+export const metadata = { title: "Brawlchemist | Claim your profile" }
 
 export default async function ClaimPage({
   searchParams,

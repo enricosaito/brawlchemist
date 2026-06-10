@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { signInWithDiscordAction } from "@/app/auth/actions"
 import { getSessionUser } from "@/lib/auth/session"
 
-export const metadata = { title: "Sign in · Brawlchemist" }
+export const metadata = { title: "Brawlchemist | Sign in" }
 
 const ERRORS: Record<string, string> = {
   auth: "Sign-in failed. Please try again.",

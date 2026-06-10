@@ -2,7 +2,7 @@ import Link from "next/link"
 import { requireAdmin } from "@/lib/admin-auth"
 import { logoutAction } from "../actions"
 
-export const metadata = { title: "Admin · Brawlchemist" }
+export const metadata = { title: "Brawlchemist | Admin" }
 
 export default async function AdminPanelLayout({
   children,

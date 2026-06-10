@@ -17,7 +17,7 @@ import {
 import { PlayerLink } from "@/components/site/player-link"
 
 export const metadata: Metadata = {
-  title: "Power Rankings · Brawlchemist",
+  title: "Brawlchemist | Power Rankings",
   description:
     "Official Brawlhalla esports power rankings — PR points from tournament placements, per region, 1v1 and 2v2.",
 }

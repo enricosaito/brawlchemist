@@ -7,7 +7,7 @@ import { getTournamentsSplit, type Tournament } from "@/lib/brawltools-api"
 import { getCmTournaments, type CmTournament } from "@/lib/challengermode-api"
 
 export const metadata: Metadata = {
-  title: "Tournaments · Brawlchemist",
+  title: "Brawlchemist | Tournaments",
   description:
     "Brawlhalla esports tournaments — official championships and community events, filterable by mode, type, and year.",
 }

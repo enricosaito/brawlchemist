@@ -12,7 +12,7 @@ import {
 import { getPlayersByIds } from "@/lib/sync/players"
 import { saveCustomizationAction } from "./actions"
 
-export const metadata = { title: "Your account · Brawlchemist" }
+export const metadata = { title: "Brawlchemist | Your account" }
 
 const LEGENDS_BY_NAME = [...LEGEND_ROSTER].sort((a, b) =>
   a.name.localeCompare(b.name),

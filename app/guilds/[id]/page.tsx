@@ -95,7 +95,7 @@ export async function generateMetadata({
   const row = await getGuildById(Number(id))
   const name = row?.name ?? "Guild"
   return {
-    title: `${name} · Guild · Brawlchemist`,
+    title: `Brawlchemist | ${name} · Guild`,
     description: `${name} — Brawlhalla guild stats and ranking.`,
   }
 }

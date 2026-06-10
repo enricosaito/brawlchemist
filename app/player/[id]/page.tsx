@@ -164,14 +164,14 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params
   const numId = parseId(id)
-  if (!numId) return { title: "Player · Brawlchemist" }
+  if (!numId) return { title: "Brawlchemist | Player" }
   const ranked = await loadRanked(numId)
   if (!ranked.data || !ranked.data.name) {
     // No ranked this season — fall back to lifetime stats for the name/desc.
     const statsRes = await loadStats(numId)
     if (statsRes.ok && statsRes.data?.name) {
       const s = statsRes.data
-      const title = `${s.name} · Brawlchemist`
+      const title = `Brawlchemist | ${s.name}`
       const description = [
         `Level ${s.level}`,
         `${(s.games ?? 0).toLocaleString()} games`,
@@ -183,7 +183,7 @@ export async function generateMetadata({
         twitter: { card: "summary_large_image", title, description },
       }
     }
-    return { title: "Player · Brawlchemist" }
+    return { title: "Brawlchemist | Player" }
   }
   const d = ranked.data
   const cutoff = await valhallanCutoffRating("1v1", d.region)
@@ -198,7 +198,7 @@ export async function generateMetadata({
   ]
     .filter(Boolean)
     .join(" · ")
-  const title = `${d.name} · Brawlchemist`
+  const title = `Brawlchemist | ${d.name}`
   // og:image is auto-attached from opengraph-image.tsx in this folder.
   return {
     title,

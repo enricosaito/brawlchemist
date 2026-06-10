@@ -5,7 +5,7 @@ import { PatchCardImage } from "@/components/site/patch-card-image"
 import { getPatchNotes, type PatchNote } from "@/lib/brawlhalla-news"
 
 export const metadata: Metadata = {
-  title: "Patch Notes · Brawlchemist",
+  title: "Brawlchemist | Patch Notes",
   description:
     "Brawlhalla patch notes — the latest balance changes, bug fixes, and game updates, straight from the official Steam announcements.",
 }
