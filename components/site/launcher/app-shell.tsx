@@ -34,14 +34,22 @@ export function AppShell({
 
   if (pathname?.startsWith("/admin")) {
     return (
-      <FavoritesProvider initialIds={favoriteIds} loggedIn={loggedIn}>
+      <FavoritesProvider
+      initialIds={favoriteIds}
+      loggedIn={loggedIn}
+      selfId={claimed?.id ?? null}
+    >
         {children}
       </FavoritesProvider>
     )
   }
 
   return (
-    <FavoritesProvider initialIds={favoriteIds} loggedIn={loggedIn}>
+    <FavoritesProvider
+      initialIds={favoriteIds}
+      loggedIn={loggedIn}
+      selfId={claimed?.id ?? null}
+    >
       <VideoBackground />
       <BackgroundMusic />
       <div className="relative min-h-svh md:grid md:grid-cols-[clamp(280px,30%,420px)_minmax(0,1fr)]">

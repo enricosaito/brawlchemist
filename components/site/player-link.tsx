@@ -28,11 +28,12 @@ export function PlayerLink({
   children: React.ReactNode
 }) {
   const pathname = usePathname() ?? "/"
-  const { loggedIn, isFavorite, toggle } = useFavorites()
+  const { loggedIn, selfId, isFavorite, toggle } = useFavorites()
 
   if (id == null) return <span className={className}>{children}</span>
 
   const fav = isFavorite(id)
+  const isSelf = selfId === id
 
   const handleCopyId = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -83,7 +84,15 @@ export function PlayerLink({
             </Link>
           </ContextMenu.Item>
           <ContextMenu.Separator className="my-1 h-px bg-border/60" />
-          {loggedIn ? (
+          {isSelf ? (
+            <ContextMenu.Item
+              disabled
+              className={cn(itemCls, "flex items-center gap-1.5 opacity-50")}
+            >
+              <Star className="size-3 shrink-0" />
+              Your profile
+            </ContextMenu.Item>
+          ) : loggedIn ? (
             <ContextMenu.Item
               onSelect={() => {
                 void toggle(id)

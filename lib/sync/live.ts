@@ -50,6 +50,28 @@ function entityKey(queue: LiveQueue, players: LivePlayer[]): string {
 }
 
 /**
+ * The player's 1v1 ladder position, IF they're in the live top ~500 (the only
+ * reliable source — the per-player /ranked payload rarely carries a usable
+ * global_rank). A direct PK hit on `1v1:${id}`, zero API. Null = not top 500.
+ * Fails open.
+ */
+export async function getLadderPosition(
+  brawlhallaId: number,
+): Promise<{ rank: number; region: string | null } | null> {
+  try {
+    const [row] = await db()
+      .select({ rank: liveRanked.rank, region: liveRanked.region })
+      .from(liveRanked)
+      .where(eq(liveRanked.id, `1v1:${brawlhallaId}`))
+      .limit(1)
+    return row ? { rank: row.rank, region: row.region } : null
+  } catch (err) {
+    console.error("[live] ladder position lookup failed:", err)
+    return null
+  }
+}
+
+/**
  * Poll one queue's top-500 global ladder and reconcile it against the stored
  * snapshot, computing activity + session deltas. Returns a small summary.
  */

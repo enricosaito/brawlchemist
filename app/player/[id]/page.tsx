@@ -15,6 +15,7 @@ import { FavoriteToggleControl } from "@/components/site/favorite-toggle-control
 import { RecentVisitRecorder } from "@/components/site/recent-visit-recorder"
 import { resolveBanner } from "@/lib/profile/banners"
 import { getCustomization } from "@/lib/sync/customizations"
+import { getLadderPosition } from "@/lib/sync/live"
 import { ProfileCustomization } from "@/components/site/profile-customization"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { ProBadge } from "@/components/site/pro-badge"
@@ -46,6 +47,7 @@ import { recordFetch } from "@/lib/sync/fetch-log"
 import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
+import type { Tier } from "@/lib/types"
 import { formatElo, formatPercent } from "@/lib/format"
 import {
   rosterEntryByLegendId,
@@ -234,6 +236,74 @@ function NoticeCard({ title, children }: { title: string; children: React.ReactN
   )
 }
 
+/** Rank helm shown beside a rating — only the two top tiers have one; lower
+ * tiers ride on the number alone ("no helm for less"). */
+const RANK_HELM_SRC: Partial<Record<Tier, string>> = {
+  Valhallan: "/assets/valhallan-helm.png",
+  Diamond: "/assets/diamond-helm.png",
+}
+function RankHelm({ tier }: { tier: Tier }) {
+  const src = RANK_HELM_SRC[tier]
+  if (!src) return null
+  return (
+    <Image
+      src={src}
+      alt={`${tier} helm`}
+      width={48}
+      height={48}
+      unoptimized
+      className="h-7 w-auto shrink-0 select-none object-contain drop-shadow-sm"
+    />
+  )
+}
+
+/** A rank rating card: helm (Diamond/Valhallan) + rating + ELO (white headline),
+ * tier name + peak beneath. Shared by the 1v1 header and the 2v2-led fallback. */
+function RatingTile({
+  label,
+  rating,
+  peak,
+  tier,
+  tierName,
+}: {
+  label: string
+  rating: number | null
+  peak: number | null
+  tier: Tier | null
+  tierName: string
+}) {
+  const accent = tier ? TIER_TEXT_COLOR[tier] : undefined
+  return (
+    <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
+      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <div className="mt-1 flex h-8 items-center gap-2">
+        {tier && <RankHelm tier={tier} />}
+        {rating != null ? (
+          <span className="font-display text-2xl font-semibold tabular-nums text-foreground">
+            {formatElo(rating)}
+            <span className="ml-1 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              ELO
+            </span>
+          </span>
+        ) : (
+          <span className="font-display text-2xl font-semibold text-muted-foreground">
+            —
+          </span>
+        )}
+      </div>
+      <div className="mt-1 h-4 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        {tier && <span className={accent}>{tierName}</span>}
+        {tier && peak != null && (
+          <span className="text-muted-foreground/40"> · </span>
+        )}
+        {peak != null && <>Peak {formatElo(peak)}</>}
+      </div>
+    </div>
+  )
+}
+
 /** One label/value pair. Composed into the combined stat cards below. */
 function Metric({
   label,
@@ -242,7 +312,7 @@ function Metric({
   accent,
 }: {
   label: string
-  value: string
+  value: React.ReactNode
   sub?: string
   accent?: string
 }) {
@@ -253,7 +323,7 @@ function Metric({
       </span>
       <span
         className={cn(
-          "mt-0.5 truncate font-display text-2xl font-semibold tabular-nums",
+          "mt-0.5 font-display text-2xl font-semibold tabular-nums",
           accent,
         )}
       >
@@ -989,6 +1059,7 @@ function ProfileHeader({
   data,
   titles,
   valhallan,
+  ladderRank,
   preview,
   legendStats,
   claimSlot,
@@ -999,6 +1070,8 @@ function ProfileHeader({
   data: PlayerRanked
   titles: string[]
   valhallan: boolean
+  /** 1v1 ladder position when top ~500 (from live_ranked), else null. */
+  ladderRank: { n: number; scope: string } | null
   preview: PlayerPreview | undefined
   legendStats: Map<number, { level: number; xp: number }>
   claimSlot?: React.ReactNode
@@ -1026,36 +1099,16 @@ function ProfileHeader({
     })
     .filter((l): l is TopLegend => l !== null)
 
-  // Meta line under the name: ranks (rarely populated) + earned legend titles.
-  // The tier itself now lives in the rating card below.
+  // Meta line under the name: earned legend titles. (Tier + ladder rank now live
+  // in the rating card below.)
   const metaNodes: { key: string; node: React.ReactNode }[] = []
-  if (data.global_rank) {
-    metaNodes.push({
-      key: "global",
-      node: (
-        <span className="text-muted-foreground">
-          #{data.global_rank.toLocaleString()} global
-        </span>
-      ),
-    })
-  }
-  if (data.region_rank && data.region) {
-    metaNodes.push({
-      key: "region",
-      node: (
-        <span className="text-muted-foreground">
-          #{data.region_rank.toLocaleString()} {data.region}
-        </span>
-      ),
-    })
-  }
   titles.forEach((title, i) => {
     metaNodes.push({
       key: `title-${i}`,
       node: <span className="normal-case text-tier-gold">{title}</span>,
     })
   })
-  const hasMeta = !!preview?.verified || metaNodes.length > 0
+  const hasMeta = !!preview?.verified || !!ladderRank || metaNodes.length > 0
 
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
@@ -1119,6 +1172,14 @@ function ProfileHeader({
                           </span>
                         </span>
                       )}
+                      {ladderRank && (
+                        <span
+                          title={`#${ladderRank.n.toLocaleString()} on the ${ladderRank.scope} ladder`}
+                          className="inline-flex items-center gap-1 rounded-full border border-tier-gold/40 bg-tier-gold/10 px-2 py-0.5 normal-case text-tier-gold"
+                        >
+                          Ladder #{ladderRank.n.toLocaleString()}
+                        </span>
+                      )}
                       {metaNodes.map((item, i) => (
                         <span
                           key={item.key}
@@ -1164,37 +1225,36 @@ function ProfileHeader({
               {/* Stat cards row, anchored to the bottom so the banner/skin on
                   the left spans this and the name row above it. */}
               <div className="mt-auto flex flex-col gap-3 sm:flex-row">
-                {/* Rating + peak, with the tier label moved in here. */}
-                <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
-                  <div className="flex items-start justify-between gap-6">
-                    <Metric
-                      label="Rating"
-                      value={formatElo(data.rating)}
-                      accent={tier ? TIER_TEXT_COLOR[tier] : undefined}
-                    />
-                    <Metric label="Peak" value={formatElo(data.peak_rating)} />
+                {/* Individual 1v1 stats — rating, then win rate / games. 2v2
+                    lives in the Overview section, not this header. */}
+                <RatingTile
+                  label="1v1 Rating"
+                  rating={data.rating}
+                  peak={data.peak_rating}
+                  tier={tier}
+                  tierName={tierLabel(data.tier, valhallan)}
+                />
+                {/* Win rate + games played — same label/value/sub rhythm as the
+                    1v1 card so the big numbers line up across the row. */}
+                <div className="flex justify-between gap-6 rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
+                  <div className="flex min-w-0 flex-col">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Win Rate
+                    </span>
+                    <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold tabular-nums text-positive">
+                      {winRate(data.wins, data.games)}
+                    </span>
                   </div>
-                  {tier && (
-                    <div className="mt-2 font-mono text-[11px] font-medium uppercase tracking-wider">
-                      <span className={TIER_TEXT_COLOR[tier]}>
-                        {tierLabel(data.tier, valhallan)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                {/* Win rate + games played. */}
-                <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
-                  <div className="flex items-start justify-between gap-6">
-                    <Metric
-                      label="Win Rate"
-                      value={winRate(data.wins, data.games)}
-                      accent="text-positive"
-                    />
-                    <Metric
-                      label="Games"
-                      value={data.games.toLocaleString()}
-                      sub={`${data.wins.toLocaleString()}W · ${losses.toLocaleString()}L`}
-                    />
+                  <div className="flex min-w-0 flex-col">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Games
+                    </span>
+                    <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold tabular-nums">
+                      {data.games.toLocaleString()}
+                    </span>
+                    <span className="mt-1 h-4 font-mono text-[10px] text-muted-foreground">
+                      {data.wins.toLocaleString()}W · {losses.toLocaleString()}L
+                    </span>
                   </div>
                 </div>
                 {/* Most played — hover a head for pick rate, level, and XP. */}
@@ -1338,36 +1398,34 @@ function FallbackHeader({
               <div className="mt-auto flex flex-col gap-3 sm:flex-row">
                 {team ? (
                   <>
-                    <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
-                      <div className="flex items-start justify-between gap-6">
-                        <Metric
-                          label="2v2 Rating"
-                          value={formatElo(team.data.rating)}
-                          accent={tier ? TIER_TEXT_COLOR[tier] : undefined}
-                        />
-                        <Metric label="Peak" value={formatElo(team.data.peak_rating)} />
+                    {/* Mirrors the 1v1 header: helm + white ELO, then win
+                        rate / games on the same rhythm. */}
+                    <RatingTile
+                      label="2v2 Rating"
+                      rating={team.data.rating}
+                      peak={team.data.peak_rating}
+                      tier={tier}
+                      tierName={tierLabel(team.data.tier, team.valhallan)}
+                    />
+                    <div className="flex justify-between gap-6 rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
+                      <div className="flex min-w-0 flex-col">
+                        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Win Rate
+                        </span>
+                        <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold tabular-nums text-positive">
+                          {winRate(team.data.wins, team.data.games)}
+                        </span>
                       </div>
-                      {tier && (
-                        <div className="mt-2 font-mono text-[11px] font-medium uppercase tracking-wider">
-                          <span className={TIER_TEXT_COLOR[tier]}>
-                            {tierLabel(team.data.tier, team.valhallan)}
-                          </span>
-                          <span className="ml-1 text-muted-foreground">· 2v2</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
-                      <div className="flex items-start justify-between gap-6">
-                        <Metric
-                          label="Win Rate"
-                          value={winRate(team.data.wins, team.data.games)}
-                          accent="text-positive"
-                        />
-                        <Metric
-                          label="Games"
-                          value={team.data.games.toLocaleString()}
-                          sub={`${team.data.wins.toLocaleString()}W · ${losses.toLocaleString()}L`}
-                        />
+                      <div className="flex min-w-0 flex-col">
+                        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Games
+                        </span>
+                        <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold tabular-nums">
+                          {team.data.games.toLocaleString()}
+                        </span>
+                        <span className="mt-1 h-4 font-mono text-[10px] text-muted-foreground">
+                          {team.data.wins.toLocaleString()}W · {losses.toLocaleString()}L
+                        </span>
                       </div>
                     </div>
                   </>
@@ -1563,15 +1621,18 @@ export default async function PlayerPage({
 
   // Distinguish Valhallan from Diamond (both 2000+) via the region's live
   // ladder cutoff — 1v1 for the header, 2v2 for the team cards.
-  const [cutoff1v1, cutoff2v2, preview, esports] = await Promise.all([
+  const [cutoff1v1, cutoff2v2, preview, esports, ladderPos] = await Promise.all([
     valhallanCutoffRating("1v1", data.region),
     teams.length > 0
       ? valhallanCutoffRating("2v2", data.region)
       : Promise.resolve(null),
     getProfile(numId),
     loadEsports(numId),
+    getLadderPosition(numId),
   ])
   const headerValhallan = isValhallan(data.rating, cutoff1v1, data.wins)
+  // Live top-500 ladder position (global ALL ladder); null below the top 500.
+  const ladderRank = ladderPos ? { n: ladderPos.rank, scope: "Global" } : null
 
   // Name from the best available source: ranked → lifetime stats → esports.
   const displayName =
@@ -1644,6 +1705,7 @@ export default async function PlayerPage({
           data={data}
           titles={titles}
           valhallan={headerValhallan}
+          ladderRank={ladderRank}
           preview={preview}
           legendStats={legendStatsById}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}

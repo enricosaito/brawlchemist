@@ -32,6 +32,8 @@ export interface ToggleOutcome {
 
 interface FavoritesContextValue {
   loggedIn: boolean
+  /** The viewer's own claimed brawlhalla id, if any — you can't track yourself. */
+  selfId: number | null
   isFavorite: (id: number) => boolean
   toggle: (id: number) => Promise<ToggleOutcome>
   count: number
@@ -39,6 +41,7 @@ interface FavoritesContextValue {
 
 const FavoritesContext = createContext<FavoritesContextValue>({
   loggedIn: false,
+  selfId: null,
   isFavorite: () => false,
   toggle: async () => ({ ok: false, error: "auth" }),
   count: 0,
@@ -51,10 +54,12 @@ export function useFavorites(): FavoritesContextValue {
 export function FavoritesProvider({
   initialIds,
   loggedIn,
+  selfId,
   children,
 }: {
   initialIds: number[]
   loggedIn: boolean
+  selfId: number | null
   children: React.ReactNode
 }) {
   const router = useRouter()
@@ -104,8 +109,8 @@ export function FavoritesProvider({
   )
 
   const value = useMemo(
-    () => ({ loggedIn, isFavorite, toggle, count: ids.size }),
-    [loggedIn, isFavorite, toggle, ids],
+    () => ({ loggedIn, selfId, isFavorite, toggle, count: ids.size }),
+    [loggedIn, selfId, isFavorite, toggle, ids],
   )
 
   return (

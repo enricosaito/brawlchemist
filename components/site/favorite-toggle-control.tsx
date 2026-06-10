@@ -30,9 +30,10 @@ export function FavoriteToggleControl({
   brawlhallaId: number
   size?: "sm" | "md"
 }) {
-  const { loggedIn, isFavorite, toggle } = useFavorites()
+  const { loggedIn, selfId, isFavorite, toggle } = useFavorites()
   const pathname = usePathname() ?? "/"
   const fav = isFavorite(brawlhallaId)
+  const isSelf = selfId === brawlhallaId
 
   const [justAdded, setJustAdded] = useState(false)
   const [pop, setPop] = useState(false)
@@ -48,6 +49,21 @@ export function FavoriteToggleControl({
     },
     [],
   )
+
+  // Your own profile — you can't track yourself (it's always pinned in
+  // /favorites). Show a disabled star so the affordance reads as intentional.
+  if (isSelf) {
+    return (
+      <span
+        title="This is your profile"
+        aria-disabled
+        className="inline-flex cursor-default items-center gap-1.5 rounded-full border border-border/50 bg-card/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground/50"
+      >
+        <Star className="size-3.5 shrink-0" />
+        {size === "md" && "Your profile"}
+      </span>
+    )
+  }
 
   // Signed-out: a nudge to sign in, returning to wherever the star lives.
   if (!loggedIn) {
