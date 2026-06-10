@@ -1,74 +1,150 @@
 "use client"
 
-import { useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Star } from "lucide-react"
-import { toggleFavoriteAction } from "@/app/favorites/actions"
+import { useFavorites } from "./favorites-provider"
 import { cn } from "@/lib/utils"
 
+/** How long the "Tracking" confirmation label lingers after a star is added. */
+const TRACKING_MS = 2400
+
 /**
- * Star toggle for tracking a player. Optimistic: flips immediately, reverts on
- * failure (auth lost / at cap / save error) and surfaces the reason in the
- * tooltip. The server action is the authority; this is the UI half (the server
- * wrapper only renders it for signed-in viewers).
+ * The favorite star, reading shared state from FavoritesProvider.
  *
- * `size="md"` shows a Track/Tracking label (profile header); `size="sm"` is
- * icon-only (list rows).
+ * - Signed out → a sign-in nudge linking back to the current page.
+ * - Add → optimistic fill + a quick pop, and a brief "Tracking" label that
+ *   collapses back to just the star after a couple seconds.
+ * - Remove → guarded: hovering a tracked star reveals "Remove?", a first click
+ *   arms it ("Remove", red), and only a second click removes — leaving the chip
+ *   cancels. No accidental untracks.
+ *
+ * `size="md"` shows labels (profile header); `size="sm"` is the compact list
+ * star (icon-only at rest, expands for the remove flow).
  */
 export function FavoriteToggleControl({
   brawlhallaId,
-  initialFavorited,
   size = "md",
 }: {
   brawlhallaId: number
-  initialFavorited: boolean
   size?: "sm" | "md"
 }) {
-  const router = useRouter()
-  const [fav, setFav] = useState(initialFavorited)
-  const [note, setNote] = useState<string | null>(null)
-  const [pending, start] = useTransition()
+  const { loggedIn, isFavorite, toggle } = useFavorites()
+  const pathname = usePathname() ?? "/"
+  const fav = isFavorite(brawlhallaId)
 
-  function toggle() {
-    setNote(null)
-    const optimistic = !fav
-    setFav(optimistic)
-    start(async () => {
-      const res = await toggleFavoriteAction(brawlhallaId)
-      if (!res.ok) {
-        setFav(!optimistic)
-        setNote(res.error === "auth" ? "Sign in to track players." : "Try again.")
-        return
-      }
-      if (res.atCap) {
-        setFav(false)
-        setNote("Favorites are full (100).")
-        return
-      }
-      setFav(!!res.favorited)
-      // Re-sync server surfaces (the /favorites list, the header wrapper).
-      router.refresh()
-    })
+  const [justAdded, setJustAdded] = useState(false)
+  const [pop, setPop] = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const [armed, setArmed] = useState(false)
+  const [note, setNote] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+  const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(
+    () => () => {
+      if (addedTimer.current) clearTimeout(addedTimer.current)
+    },
+    [],
+  )
+
+  // Signed-out: a nudge to sign in, returning to wherever the star lives.
+  if (!loggedIn) {
+    return (
+      <Link
+        href={`/login?next=${encodeURIComponent(pathname)}`}
+        title="Sign in to track this player"
+        className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-tier-gold/50 hover:text-foreground"
+      >
+        <Star className="size-3.5 shrink-0" />
+        {size === "md" && "Track"}
+      </Link>
+    )
   }
+
+  async function onClick() {
+    setNote(null)
+    // Adding.
+    if (!fav) {
+      setPop(true)
+      setJustAdded(true)
+      window.setTimeout(() => setPop(false), 280)
+      if (addedTimer.current) clearTimeout(addedTimer.current)
+      addedTimer.current = setTimeout(() => setJustAdded(false), TRACKING_MS)
+      setPending(true)
+      const res = await toggle(brawlhallaId)
+      setPending(false)
+      if (!res.ok || res.atCap) {
+        setJustAdded(false)
+        if (addedTimer.current) clearTimeout(addedTimer.current)
+        setNote(
+          res.atCap
+            ? "Favorites are full (100)."
+            : res.error === "auth"
+              ? "Sign in again."
+              : "Try again.",
+        )
+      }
+      return
+    }
+    // Removing — two-step: first click arms, second confirms.
+    if (!armed) {
+      setArmed(true)
+      return
+    }
+    setArmed(false)
+    setPending(true)
+    const res = await toggle(brawlhallaId)
+    setPending(false)
+    if (!res.ok) setNote("Try again.")
+  }
+
+  const showTracking = fav && justAdded
+  const showConfirm = fav && armed && !justAdded
+  const showRemoveHint = fav && hovered && !armed && !justAdded
+
+  let label: string | null = null
+  if (!fav) label = size === "md" ? "Track" : null
+  else if (showTracking) label = "Tracking"
+  else if (showConfirm) label = "Remove"
+  else if (showRemoveHint) label = "Remove?"
+
+  const danger = showConfirm || showRemoveHint
 
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={onClick}
       disabled={pending}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => {
+        setHovered(false)
+        setArmed(false)
+      }}
       aria-pressed={fav}
       aria-label={fav ? "Remove from favorites" : "Add to favorites"}
       title={note ?? (fav ? "Tracking — click to remove" : "Track this player")}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border font-medium transition-colors disabled:opacity-60",
-        size === "md" ? "px-2.5 py-1 text-[11px]" : "size-8 justify-center",
-        fav
-          ? "border-tier-gold/50 bg-tier-gold/10 text-tier-gold hover:border-tier-gold/70"
-          : "border-border/60 bg-card/60 text-muted-foreground hover:border-tier-gold/50 hover:text-foreground",
+        "inline-flex items-center gap-1.5 rounded-full border font-medium transition-all duration-200 disabled:opacity-60",
+        label ? "px-2.5 py-1 text-[11px]" : "size-8 justify-center",
+        showConfirm
+          ? "border-negative/60 bg-negative/15 text-negative"
+          : danger
+            ? "border-negative/40 bg-card/60 text-negative"
+            : fav
+              ? "border-tier-gold/50 bg-tier-gold/10 text-tier-gold hover:border-tier-gold/70"
+              : "border-border/60 bg-card/60 text-muted-foreground hover:border-tier-gold/50 hover:text-foreground",
       )}
     >
-      <Star className={cn("size-3.5 shrink-0", fav && "fill-current")} />
-      {size === "md" && (fav ? "Tracking" : "Track")}
+      <Star
+        className={cn(
+          "size-3.5 shrink-0 transition-transform duration-300",
+          fav && !danger && "fill-current",
+          pop && "scale-125",
+        )}
+      />
+      {label && <span className={cn(showTracking && "animate-slide-in")}>{label}</span>}
     </button>
   )
 }

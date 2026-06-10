@@ -11,7 +11,7 @@ import {
 } from "@/components/site/primitives"
 import { ClaimBanner } from "@/components/site/claim-banner"
 import { BannerPicker } from "@/components/site/banner-picker"
-import { FavoriteToggle } from "@/components/site/favorite-toggle"
+import { FavoriteToggleControl } from "@/components/site/favorite-toggle-control"
 import { RecentVisitRecorder } from "@/components/site/recent-visit-recorder"
 import { resolveBanner } from "@/lib/profile/banners"
 import { getCustomization } from "@/lib/sync/customizations"
@@ -1615,9 +1615,9 @@ export default async function PlayerPage({
   // picker itself is gated to the owner inside BannerPicker.
   const { bannerId } = await getCustomization(numId)
   const bannerPicker = <BannerPicker brawlhallaId={numId} />
-  // Track/untrack star — signed-in viewers toggle, signed-out get a sign-in
-  // nudge. Self-contained + fails open inside FavoriteToggle.
-  const favoriteToggle = <FavoriteToggle brawlhallaId={numId} />
+  // Track/untrack star — reads shared favorites state; signed-out viewers get a
+  // sign-in nudge from inside the control.
+  const favoriteToggle = <FavoriteToggleControl brawlhallaId={numId} />
 
   // Device-local recent-visit crumb: mirror the search-result shape so the home
   // dropdown renders this identically to a live suggestion. Top legend = most

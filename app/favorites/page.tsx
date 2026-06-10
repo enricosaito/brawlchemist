@@ -4,6 +4,7 @@ import { Star } from "lucide-react"
 import { getSessionUser } from "@/lib/auth/session"
 import { slugForLegendId } from "@/lib/legends-roster"
 import { formatElo } from "@/lib/format"
+import { getClaimedBrawlhallaId } from "@/lib/sync/claims"
 import { getFavoriteIds } from "@/lib/sync/favorites"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
@@ -19,7 +20,17 @@ export default async function FavoritesPage() {
   const user = await getSessionUser()
   if (!user) redirect("/login?next=/favorites")
 
-  const ids = await getFavoriteIds(user.id)
+  const [claimedId, favoriteIds] = await Promise.all([
+    getClaimedBrawlhallaId(user.id),
+    getFavoriteIds(user.id),
+  ])
+
+  // The viewer's own claimed profile is always pinned first (deduped from the
+  // favorites below it). The rest follow in most-recently-favorited order.
+  const ids =
+    claimedId != null
+      ? [claimedId, ...favoriteIds.filter((id) => id !== claimedId)]
+      : favoriteIds
 
   const [playersMap, profiles] = await Promise.all([
     ids.length
@@ -59,6 +70,7 @@ export default async function FavoritesPage() {
             <FavoriteRow
               key={id}
               id={id}
+              self={id === claimedId}
               player={playersMap.get(id) ?? null}
               preview={profiles.get(id)}
             />
@@ -71,10 +83,12 @@ export default async function FavoritesPage() {
 
 function FavoriteRow({
   id,
+  self,
   player,
   preview,
 }: {
   id: number
+  self: boolean
   player: PlayerRow | null
   preview?: PlayerPreview
 }) {
@@ -89,7 +103,7 @@ function FavoriteRow({
       <Link
         href={`/player/${id}`}
         prefetch={false}
-        className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/40 p-3.5 transition-colors hover:border-tier-gold/40 hover:bg-card/70"
+        className={cnRow(self)}
       >
         <div className="flex min-w-0 items-center gap-3">
           {slug ? (
@@ -103,6 +117,11 @@ function FavoriteRow({
                 {handle ?? username}
               </span>
               {handle && <ProBadge className="shrink-0" />}
+              {self && (
+                <span className="shrink-0 rounded-full border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-tier-gold">
+                  You
+                </span>
+              )}
             </span>
             <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
               ID {id}
@@ -122,13 +141,21 @@ function FavoriteRow({
           )}
         </div>
       </Link>
-      <div className="flex items-center">
-        <FavoriteToggleControl
-          brawlhallaId={id}
-          initialFavorited
-          size="sm"
-        />
-      </div>
+      {/* Own profile is permanently pinned — no untrack control. */}
+      {!self && (
+        <div className="flex items-center">
+          <FavoriteToggleControl brawlhallaId={id} size="sm" />
+        </div>
+      )}
     </li>
   )
+}
+
+function cnRow(self: boolean): string {
+  return [
+    "flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl border p-3.5 transition-colors",
+    self
+      ? "border-tier-gold/40 bg-tier-gold/5 hover:bg-tier-gold/10"
+      : "border-border/60 bg-card/40 hover:border-tier-gold/40 hover:bg-card/70",
+  ].join(" ")
 }
