@@ -986,12 +986,14 @@ function ProfileHeader({
   valhallan,
   preview,
   legendStats,
+  claimSlot,
 }: {
   data: PlayerRanked
   titles: string[]
   valhallan: boolean
   preview: PlayerPreview | undefined
   legendStats: Map<number, { level: number; xp: number }>
+  claimSlot?: React.ReactNode
 }) {
   const tier = deriveTier(data.tier, valhallan)
   const losses = Math.max(0, data.games - data.wins)
@@ -1089,6 +1091,7 @@ function ProfileHeader({
                       {data.name}
                     </h1>
                     {data.region && <RegionPill region={data.region} />}
+                    {claimSlot}
                   </div>
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
@@ -1214,6 +1217,7 @@ function FallbackHeader({
   esports,
   team,
   account,
+  claimSlot,
 }: {
   name: string
   region: string | null
@@ -1222,6 +1226,7 @@ function FallbackHeader({
   esports: EsportsProfile | null
   team: { data: PlayerRanked2v2; valhallan: boolean } | null
   account: { level: number; games: number } | null
+  claimSlot?: React.ReactNode
 }) {
   const tier = team ? deriveTier(team.data.tier, team.valhallan) : null
   const proPr = esports?.pr1v1 ?? esports?.pr2v2 ?? null
@@ -1268,6 +1273,7 @@ function FallbackHeader({
                     {name}
                   </h1>
                   {region && <RegionPill region={region} />}
+                  {claimSlot}
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
                   {preview?.verified && (
@@ -1588,6 +1594,7 @@ export default async function PlayerPage({
           valhallan={headerValhallan}
           preview={preview}
           legendStats={legendStatsById}
+          claimSlot={<ClaimBanner brawlhallaId={numId} />}
         />
       ) : topTeam ? (
         <FallbackHeader
@@ -1601,6 +1608,7 @@ export default async function PlayerPage({
             valhallan: isValhallan(topTeam.rating, cutoff2v2, topTeam.wins),
           }}
           account={null}
+          claimSlot={<ClaimBanner brawlhallaId={numId} />}
         />
       ) : (
         <FallbackHeader
@@ -1615,10 +1623,9 @@ export default async function PlayerPage({
               ? { level: accountStats.level, games: accountStats.games }
               : null
           }
+          claimSlot={<ClaimBanner brawlhallaId={numId} />}
         />
       )}
-
-      <ClaimBanner brawlhallaId={numId} />
 
       <ProfileTabs tabs={tabs} active={tab} baseHref={`/player/${numId}`} />
 

@@ -1,22 +1,25 @@
 import Link from "next/link"
 import { BadgeCheck, UserRoundPlus } from "lucide-react"
 import { getSessionUser } from "@/lib/auth/session"
-import { getClaimState } from "@/lib/sync/claims"
+import { getClaimState, getClaimedBrawlhallaId } from "@/lib/sync/claims"
 
 /**
- * Profile-page ownership CTA. Shown above the tabs:
- * - the viewer owns this player → a subtle "your profile" chip
- * - unclaimed → "Is this you? Claim this profile" (the /claim flow handles the
- *   sign-in redirect for logged-out visitors)
+ * Compact ownership chip, rendered inline in the profile header next to the
+ * region tag:
+ * - the viewer owns this player → a "Your profile" chip
+ * - unclaimed → "Is this you? Claim" (the /claim flow handles sign-in), but
+ *   hidden once the viewer has already linked a profile (one claim per account)
  * - owned by someone else → nothing (ownership identity isn't revealed)
  *
  * Fails open: any lookup error renders nothing rather than breaking the page.
  */
 export async function ClaimBanner({ brawlhallaId }: { brawlhallaId: number }) {
   let state: "unclaimed" | "mine" | "other"
+  let userId: string | null = null
   try {
     const user = await getSessionUser()
-    state = await getClaimState(brawlhallaId, user?.id ?? null)
+    userId = user?.id ?? null
+    state = await getClaimState(brawlhallaId, userId)
   } catch {
     return null
   }
@@ -25,23 +28,32 @@ export async function ClaimBanner({ brawlhallaId }: { brawlhallaId: number }) {
 
   if (state === "mine") {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-positive/40 bg-positive/10 px-3 py-2 text-sm">
-        <BadgeCheck className="size-4 shrink-0 text-positive" />
-        <span className="font-medium">This is your profile.</span>
-      </div>
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-positive/40 bg-positive/10 px-2.5 py-1 text-[11px] font-medium text-positive">
+        <BadgeCheck className="size-3.5" />
+        Your profile
+      </span>
     )
+  }
+
+  // Unclaimed. Hide the CTA if this viewer already linked a different profile
+  // (one claim per account); fail open to showing it on a lookup error.
+  if (userId) {
+    try {
+      if ((await getClaimedBrawlhallaId(userId)) != null) return null
+    } catch {
+      /* fall through and show the CTA */
+    }
   }
 
   return (
     <Link
       href={`/claim?id=${brawlhallaId}`}
-      className="group flex items-center gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-2 text-sm transition-colors hover:border-copper/60 hover:bg-card/60"
+      className="group inline-flex items-center gap-1.5 rounded-full border border-copper/50 bg-copper/10 px-2.5 py-1 text-[11px] font-medium text-copper transition-colors hover:bg-copper/20"
     >
-      <UserRoundPlus className="size-4 shrink-0 text-copper" />
-      <span className="font-medium">Is this you?</span>
-      <span className="text-muted-foreground">Claim this profile</span>
-      <span className="ml-auto text-copper transition-transform group-hover:translate-x-0.5">
-        →
+      <UserRoundPlus className="size-3.5" />
+      Is this you?
+      <span className="text-copper/70 transition-colors group-hover:text-copper">
+        Claim
       </span>
     </Link>
   )

@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import type { SessionUser } from "@/lib/auth/session"
+import type { ClaimedProfile } from "./account-control"
 import { BackgroundMusic } from "./background-music"
 import { SidebarNav } from "./sidebar-nav"
 import { VideoBackground } from "./video-background"
@@ -19,11 +20,11 @@ import { VideoBackground } from "./video-background"
 export function AppShell({
   children,
   user,
-  claimedId,
+  claimed,
 }: {
   children: React.ReactNode
   user: SessionUser | null
-  claimedId: number | null
+  claimed: ClaimedProfile | null
 }) {
   const pathname = usePathname()
 
@@ -36,7 +37,7 @@ export function AppShell({
       <VideoBackground />
       <BackgroundMusic />
       <div className="relative min-h-svh md:grid md:grid-cols-[clamp(280px,30%,420px)_minmax(0,1fr)]">
-        <SidebarNav user={user} claimedId={claimedId} />
+        <SidebarNav user={user} claimed={claimed} />
         <div className="min-w-0">{children}</div>
       </div>
     </>

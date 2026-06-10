@@ -4,9 +4,12 @@ import { GoogleAnalytics } from "@next/third-parties/google"
 
 import "./globals.css"
 import { AppShell } from "@/components/site/launcher/app-shell"
+import type { ClaimedProfile } from "@/components/site/launcher/account-control"
 import { ThemeProvider } from "@/components/theme-provider"
 import { getSessionUser } from "@/lib/auth/session"
 import { getClaimedBrawlhallaId } from "@/lib/sync/claims"
+import { getPlayersByIds } from "@/lib/sync/players"
+import { getProfile } from "@/lib/sync/profiles"
 import { cn } from "@/lib/utils"
 
 const fontSans = Geist({ subsets: ["latin"], variable: "--font-sans" })
@@ -47,12 +50,25 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   const user = await getSessionUser()
-  // Drives the rail's "Link Profile" → "My Profile" swap. Fails open: a DB
-  // hiccup must never take down the whole shell.
-  let claimedId: number | null = null
+  // The account control shows the user's claimed Brawlhalla identity (pro
+  // handle / username) and links to their profile. Fails open: a DB hiccup
+  // must never take down the whole shell.
+  let claimed: ClaimedProfile | null = null
   if (user) {
     try {
-      claimedId = await getClaimedBrawlhallaId(user.id)
+      const id = await getClaimedBrawlhallaId(user.id)
+      if (id != null) {
+        const [players, profile] = await Promise.all([
+          getPlayersByIds([id], { includeRankedJson: false }),
+          getProfile(id),
+        ])
+        const handle = profile?.verified?.handle?.trim() || null
+        claimed = {
+          id,
+          name: handle ?? players.get(id)?.username ?? null,
+          isPro: !!handle,
+        }
+      }
     } catch (err) {
       console.error("[layout] claim lookup failed:", err)
     }
@@ -72,7 +88,7 @@ export default async function RootLayout({
     >
       <body>
         <ThemeProvider defaultTheme="dark">
-          <AppShell user={user} claimedId={claimedId}>
+          <AppShell user={user} claimed={claimed}>
             {children}
           </AppShell>
         </ThemeProvider>

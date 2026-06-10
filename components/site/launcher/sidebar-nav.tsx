@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import type { SessionUser } from "@/lib/auth/session"
 import { cn } from "@/lib/utils"
-import { AccountControl } from "./account-control"
+import { AccountControl, type ClaimedProfile } from "./account-control"
 import { SoundToggle } from "./sound-toggle"
 
 /* ---------------------------------------------------------------------------
@@ -227,10 +227,10 @@ function SocialFooter() {
  */
 export function SidebarNav({
   user,
-  claimedId,
+  claimed,
 }: {
   user: SessionUser | null
-  claimedId: number | null
+  claimed: ClaimedProfile | null
 }) {
   const [open, setOpen] = useState(false)
 
@@ -302,7 +302,7 @@ export function SidebarNav({
           <div className="flex-1 overflow-y-auto">
             <NavList onNavigate={() => setOpen(false)} />
           </div>
-          <AccountControl user={user} claimedId={claimedId} />
+          <AccountControl user={user} claimed={claimed} />
           <SocialFooter />
         </div>
       </div>
@@ -318,7 +318,7 @@ export function SidebarNav({
         <div className="min-h-0 flex-1 overflow-hidden">
           <NavList />
         </div>
-        <AccountControl user={user} claimedId={claimedId} />
+        <AccountControl user={user} claimed={claimed} />
         <SocialFooter />
       </aside>
     </>
