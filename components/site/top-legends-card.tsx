@@ -92,7 +92,7 @@ export async function TopLegendsCard({
           return (
             <li key={legend.id}>
               <Link
-                href={`/otps?legend=${legend.id}`}
+                href={`/leaderboards/1v1?legend=${legend.id}`}
                 className="group/row relative flex h-full min-h-14 items-center gap-3 overflow-hidden px-4 py-2"
               >
                 {/* Same iOS-style hover affordance as Live Rankings — the row

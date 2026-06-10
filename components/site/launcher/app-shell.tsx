@@ -19,9 +19,11 @@ import { VideoBackground } from "./video-background"
 export function AppShell({
   children,
   user,
+  claimedId,
 }: {
   children: React.ReactNode
   user: SessionUser | null
+  claimedId: number | null
 }) {
   const pathname = usePathname()
 
@@ -34,7 +36,7 @@ export function AppShell({
       <VideoBackground />
       <BackgroundMusic />
       <div className="relative min-h-svh md:grid md:grid-cols-[clamp(280px,30%,420px)_minmax(0,1fr)]">
-        <SidebarNav user={user} />
+        <SidebarNav user={user} claimedId={claimedId} />
         <div className="min-w-0">{children}</div>
       </div>
     </>
