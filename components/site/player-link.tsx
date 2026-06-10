@@ -1,8 +1,11 @@
 "use client"
 
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { ContextMenu } from "radix-ui"
+import { Star } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useFavorites } from "./favorites-provider"
 
 /**
  * PlayerLink — wraps a player's name in a link to their profile, with a custom
@@ -24,7 +27,12 @@ export function PlayerLink({
   className?: string
   children: React.ReactNode
 }) {
+  const pathname = usePathname() ?? "/"
+  const { loggedIn, isFavorite, toggle } = useFavorites()
+
   if (id == null) return <span className={className}>{children}</span>
+
+  const fav = isFavorite(id)
 
   const handleCopyId = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -74,6 +82,30 @@ export function PlayerLink({
               Open in new tab
             </Link>
           </ContextMenu.Item>
+          <ContextMenu.Separator className="my-1 h-px bg-border/60" />
+          {loggedIn ? (
+            <ContextMenu.Item
+              onSelect={() => {
+                void toggle(id)
+              }}
+              className={cn(itemCls, "flex items-center gap-1.5")}
+            >
+              <Star
+                className={cn("size-3 shrink-0", fav && "fill-current text-tier-gold")}
+              />
+              {fav ? "Remove from Favorites" : "Add to Favorites"}
+            </ContextMenu.Item>
+          ) : (
+            <ContextMenu.Item asChild>
+              <Link
+                href={`/login?next=${encodeURIComponent(pathname)}`}
+                className={cn(itemCls, "flex items-center gap-1.5")}
+              >
+                <Star className="size-3 shrink-0" />
+                Sign in to track
+              </Link>
+            </ContextMenu.Item>
+          )}
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

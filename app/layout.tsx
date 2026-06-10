@@ -8,6 +8,7 @@ import type { ClaimedProfile } from "@/components/site/launcher/account-control"
 import { ThemeProvider } from "@/components/theme-provider"
 import { getSessionUser } from "@/lib/auth/session"
 import { getClaimedBrawlhallaId } from "@/lib/sync/claims"
+import { getFavoriteIds } from "@/lib/sync/favorites"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProfile } from "@/lib/sync/profiles"
 import { cn } from "@/lib/utils"
@@ -54,6 +55,8 @@ export default async function RootLayout({
   // handle / username) and links to their profile. Fails open: a DB hiccup
   // must never take down the whole shell.
   let claimed: ClaimedProfile | null = null
+  // Seed the client favorites store once (signed-in only); fails open to [].
+  let favoriteIds: number[] = []
   if (user) {
     try {
       const id = await getClaimedBrawlhallaId(user.id)
@@ -72,6 +75,11 @@ export default async function RootLayout({
     } catch (err) {
       console.error("[layout] claim lookup failed:", err)
     }
+    try {
+      favoriteIds = await getFavoriteIds(user.id)
+    } catch (err) {
+      console.error("[layout] favorites lookup failed:", err)
+    }
   }
   return (
     <html
@@ -88,7 +96,7 @@ export default async function RootLayout({
     >
       <body>
         <ThemeProvider defaultTheme="dark">
-          <AppShell user={user} claimed={claimed}>
+          <AppShell user={user} claimed={claimed} favoriteIds={favoriteIds}>
             {children}
           </AppShell>
         </ThemeProvider>
