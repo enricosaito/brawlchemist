@@ -2,7 +2,6 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { DataTable } from "@/components/site/data-table"
 import { buildLeaderboardColumns } from "@/components/site/leaderboard-columns"
-import { PageHero } from "@/components/site/page-hero"
 import { CURRENT_PATCH } from "@/lib/mock-data"
 import { isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
@@ -54,16 +53,7 @@ export default async function ProLeaderboardPage({
 
   return (
     <main className="pb-16">
-        <PageHero
-          title="Pro Players"
-          subtitle="Verified pro players, ranked by current 1v1 rating in each region."
-          meta={
-            <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
-              Patch {CURRENT_PATCH}
-            </span>
-          }
-        />
-        <div className="px-4 sm:px-6">
+        <div className="px-4 pt-8 sm:px-6 sm:pt-10">
           <div className="mx-auto mb-3 flex max-w-[1280px] flex-wrap items-center gap-2">
             <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
               Region
@@ -85,6 +75,10 @@ export default async function ProLeaderboardPage({
                 </Link>
               ))}
             </div>
+
+            <span className="ml-auto rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
+              Patch {CURRENT_PATCH}
+            </span>
           </div>
 
           {rows.length === 0 ? (

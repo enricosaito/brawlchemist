@@ -3,7 +3,6 @@ import Link from "next/link"
 import { Calendar, Medal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DataTable, type ColDef } from "@/components/site/data-table"
-import { PageHero } from "@/components/site/page-hero"
 import { Pagination } from "@/components/site/pagination"
 import {
   isPrRegion,
@@ -333,12 +332,7 @@ export default async function PowerRankingsPage({
 
   return (
     <main className="pb-16">
-      <PageHero
-        title="Power Rankings"
-        subtitle="The official Brawlhalla esports rankings — PR points earned from placements at official tournaments, per region."
-      />
-
-      <div className="px-4 sm:px-6">
+      <div className="px-4 pt-8 sm:px-6 sm:pt-10">
         <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-3 gap-y-3">
           {/* Mode */}
           <div className="flex items-center gap-2">

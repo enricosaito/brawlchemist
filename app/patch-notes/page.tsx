@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import { ArrowUpRight, Newspaper } from "lucide-react"
-import { PageHero } from "@/components/site/page-hero"
 import { PatchCardImage } from "@/components/site/patch-card-image"
 import { getPatchNotes, type PatchNote } from "@/lib/brawlhalla-news"
 
@@ -64,18 +63,14 @@ export default async function PatchNotesPage() {
 
   return (
     <main className="pb-16">
-        <PageHero
-          title="Patch Notes"
-          subtitle="The latest Brawlhalla balance changes, bug fixes, and content updates — straight from the official Brawlhalla news."
-          meta={
-            <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              <Newspaper className="size-2.5" />
-              via brawlhalla.com
-            </span>
-          }
-        />
-        <div className="px-4 sm:px-6">
+        <div className="px-4 pt-8 sm:px-6 sm:pt-10">
           <div className="mx-auto max-w-[1100px]">
+            <div className="mb-4 flex justify-end">
+              <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <Newspaper className="size-2.5" />
+                via brawlhalla.com
+              </span>
+            </div>
             {notes === null ? (
               <div className="rounded-xl border border-negative/30 bg-negative/5 p-6 text-sm text-muted-foreground">
                 <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-negative">

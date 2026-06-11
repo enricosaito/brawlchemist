@@ -1,7 +1,6 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { LegendChip, RegionPill } from "@/components/site/primitives"
-import { PageHero } from "@/components/site/page-hero"
 import { PlayerSearchForm } from "@/components/site/player-search-form"
 import { ProBadge } from "@/components/site/pro-badge"
 import { searchPlayerBySteamId, type PlayerRanked } from "@/lib/brawlhalla-api"
@@ -157,12 +156,7 @@ export default async function SearchPage({
 
   return (
     <main className="pb-16">
-        <PageHero
-          title="Player Search"
-          subtitle="Search by in-game name, Brawlhalla ID, or Steam ID (steamID64 or a steamcommunity.com profile link)."
-        />
-
-        <div className="px-4 sm:px-6">
+        <div className="px-4 pt-8 sm:px-6 sm:pt-10">
           <div className="mx-auto mb-6 flex max-w-xl justify-center">
             <PlayerSearchForm defaultValue={raw} autoFocus={!raw} />
           </div>

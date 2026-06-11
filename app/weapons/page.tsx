@@ -6,7 +6,6 @@ import {
   type PopularityTier,
 } from "@/components/site/popularity-label"
 import { DataTable, type ColDef } from "@/components/site/data-table"
-import { PageHero } from "@/components/site/page-hero"
 import { CURRENT_PATCH, WEAPON_NAMES } from "@/lib/mock-data"
 import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import { API_REGIONS, isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
@@ -143,21 +142,7 @@ export default async function WeaponsPage({
 
   return (
     <main className="pb-16">
-        <PageHero
-          title="Weapons"
-          subtitle="All weapons in the roster, ranked by games played in the elite Valhallan pool. Stats aggregate from every legend that wields the weapon — full attribution, so pick rates sum to 200% (each game counts twice)."
-          meta={
-            <>
-              <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
-                {sampleSize} players
-              </span>
-              <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
-                Patch {CURRENT_PATCH}
-              </span>
-            </>
-          }
-        />
-        <div className="px-4 sm:px-6">
+        <div className="px-4 pt-8 sm:px-6 sm:pt-10">
           <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -180,6 +165,15 @@ export default async function WeaponsPage({
                   </Link>
                 ))}
               </div>
+            </div>
+
+            <div className="ml-auto flex flex-wrap items-center gap-1.5">
+              <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
+                {sampleSize} players
+              </span>
+              <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
+                Patch {CURRENT_PATCH}
+              </span>
             </div>
           </div>
 

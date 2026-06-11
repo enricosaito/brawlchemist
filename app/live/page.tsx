@@ -3,7 +3,6 @@ import Link from "next/link"
 import { BadgeCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LiveAutoRefresh } from "@/components/site/live-auto-refresh"
-import { PageHero } from "@/components/site/page-hero"
 import {
   Delta,
   LegendChip,
@@ -306,13 +305,8 @@ export default async function LivePage({
   return (
     <main className="pb-16">
       <LiveAutoRefresh intervalMs={45_000} />
-      <PageHero
-        title="Live ranked queue"
-        subtitle="Top-500 players who finished a ranked match in the last 10 minutes — with the ELO and rank they've moved this session."
-        meta={<LivePill count={rows.length} />}
-      />
 
-      <div className="px-4 sm:px-6">
+      <div className="px-4 pt-8 sm:px-6 sm:pt-10">
         <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-3 gap-y-3">
           {/* Queue */}
           <div className="flex items-center gap-2">
@@ -365,6 +359,11 @@ export default async function LivePage({
                 </Link>
               ))}
             </div>
+          </div>
+
+          {/* Live count — closes out the control row on the right. */}
+          <div className="ml-auto">
+            <LivePill count={rows.length} />
           </div>
         </div>
 
