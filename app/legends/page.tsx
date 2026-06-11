@@ -2,7 +2,6 @@ import Link from "next/link"
 import { BadgeCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DataTable, type ColDef } from "@/components/site/data-table"
-import { PageHero } from "@/components/site/page-hero"
 import { LegendChip, PlayerLink, RegionPill } from "@/components/site/primitives"
 import {
   PopularityLabel,
@@ -256,28 +255,10 @@ export default async function LegendsPage({
     ])
 
   const columns = buildColumns(method, mainers, mainerCounts, overrides)
-  const methodCopy = (() => {
-    if (method === "popular") {
-      return "Sorted by total games across the Valhallan pool — the legends actually getting played at the top of the ladder. WR shown for context but ordering ignores it."
-    }
-    if (method === "avg") {
-      return `Each Valhallan player contributes one data point per legend (≥ ${minGames} games on that legend to qualify), then averaged. Less influenced by high-volume mains.`
-    }
-    return "All Valhallan games and wins are summed and divided. Reflects total observed outcomes; high-volume players have proportional weight."
-  })()
 
   return (
     <main className="pb-16">
-        <PageHero
-          title="Legends"
-          subtitle={`Per-legend stats across elite Valhallan players (rating ≥ 2400). ${methodCopy}`}
-          meta={
-            <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
-              {sampleSize} players sampled
-            </span>
-          }
-        />
-        <div className="px-4 sm:px-6">
+        <div className="px-4 pt-8 sm:px-6 sm:pt-10">
           <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -324,6 +305,10 @@ export default async function LegendsPage({
                 ))}
               </div>
             </div>
+
+            <span className="ml-auto rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
+              {sampleSize} players sampled
+            </span>
           </div>
 
           {legends.length === 0 ? (
