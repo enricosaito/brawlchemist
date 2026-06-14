@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 import { DataTable } from "@/components/site/data-table"
 import { buildLeaderboardColumns } from "@/components/site/leaderboard-columns"
 import { LeaderboardPodium } from "@/components/site/leaderboard-podium"
-import { LeaderboardSearch } from "@/components/site/leaderboard-search"
+import { LeaderboardPlayerSearch } from "@/components/site/leaderboard-player-search"
 import { LegendFilter } from "@/components/site/legend-filter"
 import { OtpBoard } from "@/components/site/otp-board"
 import { Pagination } from "@/components/site/pagination"
@@ -254,7 +254,7 @@ export default async function LeaderboardPage({
               Paddings run slightly tighter than other pages so the whole set
               fits a single line on desktop. */}
           <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-2.5 gap-y-3">
-            <LeaderboardSearch className="w-full sm:w-auto sm:min-w-[200px]" />
+            <LeaderboardPlayerSearch className="w-full sm:w-auto sm:min-w-[220px]" />
 
             <div className="flex items-center gap-1.5">
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -387,15 +387,7 @@ export default async function LeaderboardPage({
                 columns={columns}
                 rows={rows}
                 rowKey={(r) => `${r.rank}-${r.players[0]?.id ?? "x"}`}
-                searchValue={(r) => r.players.map((p) => p.username).join(" ")}
               />
-              <p
-                id="leaderboard-no-match"
-                hidden
-                className="mt-3 text-sm text-muted-foreground"
-              >
-                No players match your search.
-              </p>
               <Pagination
                 page={page}
                 totalPages={totalPages}
