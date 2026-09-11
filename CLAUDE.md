@@ -7,6 +7,7 @@ Brawlhalla stats platform (dpm.lol / op.gg style). Next.js 16 App Router, React 
 - Dev: `npx next dev --turbopack -p 3137` (background) — poll with Invoke-WebRequest until 200
 - Typecheck: `npx tsc --noEmit` (run before every commit)
 - Schema: `npm run db:push` (drizzle-kit push straight to prod Supabase — NO migration files; run deliberately), `npm run db:studio`
+- Index/DDL + one-off maintenance: `db/perf-indexes.sql`, pasted into the Supabase SQL editor. Not runnable through DATABASE_URL — Supavisor caps statements at 2min and silently corrupts `CREATE INDEX CONCURRENTLY` (returns success, leaves `indisvalid = false`)
 - PowerShell 5.1 quirk: commit messages / PR bodies containing `"` get mangled as inline args — ALWAYS `git commit -F <file>` and `gh pr create --body-file <file>`
 - `gh pr create` sometimes claims the branch isn't pushed — retry with explicit `--head <branch>`
 
