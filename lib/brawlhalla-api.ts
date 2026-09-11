@@ -265,8 +265,10 @@ export interface PlayerStats {
 export function getPlayerStats(
   brawlhallaId: number,
 ): Promise<ApiResult<PlayerStats>> {
-  // Lifetime levels move slowly — an hour of caching spares the API.
-  return apiFetch<PlayerStats>(`/player/${brawlhallaId}/stats`, {}, 60 * 60)
+  // Lifetime level, XP, playtime and weapon time. These move glacially — a
+  // day's worth of drift is invisible on the page — and this endpoint was
+  // costing a third of every profile view's API budget at a 1-hour TTL.
+  return apiFetch<PlayerStats>(`/player/${brawlhallaId}/stats`, {}, 24 * 60 * 60)
 }
 
 /** Static legend metadata, incl. `bio_aka` (the "title", e.g. "The Minotaur"). */

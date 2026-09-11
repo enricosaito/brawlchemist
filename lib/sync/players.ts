@@ -7,7 +7,7 @@ import {
   type PlayerRankedLegend,
 } from "@/lib/brawlhalla-api"
 import { db } from "@/lib/db"
-import { players, type PlayerRow } from "@/lib/db/schema"
+import { liveRanked, players, type PlayerRow } from "@/lib/db/schema"
 import { maybeInsertSnapshot } from "@/lib/sync/snapshots"
 
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000
@@ -212,6 +212,16 @@ export interface PlayerSyncState {
   lastSynced: Date
   /** Whether a stored GetPlayerRanked payload exists (name-only rows have none). */
   hasRankedJson: boolean
+  /** Stored guild, so the profile doesn't re-ask the API on every view. */
+  guildId: number | null
+  guildName: string | null
+  guildCheckedAt: Date | null
+  /**
+   * When the live ladder last saw this player finish a 1v1 match, if they're in
+   * the tracked top-N. Drives the freshness window: someone mid-session has
+   * genuinely moving ELO, someone who hasn't played in days does not.
+   */
+  liveActiveAt: Date | null
 }
 
 /**
@@ -227,15 +237,23 @@ export interface PlayerSyncState {
 export async function getPlayerSyncState(
   brawlhallaId: number,
 ): Promise<PlayerSyncState | null> {
+  // One round trip for everything the read-through needs to decide: both sides
+  // are primary-key lookups, so the join is free, and it saves the profile page
+  // from issuing separate queries for guild and live-activity.
   const [row] = await db()
     .select({
       lastSynced: players.lastSynced,
       hasRankedJson: sql<boolean>`${players.rankedJson} is not null`,
+      guildId: players.guildId,
+      guildName: players.guildName,
+      guildCheckedAt: players.guildCheckedAt,
+      liveActiveAt: liveRanked.lastActiveAt,
     })
     .from(players)
+    .leftJoin(liveRanked, eq(liveRanked.id, sql`'1v1:' || ${players.brawlhallaId}`))
     .where(eq(players.brawlhallaId, brawlhallaId))
     .limit(1)
-  return row ? { lastSynced: row.lastSynced, hasRankedJson: row.hasRankedJson } : null
+  return row ?? null
 }
 
 /** The stored GetPlayerRanked payload for one player, or null. */
