@@ -326,8 +326,10 @@ export async function getDailyMovers(opts: {
   queue: LiveQueue
   region?: string | null
   limit?: number
+  /** Skip the losers query entirely when the caller only renders climbers. */
+  gainersOnly?: boolean
 }): Promise<{ gainers: LiveRow[]; losers: LiveRow[] }> {
-  const { queue, region, limit = 5 } = opts
+  const { queue, region, limit = 5, gainersOnly = false } = opts
   const cutoff = new Date(Date.now() - MOVERS_WINDOW_MS)
 
   const conds = [
@@ -367,7 +369,10 @@ export async function getDailyMovers(opts: {
   let gainerRows: Awaited<ReturnType<typeof movers>> = []
   let loserRows: Awaited<ReturnType<typeof movers>> = []
   try {
-    ;[gainerRows, loserRows] = await Promise.all([movers("gain"), movers("loss")])
+    ;[gainerRows, loserRows] = await Promise.all([
+      movers("gain"),
+      gainersOnly ? Promise.resolve([]) : movers("loss"),
+    ])
   } catch (err) {
     console.error("[live] movers read failed:", err)
     return { gainers: [], losers: [] }
