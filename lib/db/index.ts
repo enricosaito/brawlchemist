@@ -19,6 +19,13 @@ import * as schema from "./schema"
  * that returns its connections is strictly better: page renders issue a
  * handful of queries, and Promise.all fan-out is what MAX_CONNECTIONS covers.
  *
+ * `fetch_types: false` skips postgres-js's per-connection type-introspection
+ * query against pg_catalog.pg_type. On a long-lived server that's one query at
+ * boot; here every new serverless connection paid for it, and
+ * pg_stat_statements had it at 64,005 calls returning 22.7M rows and ~15
+ * minutes of cumulative execution. Drizzle declares the types it needs, so the
+ * introspected OID map is unused.
+ *
  * Note on statement timeouts: Supavisor's transaction pooler IGNORES a
  * statement_timeout passed as a connection startup parameter — `show
  * statement_timeout` still reports the server default of 2min through :6543.
@@ -45,6 +52,7 @@ export function db(): PostgresJsDatabase<typeof schema> {
   cached = drizzle(
     postgres(url, {
       prepare: false,
+      fetch_types: false,
       max: MAX_CONNECTIONS,
       idle_timeout: IDLE_TIMEOUT_SECONDS,
       connect_timeout: CONNECT_TIMEOUT_SECONDS,
