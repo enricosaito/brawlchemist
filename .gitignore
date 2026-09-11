@@ -57,3 +57,6 @@ next-env.d.ts
 .cancel.mjs
 .diag.mjs
 .plan.mjs
+.botcheck.ts
+.size.mjs
+.age.mjs

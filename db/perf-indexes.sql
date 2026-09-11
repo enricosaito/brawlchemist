@@ -46,48 +46,6 @@ ANALYZE players;
 ANALYZE guilds;
 ANALYZE fetch_log;
 
--- 5. One-time fetch_log backfill prune ------------------------------------
--- fetch_log had no retention and reached ~1.6M rows / 361 MB — roughly 72% of
--- the 500 MB free-tier quota, for a table only /admin reads. The cron keeps it
--- trimmed from here on; this clears the existing backlog.
---
--- `id` is a serial and `created_at` defaults to now(), so the two are
--- monotonic together and the delete can run off the primary key. Do NOT
--- rewrite this as `WHERE id IN (SELECT ... LIMIT n)` — Postgres hashes the
--- subquery and sequentially scans the whole table for every batch (observed:
--- a single 50k batch still running after 24 minutes).
---
--- Run the DO block repeatedly until it reports 0 deleted, then VACUUM.
-DO $$
-DECLARE
-  boundary bigint;
-  lo       bigint;
-  hi       bigint;
-  removed  bigint := 0;
-BEGIN
-  SELECT id INTO boundary
-  FROM fetch_log
-  WHERE created_at < now() - interval '30 days'
-  ORDER BY created_at DESC
-  LIMIT 1;
-
-  IF boundary IS NULL THEN
-    RAISE NOTICE 'nothing older than the retention window';
-    RETURN;
-  END IF;
-
-  SELECT min(id) INTO lo FROM fetch_log;
-
-  WHILE lo <= boundary LOOP
-    hi := least(lo + 100000 - 1, boundary);
-    DELETE FROM fetch_log WHERE id >= lo AND id <= hi;
-    GET DIAGNOSTICS removed = ROW_COUNT;
-    RAISE NOTICE 'ids %-%: % rows', lo, hi, removed;
-    lo := hi + 1;
-  END LOOP;
-END $$;
-
--- Reclaims the dead tuples for reuse. VACUUM FULL would return the disk to the
--- OS but takes an exclusive lock for the duration — only worth it if the
--- 500 MB quota is actually binding.
-VACUUM (ANALYZE) fetch_log;
+-- 5. One-time fetch_log reclaim -------------------------------------------
+-- Moved to db/reclaim-space.sql, which has to run AFTER `npm run db:push`
+-- adds the fetch_log.client column.

@@ -77,3 +77,24 @@ export function isCrawler(userAgent: string | null | undefined): boolean {
     ua.includes("spider")
   )
 }
+
+/**
+ * Collapse a User-Agent to a short, stable label for telemetry.
+ *
+ * `fetch_log` stored the raw UA string per row. At ~125 bytes it was 79% of
+ * every row, and 1.6M rows made the table 362 MB — 59% of a 500 MB database
+ * quota, spent on strings that only ever get read as "which crawler is this".
+ * The label answers exactly that question in ~10 bytes.
+ *
+ * Anything unrecognised collapses to "human"; the point is spotting bot
+ * patterns, not fingerprinting visitors.
+ */
+export function clientLabel(userAgent: string | null | undefined): string {
+  if (!userAgent) return "unknown"
+  const ua = userAgent.toLowerCase()
+  for (const token of CRAWLER_TOKENS) {
+    if (ua.includes(token)) return token
+  }
+  if (isCrawler(userAgent)) return "other-bot"
+  return "human"
+}
