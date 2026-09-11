@@ -24,6 +24,7 @@ import { slugForLegendId } from "@/lib/legends-roster"
 import {
   getDailyMovers,
   getLiveQueue,
+  IN_QUEUE_MS,
   LIVE_QUEUES,
   type LiveQueue,
   type LiveRow,
@@ -33,7 +34,7 @@ import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 
-// Time-sensitive + reads "now − 10 min" — never cache the render.
+// Time-sensitive + reads "now − 20 min" — never cache the render.
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
@@ -57,7 +58,7 @@ function LivePill({ count }: { count: number }) {
         <span className="absolute inline-flex size-full animate-ping rounded-full bg-negative opacity-75" />
         <span className="relative inline-flex size-2 rounded-full bg-negative" />
       </span>
-      {count} live now
+      {count} in queue
     </span>
   )
 }
@@ -78,7 +79,7 @@ function LiveCard({
   row: LiveRow
   playersMap: Map<number, PlayerRow>
   previews: Map<number, PlayerPreview>
-  /** Part of the most recent poll batch — i.e. these just finished a match. */
+  /** Played within the last 5 minutes — i.e. almost certainly still queueing. */
   fresh: boolean
 }) {
   const solo = row.players.length === 1
@@ -101,9 +102,10 @@ function LiveCard({
 
   const body = (
     <>
-      {/* A shine tracing the card edge, only on entries from the newest poll.
-          It marks "playing right now" without another badge competing for the
-          eye, and ShineBorder is motion-safe so it stops under reduced motion. */}
+      {/* A shine tracing the card edge, only on entries that played in the last
+          5 minutes. It's what separates "in queue right now" from the rest of
+          the 20-minute tail without a second badge competing for the eye, and
+          ShineBorder is motion-safe so it stops under reduced motion. */}
       {fresh && (
         <ShineBorder
           borderWidth={1}
@@ -275,37 +277,26 @@ export default async function LivePage({
     .sort((a, b) => b.eloDiff - a.eloDiff)
     .slice(0, 12)
 
-  // "Still in a session" = part of the newest poll batch.
+  // Two tiers of activity, and the card design carries the difference:
   //
-  // The cron stamps every entry it sees play with the same timestamp, so
-  // activity arrives in 5-minute clusters. A literal "changed in the last 60s"
-  // test would therefore be true for about one minute in five and dead for the
-  // other four — the marker would blink on and off with the cron rather than
-  // with the players. Anchoring to the freshest timestamp in the set makes it
-  // correct whenever the page is loaded.
+  //   < 5 min   in queue — shine border + the "IN QUEUE" badge
+  //   < 20 min  recently active — a plain card
   //
-  // The second condition is the honesty check: if even the newest batch is
-  // older than one poll cycle, nobody is mid-session and nothing is marked.
-  //
-  // Anchored per ladder, not across both: the two queues are polled
-  // independently, so a 2v2 batch landing a minute after the 1v1 one would
-  // otherwise un-mark every 1v1 card still mid-session.
-  const freshnessFor = (rows: LiveRow[]) => {
-    const newest = rows.reduce(
-      (max, r) => Math.max(max, r.lastActiveAt.getTime()),
-      0,
-    )
-    const BATCH_MS = 60 * 1000
-    const STALE_BATCH_MS = 6 * 60 * 1000
-    const batchIsCurrent = newest > 0 && requestNow() - newest < STALE_BATCH_MS
-    return (r: LiveRow) =>
-      batchIsCurrent && newest - r.lastActiveAt.getTime() < BATCH_MS
-  }
+  // A literal age test works here because the cron polls every 5 minutes and
+  // stamps every entry it sees play with that tick's timestamp: activity
+  // arrives in 5-minute clusters, so "younger than 5 minutes" selects exactly
+  // the newest cluster rather than blinking on and off between polls. It also
+  // needs no per-ladder anchoring — each row is judged against the clock, not
+  // against the freshest row in its own set — and if the cron is late nothing
+  // is marked, which is the honest answer rather than a stale highlight.
+  const inQueue = (r: LiveRow) =>
+    requestNow() - r.lastActiveAt.getTime() < IN_QUEUE_MS
 
   const sections = [
-    { queue: "1v1" as LiveQueue, rows: rows1v1, isFresh: freshnessFor(rows1v1) },
-    { queue: "2v2" as LiveQueue, rows: rows2v2, isFresh: freshnessFor(rows2v2) },
+    { queue: "1v1" as LiveQueue, rows: rows1v1 },
+    { queue: "2v2" as LiveQueue, rows: rows2v2 },
   ]
+  const inQueueCount = [...rows1v1, ...rows2v2].filter(inQueue).length
 
   // Enrichment from our own cache — main-legend chips (scalar columns only,
   // no ranked_json) and verified-pro handles. Zero Brawlhalla API cost; both
@@ -361,7 +352,9 @@ export default async function LivePage({
 
           {/* Live count — closes out the control row on the right. */}
           <div className="ml-auto">
-            <LivePill count={rows1v1.length + rows2v2.length} />
+            {/* Counts the in-queue tier, not the whole 20-minute tail — "live
+                now" has to mean now, or the pill is just a row count. */}
+            <LivePill count={inQueueCount} />
           </div>
         </div>
 
@@ -375,21 +368,24 @@ export default async function LivePage({
             queue reads as "2 playing" rather than as a grid that failed to
             load, and each section stands alone — cards, then the hours that
             ladder is actually busy. */}
-        {sections.map(({ queue, rows, isFresh }) => (
+        {sections.map(({ queue, rows }) => (
           <section key={queue} className="mx-auto mt-8 max-w-[1280px] first:mt-0">
             <div className="mb-3 flex items-center gap-2">
               <h2 className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-foreground/90">
                 {QUEUE_LABEL[queue]}
               </h2>
+              {/* "Active", not "in queue" — most of these finished a match in
+                  the last 20 minutes rather than being in one right now. The
+                  pill above counts the ones that are. */}
               <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                {rows.length} in queue
+                {rows.length} active
               </span>
               <span className="h-px flex-1 bg-border/60" />
             </div>
 
             {rows.length === 0 ? (
               <div className="rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">
-                No {QUEUE_LABEL[queue]} players active in the last 10 minutes
+                No {QUEUE_LABEL[queue]} players active in the last 20 minutes
                 {region !== "ALL" ? ` in ${region}` : ""}. The live poll runs
                 every 5 minutes — give it a tick, or widen the region filter to
                 ALL.
@@ -402,7 +398,7 @@ export default async function LivePage({
                     row={row}
                     playersMap={playersMap}
                     previews={previews}
-                    fresh={isFresh(row)}
+                    fresh={inQueue(row)}
                   />
                 ))}
               </div>
