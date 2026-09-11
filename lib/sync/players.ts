@@ -9,6 +9,7 @@ import {
 import { db } from "@/lib/db"
 import { liveRanked, players, type PlayerRow } from "@/lib/db/schema"
 import { maybeInsertSnapshot } from "@/lib/sync/snapshots"
+import { repairJson } from "@/lib/text"
 
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000
 
@@ -208,7 +209,9 @@ export async function getPlayersByIds(
   return new Map(
     rows.map((r) => [
       r.brawlhallaId,
-      ("rankedJson" in r ? r : { ...r, rankedJson: null }) as PlayerRow,
+      ("rankedJson" in r
+        ? { ...r, rankedJson: repairJson(r.rankedJson) }
+        : { ...r, rankedJson: null }) as PlayerRow,
     ]),
   )
 }
@@ -261,7 +264,18 @@ export async function getPlayerSyncState(
   return row ?? null
 }
 
-/** The stored GetPlayerRanked payload for one player, or null. */
+/**
+ * The stored GetPlayerRanked payload for one player, or null.
+ *
+ * Repaired on the way out (see constraint #7): `repairJson` in `apiFetch` only
+ * cleans payloads arriving fresh from upstream, but this blob may have been
+ * written before that landed, and the profile page serves it whenever the row
+ * is fresh, the visitor is a crawler, or upstream 429s. Without the repair here
+ * an accented name renders mangled on exactly the paths that avoid the API.
+ * Rows self-heal on their next sync; this covers them until then, for free —
+ * `repairJson` short-circuits on the telltale byte pattern and returns the
+ * input untouched when there's nothing to fix, which is the overwhelming case.
+ */
 export async function getPlayerRankedJson(
   brawlhallaId: number,
 ): Promise<PlayerRanked | null> {
@@ -270,7 +284,7 @@ export async function getPlayerRankedJson(
     .from(players)
     .where(eq(players.brawlhallaId, brawlhallaId))
     .limit(1)
-  return (row?.rankedJson as PlayerRanked | null) ?? null
+  return repairJson((row?.rankedJson as PlayerRanked | null) ?? null)
 }
 
 export interface PlayerSuggestion {
