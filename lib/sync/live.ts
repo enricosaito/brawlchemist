@@ -28,8 +28,26 @@ const STALE_ENTRY_MS = 7 * 24 * 60 * 60 * 1000
 const PAGES = 10
 const PAGE_SIZE = 50
 
-/** How recently an entry must have played to count as "live". */
-export const ACTIVE_WINDOW_MS = 10 * 60 * 1000
+/**
+ * How recently an entry must have played to appear on /live at all.
+ *
+ * Deliberately wider than IN_QUEUE_MS: the page shows a 20-minute tail of
+ * activity so the grid has something in it, and marks only the most recent
+ * poll's worth as actually in queue. Widening this costs nothing upstream —
+ * it's a read-side filter over rows the cron already wrote.
+ */
+export const ACTIVE_WINDOW_MS = 20 * 60 * 1000
+
+/**
+ * How recently an entry must have played to count as *in queue right now*.
+ *
+ * The live cron polls every 5 minutes and stamps every entry it sees play with
+ * that tick's timestamp, so activity arrives in 5-minute clusters and this
+ * threshold selects exactly the newest cluster. If the cron is late or paused
+ * the newest cluster ages past it and nothing is marked — which is the honest
+ * outcome, not a bug: we genuinely don't know that anyone is still queueing.
+ */
+export const IN_QUEUE_MS = 5 * 60 * 1000
 /** A gap longer than this starts a fresh session (resets eloDiff/rankDiff). */
 const SESSION_GAP_MS = 10 * 60 * 1000
 /** Upsert batch size — keeps each statement well under any param ceiling. */
