@@ -24,7 +24,6 @@ import { slugForLegendId } from "@/lib/legends-roster"
 import {
   getDailyMovers,
   getLiveQueue,
-  isLiveQueue,
   LIVE_QUEUES,
   type LiveQueue,
   type LiveRow,
@@ -125,7 +124,6 @@ function LiveCard({
           <span className="text-muted-foreground/60">#</span>
           {row.rank.toLocaleString()}
         </span>
-        <Delta value={row.rankDiff} />
         {fresh && (
           <span className="inline-flex items-center gap-1 font-mono text-[9px] font-semibold uppercase tracking-wider text-tier-valhallan">
             <span className="relative flex size-1.5">
@@ -242,16 +240,11 @@ export default async function LivePage({
   // first paint. The localStorage equivalent would render the default and then
   // correct itself, which flashes the wrong ladder on every visit.
   const [cookieStore, user] = await Promise.all([cookies(), getSessionUser()])
-  const { queue: lastQueue, region: lastRegion } = parseLiveView(
+  const { region: lastRegion } = parseLiveView(
     cookieStore.get(LIVE_VIEW_COOKIE)?.value,
   )
   const viewerRegion = user ? await getViewerDefaultRegion(user.id) : null
 
-  const queue: LiveQueue = isLiveQueue(sp.queue)
-    ? sp.queue
-    : isLiveQueue(lastQueue)
-      ? lastQueue
-      : "1v1"
   const region: ApiRegion =
     sp.region && isApiRegion(sp.region)
       ? sp.region
@@ -261,12 +254,26 @@ export default async function LivePage({
           ? lastRegion
           : "ALL"
 
-  const [rows, movers] = await Promise.all([
-    getLiveQueue({ queue, region }),
+  // Both ladders, together. Splitting them across a tab meant each view showed
+  // whatever was active in its own 10-minute window — measured at 8 cards for
+  // 1v1 and 7 for 2v2, and 1-4 once a region filter is on. A four-column grid
+  // holding four cards reads as broken rather than as quiet, and the viewer had
+  // to click to discover the other ladder was equally quiet. One extra
+  // live_ranked read costs ~1.4 kB per render (the window caps the row count
+  // long before the 200-row limit does), which buys a page that fills out.
+  const [rows1v1, rows2v2, movers1v1, movers2v2] = await Promise.all([
+    getLiveQueue({ queue: "1v1", region }),
+    getLiveQueue({ queue: "2v2", region }),
     // Drops are no longer rendered, so the query for them is skipped rather
     // than fetched and thrown away.
-    getDailyMovers({ queue, region, limit: 12, gainersOnly: true }),
+    getDailyMovers({ queue: "1v1", region, limit: 12, gainersOnly: true }),
+    getDailyMovers({ queue: "2v2", region, limit: 12, gainersOnly: true }),
   ])
+
+  // One ticker over both ladders: the day's best runs, wherever they happened.
+  const gainers = [...movers1v1.gainers, ...movers2v2.gainers]
+    .sort((a, b) => b.eloDiff - a.eloDiff)
+    .slice(0, 12)
 
   // "Still in a session" = part of the newest poll batch.
   //
@@ -279,22 +286,33 @@ export default async function LivePage({
   //
   // The second condition is the honesty check: if even the newest batch is
   // older than one poll cycle, nobody is mid-session and nothing is marked.
-  const newest = rows.reduce(
-    (max, r) => Math.max(max, r.lastActiveAt.getTime()),
-    0,
-  )
-  const BATCH_MS = 60 * 1000
-  const STALE_BATCH_MS = 6 * 60 * 1000
-  const batchIsCurrent = newest > 0 && requestNow() - newest < STALE_BATCH_MS
-  const isFresh = (r: LiveRow) =>
-    batchIsCurrent && newest - r.lastActiveAt.getTime() < BATCH_MS
+  //
+  // Anchored per ladder, not across both: the two queues are polled
+  // independently, so a 2v2 batch landing a minute after the 1v1 one would
+  // otherwise un-mark every 1v1 card still mid-session.
+  const freshnessFor = (rows: LiveRow[]) => {
+    const newest = rows.reduce(
+      (max, r) => Math.max(max, r.lastActiveAt.getTime()),
+      0,
+    )
+    const BATCH_MS = 60 * 1000
+    const STALE_BATCH_MS = 6 * 60 * 1000
+    const batchIsCurrent = newest > 0 && requestNow() - newest < STALE_BATCH_MS
+    return (r: LiveRow) =>
+      batchIsCurrent && newest - r.lastActiveAt.getTime() < BATCH_MS
+  }
+
+  const sections = [
+    { queue: "1v1" as LiveQueue, rows: rows1v1, isFresh: freshnessFor(rows1v1) },
+    { queue: "2v2" as LiveQueue, rows: rows2v2, isFresh: freshnessFor(rows2v2) },
+  ]
 
   // Enrichment from our own cache — main-legend chips (scalar columns only,
   // no ranked_json) and verified-pro handles. Zero Brawlhalla API cost; both
   // fail open to plain names.
   let playersMap = new Map<number, PlayerRow>()
   let previews = new Map<number, PlayerPreview>()
-  const allRows = [...rows, ...movers.gainers]
+  const allRows = [...rows1v1, ...rows2v2, ...gainers]
   if (allRows.length > 0) {
     const ids = allRows.flatMap((r) => r.players.map((p) => p.id))
     const [players, profiles] = await Promise.allSettled([
@@ -310,39 +328,10 @@ export default async function LivePage({
   return (
     <main className="pb-16">
       <LiveAutoRefresh intervalMs={45_000} />
-      <RememberLiveView queue={queue} region={region} />
+      <RememberLiveView region={region} />
 
       <div className="px-4 pt-8 sm:px-6 sm:pt-10">
         <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-3 gap-y-3">
-          {/* Queue */}
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-              Queue
-            </span>
-            <div
-              role="tablist"
-              aria-label="Queue"
-              className="flex items-center rounded-md border border-border/60 bg-muted/40 p-1"
-            >
-              {LIVE_QUEUES.map((q) => (
-                <Link
-                  key={q}
-                  role="tab"
-                  aria-selected={queue === q}
-                  href={`/live?queue=${q}&region=${region}`}
-                  className={cn(
-                    FILTER_BTN,
-                    queue === q
-                      ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {QUEUE_LABEL[q]}
-                </Link>
-              ))}
-            </div>
-          </div>
-
           {/* Region. Ten pills plus a label doesn't fit a phone and can't
               shrink, so the group gets its own horizontal scroll lane — the
               documented exception — instead of widening the document. */}
@@ -354,7 +343,7 @@ export default async function LivePage({
               {API_REGIONS.map((r) => (
                 <Link
                   key={r}
-                  href={`/live?queue=${queue}&region=${r}`}
+                  href={`/live?region=${r}`}
                   aria-current={region === r ? "true" : undefined}
                   className={cn(
                     FILTER_BTN,
@@ -372,42 +361,69 @@ export default async function LivePage({
 
           {/* Live count — closes out the control row on the right. */}
           <div className="ml-auto">
-            <LivePill count={rows.length} />
+            <LivePill count={rows1v1.length + rows2v2.length} />
           </div>
         </div>
 
         <LiveClimbers
-          rows={movers.gainers}
+          rows={gainers}
           playersMap={playersMap}
           previews={previews}
         />
 
-        {rows.length === 0 ? (
-          <div className="mx-auto max-w-[1280px] rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">
-            No {QUEUE_LABEL[queue]} players active in the last 10 minutes
-            {region !== "ALL" ? ` in ${region}` : ""}. The live poll runs every
-            5 minutes — if this just launched, give it a tick, or widen the
-            region filter to ALL.
-          </div>
-        ) : (
-          <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {rows.map((row) => (
-              <LiveCard
-                key={row.id}
-                row={row}
-                playersMap={playersMap}
-                previews={previews}
-                fresh={isFresh(row)}
-              />
-            ))}
-          </div>
-        )}
+        {/* One section per ladder. The heading carries its own count so a quiet
+            queue reads as "2 playing" rather than as a grid that failed to
+            load, and each section stands alone — cards, then the hours that
+            ladder is actually busy. */}
+        {sections.map(({ queue, rows, isFresh }) => (
+          <section key={queue} className="mx-auto mt-8 max-w-[1280px] first:mt-0">
+            <div className="mb-3 flex items-center gap-2">
+              <h2 className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-foreground/90">
+                {QUEUE_LABEL[queue]}
+              </h2>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                {rows.length} in queue
+              </span>
+              <span className="h-px flex-1 bg-border/60" />
+            </div>
 
-        {/* Activity curve sits below the grid — the cards are the page, this
-            is the context for them. Its own Suspense boundary so a cold
-            hourly cache can't hold up the live feed. */}
-        <Suspense fallback={<div className="mx-auto mt-6 h-[248px] max-w-[1280px] animate-skeleton relative overflow-hidden rounded-2xl border border-border/60 bg-card/40" />}>
-          <QueueActivityCard queue={queue} region={region} />
+            {rows.length === 0 ? (
+              <div className="rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">
+                No {QUEUE_LABEL[queue]} players active in the last 10 minutes
+                {region !== "ALL" ? ` in ${region}` : ""}. The live poll runs
+                every 5 minutes — give it a tick, or widen the region filter to
+                ALL.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {rows.map((row) => (
+                  <LiveCard
+                    key={row.id}
+                    row={row}
+                    playersMap={playersMap}
+                    previews={previews}
+                    fresh={isFresh(row)}
+                  />
+                ))}
+              </div>
+            )}
+
+          </section>
+        ))}
+
+        {/* One activity curve for the page rather than one per section: "when
+            is the queue busiest" is a question about the evening, not about a
+            ladder, and two charts drawn from the same poll cycle sat under each
+            other looking like the same chart twice. Its own Suspense boundary
+            so a cold hourly cache can't hold up the live feed. */}
+        <Suspense
+          fallback={
+            <div className="animate-skeleton relative mx-auto mt-8 h-[248px] max-w-[1280px] overflow-hidden rounded-2xl border border-border/60 bg-card/40" />
+          }
+        >
+          <div className="mx-auto max-w-[1280px]">
+            <QueueActivityCard queues={LIVE_QUEUES} region={region} />
+          </div>
         </Suspense>
       </div>
     </main>

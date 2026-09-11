@@ -16,17 +16,39 @@ import type { LiveQueue } from "@/lib/sync/live"
 const MIN_SAMPLES = 288
 
 export async function QueueActivityCard({
-  queue,
+  queues,
   region,
 }: {
-  queue: LiveQueue
+  /** Ladders to sum. Both are polled on the same cron tick. */
+  queues: readonly LiveQueue[]
   region: string
 }) {
-  const activity = await getQueueActivity({ queue, region })
+  const parts = await Promise.all(
+    queues.map((queue) => getQueueActivity({ queue, region })),
+  )
+
+  // Each part's `active` is already a mean per poll, and every queue is
+  // recorded on the same tick — so the denominators match and the combined
+  // "players in queue" is simply the sum of the per-ladder means. No
+  // re-weighting, and no second pass over the table.
+  const hours = Array.from({ length: 24 }, (_, hour) => ({
+    hour,
+    active: parts.reduce((sum, p) => sum + (p.hours[hour]?.active ?? 0), 0),
+    matches: parts.reduce((sum, p) => sum + (p.hours[hour]?.matches ?? 0), 0),
+    samples: Math.max(...parts.map((p) => p.hours[hour]?.samples ?? 0), 0),
+  }))
+
+  // The gate asks "have we watched for long enough", so it wants polls
+  // elapsed, not polls summed across ladders.
+  const activity = {
+    hours: parts.some((p) => p.hours.length === 24) ? hours : [],
+    samples: Math.max(...parts.map((p) => p.samples), 0),
+    days: Math.max(...parts.map((p) => p.days), 0),
+  }
   const preview = activity.samples < MIN_SAMPLES
 
   return (
-    <section className="mx-auto mt-6 max-w-[1280px]">
+    <div className="mt-6">
       <div className="rounded-2xl border border-border/60 bg-card/40 p-4 backdrop-blur-sm sm:p-5">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <h2 className="flex items-center gap-1.5 font-display text-sm font-semibold uppercase tracking-[0.18em] text-foreground/90">
@@ -53,10 +75,10 @@ export async function QueueActivityCard({
 
         <p className="mt-3 font-mono text-[10px] leading-relaxed text-muted-foreground/80">
           {preview
-            ? "This chart fills in as the live poll runs — it reads the ladder every 5 minutes and records how many tracked players finished a match. Nothing here is measured yet."
-            : "Average players finishing a match per 5-minute poll, across the tracked top of the ladder — not the whole playerbase."}
+            ? "This chart fills in as the live poll runs — it reads both ladders every 5 minutes and records how many tracked players finished a match. Nothing here is measured yet."
+            : "Average players finishing a match per 5-minute poll across 1v1 and 2v2 combined, over the tracked top of each ladder — not the whole playerbase."}
         </p>
       </div>
-    </section>
+    </div>
   )
 }
