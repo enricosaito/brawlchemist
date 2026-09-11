@@ -2,12 +2,23 @@ import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PlayerSearchForm } from "@/components/site/player-search-form"
+import { HeroWordmark } from "./hero-wordmark"
 
 /**
  * LauncherHero — the top of the right column: brand wordmark, tagline, and the
- * player-search CTA, with a featured patch banner. Ambiance now comes from the
- * video background, so this is a clean text block (no art/glows/parallax) that
- * reads over the darkened starfield.
+ * player-search CTA, with a featured patch banner. Ambiance comes from the
+ * light-ray backdrop, so this is a clean text block (no art/glows/parallax)
+ * that reads over the wash.
+ *
+ * The wordmark resolves letter by letter out of blur while everything around it
+ * rises — one element gets the flourish and the rest stays quiet, which is what
+ * keeps it feeling like a considered entrance rather than a page that animates
+ * everything. It replaces the wordmark's `animate-rise` rather than stacking on
+ * top of it, and it's tuned fast (~0.45s to settled) because this is the
+ * homepage's largest text: a slow reveal here is a slow-feeling page.
+ *
+ * HeroWordmark carries the reduced-motion handling; without it the heading
+ * disappears entirely for those users.
  */
 export function LauncherHero({
   featuredPatch,
@@ -30,12 +41,7 @@ export function LauncherHero({
         the brawlhalla stats laboratory
       </span>
 
-      <h1
-        className="animate-rise mt-3 max-w-full bg-gradient-to-r from-tier-s to-tier-valhallan bg-clip-text font-wordmark text-[clamp(2.5rem,8vw,5.5rem)] font-extrabold leading-[0.95] tracking-tight text-transparent drop-shadow-[0_2px_24px_oklch(0.13_0.012_250/0.8)]"
-        style={{ ["--rise-delay" as string]: "150ms" }}
-      >
-        brawlchemist
-      </h1>
+      <HeroWordmark className="mt-3 max-w-full bg-gradient-to-r from-tier-s to-tier-valhallan bg-clip-text font-wordmark text-[clamp(2.5rem,8vw,5.5rem)] font-extrabold leading-[0.95] tracking-tight text-transparent drop-shadow-[0_2px_24px_oklch(0.13_0.012_250/0.8)]" />
 
       <p
         className="animate-rise mt-3 max-w-md text-sm text-foreground/80 sm:text-base"
