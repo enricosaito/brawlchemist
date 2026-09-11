@@ -1,6 +1,6 @@
 import "server-only"
 
-import { and, desc, eq, gte, sql } from "drizzle-orm"
+import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm"
 import {
   getRankedLeaderboard,
   type RankedEntry,
@@ -18,6 +18,9 @@ export function isLiveQueue(v: string | undefined): v is LiveQueue {
 
 // Top 500 = 10 pages of 50. We always poll the global ("ALL") ladder and keep
 // each entry's region so the page can filter by region without extra calls.
+/** Entries not seen in a poll for this long are dropped (see step 6). */
+const STALE_ENTRY_MS = 7 * 24 * 60 * 60 * 1000
+
 const PAGES = 10
 const PAGE_SIZE = 50
 
@@ -80,6 +83,7 @@ export async function syncLiveQueue(queue: LiveQueue): Promise<{
   fetched: number
   active: number
   pagesFailed: number
+  pruned: number
 }> {
   const now = new Date()
 
@@ -102,21 +106,18 @@ export async function syncLiveQueue(queue: LiveQueue): Promise<{
     else pagesFailed++
   }
   if (entries.length === 0) {
-    return { queue, fetched: 0, active: 0, pagesFailed }
+    return { queue, fetched: 0, active: 0, pagesFailed, pruned: 0 }
   }
 
-  // 2. Load the existing snapshot for this queue, keyed by id.
-  const existing = await db()
-    .select()
-    .from(liveRanked)
-    .where(eq(liveRanked.queue, queue))
-  const prevById = new Map(existing.map((r) => [r.id, r]))
-
-  // 3. Reconcile each entry into an insert row.
-  const rows: LiveRankedInsert[] = []
+  // 2. Resolve the polled entries to their stable ids first, so step 3 can ask
+  //    the database for exactly those rows and nothing else.
+  interface Polled {
+    entry: RankedEntry
+    id: string
+    players: LivePlayer[]
+  }
+  const polled: Polled[] = []
   const seen = new Set<string>()
-  let active = 0
-
   for (const entry of entries) {
     const players: LivePlayer[] = entry.players.map((p) => ({
       id: p.id,
@@ -126,7 +127,44 @@ export async function syncLiveQueue(queue: LiveQueue): Promise<{
     const id = entityKey(queue, players)
     if (seen.has(id)) continue // de-dupe overlap across page boundaries
     seen.add(id)
+    polled.push({ entry, id, players })
+  }
 
+  // 3. Load the previous snapshot for JUST the polled ids, JUST the columns we
+  //    reconcile against.
+  //
+  //    This was `select().from(liveRanked).where(eq(queue))` — every column of
+  //    every row for the queue, every 5 minutes, for both queues. It was by a
+  //    wide margin the single largest consumer of Supabase egress:
+  //    pg_stat_statements attributed 180,063,192 returned rows to it (~16 GB on
+  //    the wire at ~91 bytes/row). Two separate wastes stacked up. The table
+  //    holds thousands of entries per queue while a tick only polls
+  //    PAGES * PAGE_SIZE of them, and `prevById` is only ever read via
+  //    `.get(id)` for an id in the current poll — so the rest was fetched and
+  //    discarded. And the `players` jsonb (over half the row's wire size) is
+  //    always taken from the fresh API payload, never from the stored copy.
+  const previous =
+    polled.length === 0
+      ? []
+      : await db()
+          .select({
+            id: liveRanked.id,
+            rank: liveRanked.rank,
+            rating: liveRanked.rating,
+            games: liveRanked.games,
+            lastActiveAt: liveRanked.lastActiveAt,
+            sessionStartRating: liveRanked.sessionStartRating,
+            sessionStartRank: liveRanked.sessionStartRank,
+          })
+          .from(liveRanked)
+          .where(inArray(liveRanked.id, polled.map((p) => p.id)))
+  const prevById = new Map(previous.map((r) => [r.id, r]))
+
+  // 4. Reconcile each entry into an insert row.
+  const rows: LiveRankedInsert[] = []
+  let active = 0
+
+  for (const { entry, id, players } of polled) {
     const prev = prevById.get(id)
     const rating = entry.rating ?? prev?.rating ?? 0
     const rank = entry.rank
@@ -171,7 +209,7 @@ export async function syncLiveQueue(queue: LiveQueue): Promise<{
     })
   }
 
-  // 4. Batch upsert.
+  // 5. Batch upsert.
   for (let i = 0; i < rows.length; i += UPSERT_CHUNK) {
     const chunk = rows.slice(i, i + UPSERT_CHUNK)
     await db()
@@ -193,7 +231,27 @@ export async function syncLiveQueue(queue: LiveQueue): Promise<{
       })
   }
 
-  return { queue, fetched: rows.length, active, pagesFailed }
+  // 6. Prune entries that fell out of the polled window a long time ago.
+  //     Nothing reads them: the live feed looks at a 10-minute activity window
+  //     and the movers at 24 hours. Without this the table only ever grows,
+  //     which is how it came to hold several thousand rows per queue while a
+  //     tick polls PAGES * PAGE_SIZE.
+  let pruned = 0
+  try {
+    const res = await db()
+      .delete(liveRanked)
+      .where(
+        and(
+          eq(liveRanked.queue, queue),
+          lt(liveRanked.updatedAt, new Date(Date.now() - STALE_ENTRY_MS)),
+        ),
+      )
+    pruned = res.count ?? 0
+  } catch (err) {
+    console.error("[live] stale prune failed:", err)
+  }
+
+  return { queue, fetched: rows.length, active, pagesFailed, pruned }
 }
 
 export interface LiveRow {

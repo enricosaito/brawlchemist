@@ -208,6 +208,48 @@ export async function getPlayersByIds(
   )
 }
 
+export interface PlayerSyncState {
+  lastSynced: Date
+  /** Whether a stored GetPlayerRanked payload exists (name-only rows have none). */
+  hasRankedJson: boolean
+}
+
+/**
+ * Freshness probe for the profile read-through, WITHOUT the payload.
+ *
+ * `ranked_json` averages ~6.3 KB on the wire, and the profile page used to
+ * fetch the whole blob just to compare `last_synced` against a 15-minute
+ * window — so every view that turned out to be stale paid for 6.3 KB it then
+ * threw away in favour of a live API call. Across 1.2M profile views that read
+ * was the second-largest source of Supabase egress. Probe first, fetch the
+ * payload only when we're actually going to render it.
+ */
+export async function getPlayerSyncState(
+  brawlhallaId: number,
+): Promise<PlayerSyncState | null> {
+  const [row] = await db()
+    .select({
+      lastSynced: players.lastSynced,
+      hasRankedJson: sql<boolean>`${players.rankedJson} is not null`,
+    })
+    .from(players)
+    .where(eq(players.brawlhallaId, brawlhallaId))
+    .limit(1)
+  return row ? { lastSynced: row.lastSynced, hasRankedJson: row.hasRankedJson } : null
+}
+
+/** The stored GetPlayerRanked payload for one player, or null. */
+export async function getPlayerRankedJson(
+  brawlhallaId: number,
+): Promise<PlayerRanked | null> {
+  const [row] = await db()
+    .select({ rankedJson: players.rankedJson })
+    .from(players)
+    .where(eq(players.brawlhallaId, brawlhallaId))
+    .limit(1)
+  return (row?.rankedJson as PlayerRanked | null) ?? null
+}
+
 export interface PlayerSuggestion {
   id: number
   username: string

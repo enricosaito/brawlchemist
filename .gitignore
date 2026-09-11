@@ -46,3 +46,14 @@ next-env.d.ts
 .dev.log
 
 .commitmsg
+.dev.before.log
+.verify.mjs
+.ab.mjs
+.after.mjs
+.fresh.mjs
+.egress.mjs
+.sizes.mjs
+.ua.mjs
+.cancel.mjs
+.diag.mjs
+.plan.mjs

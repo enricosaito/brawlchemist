@@ -1,5 +1,6 @@
 import { cache } from "react"
 import { after } from "next/server"
+import { headers } from "next/headers"
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
@@ -42,7 +43,13 @@ import {
   type EsportsPr,
   type EsportsProfile,
 } from "@/lib/brawltools-api"
-import { getPlayersByIds, upsertPlayerRanked } from "@/lib/sync/players"
+import {
+  getPlayerRankedJson,
+  getPlayersByIds,
+  getPlayerSyncState,
+  upsertPlayerRanked,
+} from "@/lib/sync/players"
+import { isCrawler } from "@/lib/bots"
 import { recordPlayerGuild } from "@/lib/sync/guilds"
 import { recordFetch } from "@/lib/sync/fetch-log"
 import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
@@ -60,13 +67,24 @@ import { cn } from "@/lib/utils"
 
 // Read-through cache for the profile's /ranked payload.
 //
-// 1. Serve the cached `players.ranked_json` row if it's fresher than
-//    PROFILE_FRESH_MS — zero API calls. This is what stops crawlers / repeat
-//    views from continuously consuming the 180/15min Brawlhalla budget.
-// 2. Otherwise hit the API (still gated by the 300s fetch cache so concurrent
+// 1. Probe `last_synced` WITHOUT the payload. `ranked_json` averages ~6.3 KB
+//    on the wire, and fetching it only to discover it's stale was the second
+//    largest source of Supabase egress across 1.2M profile views.
+// 2. Serve the cached payload when it's fresher than PROFILE_FRESH_MS — zero
+//    API calls. Crawlers get the cached payload at ANY age (see below).
+// 3. Otherwise hit the API (still gated by the 300s fetch cache so concurrent
 //    hits collapse), and upsert the result back into the pool.
-// 3. If the API errors (most often 429), fall back to the cached row even if
+// 4. If the API errors (most often 429), fall back to the cached row even if
 //    stale, so the page still renders.
+//
+// On crawlers: a traffic sample showed 53% of profile views coming from bots,
+// and almost all of them resolved as "synced" rather than "cached" — each one
+// missing the freshness window, spending one of the 180/15min API calls and
+// writing the result back. Bingbot alone was 42%. They now render from stored
+// data at any age: the page is just as indexable, and the API budget goes to
+// people. A crawler hitting a player we have NO payload for still gets one
+// live fetch, since that's a genuinely new player and the alternative is
+// indexing an error page.
 //
 // Memoized per-request via React's cache() so generateMetadata and the page
 // share one resolution, and the upsert at the bottom of the page only fires
@@ -75,29 +93,38 @@ const PROFILE_REVALIDATE = 300
 const PROFILE_FRESH_MS = 15 * 60 * 1000
 type LoadedRanked = {
   data: PlayerRanked | null
-  source: "db-fresh" | "api" | "db-fallback"
+  source: "db-fresh" | "db-crawler" | "api" | "db-fallback"
   apiStatus?: number
   apiError?: string
 }
 const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
-  const cached = (await getPlayersByIds([numId])).get(numId)
+  const [state, headerList] = await Promise.all([
+    getPlayerSyncState(numId).catch(() => null),
+    headers(),
+  ])
+  const crawler = isCrawler(headerList.get("user-agent"))
+  const fresh =
+    !!state?.hasRankedJson &&
+    Date.now() - state.lastSynced.getTime() < PROFILE_FRESH_MS
+  // A crawler is happy with whatever we already hold.
+  const serveFromCache = !!state?.hasRankedJson && (fresh || crawler)
 
   let result: LoadedRanked
-  if (
-    cached?.rankedJson &&
-    Date.now() - cached.lastSynced.getTime() < PROFILE_FRESH_MS
-  ) {
-    result = { data: cached.rankedJson as PlayerRanked, source: "db-fresh" }
+  if (serveFromCache) {
+    const data = await getPlayerRankedJson(numId)
+    result = data
+      ? { data, source: fresh ? "db-fresh" : "db-crawler" }
+      : { data: null, source: "api", apiError: "cached payload disappeared" }
   } else {
     const res = await getPlayerRanked(numId, { revalidate: PROFILE_REVALIDATE })
     if (res.ok) {
       result = { data: res.data, source: "api" }
-    } else if (cached?.rankedJson) {
+    } else if (state?.hasRankedJson) {
       console.warn(
         `[player ${numId}] live /ranked failed (${res.status}: ${res.error}) — served cached ranked_json fallback`,
       )
       result = {
-        data: cached.rankedJson as PlayerRanked,
+        data: await getPlayerRankedJson(numId),
         source: "db-fallback",
         apiStatus: res.status,
         apiError: res.error,
@@ -120,7 +147,7 @@ const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
   // Supabase round-trip before the profile can stream is backwards. after()
   // runs it once the response is done, still inside the request context.
   const logResult =
-    result.source === "db-fresh"
+    result.source === "db-fresh" || result.source === "db-crawler"
       ? "cached"
       : result.source === "api" && result.data
         ? "synced"
@@ -136,6 +163,17 @@ const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
 
   return result
 })
+/**
+ * Stand-in for an upstream call we deliberately didn't make. Shaped like a
+ * failed ApiResult so every existing `.ok` check degrades the same way it
+ * already does for a real upstream failure.
+ */
+const API_SKIPPED = {
+  ok: false as const,
+  status: 0,
+  error: "skipped: crawler served from cache",
+}
+
 const loadStats = cache((id: number) => getPlayerStats(id))
 const loadGuild = cache((id: number) =>
   getPlayerGuild(id, { revalidate: PROFILE_REVALIDATE }),
@@ -1538,6 +1576,14 @@ export default async function PlayerPage({
   // be three separate awaited stages (stats/legends/guild, then
   // profile/esports/ladder, then customization), so a profile paid three
   // sequential round-trips for data that never depended on each other.
+  // A crawler we already served from stored data must not spend Brawlhalla API
+  // budget on the rest of the page either. /stats and /guild are two more calls
+  // per distinct player, and a crawler walking ~90k profiles at three calls
+  // each is what left real visitors on the 429 fallback. The page degrades
+  // exactly as it already does when those endpoints fail: no Account section,
+  // guild falls back to the clan embedded in /stats (also absent here).
+  const skipUpstream = ranked.source === "db-crawler"
+
   const [
     statsRes,
     legendsRes,
@@ -1547,9 +1593,9 @@ export default async function PlayerPage({
     ladderPos,
     customization,
   ] = await Promise.all([
-    loadStats(numId),
+    skipUpstream ? API_SKIPPED : loadStats(numId),
     loadStaticLegends(),
-    loadGuild(numId),
+    skipUpstream ? API_SKIPPED : loadGuild(numId),
     getProfile(numId),
     loadEsports(numId),
     getLadderPosition(numId),
@@ -1559,13 +1605,18 @@ export default async function PlayerPage({
   // The player's guild shows in the Account section; persist it so a profile
   // view contributes to guild discovery (the row exists from the upsert above).
   const guild = guildRes.ok ? guildRes.data.guild ?? null : null
-  after(async () => {
-    try {
-      await recordPlayerGuild(numId, guild)
-    } catch {
-      // A cache write failure shouldn't take down the page.
-    }
-  })
+  // Only persist when the lookup actually ran. recordPlayerGuild writes null
+  // for "no guild", so calling it after a skipped/failed lookup would wipe a
+  // player's stored guild on every crawler visit.
+  if (guildRes.ok) {
+    after(async () => {
+      try {
+        await recordPlayerGuild(numId, guild)
+      } catch {
+        // A cache write failure shouldn't take down the page.
+      }
+    })
+  }
 
   // Account section: lifetime level/XP/playtime + main weapons + guild. Guild
   // id/name fall back to the clan embedded in GetPlayerStats when the (flaky)
