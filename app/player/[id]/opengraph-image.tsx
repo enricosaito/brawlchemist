@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og"
 import { getPlayerRanked, isApiRegion } from "@/lib/brawlhalla-api"
 import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
 import { getProfile } from "@/lib/sync/profiles"
-import { recordFetch } from "@/lib/sync/fetch-log"
+import { recordFetch, requestClientInfo } from "@/lib/sync/fetch-log"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 
 export const alt = "Brawlchemist player profile"
@@ -41,11 +41,14 @@ export default async function OgImage({
   // open-graph route (a likely budget drain when many unique profile URLs
   // get shared or scraped).
   if (res) {
+    const { client, referer } = await requestClientInfo()
     await recordFetch({
       brawlhallaId: numId,
       source: "og-image",
       result: res.ok ? "synced" : "failed",
       apiStatus: res.ok ? null : res.status,
+      client,
+      referer,
     })
   }
 
