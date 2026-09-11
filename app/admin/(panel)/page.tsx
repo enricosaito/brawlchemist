@@ -182,9 +182,9 @@ export default async function AdminPage({
         <p className="mt-1 text-sm text-muted-foreground">
           Every <span className="font-mono text-foreground">/ranked</span> call
           the profile page or OG-image route considered, plus admin saves. The
-          request&apos;s user-agent and referer are captured so you can spot
-          crawlers vs. organic traffic. Showing the latest {fetches.length}{" "}
-          entries.
+          The requesting client is bucketed (bingbot, googlebot, human, …) so
+          you can spot crawlers vs. organic traffic without storing a full
+          user-agent per row. Showing the latest {fetches.length} entries.
         </p>
 
         {fetches.length === 0 ? (
@@ -201,7 +201,7 @@ export default async function AdminPage({
                   <th className="px-3 py-2 text-left font-medium">Player</th>
                   <th className="px-3 py-2 text-left font-medium">Result</th>
                   <th className="px-3 py-2 text-left font-medium">
-                    User-Agent
+                    Client
                   </th>
                   <th className="px-3 py-2 text-left font-medium">Referer</th>
                 </tr>
@@ -255,9 +255,9 @@ export default async function AdminPage({
                     </td>
                     <td
                       className="max-w-[280px] truncate px-3 py-1.5 text-muted-foreground"
-                      title={f.userAgent ?? ""}
+                      title={f.client ?? ""}
                     >
-                      {f.userAgent ?? "—"}
+                      {f.client ?? "—"}
                     </td>
                     <td
                       className="max-w-[200px] truncate px-3 py-1.5 text-muted-foreground"

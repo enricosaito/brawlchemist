@@ -283,6 +283,16 @@ export const fetchLog = pgTable("fetch_log", {
    *  "failed" (API errored — `apiStatus` carries the HTTP status). */
   result: text("result").notNull(),
   apiStatus: integer("api_status"),
+  /**
+   * Short client label from clientLabel() — "bingbot", "googlebot", "human", …
+   *
+   * Replaces storing the raw User-Agent. At ~125 bytes the UA string was 79%
+   * of every row and drove this table to 362 MB (59% of the 500 MB quota) for
+   * data only ever read as "which crawler is this". `userAgent` is kept
+   * nullable so existing rows stay readable, but nothing writes it any more —
+   * it can be dropped once the retention window has rolled over.
+   */
+  client: text("client"),
   userAgent: text("user_agent"),
   referer: text("referer"),
   createdAt: timestamp("created_at", { withTimezone: true })

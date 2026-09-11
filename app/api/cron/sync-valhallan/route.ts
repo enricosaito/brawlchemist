@@ -19,12 +19,13 @@ const SNAPSHOT_RETENTION_MS = 180 * 24 * 60 * 60 * 1000
 /**
  * Profile-view telemetry older than this is pruned by the daily tick.
  *
- * fetch_log had no retention at all and grew to 1.6M rows / 361 MB — about 72%
- * of the whole free-tier storage quota, for a table nothing but /admin reads.
- * Thirty days is far more than the admin view (newest 50 entries, plus
- * crawler-vs-organic spot checks) ever looks at.
+ * fetch_log had no retention at all and grew to 1.6M rows / 362 MB — 59% of
+ * the 500 MB database quota, for a table nothing but /admin reads. At ~15k
+ * rows/day, fourteen days is ~210k rows (~25 MB with the compact client
+ * label) and still far more than the admin view — newest 50 entries, plus
+ * crawler-vs-organic spot checks — ever looks at.
  */
-const FETCH_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+const FETCH_LOG_RETENTION_MS = 14 * 24 * 60 * 60 * 1000
 /** Ids deleted per tick — bounded so the prune can't outrun a statement timeout. */
 const FETCH_LOG_PRUNE_STEP = 100_000
 
