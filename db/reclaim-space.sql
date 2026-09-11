@@ -22,9 +22,27 @@
 --   2. deploy                   (writers start using it)
 --   3. this file, in the Supabase SQL editor
 --
--- Run it in the dashboard SQL editor, not through DATABASE_URL: Supavisor's
--- transaction pooler caps statements at 2 minutes and VACUUM FULL on a 362 MB
--- table will exceed that.
+-- WHERE TO RUN IT — this matters, and step 2 below cannot go in the dashboard:
+--
+--   Step 1 (the DELETE) runs fine in the Supabase SQL editor.
+--
+--   Step 2 (VACUUM FULL) does NOT. The SQL editor wraps whatever you submit in
+--   an explicit transaction, and VACUUM refuses to run inside one:
+--     ERROR: 25001: VACUUM cannot run inside a transaction block
+--   It also can't go through the :6543 transaction pooler, which caps
+--   statements at 2 minutes. It needs a plain session connection — psql, or
+--   the :5432 session pooler — where it is its own implicit transaction and
+--   statement_timeout can be lifted with SET.
+--
+-- Recorded outcome of running exactly this, 2026-09-11:
+--   before: fetch_log 396 MB, database 657 MB
+--   deleted 1,148,138 rows, kept 451,269
+--   VACUUM FULL: 18 seconds
+--   after:  fetch_log 107 MB, database 368 MB
+--
+-- 107 MB is the floor for rows that still carry a raw User-Agent. As the
+-- 14-day window turns over onto compact client labels it settles far lower,
+-- and the sync-valhallan cron holds it there.
 
 -- 1. Drop everything outside the retention window ------------------------
 -- `id` is a serial and `created_at` defaults to now(), so the two are
@@ -62,6 +80,9 @@ BEGIN
 END $$;
 
 -- 2. Actually return the space to the OS ----------------------------------
+-- RUN THIS FROM psql OR THE :5432 SESSION POOLER, NOT THE DASHBOARD EDITOR.
+-- See the note at the top: the editor's transaction wrapper makes it fail with
+-- "VACUUM cannot run inside a transaction block".
 -- This is the step that moves Supabase's "Database Size" number. A plain
 -- VACUUM only marks the pages reusable by future inserts — the file on disk
 -- stays exactly as large, so the quota would not budge.
@@ -78,9 +99,10 @@ SELECT
   pg_size_pretty(pg_total_relation_size('fetch_log')) AS fetch_log,
   pg_size_pretty(pg_database_size(current_database())) AS database_total;
 
--- Faster alternative to steps 1-2, if you don't care about keeping the last
--- 14 days: TRUNCATE reclaims everything instantly with no rewrite and no
--- temporary disk requirement. The log's value is forward-looking (confirming
--- the crawler changes are working), so this is a perfectly reasonable choice.
+-- Alternative that DOES work in the dashboard SQL editor, if you don't care
+-- about keeping the last 14 days: TRUNCATE is transaction-safe, needs no
+-- rewrite and no temporary disk, and reclaims everything instantly by swapping
+-- in a fresh empty file. The log's value is forward-looking (confirming the
+-- crawler changes are working), so this is a perfectly reasonable choice.
 --
 --   TRUNCATE fetch_log;

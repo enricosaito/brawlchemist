@@ -79,6 +79,7 @@ export async function saveProfileAction(formData: FormData) {
       brawlhallaId: id,
       source: "admin-save",
       result: outcome.status === "synced" ? "synced" : "failed",
+      client: "admin",
     })
   } catch (err) {
     console.error("[admin] pro sync on save failed:", err)
@@ -86,6 +87,7 @@ export async function saveProfileAction(formData: FormData) {
       brawlhallaId: id,
       source: "admin-save",
       result: "failed",
+      client: "admin",
     })
   }
 

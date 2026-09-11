@@ -49,7 +49,7 @@ import {
   getPlayerSyncState,
   upsertPlayerRanked,
 } from "@/lib/sync/players"
-import { isCrawler } from "@/lib/bots"
+import { clientLabel, isCrawler } from "@/lib/bots"
 import { recordPlayerGuild } from "@/lib/sync/guilds"
 import { recordFetch } from "@/lib/sync/fetch-log"
 import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
@@ -152,12 +152,19 @@ const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
       : result.source === "api" && result.data
         ? "synced"
         : "failed"
+  // Client info is captured HERE, during render — recordFetch must never reach
+  // for request state itself, because after() runs once the request scope is
+  // gone (which silently killed this logging once already).
+  const client = clientLabel(headerList.get("user-agent"))
+  const referer = headerList.get("referer")?.slice(0, 200) ?? null
   after(() =>
     recordFetch({
       brawlhallaId: numId,
       source: "page-view",
       result: logResult,
       apiStatus: result.apiStatus,
+      client,
+      referer,
     }),
   )
 
