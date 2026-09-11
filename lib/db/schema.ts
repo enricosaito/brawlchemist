@@ -37,6 +37,16 @@ export const players = pgTable("players", {
    * so name-only rows are searchable with rating/region shown, without a full
    * /player/{id}/ranked fetch and without affecting the Valhallan aggregation
    * (which keys off ranked_json). Both null until harvested. */
+  /**
+   * Season 1v1 rating, lifted out of ranked_json by upsertPlayerRanked.
+   *
+   * Exists so ordering never has to touch the blob: sorting on a ranked_json
+   * expression detoasts the whole ~200MB column and measured 95s on the
+   * username search. ladder_rating was meant to serve this role, but only the
+   * search-index harvest writes it and nothing calls that harvest — it was
+   * null for all 91,088 rows, which left search results in physical order.
+   */
+  rating: integer("rating"),
   ladderRating: integer("ladder_rating"),
   ladderRegion: text("ladder_region"),
   /** The player's guild, discovered via GetPlayerGuild. `guildId` is null when
@@ -66,6 +76,8 @@ export const players = pgTable("players", {
     // Both search paths order by this scalar rather than a ranked_json
     // expression — see the note in lib/sync/players.ts.
     index("players_ladder_rating_idx").on(t.ladderRating.desc().nullsLast()),
+    // Search orders by this; see the column comment.
+    index("players_rating_idx").on(t.rating.desc().nullsLast()),
   ],
 )
 

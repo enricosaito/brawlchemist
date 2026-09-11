@@ -1,5 +1,7 @@
 import "server-only"
 
+import { repairJson } from "@/lib/text"
+
 /**
  * Brawlhalla public API wrapper.
  *
@@ -146,7 +148,10 @@ async function apiFetch<T>(
         error: `Brawlhalla API ${res.status} ${res.statusText}`,
       }
     }
-    const data = (await res.json()) as T
+    // Upstream double-encodes UTF-8 (see lib/text.ts). Repairing here, at the
+    // one place every payload enters, means names are correct everywhere
+    // downstream and the database stops accumulating mangled text.
+    const data = repairJson((await res.json()) as T)
     return { ok: true, data }
   } catch (err) {
     return {

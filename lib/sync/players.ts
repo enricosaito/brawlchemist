@@ -32,12 +32,16 @@ function isFresh(row: PlayerRow, ttlMs: number): boolean {
  */
 export async function upsertPlayerRanked(ranked: PlayerRanked): Promise<void> {
   const topLegendId = topRankedLegendId(ranked.legends ?? [])
+  // Denormalised so search can order by an indexed int instead of a
+  // ranked_json expression — see the column comment in schema.ts.
+  const rating = typeof ranked.rating === "number" ? ranked.rating : null
   await db()
     .insert(players)
     .values({
       brawlhallaId: ranked.brawlhalla_id,
       username: ranked.name,
       topLegendId,
+      rating,
       rankedJson: ranked,
       lastSynced: new Date(),
     })
@@ -46,6 +50,7 @@ export async function upsertPlayerRanked(ranked: PlayerRanked): Promise<void> {
       set: {
         username: ranked.name,
         topLegendId,
+        rating,
         rankedJson: ranked,
         lastSynced: new Date(),
       },
@@ -144,17 +149,17 @@ export async function searchPlayersByUsername(
       // result card already falls back to, so a matched row carries its rating
       // without the whole ranked_json blob crossing the wire. Evaluated for the
       // returned rows only — never in the ORDER BY (see below).
-      ladderRating: sql<number | null>`coalesce(${players.ladderRating}, (${players.rankedJson}->>'rating')::int)`,
+      ladderRating: sql<number | null>`coalesce(${players.rating}, ${players.ladderRating})`,
       ladderRegion: sql<string | null>`coalesce(${players.ladderRegion}, ${players.rankedJson}->>'region')`,
     })
     .from(players)
     .where(ilike(players.username, `%${q}%`))
-    // Order by the plain ladder_rating column, NOT a ranked_json expression.
-    // Sorting on the jsonb forced Postgres to detoast the ~200 MB column for
-    // every row the ILIKE matched — this query measured 95s+ against prod. The
-    // search-index harvest fills ladder_rating for the whole searchable
-    // (Diamond+) population, so the ranking is unchanged in practice.
-    .orderBy(sql`${players.ladderRating} desc nulls last`)
+    // Order by the bare indexed column. Wrapping it in coalesce() with
+    // ladder_rating looked harmless but made players_rating_idx unusable, and
+    // a two-character query went from 0.4s to 15s because Postgres had to sort
+    // every ILIKE match instead of walking the index and stopping at 8. There
+    // is nothing to coalesce with anyway: nothing populates ladder_rating.
+    .orderBy(sql`${players.rating} desc nulls last`)
     .limit(limit)
   return rows.map((r) => ({ ...r, rankedJson: null }) as PlayerRow)
 }
@@ -294,14 +299,12 @@ export async function searchPlayerSuggestions(
       id: players.brawlhallaId,
       username: players.username,
       topLegendId: players.topLegendId,
-      rating: sql<number | null>`coalesce(${players.ladderRating}, (${players.rankedJson}->>'rating')::int)`,
+      rating: sql<number | null>`coalesce(${players.rating}, ${players.ladderRating})`,
       region: sql<string | null>`coalesce(${players.ladderRegion}, ${players.rankedJson}->>'region')`,
     })
     .from(players)
     .where(ilike(players.username, `%${q}%`))
-    // See searchPlayersByUsername: ordering on a ranked_json expression
-    // detoasts the blob for every matched row. This one fires on every
-    // keystroke, so it has to stay on the plain int column.
-    .orderBy(sql`${players.ladderRating} desc nulls last`)
+    // See searchPlayersByUsername — bare indexed column, no coalesce.
+    .orderBy(sql`${players.rating} desc nulls last`)
     .limit(limit)
 }
