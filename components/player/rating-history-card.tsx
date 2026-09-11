@@ -1,22 +1,23 @@
 import { TrendingDown, TrendingUp } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { TIER_COLOR_VAR } from "@/components/site/primitives"
 import { getRatingHistory } from "@/lib/sync/snapshots"
-import { TIER_FLOOR } from "@/lib/tier"
+import { RatingTrendChart } from "./rating-trend-chart"
 import type { Tier } from "@/lib/types"
-import {
-  RatingChart,
-  type Band,
-  type ChartPoint,
-  type TierLine,
-} from "./rating-chart"
 
 const WINDOW_DAYS = 30
 
 /**
- * RatingHistoryCard — the profile's "rating over time" section (dpm.lol-style).
- * Reads the snapshot series recorded by every fresh /ranked payload (zero
- * extra API calls; see lib/sync/snapshots.ts) and renders the 30-day chart
- * with tier-threshold lines, peak marker, and window delta.
+ * RatingHistoryCard — the profile's "rating over time" section. Reads the
+ * snapshot series recorded by every fresh /ranked payload (zero extra API
+ * calls; see lib/sync/snapshots.ts) and renders the 30-day trend.
+ *
+ * The chart is deliberately one line in one colour — the player's current tier
+ * — rather than the tier-banded version this replaced. That chart carried more
+ * information (zone shading, threshold lines, rank helms) but read as a
+ * diagram; the shape of the climb is what people actually come here for. The
+ * numbers that framed it survive as the chips above: window delta, distance to
+ * Valhallan, peak, sample size.
  */
 export async function RatingHistoryCard({
   brawlhallaId,
@@ -77,67 +78,23 @@ export async function RatingHistoryCard({
     )
   }
 
-  const points: ChartPoint[] = history.map((h) => ({
+  const points = history.map((h) => ({
     t: h.takenAt.getTime(),
     rating: h.rating,
   }))
   const ratings = points.map((p) => p.rating)
-  const lo = Math.min(...ratings)
-  const hi = Math.max(...ratings)
-  const peak = hi
-  const current = points[points.length - 1].rating
-  const delta = current - points[0].rating
+  const peak = Math.max(...ratings)
+  const current = ratings[ratings.length - 1]
+  const delta = current - ratings[0]
 
-  // --- Tier-anchored Y domain ------------------------------------------------
-  // Bracket the series with the nearest tier boundaries so the chart reads as
-  // "where in the ladder am I" (dpm.lol-style) rather than a line floating in
-  // padded space. A boundary further than REACH from the data is ignored (we
-  // don't zoom out to a distant Diamond floor and flatten everything); that
-  // side falls back to a data-proportional pad. MIN_RANGE stops a pair of
-  // near-equal snapshots from zooming in absurdly.
-  const boundaries: TierLine[] = (
-    Object.entries(TIER_FLOOR) as [Exclude<Tier, "Valhallan">, number][]
-  ).map(([t, rating]) => ({ tier: t, rating }))
-  if (valhallanCutoff != null) {
-    boundaries.push({ tier: "Valhallan", rating: valhallanCutoff })
-  }
-  boundaries.sort((a, b) => a.rating - b.rating)
-
-  const dataRange = hi - lo
-  const REACH = Math.max(150, dataRange * 1.6)
-  const PAD = Math.max(24, Math.round(dataRange * 0.5))
-
-  const above = boundaries.find((b) => b.rating > hi)
-  const below = [...boundaries].reverse().find((b) => b.rating < lo)
-
-  let yMax = above && above.rating - hi <= REACH ? above.rating + 8 : hi + PAD
-  let yMin = below && lo - below.rating <= REACH ? below.rating - 8 : lo - PAD
-
-  const MIN_RANGE = 90
-  if (yMax - yMin < MIN_RANGE) {
-    const mid = (yMax + yMin) / 2
-    yMin = mid - MIN_RANGE / 2
-    yMax = mid + MIN_RANGE / 2
-  }
-
-  // Threshold lines: every boundary inside the visible domain.
-  const tierLines = boundaries.filter(
-    (b) => b.rating >= yMin && b.rating <= yMax,
+  // Short, dense-safe tick labels — the chart thins them to ~5 across the axis.
+  const labels = points.map((p) =>
+    new Date(p.t).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    }),
   )
-
-  // Tier zones: contiguous bands spanning the domain, each owned by the tier
-  // whose floor sits at-or-below the band's midpoint.
-  const inside = boundaries.filter((b) => b.rating > yMin && b.rating < yMax)
-  const edges = [yMin, ...inside.map((b) => b.rating), yMax]
-  const bands: Band[] = []
-  for (let i = 0; i < edges.length - 1; i++) {
-    const bandLo = edges[i]
-    const bandHi = edges[i + 1]
-    const mid = (bandLo + bandHi) / 2
-    let bandTier: Tier = boundaries[0]?.tier ?? "Tin"
-    for (const b of boundaries) if (b.rating <= mid) bandTier = b.tier
-    bands.push({ tier: bandTier, lo: bandLo, hi: bandHi })
-  }
+  const lineColor = TIER_COLOR_VAR[tier ?? "Diamond"]
 
   // Honest span label — data often covers far less than the 30d window.
   const spanDays =
@@ -192,14 +149,7 @@ export async function RatingHistoryCard({
         </span>
       </div>
 
-      <RatingChart
-        points={points}
-        tierLines={tierLines}
-        bands={bands}
-        yMin={yMin}
-        yMax={yMax}
-        lineTier={tier ?? "Diamond"}
-      />
+      <RatingTrendChart ratings={ratings} labels={labels} color={lineColor} />
     </>,
   )
 }

@@ -70,6 +70,21 @@ export const TIER_TEXT_COLOR: Record<Tier, string> = {
   Valhallan: "text-tier-valhallan",
 }
 
+/**
+ * Tier colour as a raw CSS custom property, for the places a Tailwind class
+ * won't do — canvases, SVG `stroke`, and components that take a colour string.
+ * Same tokens TIER_TEXT_COLOR compiles to, so the two can never drift.
+ */
+export const TIER_COLOR_VAR: Record<Tier, string> = {
+  Tin: "var(--tier-tin)",
+  Bronze: "var(--tier-bronze)",
+  Silver: "var(--tier-silver)",
+  Gold: "var(--tier-gold)",
+  Platinum: "var(--tier-platinum)",
+  Diamond: "var(--tier-diamond)",
+  Valhallan: "var(--tier-valhallan)",
+}
+
 export function RankPill({
   tier,
   division,
