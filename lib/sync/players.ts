@@ -137,17 +137,26 @@ export async function searchPlayersByUsername(
 ): Promise<PlayerRow[]> {
   const q = query.trim()
   if (!q) return []
-  return db()
-    .select()
+  const rows = await db()
+    .select({
+      ...PLAYER_SCALAR_COLUMNS,
+      // Collapse the season rating/region into the two ladder scalars the
+      // result card already falls back to, so a matched row carries its rating
+      // without the whole ranked_json blob crossing the wire. Evaluated for the
+      // returned rows only — never in the ORDER BY (see below).
+      ladderRating: sql<number | null>`coalesce(${players.ladderRating}, (${players.rankedJson}->>'rating')::int)`,
+      ladderRegion: sql<string | null>`coalesce(${players.ladderRegion}, ${players.rankedJson}->>'region')`,
+    })
     .from(players)
     .where(ilike(players.username, `%${q}%`))
-    // Rank by the best rating we have: the full ranked-season rating when the
-    // profile's been synced, else the lightweight ladder snapshot from the
-    // search-index harvest. Fully-synced, higher-rated players surface first.
-    .orderBy(
-      sql`coalesce((${players.rankedJson}->>'rating')::int, ${players.ladderRating}) desc nulls last`,
-    )
+    // Order by the plain ladder_rating column, NOT a ranked_json expression.
+    // Sorting on the jsonb forced Postgres to detoast the ~200 MB column for
+    // every row the ILIKE matched — this query measured 95s+ against prod. The
+    // search-index harvest fills ladder_rating for the whole searchable
+    // (Diamond+) population, so the ranking is unchanged in practice.
+    .orderBy(sql`${players.ladderRating} desc nulls last`)
     .limit(limit)
+  return rows.map((r) => ({ ...r, rankedJson: null }) as PlayerRow)
 }
 
 // Every players column except the heavy `ranked_json` blob. Selecting these
@@ -225,13 +234,14 @@ export async function searchPlayerSuggestions(
       id: players.brawlhallaId,
       username: players.username,
       topLegendId: players.topLegendId,
-      rating: sql<number | null>`(${players.rankedJson}->>'rating')::int`,
-      region: sql<string | null>`${players.rankedJson}->>'region'`,
+      rating: sql<number | null>`coalesce(${players.ladderRating}, (${players.rankedJson}->>'rating')::int)`,
+      region: sql<string | null>`coalesce(${players.ladderRegion}, ${players.rankedJson}->>'region')`,
     })
     .from(players)
     .where(ilike(players.username, `%${q}%`))
-    .orderBy(
-      sql`coalesce((${players.rankedJson}->>'rating')::int, ${players.ladderRating}) desc nulls last`,
-    )
+    // See searchPlayersByUsername: ordering on a ranked_json expression
+    // detoasts the blob for every matched row. This one fires on every
+    // keystroke, so it has to stay on the plain int column.
+    .orderBy(sql`${players.ladderRating} desc nulls last`)
     .limit(limit)
 }

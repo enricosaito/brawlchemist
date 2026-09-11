@@ -1,4 +1,5 @@
 import { cache } from "react"
+import { after } from "next/server"
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
@@ -114,17 +115,24 @@ const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
   // Record this view so /admin can see who's hitting which profiles and why.
   // We're inside React's cache() so this fires exactly once per request even
   // though generateMetadata and the page body both call loadRanked.
-  await recordFetch({
-    brawlhallaId: numId,
-    source: "page-view",
-    result:
-      result.source === "db-fresh"
-        ? "cached"
-        : result.source === "api" && result.data
-          ? "synced"
-          : "failed",
-    apiStatus: result.apiStatus,
-  })
+  //
+  // Deferred with after(): it's pure telemetry, so making the reader wait on a
+  // Supabase round-trip before the profile can stream is backwards. after()
+  // runs it once the response is done, still inside the request context.
+  const logResult =
+    result.source === "db-fresh"
+      ? "cached"
+      : result.source === "api" && result.data
+        ? "synced"
+        : "failed"
+  after(() =>
+    recordFetch({
+      brawlhallaId: numId,
+      source: "page-view",
+      result: logResult,
+      apiStatus: result.apiStatus,
+    }),
+  )
 
   return result
 })
@@ -1510,31 +1518,54 @@ export default async function PlayerPage({
   // AND there's a real ranked payload — never write a blank-name shell (username
   // is NOT NULL and powers search/leaderboards). Re-upserting a db-fresh /
   // db-fallback row would just refresh last_synced for no benefit.
+  // Deferred with after() — the payload is already in hand, so the reader has
+  // no reason to wait on the write (plus its piggybacked snapshot insert).
   if (hasRankedName && ranked.source === "api") {
-    try {
-      await upsertPlayerRanked(data)
-    } catch {
-      // A cache write failure shouldn't take down the page.
-    }
+    after(async () => {
+      try {
+        await upsertPlayerRanked(data)
+      } catch {
+        // A cache write failure shouldn't take down the page.
+      }
+    })
   }
 
   // Legend titles: every legend the player has maxed (level 100) earns its
   // "bio_aka" (e.g. Teros → "The Minotaur"). Levels come from GetPlayerStats,
   // titles from the static legend list. Both fail open — no titles, no error.
-  const [statsRes, legendsRes, guildRes] = await Promise.all([
+  //
+  // Everything that only needs `numId` goes out in ONE fan-out. These used to
+  // be three separate awaited stages (stats/legends/guild, then
+  // profile/esports/ladder, then customization), so a profile paid three
+  // sequential round-trips for data that never depended on each other.
+  const [
+    statsRes,
+    legendsRes,
+    guildRes,
+    preview,
+    esports,
+    ladderPos,
+    customization,
+  ] = await Promise.all([
     loadStats(numId),
     loadStaticLegends(),
     loadGuild(numId),
+    getProfile(numId),
+    loadEsports(numId),
+    getLadderPosition(numId),
+    getCustomization(numId),
   ])
 
   // The player's guild shows in the Account section; persist it so a profile
   // view contributes to guild discovery (the row exists from the upsert above).
   const guild = guildRes.ok ? guildRes.data.guild ?? null : null
-  try {
-    await recordPlayerGuild(numId, guild)
-  } catch {
-    // A cache write failure shouldn't take down the page.
-  }
+  after(async () => {
+    try {
+      await recordPlayerGuild(numId, guild)
+    } catch {
+      // A cache write failure shouldn't take down the page.
+    }
+  })
 
   // Account section: lifetime level/XP/playtime + main weapons + guild. Guild
   // id/name fall back to the clan embedded in GetPlayerStats when the (flaky)
@@ -1621,14 +1652,13 @@ export default async function PlayerPage({
 
   // Distinguish Valhallan from Diamond (both 2000+) via the region's live
   // ladder cutoff — 1v1 for the header, 2v2 for the team cards.
-  const [cutoff1v1, cutoff2v2, preview, esports, ladderPos] = await Promise.all([
+  // Only the cutoffs are left here — they need data.region (and whether the
+  // player has any 2v2 teams), so they can't join the fan-out above.
+  const [cutoff1v1, cutoff2v2] = await Promise.all([
     valhallanCutoffRating("1v1", data.region),
     teams.length > 0
       ? valhallanCutoffRating("2v2", data.region)
       : Promise.resolve(null),
-    getProfile(numId),
-    loadEsports(numId),
-    getLadderPosition(numId),
   ])
   const headerValhallan = isValhallan(data.rating, cutoff1v1, data.wins)
   // Live top-500 ladder position (global ALL ladder); null below the top 500.
@@ -1674,7 +1704,7 @@ export default async function PlayerPage({
 
   // Owner-chosen header banner (cached, fails open to the default wash). The
   // picker itself is gated to the owner inside BannerPicker.
-  const { bannerId } = await getCustomization(numId)
+  const { bannerId } = customization
   const bannerPicker = <BannerPicker brawlhallaId={numId} />
   // Track/untrack star — reads shared favorites state; signed-out viewers get a
   // sign-in nudge from inside the control.

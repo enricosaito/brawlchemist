@@ -1,4 +1,7 @@
+import { Suspense } from "react"
+
 import { LauncherHero } from "@/components/site/launcher/launcher-hero"
+import { PreviewCardSkeleton } from "@/components/site/skeletons"
 import { TopLegendsCard } from "@/components/site/top-legends-card"
 import {
   HOME_REGIONS,
@@ -32,10 +35,20 @@ export default async function Page({
     <main className="flex min-h-svh flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
       <LauncherHero featuredPatch={CURRENT_PATCH} className="mt-auto" />
 
+      {/* Each card owns its own Suspense boundary so the launcher shell — hero,
+          search, card chrome — paints on the first frame and the three data
+          cards stream in independently, rather than the whole screen waiting on
+          the slowest query. */}
       <section className="mb-auto grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <TopPlayersCard region={region} className={GLASS} />
-        <TopLegendsCard className={GLASS} />
-        <WeaponMetaCard className={GLASS} />
+        <Suspense fallback={<PreviewCardSkeleton className={GLASS} />}>
+          <TopPlayersCard region={region} className={GLASS} />
+        </Suspense>
+        <Suspense fallback={<PreviewCardSkeleton className={GLASS} />}>
+          <TopLegendsCard className={GLASS} />
+        </Suspense>
+        <Suspense fallback={<PreviewCardSkeleton className={GLASS} />}>
+          <WeaponMetaCard className={GLASS} />
+        </Suspense>
       </section>
     </main>
   )

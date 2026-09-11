@@ -58,27 +58,35 @@ export default async function RootLayout({
   // Seed the client favorites store once (signed-in only); fails open to [].
   let favoriteIds: number[] = []
   if (user) {
-    try {
-      const id = await getClaimedBrawlhallaId(user.id)
-      if (id != null) {
+    // These two are independent, and this block gates the entire shell on
+    // every navigation — so they go out together rather than one after the
+    // other. Each still fails open on its own.
+    const [claimedId, favorites] = await Promise.all([
+      getClaimedBrawlhallaId(user.id).catch((err) => {
+        console.error("[layout] claim lookup failed:", err)
+        return null
+      }),
+      getFavoriteIds(user.id).catch((err) => {
+        console.error("[layout] favorites lookup failed:", err)
+        return [] as number[]
+      }),
+    ])
+    favoriteIds = favorites
+    if (claimedId != null) {
+      try {
         const [players, profile] = await Promise.all([
-          getPlayersByIds([id], { includeRankedJson: false }),
-          getProfile(id),
+          getPlayersByIds([claimedId], { includeRankedJson: false }),
+          getProfile(claimedId),
         ])
         const handle = profile?.verified?.handle?.trim() || null
         claimed = {
-          id,
-          name: handle ?? players.get(id)?.username ?? null,
+          id: claimedId,
+          name: handle ?? players.get(claimedId)?.username ?? null,
           isPro: !!handle,
         }
+      } catch (err) {
+        console.error("[layout] claimed profile lookup failed:", err)
       }
-    } catch (err) {
-      console.error("[layout] claim lookup failed:", err)
-    }
-    try {
-      favoriteIds = await getFavoriteIds(user.id)
-    } catch (err) {
-      console.error("[layout] favorites lookup failed:", err)
     }
   }
   return (

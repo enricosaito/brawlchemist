@@ -10,9 +10,28 @@ import * as schema from "./schema"
  * transaction pooler hands each query a fresh backend connection, so
  * server-side prepared statements can't be reused across calls.
  *
+ * Pool sizing matters more here than in a long-lived server. Every serverless
+ * instance gets its own pool, and postgres-js defaults to max: 10 with NO idle
+ * timeout — so each instance parks up to ten Supavisor client slots forever.
+ * Across concurrent instances plus three crons that exhausts the free-tier
+ * pool, and every other request then dies on
+ * "unable to check out connection from the pool after 15000ms". A small pool
+ * that returns its connections is strictly better: page renders issue a
+ * handful of queries, and Promise.all fan-out is what MAX_CONNECTIONS covers.
+ *
+ * Note on statement timeouts: Supavisor's transaction pooler IGNORES a
+ * statement_timeout passed as a connection startup parameter — `show
+ * statement_timeout` still reports the server default of 2min through :6543.
+ * A real per-query cap has to come from `ALTER ROLE ... SET statement_timeout`
+ * on the database itself, so it is deliberately NOT configured here rather
+ * than set to a value that quietly does nothing.
+ *
  * Lazy-initialized so a missing DATABASE_URL doesn't crash unrelated routes
  * (the leaderboard page falls back to rendering without legend enrichment).
  */
+const MAX_CONNECTIONS = 4
+const IDLE_TIMEOUT_SECONDS = 20
+const CONNECT_TIMEOUT_SECONDS = 15
 let cached: PostgresJsDatabase<typeof schema> | null = null
 
 export function db(): PostgresJsDatabase<typeof schema> {
@@ -23,7 +42,15 @@ export function db(): PostgresJsDatabase<typeof schema> {
       "DATABASE_URL is not set. Use the Supabase 'Transaction pooler' connection string (dashboard → Connect) in .env.local / Vercel env.",
     )
   }
-  cached = drizzle(postgres(url, { prepare: false }), { schema })
+  cached = drizzle(
+    postgres(url, {
+      prepare: false,
+      max: MAX_CONNECTIONS,
+      idle_timeout: IDLE_TIMEOUT_SECONDS,
+      connect_timeout: CONNECT_TIMEOUT_SECONDS,
+    }),
+    { schema },
+  )
   return cached
 }
 

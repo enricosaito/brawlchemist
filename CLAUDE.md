@@ -15,6 +15,8 @@ Brawlhalla stats platform (dpm.lol / op.gg style). Next.js 16 App Router, React 
 1. **Brawlhalla API: 180 req/15min, fully budgeted.** New features must NOT add API calls. Piggyback existing fetch paths; read from our own DB/caches. `upsertPlayerRanked()` (lib/sync/players.ts) is the single chokepoint where every fresh `/ranked` payload lands (profile views + crons) — snapshot-style features hook there.
 2. **Supabase free tier: egress matters.** Never `SELECT *` on tables with jsonb. Select narrow columns; `getPlayersByIds(ids, { includeRankedJson: false })` for anything that doesn't read legends.
 3. **Everything fails open.** Enrichment lookups (profiles map, players cache, CM, esports) degrade to plain rendering — never take down a page.
+4. **Never put a `players` full-table scan on a render path.** `players` is ~90k rows / ~200MB, almost all of it `ranked_json` in TOAST. Any query that evaluates a `ranked_json` expression in a WHERE/ORDER BY across the table detoasts all of it (measured: 25–95s each). The Valhallan aggregations in `lib/sync/valhallan.ts` are the only legitimate ones and they are ALL behind `unstable_cache` (`VALHALLAN_STATS_TAG`, 6h) — call the exported `get*`, never `compute*`. Order search/list queries by the plain `ladder_rating` column, not by a jsonb expression.
+5. **Supavisor pool is small and shared.** postgres-js defaults to `max: 10` with no idle timeout, so each serverless instance parks ten pooler slots forever; `lib/db/index.ts` caps it. The transaction pooler (:6543) silently IGNORES a `statement_timeout` startup param and ignores `SET` — for DDL or anything needing a longer/shorter timeout, connect to the session pooler (:5432) where `SET statement_timeout` sticks.
 
 ## Data architecture
 

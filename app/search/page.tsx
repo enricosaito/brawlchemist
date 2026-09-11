@@ -136,13 +136,19 @@ export default async function SearchPage({
         .map(([id]) => id)
         .filter((id) => !byId.has(id))
       if (handleIds.length > 0) {
-        for (const [id, row] of await getPlayersByIds(handleIds)) {
+        // Pro handles resolve to a handful of ids — scalars are all the
+        // result card reads, so skip the ranked_json blob.
+        for (const [id, row] of await getPlayersByIds(handleIds, {
+          includeRankedJson: false,
+        })) {
           byId.set(id, row)
         }
       }
 
-      const ratingOf = (p: PlayerRow) =>
-        (p.rankedJson as PlayerRanked | null)?.rating ?? -1
+      // searchPlayersByUsername collapses the season rating into ladderRating
+      // (it no longer ships ranked_json), and getPlayersByIds rows carry the
+      // harvested snapshot — so one scalar orders both sources.
+      const ratingOf = (p: PlayerRow) => p.ladderRating ?? -1
       results = [...byId.values()].sort((a, b) => ratingOf(b) - ratingOf(a))
     } catch (err) {
       console.error("[search] name/handle lookup failed:", err)

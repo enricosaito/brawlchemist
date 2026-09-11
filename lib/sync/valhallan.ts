@@ -1,5 +1,6 @@
 import "server-only"
 
+import { unstable_cache } from "next/cache"
 import { and, gte, inArray, sql } from "drizzle-orm"
 import {
   type ApiGameMode,
@@ -132,9 +133,18 @@ export interface TopMainer {
  * top_legend_id is already denormalized per player, so this is just a window
  * function over `players` — no jsonb scanning required.
  */
-export async function getTopValhallanMainers(
+interface MainerRow {
+  top_legend_id: number
+  brawlhalla_id: number
+  username: string
+  rating: number
+  region: string
+  region_rank: number
+}
+
+async function computeTopValhallanMainers(
   opts: { region?: string | null; perLegend?: number } = {},
-): Promise<Map<number, TopMainer[]>> {
+): Promise<MainerRow[]> {
   const region = opts.region ?? null
   const perLegend = opts.perLegend ?? 3
 
@@ -169,28 +179,7 @@ export async function getTopValhallanMainers(
     ORDER BY top_legend_id, rn
   `)
 
-  const rows = result as unknown as Array<{
-    top_legend_id: number
-    brawlhalla_id: number
-    username: string
-    rating: number
-    region: string
-    region_rank: number
-  }>
-
-  const map = new Map<number, TopMainer[]>()
-  for (const row of rows) {
-    const list = map.get(row.top_legend_id) ?? []
-    list.push({
-      brawlhallaId: row.brawlhalla_id,
-      username: row.username,
-      rating: row.rating,
-      region: row.region,
-      regionRank: row.region_rank,
-    })
-    map.set(row.top_legend_id, list)
-  }
-  return map
+  return result as unknown as MainerRow[]
 }
 
 /**
@@ -199,9 +188,9 @@ export async function getTopValhallanMainers(
  * top-tier players run the legend as their season main, independent of how
  * many games they've logged. Returns a Map<legendId, playerCount>.
  */
-export async function getValhallanMainerCounts(
+async function computeValhallanMainerCounts(
   opts: { region?: string | null } = {},
-): Promise<Map<number, number>> {
+): Promise<{ top_legend_id: number; players: number }[]> {
   const region = opts.region ?? null
   const result = await db().execute(sql`
     SELECT top_legend_id, COUNT(*)::int AS players
@@ -211,13 +200,7 @@ export async function getValhallanMainerCounts(
       AND ${regionClause(region)}
     GROUP BY top_legend_id
   `)
-  const rows = result as unknown as Array<{
-    top_legend_id: number
-    players: number
-  }>
-  const map = new Map<number, number>()
-  for (const row of rows) map.set(row.top_legend_id, row.players)
-  return map
+  return result as unknown as { top_legend_id: number; players: number }[]
 }
 
 export interface LegendStat {
@@ -278,7 +261,7 @@ export const VALHALLAN_MIN_RATING = 2300
  *   - avg: minimum games per individual player to qualify as a data point,
  *     plus an implicit minPlayers=5 floor on the legend itself.
  */
-export async function getValhallanLegendStats(opts: {
+async function computeValhallanLegendStats(opts: {
   minGames?: number
   region?: string | null
   method?: AggregationMethod
@@ -402,7 +385,7 @@ const TOP_LEGENDS_PER_WEAPON = 3
  * (once per weapon slot). Treat it as a "share of weapon presence",
  * not "share of unique games."
  */
-export async function getValhallanWeaponStats(
+async function computeValhallanWeaponStats(
   opts: { region?: string | null } = {},
 ): Promise<{ weapons: WeaponStat[]; sampleSize: number }> {
   const { legends, sampleSize } = await getValhallanLegendStats({
@@ -480,4 +463,123 @@ export async function getValhallanWeaponStats(
   weapons.sort((a, b) => b.games - a.games)
 
   return { weapons, sampleSize }
+}
+
+/* ---------------------------------------------------------------------------
+   Cached public entry points.
+
+   Every aggregation below is a full scan of `players` — the "popular" and
+   "pooled" variants additionally unnest `ranked_json->'legends'`, which
+   detoasts the whole ~200 MB jsonb column. Uncached, the homepage alone
+   (TopLegendsCard + WeaponMetaCard) ran two of those per request and kept the
+   free-tier database permanently CPU-saturated, which in turn starved the
+   connection pool for every other page.
+
+   The underlying data only moves when the daily sync-valhallan cron refreshes
+   the Valhallan pool, so a 6-hour TTL costs nothing in freshness. Everything
+   shares the VALHALLAN_STATS_TAG so a cron (or /admin) can bust the set.
+   ------------------------------------------------------------------------- */
+
+export const VALHALLAN_STATS_TAG = "valhallan-stats"
+const STATS_TTL_SECONDS = 6 * 60 * 60
+
+const cachedLegendStats = unstable_cache(
+  computeValhallanLegendStats,
+  ["valhallan-legend-stats"],
+  { tags: [VALHALLAN_STATS_TAG], revalidate: STATS_TTL_SECONDS },
+)
+
+const cachedWeaponStats = unstable_cache(
+  computeValhallanWeaponStats,
+  ["valhallan-weapon-stats"],
+  { tags: [VALHALLAN_STATS_TAG], revalidate: STATS_TTL_SECONDS },
+)
+
+const cachedTopMainers = unstable_cache(
+  computeTopValhallanMainers,
+  ["valhallan-top-mainers"],
+  { tags: [VALHALLAN_STATS_TAG], revalidate: STATS_TTL_SECONDS },
+)
+
+const cachedMainerCounts = unstable_cache(
+  computeValhallanMainerCounts,
+  ["valhallan-mainer-counts"],
+  { tags: [VALHALLAN_STATS_TAG], revalidate: STATS_TTL_SECONDS },
+)
+
+/**
+ * unstable_cache keys on JSON.stringify of the argument list, so `{ region,
+ * method }` and `{ method, region }` would be two different cache entries for
+ * the same query. Every wrapper below normalises its options into one canonical
+ * shape first.
+ */
+function normalizeStatsOpts(opts: {
+  minGames?: number
+  region?: string | null
+  method?: AggregationMethod
+}) {
+  return {
+    region: opts.region ?? null,
+    method: opts.method ?? ("pooled" as AggregationMethod),
+    minGames: opts.minGames ?? null,
+  }
+}
+
+/** Per-legend Valhallan tier-list stats. See computeValhallanLegendStats. */
+export function getValhallanLegendStats(
+  opts: {
+    minGames?: number
+    region?: string | null
+    method?: AggregationMethod
+  } = {},
+): Promise<ValhallanAggregation> {
+  const { region, method, minGames } = normalizeStatsOpts(opts)
+  return cachedLegendStats({
+    region,
+    method,
+    ...(minGames != null ? { minGames } : {}),
+  })
+}
+
+/** Per-weapon Valhallan tier-list stats. See computeValhallanWeaponStats. */
+export function getValhallanWeaponStats(
+  opts: { region?: string | null } = {},
+): Promise<{ weapons: WeaponStat[]; sampleSize: number }> {
+  return cachedWeaponStats({ region: opts.region ?? null })
+}
+
+/**
+ * Top-N Valhallan mainers per legend. The cache stores flat rows (a Map isn't
+ * serializable); the Map is rebuilt here, which is free.
+ */
+export async function getTopValhallanMainers(
+  opts: { region?: string | null; perLegend?: number } = {},
+): Promise<Map<number, TopMainer[]>> {
+  const rows = await cachedTopMainers({
+    region: opts.region ?? null,
+    perLegend: opts.perLegend ?? 3,
+  })
+  const map = new Map<number, TopMainer[]>()
+  for (const row of rows) {
+    const list = map.get(row.top_legend_id) ?? []
+    list.push({
+      brawlhallaId: row.brawlhalla_id,
+      username: row.username,
+      rating: row.rating,
+      region: row.region,
+      regionRank: row.region_rank,
+    })
+    map.set(row.top_legend_id, list)
+  }
+  return map
+}
+
+/** Distinct Valhallan mainers per legend, keyed by legend id. */
+export async function getValhallanMainerCounts(
+  opts: { region?: string | null } = {},
+): Promise<Map<number, number>> {
+  const rows = await cachedMainerCounts({ region: opts.region ?? null })
+  const map = new Map<number, number>()
+  for (const row of rows) map.set(row.top_legend_id, row.players)
+  return map
 }
