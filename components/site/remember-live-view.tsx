@@ -20,23 +20,21 @@ import { LIVE_VIEW_COOKIE, LIVE_VIEW_MAX_AGE } from "@/lib/live-view"
  * Purely a convenience: it carries no identity, and a viewer with cookies
  * disabled just always lands on the default view.
  */
-export function RememberLiveView({
-  queue,
-  region,
-}: {
-  queue: string
-  region: string
-}) {
+export function RememberLiveView({ region }: { region: string }) {
   useEffect(() => {
     try {
-      const value = `${queue}:${region}`
+      // Still written as "queue:region" with the queue half empty. Both ladders
+      // render together now, so there is no queue to remember — keeping the
+      // shape means cookies written by the old two-tab page still parse to the
+      // right region instead of being discarded.
+      const value = `:${region}`
       document.cookie = `${LIVE_VIEW_COOKIE}=${encodeURIComponent(
         value,
       )}; path=/; max-age=${LIVE_VIEW_MAX_AGE}; SameSite=Lax`
     } catch {
       // Cookies disabled — the default view is a fine outcome.
     }
-  }, [queue, region])
+  }, [region])
 
   return null
 }
