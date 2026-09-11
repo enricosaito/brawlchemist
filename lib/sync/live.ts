@@ -7,6 +7,10 @@ import {
 } from "@/lib/brawlhalla-api"
 import { db } from "@/lib/db"
 import { liveRanked, type LiveRankedInsert } from "@/lib/db/schema"
+import {
+  recordQueueActivity,
+  type ActivityTally,
+} from "@/lib/sync/queue-activity"
 
 /** Queues we track a live feed for. 2v2 entries are teams (two players). */
 export const LIVE_QUEUES = ["1v1", "2v2"] as const
@@ -163,9 +167,15 @@ export async function syncLiveQueue(queue: LiveQueue): Promise<{
   // 4. Reconcile each entry into an insert row.
   const rows: LiveRankedInsert[] = []
   let active = 0
+  // Activity rollup, folded in as we go. Every region the poll SAW gets a
+  // sample, whether or not anyone in it played — see recordQueueActivity.
+  const regionsSeen = new Set<string>()
+  const tallies = new Map<string, ActivityTally>()
 
   for (const { entry, id, players } of polled) {
     const prev = prevById.get(id)
+    const regionKey = (entry.region ?? "UNK").toUpperCase()
+    regionsSeen.add(regionKey)
     const rating = entry.rating ?? prev?.rating ?? 0
     const rank = entry.rank
     const games = gamesOf(entry)
@@ -192,6 +202,14 @@ export async function syncLiveQueue(queue: LiveQueue): Promise<{
       }
       lastActiveAt = now
       active++
+      const slot = tallies.get(regionKey) ?? { active: 0, matches: 0 }
+      slot.active += 1
+      // Game-count delta = matches finished since the previous poll. Guarded
+      // against the counter going backwards (a season reset or a bad payload).
+      if (games != null && prev.games != null && games > prev.games) {
+        slot.matches += games - prev.games
+      }
+      tallies.set(regionKey, slot)
     }
 
     rows.push({
@@ -231,7 +249,11 @@ export async function syncLiveQueue(queue: LiveQueue): Promise<{
       })
   }
 
-  // 6. Prune entries that fell out of the polled window a long time ago.
+  // 6. Fold this poll into the hourly activity rollup. Zero API cost — the
+  //    numbers were already computed above to decide who's active.
+  await recordQueueActivity(queue, regionsSeen, tallies, now)
+
+  // 7. Prune entries that fell out of the polled window a long time ago.
   //     Nothing reads them: the live feed looks at a 10-minute activity window
   //     and the movers at 24 hours. Without this the table only ever grows,
   //     which is how it came to hold several thousand rows per queue while a

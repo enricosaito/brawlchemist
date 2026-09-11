@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { and, asc, desc, gte, lt, lte } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { fetchLog, rankedSnapshots } from "@/lib/db/schema"
+import { fetchLog, queueActivity, rankedSnapshots } from "@/lib/db/schema"
 import { syncManyPlayers } from "@/lib/sync/players"
 import {
   discoverAllValhallanIds,
@@ -26,6 +26,12 @@ const SNAPSHOT_RETENTION_MS = 180 * 24 * 60 * 60 * 1000
  * crawler-vs-organic spot checks — ever looks at.
  */
 const FETCH_LOG_RETENTION_MS = 14 * 24 * 60 * 60 * 1000
+/**
+ * Queue-activity buckets older than this are dropped. Six months is plenty for
+ * a "when is it busiest" curve and keeps the table in single-digit MB — it
+ * accrues ~432 rows/day at current region coverage.
+ */
+const QUEUE_ACTIVITY_RETENTION_MS = 180 * 24 * 60 * 60 * 1000
 /** Ids deleted per tick — bounded so the prune can't outrun a statement timeout. */
 const FETCH_LOG_PRUNE_STEP = 100_000
 
@@ -131,6 +137,22 @@ export async function GET(req: Request) {
     console.error("[sync-valhallan] fetch-log prune failed:", err)
   }
 
+  // Queue-activity retention. Small table, so a single bounded delete is fine.
+  let activityPruned = 0
+  try {
+    const res = await db()
+      .delete(queueActivity)
+      .where(
+        lt(
+          queueActivity.bucket,
+          new Date(Date.now() - QUEUE_ACTIVITY_RETENTION_MS),
+        ),
+      )
+    activityPruned = res.count ?? 0
+  } catch (err) {
+    console.error("[sync-valhallan] queue-activity prune failed:", err)
+  }
+
   const summary = {
     discovered: discovered.size,
     stale: stale.length,
@@ -140,6 +162,7 @@ export async function GET(req: Request) {
     failed: outcomes.filter((o) => o.status === "failed").length,
     pruned,
     fetchLogPruned,
+    activityPruned,
   }
   return NextResponse.json(summary)
 }

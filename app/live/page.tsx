@@ -1,4 +1,4 @@
-import { cache } from "react"
+import { Suspense, cache } from "react"
 import type { Metadata } from "next"
 import { cookies } from "next/headers"
 import Link from "next/link"
@@ -8,6 +8,7 @@ import { ShimmerText } from "@/components/shimmer-text"
 import { ShineBorder } from "@/components/ui/shine-border"
 import { LiveAutoRefresh } from "@/components/site/live-auto-refresh"
 import { LiveClimbers } from "@/components/site/live-climbers"
+import { QueueActivityCard } from "@/components/site/queue-activity-card"
 import { RememberLiveView } from "@/components/site/remember-live-view"
 import { LIVE_VIEW_COOKIE, parseLiveView } from "@/lib/live-view"
 import { getSessionUser } from "@/lib/auth/session"
@@ -401,6 +402,13 @@ export default async function LivePage({
             ))}
           </div>
         )}
+
+        {/* Activity curve sits below the grid — the cards are the page, this
+            is the context for them. Its own Suspense boundary so a cold
+            hourly cache can't hold up the live feed. */}
+        <Suspense fallback={<div className="mx-auto mt-6 h-[248px] max-w-[1280px] animate-skeleton relative overflow-hidden rounded-2xl border border-border/60 bg-card/40" />}>
+          <QueueActivityCard queue={queue} region={region} />
+        </Suspense>
       </div>
     </main>
   )

@@ -37,6 +37,16 @@ export const players = pgTable("players", {
    * so name-only rows are searchable with rating/region shown, without a full
    * /player/{id}/ranked fetch and without affecting the Valhallan aggregation
    * (which keys off ranked_json). Both null until harvested. */
+  /**
+   * Season 1v1 rating, lifted out of ranked_json by upsertPlayerRanked.
+   *
+   * Exists so ordering never has to touch the blob: sorting on a ranked_json
+   * expression detoasts the whole ~200MB column and measured 95s on the
+   * username search. ladder_rating was meant to serve this role, but only the
+   * search-index harvest writes it and nothing calls that harvest — it was
+   * null for all 91,088 rows, which left search results in physical order.
+   */
+  rating: integer("rating"),
   ladderRating: integer("ladder_rating"),
   ladderRegion: text("ladder_region"),
   /** The player's guild, discovered via GetPlayerGuild. `guildId` is null when
@@ -48,7 +58,28 @@ export const players = pgTable("players", {
   lastSynced: timestamp("last_synced", { withTimezone: true })
     .notNull()
     .defaultNow(),
-})
+},
+  (t) => [
+    // DECLARED HERE ON PURPOSE. These are performance indexes, not schema
+    // decoration, and drizzle-kit push reconciles the database down to this
+    // file — anything it cannot see here, it DROPS. Created out-of-band once
+    // and silently removed by the next push, which took the username search
+    // from ~400ms back to the 95s it used to be.
+    //
+    // Trigram GIN: /api/search/players and /search match usernames with
+    // ILIKE %q% across ~90k rows, which no btree can serve. Requires the
+    // pg_trgm extension (see db/perf-indexes.sql).
+    index("players_username_trgm_idx").using(
+      "gin",
+      sql`${t.username} gin_trgm_ops`,
+    ),
+    // Both search paths order by this scalar rather than a ranked_json
+    // expression — see the note in lib/sync/players.ts.
+    index("players_ladder_rating_idx").on(t.ladderRating.desc().nullsLast()),
+    // Search orders by this; see the column comment.
+    index("players_rating_idx").on(t.rating.desc().nullsLast()),
+  ],
+)
 
 export type PlayerRow = typeof players.$inferSelect
 export type PlayerInsert = typeof players.$inferInsert
@@ -235,7 +266,11 @@ export const guilds = pgTable("guilds", {
   lastSynced: timestamp("last_synced", { withTimezone: true })
     .notNull()
     .defaultNow(),
-})
+},
+  // Matches getGuildLeaderboard ORDER BY exactly. Without it /guilds sorted
+  // 18.5k rows unaided and once failed the production build outright.
+  (t) => [index("guilds_rank_xp_idx").on(t.rank.asc().nullsLast(), t.xp.desc())],
+)
 
 export type GuildRow = typeof guilds.$inferSelect
 export type GuildInsert = typeof guilds.$inferInsert
@@ -298,7 +333,10 @@ export const fetchLog = pgTable("fetch_log", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-})
+},
+  // Serves the rolling retention prune in the sync-valhallan cron.
+  (t) => [index("fetch_log_created_at_idx").on(t.createdAt.desc())],
+)
 
 export type FetchLogRow = typeof fetchLog.$inferSelect
 
@@ -357,6 +395,46 @@ export type LiveRankedInsert = typeof liveRanked.$inferInsert
  * and no peak column (max of the series). Pruned to 180 days by the daily
  * sync-valhallan cron.
  */
+/**
+ * queue_activity — hourly rollup of how busy the ranked queue is.
+ *
+ * Answers "when do people actually play". Costs ZERO Brawlhalla API calls:
+ * syncLiveQueue already diffs each entry's game count every five minutes to
+ * decide who's active, so the number was being computed and thrown away. This
+ * table just keeps it (cardinal constraint #1 — piggyback the existing path).
+ *
+ * One row per (queue, region, hour). `samples` is the number of polls that
+ * contributed, and it's incremented for every region the poll SAW, not just
+ * ones with activity — otherwise a dead hour would look like a missing hour
+ * rather than a quiet one, and the average would be wrong.
+ *
+ * ~432 rows/day at current region coverage, pruned to 180 days by the daily
+ * cron: single-digit MB, forever.
+ *
+ * Caveat worth remembering when reading it: this measures the players we
+ * TRACK (the top-N ladder the live cron polls), not the whole playerbase.
+ */
+export const queueActivity = pgTable(
+  "queue_activity",
+  {
+    /** "1v1" | "2v2". */
+    queue: text("queue").notNull(),
+    /** Ladder region the entries belong to, uppercased. */
+    region: text("region").notNull(),
+    /** Hour-truncated, stored UTC. */
+    bucket: timestamp("bucket", { withTimezone: true }).notNull(),
+    /** Polls that reported on this (queue, region) during the hour. */
+    samples: integer("samples").notNull().default(0),
+    /** Entries observed finishing a match, summed across those polls. */
+    active: integer("active").notNull().default(0),
+    /** Matches played (sum of game-count deltas) across those polls. */
+    matches: integer("matches").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.queue, t.region, t.bucket] })],
+)
+
+export type QueueActivityRow = typeof queueActivity.$inferSelect
+
 export const rankedSnapshots = pgTable(
   "ranked_snapshots",
   {
