@@ -37,3 +37,12 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# Local perf-audit scratch (not part of the app)
+.dbfix.*
+.prune.*
+.probe.mjs
+.act.mjs
+.dev.log
+
+.commitmsg

@@ -99,7 +99,7 @@ export function RankPill({
  * in per-tier files once the rest are provided.
  */
 const RANK_ICON_SRC: Partial<Record<Tier, string>> = {
-  Valhallan: "/assets/Valhallan-GIF.gif",
+  Valhallan: "/assets/Valhallan-GIF.webp",
   Diamond: "/assets/Avatar_Diamond_37.webp",
   Platinum: "/assets/Avatar_Platinum_6.webp",
   Gold: "/assets/Avatar_Gold_6.webp",

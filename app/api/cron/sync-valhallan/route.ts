@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { lt } from "drizzle-orm"
+import { and, asc, desc, gte, lt, lte } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { rankedSnapshots } from "@/lib/db/schema"
+import { fetchLog, rankedSnapshots } from "@/lib/db/schema"
 import { syncManyPlayers } from "@/lib/sync/players"
 import {
   discoverAllValhallanIds,
@@ -16,6 +16,17 @@ const DEFAULT_LIMIT = 50
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 /** Rating-history snapshots older than this are pruned by the daily tick. */
 const SNAPSHOT_RETENTION_MS = 180 * 24 * 60 * 60 * 1000
+/**
+ * Profile-view telemetry older than this is pruned by the daily tick.
+ *
+ * fetch_log had no retention at all and grew to 1.6M rows / 361 MB — about 72%
+ * of the whole free-tier storage quota, for a table nothing but /admin reads.
+ * Thirty days is far more than the admin view (newest 50 entries, plus
+ * crawler-vs-organic spot checks) ever looks at.
+ */
+const FETCH_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+/** Ids deleted per tick — bounded so the prune can't outrun a statement timeout. */
+const FETCH_LOG_PRUNE_STEP = 100_000
 
 function authorized(req: Request): boolean {
   const expected = process.env.CRON_SECRET
@@ -81,6 +92,44 @@ export async function GET(req: Request) {
     console.error("[sync-valhallan] snapshot prune failed:", err)
   }
 
+  // Rolling fetch_log prune, deleted by primary-key range.
+  //
+  // `id` is a serial and `created_at` defaults to now(), so the two are
+  // monotonic together: one index scan finds the newest id older than the
+  // retention window, and the delete is then a PK range scan. The obvious
+  // `WHERE id IN (SELECT ... LIMIT n)` spelling is a trap here — Postgres
+  // hashes the subquery and sequentially scans the whole table to match it,
+  // which on this table meant minutes per batch.
+  //
+  // Capped at one step per tick so a large backlog drains over a few days
+  // instead of one enormous delete.
+  let fetchLogPruned = 0
+  try {
+    const cutoff = new Date(Date.now() - FETCH_LOG_RETENTION_MS)
+    const [boundary] = await db()
+      .select({ id: fetchLog.id })
+      .from(fetchLog)
+      .where(lt(fetchLog.createdAt, cutoff))
+      .orderBy(desc(fetchLog.createdAt))
+      .limit(1)
+    if (boundary) {
+      const [oldest] = await db()
+        .select({ id: fetchLog.id })
+        .from(fetchLog)
+        .orderBy(asc(fetchLog.id))
+        .limit(1)
+      if (oldest) {
+        const hi = Math.min(oldest.id + FETCH_LOG_PRUNE_STEP - 1, boundary.id)
+        const res = await db()
+          .delete(fetchLog)
+          .where(and(gte(fetchLog.id, oldest.id), lte(fetchLog.id, hi)))
+        fetchLogPruned = res.count ?? 0
+      }
+    }
+  } catch (err) {
+    console.error("[sync-valhallan] fetch-log prune failed:", err)
+  }
+
   const summary = {
     discovered: discovered.size,
     stale: stale.length,
@@ -89,6 +138,7 @@ export async function GET(req: Request) {
     fresh: outcomes.filter((o) => o.status === "fresh").length,
     failed: outcomes.filter((o) => o.status === "failed").length,
     pruned,
+    fetchLogPruned,
   }
   return NextResponse.json(summary)
 }

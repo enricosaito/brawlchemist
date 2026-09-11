@@ -280,40 +280,53 @@ export async function getDailyMovers(opts: {
     conds.push(sql`upper(${liveRanked.region}) = ${region.toUpperCase()}`)
   }
 
-  let rows
-  try {
-    rows = await db()
-      .select()
+  // The page shows five names per column, so ORDER BY + LIMIT belongs in SQL.
+  // This used to be an unbounded `select()` over every entry active in the
+  // last 24h — every column of every row dragged over the wire (on a
+  // force-dynamic page that each viewer re-fetches every 45s) just to sort
+  // in JS and keep ten of them.
+  const eloDiff = sql`${liveRanked.rating} - ${liveRanked.sessionStartRating}`
+  const columns = {
+    id: liveRanked.id,
+    rank: liveRanked.rank,
+    rating: liveRanked.rating,
+    sessionStartRating: liveRanked.sessionStartRating,
+    sessionStartRank: liveRanked.sessionStartRank,
+    region: liveRanked.region,
+    players: liveRanked.players,
+    lastActiveAt: liveRanked.lastActiveAt,
+  }
+  const movers = (direction: "gain" | "loss") =>
+    db()
+      .select(columns)
       .from(liveRanked)
-      .where(and(...conds))
+      .where(
+        and(...conds, direction === "gain" ? sql`${eloDiff} > 0` : sql`${eloDiff} < 0`),
+      )
+      .orderBy(direction === "gain" ? sql`${eloDiff} desc` : sql`${eloDiff} asc`)
+      .limit(limit)
+
+  let gainerRows: Awaited<ReturnType<typeof movers>> = []
+  let loserRows: Awaited<ReturnType<typeof movers>> = []
+  try {
+    ;[gainerRows, loserRows] = await Promise.all([movers("gain"), movers("loss")])
   } catch (err) {
     console.error("[live] movers read failed:", err)
     return { gainers: [], losers: [] }
   }
 
-  const moved: LiveRow[] = rows
-    .map((r) => ({
-      id: r.id,
-      rank: r.rank,
-      rating: r.rating,
-      eloDiff: r.rating - r.sessionStartRating,
-      rankDiff: r.sessionStartRank - r.rank,
-      region: r.region,
-      players: (r.players as LivePlayer[]) ?? [],
-      lastActiveAt: r.lastActiveAt as Date,
-    }))
-    .filter((r) => r.eloDiff !== 0)
+  const toRow = (r: (typeof gainerRows)[number]): LiveRow => ({
+    id: r.id,
+    rank: r.rank,
+    rating: r.rating,
+    eloDiff: r.rating - r.sessionStartRating,
+    rankDiff: r.sessionStartRank - r.rank,
+    region: r.region,
+    players: (r.players as LivePlayer[]) ?? [],
+    lastActiveAt: r.lastActiveAt as Date,
+  })
 
-  const gainers = [...moved]
-    .filter((r) => r.eloDiff > 0)
-    .sort((a, b) => b.eloDiff - a.eloDiff)
-    .slice(0, limit)
-  const losers = [...moved]
-    .filter((r) => r.eloDiff < 0)
-    .sort((a, b) => a.eloDiff - b.eloDiff)
-    .slice(0, limit)
-
-  return { gainers, losers }
+  return { gainers: gainerRows.map(toRow), losers: loserRows.map(toRow) }
 }
 
 

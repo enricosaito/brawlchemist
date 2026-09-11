@@ -112,7 +112,11 @@ export async function playersNeedingGuildCheck(limit: number): Promise<number[]>
         lt(players.guildCheckedAt, cutoff),
       ),
     )
-    .orderBy(sql`(${players.rankedJson}->>'rating')::int desc nulls last`)
+    // Ordering on a ranked_json expression detoasts the ~200 MB column for
+    // every candidate row. ladder_rating is the same ranking signal as a plain
+    // indexed int, and this runs on a cron that shares the database with live
+    // page renders.
+    .orderBy(sql`${players.ladderRating} desc nulls last`)
     .limit(limit)
   return rows.map((r) => r.id)
 }

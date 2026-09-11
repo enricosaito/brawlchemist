@@ -46,8 +46,14 @@ const TIER_ORDER = [
 export async function getPlayerPoolStats(): Promise<PoolStats> {
   // One pass over players, bucketed. The rating guard (`~ '^[0-9]+$'`) avoids a
   // cast error if a payload ever lacks a numeric rating.
-  const bucketRows = (
-    await db().execute(sql`
+  //
+  // This is a full scan that detoasts ranked_json, so it can trip the client's
+  // statement timeout on a loaded database. Admin telemetry is the last thing
+  // that should take a page down, so it fails open to an empty breakdown.
+  let bucketRows: { bucket: string; n: number }[] = []
+  try {
+    bucketRows = (
+      await db().execute(sql`
       SELECT
         CASE
           WHEN ranked_json IS NULL THEN 'name-only'
@@ -63,7 +69,10 @@ export async function getPlayerPoolStats(): Promise<PoolStats> {
       FROM players
       GROUP BY bucket
     `)
-  ) as unknown as { bucket: string; n: number }[]
+    ) as unknown as { bucket: string; n: number }[]
+  } catch (err) {
+    console.error("[admin-stats] pool breakdown failed:", err)
+  }
 
   const byBucket = new Map<string, number>()
   for (const r of bucketRows) byBucket.set(r.bucket, Number(r.n))

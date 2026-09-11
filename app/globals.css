@@ -297,12 +297,38 @@
         animation: page-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
 
-    /* Honor reduced-motion: no entrances, no drift, no parallax transition. */
+    /* Skeleton sheen. A single translated gradient (compositor-only, no
+       repaint) sweeping across a placeholder block, so a loading route reads
+       as "arriving" rather than "broken". Deliberately slow and low-contrast:
+       these are visible for a few hundred milliseconds, and a fast bright
+       shimmer at that duration just flickers. */
+    @keyframes skeleton-sheen {
+        from { transform: translateX(-100%); }
+        to   { transform: translateX(100%); }
+    }
+    .animate-skeleton::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+            90deg,
+            transparent,
+            oklch(1 0 0 / 0.05),
+            transparent
+        );
+        animation: skeleton-sheen 1.6s ease-in-out infinite;
+    }
+
+    /* Honor reduced-motion: no entrances, no drift, no parallax transition.
+       Skeletons keep their shape and just stop sweeping. */
     @media (prefers-reduced-motion: reduce) {
         .animate-rise,
         .animate-slide-in,
         .animate-drift,
         .animate-page-enter {
+            animation: none;
+        }
+        .animate-skeleton::after {
             animation: none;
         }
     }
