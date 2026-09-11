@@ -77,6 +77,18 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+    --animate-shine: shine var(--duration) infinite linear;
+  @keyframes shine {
+  0% {
+    background-position: 0% 0%;
+    }
+  50% {
+    background-position: 100% 100%;
+    }
+  to {
+    background-position: 0% 0%;
+    }
+  }
 }
 
 /* Light mode kept functional but the product is dark-first. */
@@ -328,6 +340,40 @@
             transparent
         );
         animation: skeleton-sheen 1.6s ease-in-out infinite;
+    }
+
+    /* Marquee. The vendored component shipped these as styled-jsx, which
+       doesn't server-render in the App Router — the strip sat still until
+       hydration — and carried no reduced-motion guard, which an infinite
+       scroller badly needs. Both fixed by moving it here. Direction and speed
+       come in as custom properties from the component. */
+    @keyframes marquee-x {
+        from { transform: translateX(0); }
+        to   { transform: translateX(-50%); }
+    }
+    @keyframes marquee-x-reverse {
+        from { transform: translateX(-50%); }
+        to   { transform: translateX(0); }
+    }
+    @keyframes marquee-y {
+        from { transform: translateY(0); }
+        to   { transform: translateY(-50%); }
+    }
+    @keyframes marquee-y-reverse {
+        from { transform: translateY(-50%); }
+        to   { transform: translateY(0); }
+    }
+    .marquee-scroller {
+        animation: var(--marquee-name, marquee-x)
+            var(--marquee-duration, 20s) linear infinite;
+    }
+    .marquee-scroller.paused {
+        animation-play-state: paused;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .marquee-scroller {
+            animation: none;
+        }
     }
 
     /* Hero wordmark: two copies in the markup, one shown at a time.

@@ -90,22 +90,64 @@ import { cn } from "@/lib/utils"
 // share one resolution, and the upsert at the bottom of the page only fires
 // when we actually fetched live (source === "api").
 const PROFILE_REVALIDATE = 300
-const PROFILE_FRESH_MS = 15 * 60 * 1000
+/**
+ * How stale a stored /ranked payload may be before we re-fetch.
+ *
+ * A flat 15 minutes was the single largest consumer of the Brawlhalla budget
+ * and bought almost nothing: measured over 11.3h of real traffic, only 164 of
+ * 4,835 human profile views hit that window. People look up *different*
+ * players, so a short window never gets a second bite — it just guaranteed an
+ * API call per view. With each view costing up to three calls, profiles alone
+ * ran ~16k/day against a 17,280/day ceiling, and 45% of human views were coming
+ * back as failures (the 429 fallback).
+ *
+ * So the window is now tied to whether the rating is actually moving. Someone
+ * mid-session climbs in minutes and deserves a short window; someone who hasn't
+ * queued in days has identical data whether we ask now or in six hours.
+ */
+const PROFILE_FRESH_ACTIVE_MS = 15 * 60 * 1000
+const PROFILE_FRESH_IDLE_MS = 6 * 60 * 60 * 1000
+/** Treat a player as mid-session if the live ladder saw them this recently. */
+const LIVE_SESSION_MS = 45 * 60 * 1000
+/** Re-ask GetPlayerGuild only this often; the stored guild serves every other view. */
+const GUILD_FRESH_MS = 7 * 24 * 60 * 60 * 1000
 type LoadedRanked = {
   data: PlayerRanked | null
   source: "db-fresh" | "db-crawler" | "api" | "db-fallback"
   apiStatus?: number
   apiError?: string
 }
+const loadSyncState = cache((id: number) =>
+  getPlayerSyncState(id).catch(() => null),
+)
+
+/**
+ * Whether the stored guild is recent enough to serve without asking upstream.
+ * Lives in a cache()d function rather than the render body so the `Date.now()`
+ * read stays out of render — the same reason loadRanked does its own clock
+ * comparisons inside the memo.
+ */
+const loadGuildFresh = cache(async (id: number): Promise<boolean> => {
+  const state = await loadSyncState(id)
+  return (
+    !!state?.guildCheckedAt &&
+    Date.now() - state.guildCheckedAt.getTime() < GUILD_FRESH_MS
+  )
+})
+
 const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
   const [state, headerList] = await Promise.all([
-    getPlayerSyncState(numId).catch(() => null),
+    loadSyncState(numId),
     headers(),
   ])
   const crawler = isCrawler(headerList.get("user-agent"))
+  const playing =
+    !!state?.liveActiveAt &&
+    Date.now() - state.liveActiveAt.getTime() < LIVE_SESSION_MS
+  const freshMs = playing ? PROFILE_FRESH_ACTIVE_MS : PROFILE_FRESH_IDLE_MS
   const fresh =
     !!state?.hasRankedJson &&
-    Date.now() - state.lastSynced.getTime() < PROFILE_FRESH_MS
+    Date.now() - state.lastSynced.getTime() < freshMs
   // A crawler is happy with whatever we already hold.
   const serveFromCache = !!state?.hasRankedJson && (fresh || crawler)
 
@@ -1591,6 +1633,15 @@ export default async function PlayerPage({
   // guild falls back to the clan embedded in /stats (also absent here).
   const skipUpstream = ranked.source === "db-crawler"
 
+  // GetPlayerGuild used to fire on every single profile view even though the
+  // answer is already on the players row, refreshed weekly by the discovery
+  // cron. That was a third of the API cost of a profile for data we had in
+  // hand. Ask upstream only when the stored answer has aged out.
+  const [syncState, guildFresh] = await Promise.all([
+    loadSyncState(numId),
+    loadGuildFresh(numId),
+  ])
+
   const [
     statsRes,
     legendsRes,
@@ -1602,7 +1653,7 @@ export default async function PlayerPage({
   ] = await Promise.all([
     skipUpstream ? API_SKIPPED : loadStats(numId),
     loadStaticLegends(),
-    skipUpstream ? API_SKIPPED : loadGuild(numId),
+    skipUpstream || guildFresh ? API_SKIPPED : loadGuild(numId),
     getProfile(numId),
     loadEsports(numId),
     getLadderPosition(numId),
@@ -1630,8 +1681,12 @@ export default async function PlayerPage({
   // GetPlayerGuild lookup comes up empty.
   const accountStats = statsRes.ok ? computeAccountStats(statsRes.data) : null
   const clan = statsRes.ok ? statsRes.data.clan : undefined
-  const guildId = guild?.guild_id ?? clan?.clan_id ?? null
-  const guildName = guild?.guild_name || clan?.clan_name || null
+  // Prefer a live answer, then the stored one, then the clan embedded in
+  // /stats. The stored value is authoritative on a `guildFresh` view — that's
+  // the whole point of not making the call.
+  const guildId = guild?.guild_id ?? syncState?.guildId ?? clan?.clan_id ?? null
+  const guildName =
+    guild?.guild_name || syncState?.guildName || clan?.clan_name || null
   let titles: string[] = []
   if (statsRes.ok && legendsRes.ok) {
     const akaById = new Map(
