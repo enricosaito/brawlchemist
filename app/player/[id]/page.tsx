@@ -14,7 +14,7 @@ import {
   WeaponIcon,
 } from "@/components/site/primitives"
 import { ClaimBanner } from "@/components/site/claim-banner"
-import { BannerPicker } from "@/components/site/banner-picker"
+import { ProfileCustomizerSlot } from "@/components/site/profile-customizer-slot"
 import { FavoriteToggleControl } from "@/components/site/favorite-toggle-control"
 import { RecentVisitRecorder } from "@/components/site/recent-visit-recorder"
 import { resolveBanner } from "@/lib/profile/banners"
@@ -54,9 +54,17 @@ import {
 import { clientLabel, isCrawler } from "@/lib/bots"
 import { recordPlayerGuild } from "@/lib/sync/guilds"
 import { recordFetch } from "@/lib/sync/fetch-log"
-import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
+import {
+  getValhallanCutoff,
+  getValhallanIds,
+} from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
+import {
+  resolveFlair,
+  type FlairContext,
+  type FlairDef,
+} from "@/lib/profile/flair"
 import type { Tier } from "@/lib/types"
 import { formatElo, formatPercent } from "@/lib/format"
 import {
@@ -234,6 +242,7 @@ const loadEsports = cache((id: number) => getEsportsProfile(id))
 const loadCutoff = cache((mode: ApiGameMode, region: ApiRegion) =>
   getValhallanCutoff(mode, region),
 )
+const loadValhallanIds = cache((mode: ApiGameMode) => getValhallanIds(mode))
 
 const MAX_LEGEND_LEVEL = 100
 
@@ -266,22 +275,28 @@ async function valhallanCutoffFor(
 /**
  * Is this player Valhallan in 1v1?
  *
- * Ladder membership first: `data.rating` here can be up to six hours old (the
- * profile is a DB-first read-through), while the cutoff refreshes hourly, so
- * the rating comparison alone downgrades anyone who climbed since their last
- * sync. Membership is the ladder's own answer. The comparison stays as the
- * fallback for players below the tracked pages.
+ * Ladder membership first, across every region: `data.rating` here can be up
+ * to six hours old (the profile is a DB-first read-through) while the cutoff
+ * refreshes hourly, so the rating comparison alone downgrades anyone who
+ * climbed since their last sync — and a player's stored region is only where
+ * they mostly play, so a US-E regular who ranks on EU is Valhallan on a ladder
+ * their own region's cutoff knows nothing about. Both failures are the same
+ * mistake: asking a number when the ladder already holds the answer.
+ *
+ * The rating comparison stays as the fallback for players below the tracked
+ * pages, and is necessarily keyed on their own region's cutoff.
  *
  * 1v1 only — in 2v2 a player can hold several teams and being Valhallan on one
  * says nothing about the others, so those still go through the rating test.
  */
 function isValhallan1v1(
-  cutoff: { rating: number; ids: number[] } | null,
+  valhallanIds: number[],
+  cutoff: { rating: number } | null,
   playerId: number,
   rating: number | null,
   wins: number | null,
 ): boolean {
-  if (cutoff?.ids?.includes(playerId)) return true
+  if (valhallanIds.includes(playerId)) return true
   return isValhallan(rating, cutoff?.rating ?? null, wins)
 }
 
@@ -1126,43 +1141,6 @@ function esportsTags(
   return tags
 }
 
-type ProfileBadge = {
-  key: string
-  label: string
-  src: string
-  width: number
-  height: number
-}
-
-/**
- * Badges a player's accolades entitle them to.
- *
- * Accolades are free text an admin types, so this matches on the phrase rather
- * than a flag: "2v2 World Champion '24" and "1v1 World Champion '23" both earn
- * the one trophy, which is the point — a badge is the honour, not each time it
- * was won. Deliberately a small, closed list; unrecognised accolades simply
- * stay as titles.
- *
- * This returns the badges a player is *entitled* to, which is the half that
- * has to be derived. The flair direction — a player picking which of their
- * badges to fly, Reddit-style — is a selection on top of this set, so it lands
- * as a stored choice filtered against this return value rather than a rewrite.
- */
-function earnedBadges(achievements: string[] | undefined): ProfileBadge[] {
-  if (!achievements?.length) return []
-  const badges: ProfileBadge[] = []
-  if (achievements.some((a) => /world champion/i.test(a))) {
-    badges.push({
-      key: "world-champion",
-      label: "World Champion",
-      src: "/assets/Legendary_moment_trophy.png",
-      width: 616,
-      height: 1212,
-    })
-  }
-  return badges
-}
-
 /**
  * Way back from a sub-view.
  *
@@ -1200,10 +1178,11 @@ function ProfileHeader({
   ladderRank,
   preview,
   esports,
+  flair,
   claimSlot,
   favoriteSlot,
   bannerId,
-  bannerSlot,
+  customizeSlot,
 }: {
   data: PlayerRanked
   titles: EarnedTitle[]
@@ -1217,10 +1196,12 @@ function ProfileHeader({
   } | null
   preview: PlayerPreview | undefined
   esports: EsportsProfile | null
+  /** The one flair this player flies, already resolved against what they own. */
+  flair: FlairDef | null
   claimSlot?: React.ReactNode
   favoriteSlot?: React.ReactNode
   bannerId?: string | null
-  bannerSlot?: React.ReactNode
+  customizeSlot?: React.ReactNode
 }) {
   const tier = deriveTier(data.tier, valhallan)
   // Meta line under the name: earned legend titles. (Tier + ladder rank now live
@@ -1249,7 +1230,6 @@ function ProfileHeader({
     !!ladderRank ||
     metaNodes.length > 0
   const hasAccolades = (preview?.achievements?.length ?? 0) > 0
-  const badges = earnedBadges(preview?.achievements)
 
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
@@ -1296,8 +1276,8 @@ function ProfileHeader({
               />
             </div>
           )}
-          {bannerSlot && (
-            <div className="absolute right-4 top-4 z-20">{bannerSlot}</div>
+          {customizeSlot && (
+            <div className="absolute right-4 top-4 z-20">{customizeSlot}</div>
           )}
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-stretch">
             {tier && (
@@ -1358,27 +1338,28 @@ function ProfileHeader({
                       ) : (
                         <RegionPill region={data.region} />
                       ))}
-                    {/* Badges ride the name line, past the region tag. They're
-                        the smallest, rarest thing a player can hold and they
-                        say nothing in words, so a row of their own left them
-                        stranded under a wall of text; up here they read as
-                        insignia on the name, which is what they are. */}
-                    {badges.map((badge) => (
-                      <InfoTip key={badge.key} label={badge.label}>
+                    {/* Flair rides the name line, past the region tag. It's the
+                        smallest, rarest thing a player can hold and it says
+                        nothing in words, so a row of its own left it stranded
+                        under a wall of text; up here it reads as insignia on
+                        the name, which is what it is. */}
+                    {flair && (
+                      <InfoTip label={flair.label}>
                         {/* No chip around it: the art is already a bounded
                             object, and a frame only made it read as one more
                             tag in a row of tags. */}
                         <span className="inline-flex shrink-0 items-center">
                           <Image
-                            src={badge.src}
-                            alt={badge.label}
-                            width={badge.width}
-                            height={badge.height}
+                            src={flair.src}
+                            alt={flair.label}
+                            width={flair.width}
+                            height={flair.height}
+                            unoptimized
                             className="h-6 w-auto select-none object-contain"
                           />
                         </span>
                       </InfoTip>
-                    ))}
+                    )}
                     {claimSlot}
                     {favoriteSlot}
                     {/* The in-game name trails the controls: it's the answer to
@@ -1467,7 +1448,7 @@ function FallbackHeader({
   claimSlot,
   favoriteSlot,
   bannerId,
-  bannerSlot,
+  customizeSlot,
 }: {
   name: string
   region: string | null
@@ -1479,7 +1460,7 @@ function FallbackHeader({
   claimSlot?: React.ReactNode
   favoriteSlot?: React.ReactNode
   bannerId?: string | null
-  bannerSlot?: React.ReactNode
+  customizeSlot?: React.ReactNode
 }) {
   const tier = team ? deriveTier(team.data.tier, team.valhallan) : null
   const losses = team ? Math.max(0, team.data.games - team.data.wins) : 0
@@ -1494,8 +1475,8 @@ function FallbackHeader({
             aria-hidden
             className={`pointer-events-none absolute inset-0 rounded-2xl ${resolveBanner(bannerId).wash}`}
           />
-          {bannerSlot && (
-            <div className="absolute right-4 top-4 z-20">{bannerSlot}</div>
+          {customizeSlot && (
+            <div className="absolute right-4 top-4 z-20">{customizeSlot}</div>
           )}
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-stretch">
             {(tier || preview?.favoriteSkin) && (
@@ -1845,14 +1826,16 @@ export default async function PlayerPage({
   // ladder cutoff — 1v1 for the header, 2v2 for the team cards.
   // Only the cutoffs are left here — they need data.region (and whether the
   // player has any 2v2 teams), so they can't join the fan-out above.
-  const [cut1v1, cutoff2v2] = await Promise.all([
+  const [cut1v1, cutoff2v2, valhallanIds] = await Promise.all([
     valhallanCutoffFor("1v1", data.region),
     teams.length > 0
       ? valhallanCutoffRating("2v2", data.region)
       : Promise.resolve(null),
+    loadValhallanIds("1v1"),
   ])
   const cutoff1v1 = cut1v1?.rating ?? null
   const headerValhallan = isValhallan1v1(
+    valhallanIds,
     cut1v1,
     numId,
     data.rating,
@@ -1934,9 +1917,22 @@ export default async function PlayerPage({
   const overviewTeams = teamViews.slice(0, 3)
 
   // Owner-chosen header banner (cached, fails open to the default wash). The
-  // picker itself is gated to the owner inside BannerPicker.
+  // panel that sets it is gated to the owner inside ProfileCustomizerSlot.
   const { bannerId } = customization
-  const bannerPicker = <BannerPicker brawlhallaId={numId} />
+  // Everything the flair rules read is already loaded for the header, so this
+  // costs nothing beyond the derivation itself.
+  const flairContext: FlairContext = {
+    achievements: preview?.achievements,
+    valhallan: headerValhallan,
+    ladderRank: ladderPos?.rank ?? null,
+    games: data.games,
+  }
+  const flair = resolveFlair(customization.flairId, flairContext)
+  // One panel for every owner-settable axis, gated to the owner inside the
+  // slot. It supersedes the standalone banner popover.
+  const customizeSlot = (
+    <ProfileCustomizerSlot brawlhallaId={numId} flairContext={flairContext} />
+  )
   // Track/untrack star — reads shared favorites state; signed-out viewers get a
   // sign-in nudge from inside the control.
   const favoriteToggle = <FavoriteToggleControl brawlhallaId={numId} />
@@ -1969,10 +1965,11 @@ export default async function PlayerPage({
           ladderRank={ladderRank}
           preview={preview}
           esports={esports}
+          flair={flair}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           favoriteSlot={favoriteToggle}
           bannerId={bannerId}
-          bannerSlot={bannerPicker}
+          customizeSlot={customizeSlot}
         />
       ) : topTeam ? (
         <FallbackHeader
@@ -1989,7 +1986,7 @@ export default async function PlayerPage({
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           favoriteSlot={favoriteToggle}
           bannerId={bannerId}
-          bannerSlot={bannerPicker}
+          customizeSlot={customizeSlot}
         />
       ) : (
         <FallbackHeader
@@ -2007,7 +2004,7 @@ export default async function PlayerPage({
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           favoriteSlot={favoriteToggle}
           bannerId={bannerId}
-          bannerSlot={bannerPicker}
+          customizeSlot={customizeSlot}
         />
       )}
 

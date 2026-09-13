@@ -2,6 +2,7 @@ import "server-only"
 
 import { unstable_cache } from "next/cache"
 import {
+  API_REGIONS,
   type ApiGameMode,
   type ApiRegion,
   getRankedLeaderboard,
@@ -121,6 +122,40 @@ async function computeValhallanCutoff(
 export const getValhallanCutoff = unstable_cache(
   computeValhallanCutoff,
   ["valhallan-cutoff"],
+  { revalidate: CUTOFF_TTL_SECONDS },
+)
+
+/**
+ * Every brawlhalla id the live ladder calls Valhallan, across all regions.
+ *
+ * A player's stored region is where they mostly play, not the only ladder they
+ * can be Valhallan on — a US-E regular who ranks on EU is Valhallan, and
+ * checking only their own region's cutoff renders them Diamond. Region is also
+ * the wrong key for the question "is this player Valhallan": the ladder
+ * already answered it, and it answered per ladder, not per player.
+ *
+ * Cost is amortised, not new: this composes the per-region cutoffs that are
+ * each already cached for an hour and already fetched by the leaderboard, OTP
+ * and profile pages, so a warm cache costs nothing upstream. The union itself
+ * is cached so the composition happens once an hour globally rather than per
+ * render.
+ */
+async function computeValhallanIds(gameMode: ApiGameMode): Promise<number[]> {
+  const regions = API_REGIONS.filter((r) => r !== "ALL")
+  const cutoffs = await Promise.all(
+    regions.map((r) => getValhallanCutoff(gameMode, r)),
+  )
+  const ids = new Set<number>()
+  for (const c of cutoffs) {
+    for (const id of c?.ids ?? []) ids.add(id)
+  }
+  return [...ids]
+}
+
+/** Cached union of Valhallan ids for a queue. Array, because the cache is JSON. */
+export const getValhallanIds = unstable_cache(
+  computeValhallanIds,
+  ["valhallan-ids"],
   { revalidate: CUTOFF_TTL_SECONDS },
 )
 

@@ -9,7 +9,10 @@ import {
 } from "@/lib/brawlhalla-api"
 import { listProfiles } from "@/lib/sync/profiles"
 import { getPlayersByIds } from "@/lib/sync/players"
-import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
+import {
+  getValhallanCutoff,
+  getValhallanIds,
+} from "@/lib/sync/valhallan-cutoff"
 import { isValhallan } from "@/lib/tier"
 
 /**
@@ -52,20 +55,21 @@ async function fetchProLeaderboard(region: ApiRegion): Promise<RankedEntry[]> {
         ]
       : [region]
   const cutoffByRegion = new Map<string, number>()
-  // Ids the live ladder calls Valhallan. These rows come from stored
-  // ranked_json, which can be days old, so comparing a stale rating against an
-  // hourly cutoff downgraded anyone who had climbed since their last sync —
-  // measured on two pros, one stored 1 point under the bar and one 5 days
-  // cold. Ladder membership settles it without another API call.
-  const valhallanIds = new Set<number>()
-  await Promise.all(
-    regionsNeeded.map(async (r) => {
+  // Ids the live ladder calls Valhallan, across every region. These rows come
+  // from stored ranked_json, which can be days old, so comparing a stale
+  // rating against an hourly cutoff downgraded anyone who had climbed since
+  // their last sync — measured on two pros, one stored 1 point under the bar
+  // and one 5 days cold. The union rather than just `regionsNeeded` because a
+  // pro's stored region is where they mostly play, not the only ladder they
+  // can rank on. Ladder membership settles both without another API call.
+  const [idList] = await Promise.all([
+    getValhallanIds("1v1"),
+    ...regionsNeeded.map(async (r) => {
       const c = await getValhallanCutoff("1v1", r)
-      if (!c) return
-      cutoffByRegion.set(r, c.rating)
-      for (const id of c.ids ?? []) valhallanIds.add(id)
+      if (c) cutoffByRegion.set(r, c.rating)
     }),
-  )
+  ])
+  const valhallanIds = new Set(idList)
 
   return [...inScope]
     .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))

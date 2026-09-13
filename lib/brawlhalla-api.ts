@@ -20,6 +20,18 @@ const ORIGIN = "https://api.brawlhalla.com"
 
 export type ApiGameMode = "1v1" | "2v2" | "3v3" | "solo_2v2"
 
+/**
+ * Region codes, canonicalised on the value the API *accepts* as a parameter.
+ *
+ * Japan is the one that doesn't agree with itself: the leaderboard endpoint
+ * takes `JPN` and answers `JPS` on `region=JPS` with a 400, while the rows it
+ * returns carry `region: "JPS"` and `/player/{id}/ranked` stores `JPN`. We
+ * canonicalise on `JPN` — the parameter form, and the one player data already
+ * uses — and normalise the reported `JPS` on the way in via
+ * `normalizeApiRegion`. Getting this backwards silently 400s every Japan
+ * leaderboard walk and makes `isApiRegion` reject 399 real players, which is
+ * exactly what it did.
+ */
 export const API_REGIONS = [
   "ALL",
   "BRZ",
@@ -28,11 +40,28 @@ export const API_REGIONS = [
   "EU",
   "SEA",
   "AUS",
-  "JPS",
+  "JPN",
   "SA",
   "ME",
 ] as const
 export type ApiRegion = (typeof API_REGIONS)[number]
+
+/** Region spellings the API reports but won't accept back. */
+const REGION_ALIASES: Record<string, ApiRegion> = { JPS: "JPN" }
+
+/**
+ * Fold a region string the API handed us into our canonical code. Pass
+ * anything read off a payload — a leaderboard row, a stored blob — before
+ * comparing it against `ApiRegion` or using it as a lookup key.
+ */
+export function normalizeApiRegion(
+  value: string | null | undefined,
+): ApiRegion | null {
+  if (!value) return null
+  const upper = value.toUpperCase()
+  const canonical = REGION_ALIASES[upper] ?? upper
+  return isApiRegion(canonical) ? canonical : null
+}
 
 export function isApiRegion(value: string): value is ApiRegion {
   return (API_REGIONS as readonly string[]).includes(value)

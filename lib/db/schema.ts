@@ -226,6 +226,11 @@ export const userCustomizations = pgTable("user_customizations", {
    * read/write — an unknown id falls back to the default, never a broken
    * surface. */
   bannerId: text("banner_id"),
+  /** Chosen flair id (see lib/profile/flair.ts), or the literal "none" to fly
+   * nothing. Null means never chosen, which renders the best flair the player
+   * has earned — a selection is a preference, not the entitlement, and the
+   * entitlement is always derived. Unknown ids fall back the same way. */
+  flairId: text("flair_id"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
