@@ -1307,10 +1307,8 @@ function ProfileHeader({
     !!proHandle ||
     !!preview?.claimed ||
     !!ladderRank ||
-    metaNodes.length > 0 ||
-    // Accolades live in this row now, so they have to open it too — a player
-    // with nothing but a trophy would otherwise have the row suppressed.
-    (preview?.achievements?.length ?? 0) > 0
+    metaNodes.length > 0
+  const hasAccolades = (preview?.achievements?.length ?? 0) > 0
 
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
@@ -1432,7 +1430,7 @@ function ProfileHeader({
                         <InfoTip
                           label={`#${ladderRank.n.toLocaleString()} on the global 1v1 ladder`}
                         >
-                          <span className="inline-flex items-center gap-1 rounded-md border border-mystic/40 bg-mystic/10 px-1.5 py-0.5 text-mystic">
+                          <span className="inline-flex items-center gap-1 rounded-md border border-mystic/40 bg-mystic/10 px-1.5 py-0.5 normal-case text-mystic">
                             Global #{ladderRank.n.toLocaleString()}
                           </span>
                         </InfoTip>
@@ -1444,17 +1442,21 @@ function ProfileHeader({
                       {metaNodes.map((item) => (
                         <span key={item.key}>{item.node}</span>
                       ))}
-                      {/* Esports accolades, as tags in the same row rather
-                          than a stacked list off to the right. They're the
-                          same kind of claim as a legend title, and keeping
-                          them here leaves the right half of the banner free
-                          for the skin behind it. Gold, which the legend titles
-                          vacated — so gold now reads as "won something" and
-                          royal as "maxed a legend". */}
+                    </div>
+                  )}
+                  {/* Esports accolades get their own row under the standing
+                      tags. They're tags like the rest — the same kind of claim
+                      as a legend title — but they're a different register:
+                      earned outside the ladder, and long enough that mixed in
+                      they swamped the row. Gold, which the legend titles
+                      vacated, so the two rows read "who you are" then "what
+                      you've won". */}
+                  {hasAccolades && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] tracking-wider">
                       {preview?.achievements?.map((a) => (
                         <span
                           key={a}
-                          className="inline-flex items-center gap-1 rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 normal-case text-tier-gold"
+                          className="inline-flex items-center gap-1 rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 text-tier-gold"
                         >
                           <Image
                             src="/assets/Legendary_moment_trophy.png"
