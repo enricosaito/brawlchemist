@@ -53,7 +53,7 @@ function relTime(date: Date): string {
 
 function LivePill({ count }: { count: number }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-negative/40 bg-negative/10 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-wider text-negative">
+    <span className="inline-flex items-center gap-2 rounded-md border border-negative/40 bg-negative/10 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-wider text-negative">
       <span className="relative flex size-2">
         <span className="absolute inline-flex size-full animate-ping rounded-full bg-negative opacity-75" />
         <span className="relative inline-flex size-2 rounded-full bg-negative" />
@@ -120,11 +120,23 @@ function LiveCard({
       )}
 
       {/* Ladder rank leads — it's the thing that orders this page, and the
-          old card buried it in a pill beside the region. */}
+          old card buried it in a pill beside the region.
+
+          Scoped to a region, the headline number becomes that region's rank:
+          "#4 in EU" is what a player filtered to EU is asking for, and the
+          global number they'd otherwise see (#303) answers a question they
+          didn't ask. The global rank stays available in the tooltip. */}
       <div className="flex items-center gap-2">
-        <span className="font-mono text-lg font-bold leading-none tabular-nums text-foreground">
+        <span
+          className="font-mono text-lg font-bold leading-none tabular-nums text-foreground"
+          title={
+            row.regionRank
+              ? `#${row.regionRank.toLocaleString()} in ${row.region?.toUpperCase()} · #${row.rank.toLocaleString()} global`
+              : `#${row.rank.toLocaleString()} on the global ladder`
+          }
+        >
           <span className="text-muted-foreground/60">#</span>
-          {row.rank.toLocaleString()}
+          {(row.regionRank ?? row.rank).toLocaleString()}
         </span>
         {fresh && (
           <span className="inline-flex items-center gap-1 font-mono text-[9px] font-semibold uppercase tracking-wider text-tier-valhallan">
@@ -164,7 +176,10 @@ function LiveCard({
               {previews.get(player!.id)?.verified?.handle ?? player?.name ?? "—"}
             </span>
             {previews.get(player!.id)?.verified?.handle && (
-              <BadgeCheck className="size-3.5 shrink-0 text-foreground" />
+              <BadgeCheck
+                className="size-3.5 shrink-0 text-mystic"
+                aria-label="Verified pro player"
+              />
             )}
           </span>
         ) : (
@@ -182,7 +197,10 @@ function LiveCard({
                   {handle ?? p.name}
                 </PlayerLink>
                 {handle && (
-                  <BadgeCheck className="size-3.5 shrink-0 text-foreground" />
+                  <BadgeCheck
+                className="size-3.5 shrink-0 text-mystic"
+                aria-label="Verified pro player"
+              />
                 )}
               </span>
             )

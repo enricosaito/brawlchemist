@@ -28,7 +28,7 @@ export async function ClaimBanner({ brawlhallaId }: { brawlhallaId: number }) {
 
   if (state === "mine") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-positive/40 bg-positive/10 px-2.5 py-1 text-[11px] font-medium text-positive">
+      <span className="inline-flex items-center gap-1.5 rounded-md border border-positive/40 bg-positive/10 px-2.5 py-1 text-[11px] font-medium text-positive">
         <BadgeCheck className="size-3.5" />
         Your profile
       </span>
@@ -48,7 +48,7 @@ export async function ClaimBanner({ brawlhallaId }: { brawlhallaId: number }) {
   return (
     <Link
       href={`/claim?id=${brawlhallaId}`}
-      className="group inline-flex items-center gap-1.5 rounded-full border border-copper/50 bg-copper/10 px-2.5 py-1 text-[11px] font-medium text-copper transition-colors hover:bg-copper/20"
+      className="group inline-flex items-center gap-1.5 rounded-md border border-copper/50 bg-copper/10 px-2.5 py-1 text-[11px] font-medium text-copper transition-colors hover:bg-copper/20"
     >
       <UserRoundPlus className="size-3.5" />
       Is this you?

@@ -359,13 +359,46 @@ export const REGION_COLOR: Record<string, { text: string; border: string }> = {
   ME: { text: "text-[#f472b6]", border: "border-[#f472b6]/40" },
 }
 
+/**
+ * "<REGION> #N" — a player's standing inside their own region, in that
+ * region's colour.
+ *
+ * Shares REGION_COLOR with RegionPill so the two always agree: the colour is
+ * the region identifier here, which is what lets this sit next to a plain gold
+ * "Global #N" and stay unambiguous at a glance.
+ */
+export function RegionRankTag({
+  region,
+  rank,
+  className,
+}: {
+  region: string
+  rank: number
+  className?: string
+}) {
+  const c = REGION_COLOR[region]
+  return (
+    <span
+      title={`#${rank.toLocaleString()} in ${region}`}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
+        c?.text ?? "text-muted-foreground",
+        c?.border ?? "border-border/60",
+        className,
+      )}
+    >
+      {region} #{rank.toLocaleString()}
+    </span>
+  )
+}
+
 /** Region pill — flat, compact, monospace, color-coded per region (text + outline). */
 export function RegionPill({ region, className }: { region: string; className?: string }) {
   const c = REGION_COLOR[region]
   return (
     <span
       className={cn(
-        "inline-flex min-w-[2.75rem] items-center justify-center rounded border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
+        "inline-flex min-w-[2.75rem] items-center justify-center rounded-md border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
         c?.text ?? "text-muted-foreground",
         c?.border ?? "border-border/60",
         className,

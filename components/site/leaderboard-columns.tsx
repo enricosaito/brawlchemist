@@ -181,7 +181,10 @@ export function buildLeaderboardColumns(
                             {p.username}
                           </span>
                         </span>
-                        <BadgeCheck className="size-3.5 shrink-0 text-foreground group-hover/pro:hidden" />
+                        <BadgeCheck
+                          className="size-3.5 shrink-0 text-mystic group-hover/pro:hidden"
+                          aria-label="Verified pro player"
+                        />
                       </span>
                     ) : (
                       <span className="truncate">{p.username}</span>

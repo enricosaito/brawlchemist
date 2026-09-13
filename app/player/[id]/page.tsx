@@ -4,10 +4,11 @@ import { headers } from "next/headers"
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowUpRight, ChevronRight, Trophy, Users } from "lucide-react"
+import { ArrowUpRight, BadgeCheck, ChevronRight, Trophy, Users } from "lucide-react"
 import {
   LegendChip,
   RegionPill,
+  RegionRankTag,
   TIER_TEXT_COLOR,
   WeaponIcon,
 } from "@/components/site/primitives"
@@ -20,7 +21,6 @@ import { getCustomization } from "@/lib/sync/customizations"
 import { getLadderPosition } from "@/lib/sync/live"
 import { ProfileCustomization } from "@/components/site/profile-customization"
 import { DataTable, type ColDef } from "@/components/site/data-table"
-import { ProBadge } from "@/components/site/pro-badge"
 import { BrawlchemistUserBadge } from "@/components/site/brawlchemist-user-badge"
 import { RatingHistoryCard } from "@/components/player/rating-history-card"
 import type { PlayerPreview } from "@/lib/player-previews"
@@ -1163,7 +1163,12 @@ function ProfileHeader({
   titles: string[]
   valhallan: boolean
   /** 1v1 ladder position when top ~500 (from live_ranked), else null. */
-  ladderRank: { n: number; scope: string } | null
+  ladderRank: {
+    n: number
+    scope: string
+    region: string | null
+    regionRank: number | null
+  } | null
   preview: PlayerPreview | undefined
   legendStats: Map<number, { level: number; xp: number }>
   claimSlot?: React.ReactNode
@@ -1197,11 +1202,27 @@ function ProfileHeader({
   titles.forEach((title, i) => {
     metaNodes.push({
       key: `title-${i}`,
-      node: <span className="normal-case text-tier-gold">{title}</span>,
+      node: (
+        // Same tag shape as the rest of the row. As bare gold text these read
+        // as a sentence fragment trailing the stats rather than as the earned
+        // thing they are.
+        <span
+          title="Earned legend title"
+          className="inline-flex items-center rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 normal-case text-tier-gold"
+        >
+          {title}
+        </span>
+      ),
     })
   })
+  // A pro is known by their handle, so that's the title; the Brawlhalla/Steam
+  // name they actually queue under moves to the meta row. Falls back to the
+  // in-game name for everyone else, and for a pro with no handle recorded.
+  const proHandle = preview?.verified?.handle || null
+  const titleName = proHandle || data.name
+
   const hasMeta =
-    !!preview?.verified ||
+    !!proHandle ||
     !!preview?.claimed ||
     !!ladderRank ||
     metaNodes.length > 0
@@ -1252,46 +1273,64 @@ function ProfileHeader({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h1 className="truncate font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-                      {data.name}
+                      {titleName}
                     </h1>
+                    {/* Verification reads as a mark on the name, not as one
+                        more tag in the row — so it sits tight against the
+                        title and carries its meaning in a tooltip. */}
+                    {proHandle && (
+                      <span
+                        title="Verified pro player"
+                        className="inline-flex shrink-0"
+                      >
+                        <BadgeCheck
+                          className="size-5 text-mystic sm:size-6"
+                          aria-label="Verified pro player"
+                        />
+                      </span>
+                    )}
                     {data.region && <RegionPill region={data.region} />}
                     {claimSlot}
                     {favoriteSlot}
+                    {/* The in-game name trails the controls: it's the answer to
+                        "who is this on the ladder", which you want beside the
+                        name, not buried a line below among the stat tags. */}
+                    {proHandle && (
+                      <span
+                        title="In-game name"
+                        className="min-w-0 truncate font-mono text-[11px] text-muted-foreground"
+                      >
+                        {data.name}
+                      </span>
+                    )}
                   </div>
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
                       {preview?.claimed && <BrawlchemistUserBadge />}
-                      {preview?.verified && (
-                        <span className="inline-flex items-center gap-2">
-                          <ProBadge />
-                          <span className="text-sm font-semibold normal-case text-mystic">
-                            {preview.verified.handle}
-                          </span>
-                        </span>
-                      )}
                       {ladderRank && (
                         <span
-                          title={`#${ladderRank.n.toLocaleString()} on the ${ladderRank.scope} ladder`}
-                          className="inline-flex items-center gap-1 rounded-full border border-tier-gold/40 bg-tier-gold/10 px-2 py-0.5 normal-case text-tier-gold"
+                          title={`#${ladderRank.n.toLocaleString()} on the global 1v1 ladder`}
+                          className="inline-flex items-center gap-1 rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 text-tier-gold"
                         >
-                          Ladder #{ladderRank.n.toLocaleString()}
+                          Global #{ladderRank.n.toLocaleString()}
                         </span>
                       )}
-                      {metaNodes.map((item, i) => (
-                        <span
-                          key={item.key}
-                          className="inline-flex items-center gap-2"
-                        >
-                          {(i > 0 || preview?.verified) && (
-                            <span
-                              aria-hidden
-                              className="text-muted-foreground/40"
-                            >
-                              ·
-                            </span>
-                          )}
-                          {item.node}
-                        </span>
+                      {/* Regional standing, wearing its region's colour so the
+                          tag is readable as "this is a US-E number" without
+                          parsing the text. Most players place far higher here
+                          than globally, which is the more meaningful number. */}
+                      {ladderRank?.region && ladderRank.regionRank && (
+                        <RegionRankTag
+                          region={ladderRank.region}
+                          rank={ladderRank.regionRank}
+                        />
+                      )}
+                      {/* No separators any more: every item in this row is a
+                          bounded tag, so the dots were drawing a line between
+                          things already visibly apart — and the leading one
+                          orphaned itself whenever the row wrapped. */}
+                      {metaNodes.map((item) => (
+                        <span key={item.key}>{item.node}</span>
                       ))}
                     </div>
                   )}
@@ -1410,6 +1449,8 @@ function FallbackHeader({
   const tier = team ? deriveTier(team.data.tier, team.valhallan) : null
   const proPr = esports?.pr1v1 ?? esports?.pr2v2 ?? null
   const losses = team ? Math.max(0, team.data.games - team.data.wins) : 0
+  // Same rule as ProfileHeader: pros are titled by their handle.
+  const proHandle = preview?.verified?.handle || null
 
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
@@ -1452,42 +1493,43 @@ function FallbackHeader({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="truncate font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-                    {name}
+                    {proHandle || name}
                   </h1>
+                  {/* See ProfileHeader — the mark belongs on the name. */}
+                  {proHandle && (
+                    <span title="Verified pro player" className="inline-flex shrink-0">
+                      <BadgeCheck
+                        className="size-5 text-mystic sm:size-6"
+                        aria-label="Verified pro player"
+                      />
+                    </span>
+                  )}
                   {region && <RegionPill region={region} />}
                   {claimSlot}
                   {favoriteSlot}
+                  {proHandle && (
+                    <span
+                      title="In-game name"
+                      className="min-w-0 truncate font-mono text-[11px] text-muted-foreground"
+                    >
+                      {name}
+                    </span>
+                  )}
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
                   {preview?.claimed && <BrawlchemistUserBadge />}
-                  {preview?.verified && (
-                    <span className="inline-flex items-center gap-2">
-                      <ProBadge />
-                      <span className="text-sm font-semibold normal-case text-mystic">
-                        {preview.verified.handle}
-                      </span>
-                    </span>
-                  )}
                   {esports?.isPro && proPr && (
-                    <span className="inline-flex items-center gap-2">
-                      {preview?.verified && (
-                        <span aria-hidden className="text-muted-foreground/40">
-                          ·
-                        </span>
-                      )}
-                      <span className="text-copper">
-                        PR #{proPr.powerRanking} {proPr.region}
-                      </span>
+                    <span className="inline-flex items-center rounded-md border border-copper/40 bg-copper/10 px-1.5 py-0.5 text-copper">
+                      PR #{proPr.powerRanking} {proPr.region}
                     </span>
                   )}
-                  {titles.map((title, i) => (
-                    <span key={title} className="inline-flex items-center gap-2">
-                      {(i > 0 || preview?.verified || (esports?.isPro && proPr)) && (
-                        <span aria-hidden className="text-muted-foreground/40">
-                          ·
-                        </span>
-                      )}
-                      <span className="normal-case text-tier-gold">{title}</span>
+                  {titles.map((title) => (
+                    <span
+                      key={title}
+                      title="Earned legend title"
+                      className="inline-flex items-center rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 normal-case text-tier-gold"
+                    >
+                      {title}
                     </span>
                   ))}
                 </div>
@@ -1778,7 +1820,14 @@ export default async function PlayerPage({
   ])
   const headerValhallan = isValhallan(data.rating, cutoff1v1, data.wins)
   // Live top-500 ladder position (global ALL ladder); null below the top 500.
-  const ladderRank = ladderPos ? { n: ladderPos.rank, scope: "Global" } : null
+  const ladderRank = ladderPos
+    ? {
+        n: ladderPos.rank,
+        scope: "Global",
+        region: ladderPos.region?.toUpperCase() ?? null,
+        regionRank: ladderPos.regionRank,
+      }
+    : null
 
   // Name from the best available source: ranked → lifetime stats → esports.
   const displayName =

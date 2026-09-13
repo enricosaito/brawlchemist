@@ -57,7 +57,7 @@ export function FavoriteToggleControl({
       <span
         title="This is your profile"
         aria-disabled
-        className="inline-flex cursor-default items-center gap-1.5 rounded-full border border-border/50 bg-card/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground/50"
+        className="inline-flex cursor-default items-center gap-1.5 rounded-md border border-border/50 bg-card/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground/50"
       >
         <Star className="size-3.5 shrink-0" />
         {size === "md" && "Your profile"}
@@ -71,7 +71,7 @@ export function FavoriteToggleControl({
       <Link
         href={`/login?next=${encodeURIComponent(pathname)}`}
         title="Sign in to track this player"
-        className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-tier-gold/50 hover:text-foreground"
+        className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-tier-gold/50 hover:text-foreground"
       >
         <Star className="size-3.5 shrink-0" />
         {size === "md" && "Track"}
@@ -142,7 +142,7 @@ export function FavoriteToggleControl({
       aria-label={fav ? "Remove from favorites" : "Add to favorites"}
       title={note ?? (fav ? "Tracking — click to remove" : "Track this player")}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border font-medium transition-all duration-200 disabled:opacity-60",
+        "inline-flex items-center gap-1.5 rounded-md border font-medium transition-all duration-200 disabled:opacity-60",
         label ? "px-2.5 py-1 text-[11px]" : "size-8 justify-center",
         showConfirm
           ? "border-negative/60 bg-negative/15 text-negative"

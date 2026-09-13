@@ -77,7 +77,7 @@ export async function ProfileCustomization({
               {favorites.map((f) => (
                 <span
                   key={f.slug}
-                  className="flex items-center gap-2 rounded-full border border-border/60 bg-card/40 py-1 pl-1 pr-3"
+                  className="flex items-center gap-2 rounded-md border border-border/60 bg-card/40 py-1 pl-1 pr-3"
                 >
                   <Image
                     src={`/assets/legends/${f.slug}.png`}

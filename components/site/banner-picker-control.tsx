@@ -85,7 +85,7 @@ export function BannerPickerControl({
         onClick={() => setOpen((v) => !v)}
         aria-label="Change banner"
         aria-expanded={open}
-        className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur-sm transition-colors hover:border-copper/60 hover:text-foreground"
+        className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur-sm transition-colors hover:border-copper/60 hover:text-foreground"
       >
         <Palette className="size-3.5" />
         Banner
