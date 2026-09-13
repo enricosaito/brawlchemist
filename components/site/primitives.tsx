@@ -125,6 +125,43 @@ const RANK_ICON_SRC: Partial<Record<Tier, string>> = {
   Tin: "/assets/Avatar_Participation_10.webp",
 }
 
+/**
+ * Rank helm shown beside a rating — only the two top tiers have one; lower
+ * tiers ride on the number alone ("no helm for less").
+ *
+ * Distinct from RankIcon, which is the round avatar emblem. The helm is the
+ * silhouette that reads at small sizes, so it's what goes next to a number.
+ */
+const RANK_HELM_SRC: Partial<Record<Tier, string>> = {
+  Valhallan: "/assets/valhallan-helm.png",
+  Diamond: "/assets/diamond-helm.png",
+}
+
+export function RankHelm({
+  tier,
+  className = "h-7",
+}: {
+  tier: Tier
+  /** Height utility; width follows the art's aspect ratio. */
+  className?: string
+}) {
+  const src = RANK_HELM_SRC[tier]
+  if (!src) return null
+  return (
+    <Image
+      src={src}
+      alt={`${tier} helm`}
+      width={48}
+      height={48}
+      unoptimized
+      className={cn(
+        "w-auto shrink-0 select-none object-contain drop-shadow-sm",
+        className,
+      )}
+    />
+  )
+}
+
 export function RankIcon({
   tier,
   size = 22,

@@ -9,8 +9,27 @@ import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { Tier } from "@/lib/types"
+import { ShimmerText } from "@/components/shimmer-text"
 import { PreviewCard } from "./preview-card"
-import { LegendChip, PlayerLink, RankIcon } from "./primitives"
+import { LegendChip, PlayerLink, RankHelm } from "./primitives"
+
+/**
+ * Medal colours for the podium three. Rank is 1-indexed, so the map is keyed
+ * that way and a miss (4th and below) falls through to plain foreground.
+ */
+const PODIUM_TEXT: Record<number, string> = {
+  1: "text-tier-gold",
+  2: "text-tier-silver",
+  3: "text-tier-bronze",
+}
+
+/**
+ * ShimmerText paints its sweep through currentColor, so the medal colour above
+ * carries the number and this only sets the band. A near-white stop reads as a
+ * glint across the metal; the component's own default is a dark band, which
+ * just dims it. The `dark:` prefix is load-bearing — see the component.
+ */
+const PODIUM_SHIMMER = "dark:[--shimmer-contrast:oklch(1_0_0_/_0.85)]"
 
 // All API regions (ALL first), shown in the home region dropdown.
 export const HOME_REGIONS = API_REGIONS
@@ -161,9 +180,27 @@ export async function TopPlayersCard({
                 </Link>
                 {/* The standing is what orders the board, so it reads as a
                     number rather than as a caption: display face, foreground
-                    weight, sized to sit with the name instead of under it. */}
-                <span className="w-5 shrink-0 text-right font-display text-lg font-bold leading-none tabular-nums text-foreground">
-                  {entry.rank}
+                    weight, sized to sit with the name instead of under it.
+                    The podium three take medal colours and a slow sweep —
+                    three moving numbers mark the top without competing with
+                    the names the way six shimmering names did. */}
+                <span
+                  className={cn(
+                    "w-5 shrink-0 text-right font-display text-lg font-bold leading-none tabular-nums",
+                    PODIUM_TEXT[entry.rank] ?? "text-foreground",
+                  )}
+                >
+                  {PODIUM_TEXT[entry.rank] ? (
+                    <ShimmerText
+                      duration={2.4}
+                      delay={0.3 + entry.rank * 0.25}
+                      className={PODIUM_SHIMMER}
+                    >
+                      {entry.rank}
+                    </ShimmerText>
+                  ) : (
+                    entry.rank
+                  )}
                 </span>
                 {slug ? (
                   <LegendChip legendId={slug} size="md" showName={false} />
@@ -185,11 +222,13 @@ export async function TopPlayersCard({
                   </PlayerLink>
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-0.5">
-                  {/* The tier emblem rides with the rating rather than with
-                      the rank: it describes where that number sits, and at
-                      cap height beside it the two read as one figure. */}
+                  {/* The tier helm rides with the rating rather than with the
+                      rank: it describes where that number sits, and at cap
+                      height beside it the two read as one figure. The helm
+                      silhouette survives this size where the round avatar
+                      emblem turns to mush. */}
                   <span className="flex items-center gap-1.5 font-mono text-sm tabular-nums">
-                    {tier && <RankIcon tier={tier} size={18} className="shrink-0" />}
+                    {tier && <RankHelm tier={tier} className="h-[18px]" />}
                     <span>
                       {entry.rating != null ? formatElo(entry.rating) : "—"}
                       <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">

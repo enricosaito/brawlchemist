@@ -7,6 +7,7 @@ import Link from "next/link"
 import { ArrowUpRight, BadgeCheck, ChevronRight, Trophy, Users } from "lucide-react"
 import {
   LegendChip,
+  RankHelm,
   RegionPill,
   RegionRankTag,
   TIER_TEXT_COLOR,
@@ -329,27 +330,6 @@ function NoticeCard({ title, children }: { title: string; children: React.ReactN
         </Link>
       </div>
     </section>
-  )
-}
-
-/** Rank helm shown beside a rating — only the two top tiers have one; lower
- * tiers ride on the number alone ("no helm for less"). */
-const RANK_HELM_SRC: Partial<Record<Tier, string>> = {
-  Valhallan: "/assets/valhallan-helm.png",
-  Diamond: "/assets/diamond-helm.png",
-}
-function RankHelm({ tier }: { tier: Tier }) {
-  const src = RANK_HELM_SRC[tier]
-  if (!src) return null
-  return (
-    <Image
-      src={src}
-      alt={`${tier} helm`}
-      width={48}
-      height={48}
-      unoptimized
-      className="h-7 w-auto shrink-0 select-none object-contain drop-shadow-sm"
-    />
   )
 }
 
