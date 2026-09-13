@@ -6,6 +6,12 @@ import { db } from "@/lib/db"
 import { userCustomizations, type UserCustomizationRow } from "@/lib/db/schema"
 import { rosterEntryByLegendId } from "@/lib/legends-roster"
 import { DEFAULT_BANNER_ID, isValidBannerId } from "@/lib/profile/banners"
+import { FLAIR_NONE, isValidFlairId } from "@/lib/profile/flair"
+import {
+  SOCIAL_KINDS,
+  type SocialKind,
+  type SocialLink,
+} from "@/lib/profile/social"
 
 /**
  * Public-facing profile customization (bio, social links, favorite legends) set
@@ -13,30 +19,12 @@ import { DEFAULT_BANNER_ID, isValidBannerId } from "@/lib/profile/banners"
  * gated by ownership at the action layer.
  */
 
-export const SOCIAL_KINDS = [
-  "twitter",
-  "twitch",
-  "youtube",
-  "discord",
-  "steam",
-  "website",
-] as const
-export type SocialKind = (typeof SOCIAL_KINDS)[number]
-
-export interface SocialLink {
-  kind: SocialKind
-  url: string
-}
-
-/** Display label + input placeholder per social kind (shared by form + render). */
-export const SOCIAL_META: Record<SocialKind, { label: string; placeholder: string }> = {
-  twitter: { label: "X (Twitter)", placeholder: "https://x.com/you" },
-  twitch: { label: "Twitch", placeholder: "https://twitch.tv/you" },
-  youtube: { label: "YouTube", placeholder: "https://youtube.com/@you" },
-  discord: { label: "Discord", placeholder: "https://discord.gg/invite" },
-  steam: { label: "Steam", placeholder: "https://steamcommunity.com/id/you" },
-  website: { label: "Website", placeholder: "https://your.site" },
-}
+export {
+  SOCIAL_KINDS,
+  SOCIAL_META,
+  type SocialKind,
+  type SocialLink,
+} from "@/lib/profile/social"
 
 export interface Customization {
   bio: string | null
@@ -44,6 +32,8 @@ export interface Customization {
   favoriteLegendIds: number[]
   /** Header banner preset id, or null for the default wash (see lib/profile/banners). */
   bannerId: string | null
+  /** Chosen flair id, "none" to fly nothing, or null to show the best earned. */
+  flairId: string | null
 }
 
 export interface CustomizationInput {
@@ -62,6 +52,7 @@ const EMPTY: Customization = {
   socialLinks: [],
   favoriteLegendIds: [],
   bannerId: null,
+  flairId: null,
 }
 
 function customizationTag(brawlhallaId: number): string {
@@ -113,6 +104,12 @@ function parseBannerId(value: unknown): string | null {
   return typeof value === "string" && isValidBannerId(value) ? value : null
 }
 
+function parseFlairId(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  if (value === FLAIR_NONE) return FLAIR_NONE
+  return isValidFlairId(value) ? value : null
+}
+
 function toCustomization(row: UserCustomizationRow): Customization {
   const bio = typeof row.bio === "string" && row.bio.trim() ? row.bio : null
   return {
@@ -120,13 +117,15 @@ function toCustomization(row: UserCustomizationRow): Customization {
     socialLinks: parseSocialLinks(row.socialLinks),
     favoriteLegendIds: parseFavorites(row.favoriteLegendIds),
     bannerId: parseBannerId(row.bannerId),
+    flairId: parseFlairId(row.flairId),
   }
 }
 
-/** Validate + normalize raw form input. Banner is managed separately (setBanner). */
+/** Validate + normalize raw form input. Banner and flair are managed
+ * separately (setBanner / setFlair). */
 export function normalizeInput(
   input: CustomizationInput,
-): Omit<Customization, "bannerId"> {
+): Omit<Customization, "bannerId" | "flairId"> {
   const bio = input.bio.trim().slice(0, BIO_MAX)
   return {
     bio: bio || null,
@@ -220,6 +219,33 @@ export async function setBanner(
     .onConflictDoUpdate({
       target: userCustomizations.brawlhallaId,
       set: { bannerId, updatedAt: now },
+    })
+  revalidateTag(customizationTag(brawlhallaId), "max")
+}
+
+/**
+ * Write the owner's chosen flair, independent of the other fields for the same
+ * reason setBanner is.
+ *
+ * Stores only the *preference* — entitlement is derived on every render from
+ * the player's own record, so writing this can never award a badge, and an id
+ * the player later stops qualifying for simply falls back (see resolveFlair).
+ * That's why there's no ownership-of-badge check here: there is nothing to
+ * cheat. Anything unrecognised is stored as null, i.e. "show my best".
+ * Caller MUST have checked profile ownership.
+ */
+export async function setFlair(
+  brawlhallaId: number,
+  rawFlairId: string,
+): Promise<void> {
+  const flairId = parseFlairId(rawFlairId)
+  const now = new Date()
+  await db()
+    .insert(userCustomizations)
+    .values({ brawlhallaId, flairId, updatedAt: now })
+    .onConflictDoUpdate({
+      target: userCustomizations.brawlhallaId,
+      set: { flairId, updatedAt: now },
     })
   revalidateTag(customizationTag(brawlhallaId), "max")
 }
