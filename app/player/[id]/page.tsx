@@ -499,6 +499,14 @@ function AccountTile({ label, value }: { label: string; value: string }) {
   )
 }
 
+/**
+ * PARKED: account level / playtime / XP / lifetime games / guild.
+ *
+ * Pulled off the profile pending the advanced-stats component that will own
+ * these. computeAccountStats still runs (the header reads its weapon shares),
+ * so restoring this is a render, not a refetch.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function AccountSection({
   stats,
   guildId,
@@ -1094,55 +1102,35 @@ function LegendsSection({
   )
 }
 
-interface ProfileTab {
-  key: string
-  label: string
-  count?: number
-}
 
-/** Link-based tab bar under the profile header. `scroll={false}` keeps the
- * viewport in place when switching. */
-function ProfileTabs({
-  tabs,
-  active,
-  baseHref,
+/**
+ * Way back from a sub-view.
+ *
+ * The tab bar used to be the navigation *and* the way home; with it gone, the
+ * cards that open these views are one-way without this. `bare` skips the outer
+ * padding for callers that already sit inside a padded section.
+ */
+function BackToProfile({
+  href,
+  label,
+  bare = false,
 }: {
-  tabs: ProfileTab[]
-  active: string
-  baseHref: string
+  href: string
+  label: string
+  bare?: boolean
 }) {
-  return (
-    <div className="mt-8 px-4 sm:px-6">
-      <div
-        role="tablist"
-        aria-label="Profile sections"
-        className="mx-auto flex max-w-[1280px] items-center gap-1 overflow-x-auto border-b border-border/60"
-      >
-        {tabs.map((t) => (
-          <Link
-            key={t.key}
-            role="tab"
-            aria-selected={active === t.key}
-            href={t.key === "overview" ? baseHref : `${baseHref}?tab=${t.key}`}
-            scroll={false}
-            className={cn(
-              "-mb-px inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 font-mono text-xs uppercase tracking-wider transition-colors",
-              active === t.key
-                ? "border-tier-valhallan text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-            {t.count != null && (
-              <span className="rounded border border-border/60 bg-muted/40 px-1 py-px font-mono text-[9px] tabular-nums">
-                {t.count}
-              </span>
-            )}
-          </Link>
-        ))}
-      </div>
-    </div>
+  const link = (
+    <Link
+      href={href}
+      scroll={false}
+      className="group/back mx-auto flex max-w-[1280px] items-center gap-2 font-mono text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <ChevronRight className="size-3.5 rotate-180 transition-transform group-hover/back:-translate-x-0.5" />
+      <span className="text-foreground/80">{label}</span>
+      <span className="text-muted-foreground/50">· back to profile</span>
+    </Link>
   )
+  return bare ? link : <div className="mt-8 px-4 sm:px-6">{link}</div>
 }
 
 function ProfileHeader({
@@ -1152,8 +1140,9 @@ function ProfileHeader({
   ladderRank,
   preview,
   legendStats,
-  topTeam,
   combined,
+  weapons,
+  legendsHref,
   claimSlot,
   favoriteSlot,
   bannerId,
@@ -1171,19 +1160,18 @@ function ProfileHeader({
   } | null
   preview: PlayerPreview | undefined
   legendStats: Map<number, { level: number; xp: number }>
-  /** Highest-rated 2v2 team, shown beside the 1v1 rating. */
-  topTeam: { view: TeamView; valhallan: boolean } | null
   /** 1v1 + every 2v2 team combined, for the win-rate card. */
   combined: { wins: number; games: number }
+  /** Most-used weapons, shown beside the most-played legends. */
+  weapons: WeaponShare[]
+  /** Opens the full legends breakdown — the Most Played card is the entry. */
+  legendsHref: string | null
   claimSlot?: React.ReactNode
   favoriteSlot?: React.ReactNode
   bannerId?: string | null
   bannerSlot?: React.ReactNode
 }) {
   const tier = deriveTier(data.tier, valhallan)
-  const teamTier = topTeam
-    ? deriveTier(topTeam.view.team.tier, topTeam.valhallan)
-    : null
   const losses = Math.max(0, combined.games - combined.wins)
   const topLegends: TopLegend[] = [...(data.legends ?? [])]
     .filter((l) => l.games > 0)
@@ -1382,26 +1370,6 @@ function ProfileHeader({
                   tier={tier}
                   tierName={tierLabel(data.tier, valhallan)}
                 />
-                {/* Best 2v2 team beside the 1v1 rating — a player's ceiling is
-                    often a team result, and it was only reachable by scrolling
-                    to the Overview or opening the Teams tab. Named, because a
-                    2v2 rating without the partner is half a fact. */}
-                {topTeam && (
-                  <RatingTile
-                    label="2v2"
-                    rating={topTeam.view.team.rating}
-                    peak={topTeam.view.team.peak_rating}
-                    tier={teamTier}
-                    tierName={tierLabel(
-                      topTeam.view.team.tier,
-                      topTeam.valhallan,
-                    )}
-                    partner={{
-                      name: topTeam.view.teammateName,
-                      id: topTeam.view.teammateId,
-                    }}
-                  />
-                )}
                 {/* Win rate + games played — same label/value/sub rhythm as the
                     rating cards so the big numbers line up across the row.
                     Counts 1v1 and every 2v2 team together: this is the card
@@ -1442,23 +1410,75 @@ function ProfileHeader({
                     {combined.wins.toLocaleString()}W · {losses.toLocaleString()}L
                   </span>
                 </div>
-                {/* Most played — hover a head for pick rate, level, and XP.
-                    Four heads rather than five, at size-10: the row has to
-                    hold four cards inside the banner's height, and the fifth
-                    head was the widest thing that could go without losing
-                    information the other cards don't already carry. */}
-                {topLegends.length > 0 && (
-                  <div className="min-w-0 shrink-0 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Most Played
-                    </span>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      {topLegends.map((l) => (
-                        <MostPlayedLegend key={l.slug} legend={l} />
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Most played legends and weapons. Hover a head for pick
+                    rate, level and XP; the card itself is the way into the
+                    full legends breakdown now that the tab bar is gone, so it
+                    carries the affordance of a link.
+
+                    Weapons sit beside the legends because they're the same
+                    fact at a coarser grain — a Mordex/Nix main is a scythe
+                    main — and reading them together is how you tell a
+                    one-trick from a weapon specialist. */}
+                {(topLegends.length > 0 || weapons.length > 0) &&
+                  (() => {
+                    const body = (
+                      <>
+                        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Most Played
+                          {legendsHref && (
+                            <ChevronRight className="size-3 transition-transform group-hover/most:translate-x-0.5" />
+                          )}
+                        </span>
+                        <div className="mt-1.5 flex items-center gap-3">
+                          {topLegends.length > 0 && (
+                            <div className="flex items-center gap-1.5">
+                              {topLegends.map((l) => (
+                                <MostPlayedLegend key={l.slug} legend={l} />
+                              ))}
+                            </div>
+                          )}
+                          {topLegends.length > 0 && weapons.length > 0 && (
+                            <span
+                              aria-hidden
+                              className="h-8 w-px shrink-0 bg-border/60"
+                            />
+                          )}
+                          {weapons.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              {weapons.slice(0, 3).map((w) => (
+                                <span
+                                  key={w.weaponId}
+                                  title={`${weaponLabel(w.weaponId)} — ${w.pct.toFixed(0)}% of playtime`}
+                                  className="flex flex-col items-center gap-0.5"
+                                >
+                                  <WeaponIcon weaponId={w.weaponId} size={22} />
+                                  <span className="font-mono text-[9px] tabular-nums text-muted-foreground">
+                                    {w.pct.toFixed(0)}%
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )
+                    const shell =
+                      "group/most min-w-0 shrink-0 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5"
+                    return legendsHref ? (
+                      <Link
+                        href={legendsHref}
+                        scroll={false}
+                        className={cn(
+                          shell,
+                          "transition-colors hover:border-tier-valhallan/50",
+                        )}
+                      >
+                        {body}
+                      </Link>
+                    ) : (
+                      <div className={shell}>{body}</div>
+                    )
+                  })()}
               </div>
             </div>
           </div>
@@ -1782,7 +1802,12 @@ export default async function PlayerPage({
   // Prefer a live answer, then the stored one, then the clan embedded in
   // /stats. The stored value is authoritative on a `guildFresh` view — that's
   // the whole point of not making the call.
+  // Parked with AccountSection below — the precedence here is non-obvious
+  // (live guild > stored > /stats clan), so it stays rather than being
+  // rederived when the advanced-stats component lands.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const guildId = guild?.guild_id ?? syncState?.guildId ?? clan?.clan_id ?? null
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const guildName =
     guild?.guild_name || syncState?.guildName || clan?.clan_name || null
   let titles: string[] = []
@@ -1908,34 +1933,23 @@ export default async function PlayerPage({
     (acc, t) => ({ wins: acc.wins + t.wins, games: acc.games + t.games }),
     { wins: data.wins, games: data.games },
   )
-  const topTeamHeader =
-    teamViews.length > 0
-      ? {
-          view: teamViews[0],
-          valhallan: isValhallan(
-            teamViews[0].team.rating,
-            cutoff2v2,
-            teamViews[0].team.wins,
-          ),
-        }
-      : null
 
   // Tabbed sections below the header. Tabs only appear when they have
   // content; Overview (rating history + account) is always first, esports
   // gets its own tab for tracked competitors.
   const playedLegends = (data.legends ?? []).filter((l) => l.games > 0)
   const showEsports = !!esports && (esports.isPro || esports.earnings > 0)
-  const tabs: ProfileTab[] = [
-    { key: "overview", label: "Overview" },
-    ...(playedLegends.length > 0
-      ? [{ key: "legends", label: "Legends", count: playedLegends.length }]
-      : []),
-    ...(teamViews.length > 0
-      ? [{ key: "teams", label: "2v2 Teams", count: teamViews.length }]
-      : []),
-    ...(showEsports ? [{ key: "esports", label: "Esports" }] : []),
+  // The tab bar is gone — these are still URL states, reached from the cards
+  // that describe them (Most Played -> legends, Top 2v2 Teams -> teams). The
+  // list is now only a guard on ?tab=, so an unreachable value falls back to
+  // the profile rather than rendering an empty view.
+  const reachableTabs = [
+    ...(playedLegends.length > 0 ? ["legends"] : []),
+    ...(teamViews.length > 0 ? ["teams"] : []),
   ]
-  const tab = tabs.some((t) => t.key === sp.tab) ? (sp.tab as string) : "overview"
+  const tab = reachableTabs.includes(sp.tab as string)
+    ? (sp.tab as string)
+    : "overview"
   // Best three teams (already rating-sorted) for the Overview side column.
   const overviewTeams = teamViews.slice(0, 3)
 
@@ -1975,8 +1989,11 @@ export default async function PlayerPage({
           ladderRank={ladderRank}
           preview={preview}
           legendStats={legendStatsById}
-          topTeam={topTeamHeader}
           combined={combinedRecord}
+          weapons={accountStats?.weapons ?? []}
+          legendsHref={
+            playedLegends.length > 0 ? `/player/${numId}?tab=legends` : null
+          }
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           favoriteSlot={favoriteToggle}
           bannerId={bannerId}
@@ -2019,29 +2036,14 @@ export default async function PlayerPage({
         />
       )}
 
-      <ProfileTabs tabs={tabs} active={tab} baseHref={`/player/${numId}`} />
-
       {tab === "overview" && (
         <>
-          {/* Account stats and the owner's bio share one row, so the rating
-              chart and 2v2 teams below start higher up the page instead of
-              being pushed under two full-width bands.
-
-              Either card can be absent — stats need a /stats payload, the bio
-              card hides itself for non-owners with nothing to show — so
-              `:only-child` widens whichever one is left rather than leaving a
-              half-empty row. It's guarded to lg because spanning 2 on the
-              single-column mobile grid would create an implicit second
-              column. */}
+          {/* Account level / playtime / XP / lifetime games / guild are hidden
+              pending the advanced-stats component that will own them.
+              computeAccountStats still runs — the header reads its weapon
+              shares — so bringing them back is a render, not a refetch. */}
           <div className="mt-6 px-4 sm:px-6">
-            <div className="mx-auto grid max-w-[1280px] grid-cols-1 items-stretch gap-4 lg:grid-cols-2 lg:[&>*:only-child]:col-span-2">
-              {accountStats && (
-                <AccountSection
-                  stats={accountStats}
-                  guildId={guildId}
-                  guildName={guildName}
-                />
-              )}
+            <div className="mx-auto max-w-[1280px]">
               <ProfileCustomization brawlhallaId={numId} />
             </div>
           </div>
@@ -2096,27 +2098,42 @@ export default async function PlayerPage({
             </section>
           )}
 
-          {!hasOneVOne && !accountStats && (
+          {!hasOneVOne && (
             <p className="mt-10 text-center font-mono text-xs uppercase tracking-wider text-muted-foreground">
-              No 1v1 ranked play this season — see the other tabs.
+              No 1v1 ranked play this season.
             </p>
           )}
+
+          {/* Esports used to be a tab. With the tab bar gone it renders inline
+              rather than becoming unreachable — it only appears for tracked
+              competitors, so for almost every profile this is nothing. */}
+          {showEsports && <EsportsSection profile={esports} />}
         </>
       )}
 
       {tab === "legends" && (
-        <LegendsSection
-          legends={playedLegends}
-          overallWinRate={
-            hasOneVOne && data.games > 0 ? (data.wins / data.games) * 100 : null
-          }
-          statsByLegendId={fullLegendStatsById}
-        />
+        <>
+          <BackToProfile href={`/player/${numId}`} label="Legends" />
+          <LegendsSection
+            legends={playedLegends}
+            overallWinRate={
+              hasOneVOne && data.games > 0
+                ? (data.wins / data.games) * 100
+                : null
+            }
+            statsByLegendId={fullLegendStatsById}
+          />
+        </>
       )}
 
       {tab === "teams" && (
         <div className="mt-8 px-4 sm:px-6">
-          <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2">
+          <BackToProfile
+            href={`/player/${numId}`}
+            label={`2v2 Teams · ${teamViews.length}`}
+            bare
+          />
+          <div className="mx-auto mt-3 grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2">
             {teamViews.map((view) => (
               <TeamCard
                 key={`${view.team.brawlhalla_id_one}-${view.team.brawlhalla_id_two}`}
