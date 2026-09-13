@@ -65,7 +65,26 @@ export async function RankedStatsCard({
 
   const metrics = (
     <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
-      <Metric label="1v1 Rating">{ratingSlot}</Metric>
+      {/* The tier spelled out under the number. The helm beside the rating
+          carries it for anyone who reads helms, but it's the one figure in
+          this row whose unit is a word rather than a count — and "2,895" means
+          nothing without knowing 2,895 is Valhallan. It goes in the same sub
+          line the other metrics use, so the row stays on one baseline grid. */}
+      <Metric
+        label="1v1 Rating"
+        sub={
+          stats.tier ? (
+            <span
+              className="font-semibold uppercase"
+              style={{ color: TIER_COLOR_VAR[stats.tier] }}
+            >
+              {stats.tierName}
+            </span>
+          ) : undefined
+        }
+      >
+        {ratingSlot}
+      </Metric>
       <Metric
         label="Win Rate"
         sub={`${stats.wins.toLocaleString()}W · ${losses.toLocaleString()}L`}
@@ -199,7 +218,7 @@ function Metric({
   children,
 }: {
   label: string
-  sub?: string
+  sub?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
