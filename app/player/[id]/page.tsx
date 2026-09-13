@@ -1307,7 +1307,10 @@ function ProfileHeader({
     !!proHandle ||
     !!preview?.claimed ||
     !!ladderRank ||
-    metaNodes.length > 0
+    metaNodes.length > 0 ||
+    // Accolades live in this row now, so they have to open it too — a player
+    // with nothing but a trophy would otherwise have the row suppressed.
+    (preview?.achievements?.length ?? 0) > 0
 
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
@@ -1321,6 +1324,39 @@ function ProfileHeader({
             aria-hidden
             className={`pointer-events-none absolute inset-0 rounded-2xl ${resolveBanner(bannerId).wash}`}
           />
+          {/* Favourite skin as the banner's backdrop rather than a figure
+              standing beside it. Anchored to the right half, clear of the name
+              and tags, faded out below its midpoint
+              so the lower half dissolves into the card instead of ending on a
+              hard edge, and dropped to a wash so the name and tags keep their
+              contrast. Hidden on phones, where there is no room to the side of
+              the content for it to be a backdrop rather than clutter. */}
+          {preview?.favoriteSkin && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-0 hidden overflow-hidden rounded-2xl sm:block"
+            >
+              <Image
+                src={preview.favoriteSkin.src}
+                alt=""
+                width={364}
+                height={323}
+                className="absolute -top-10 right-4 h-[210%] w-auto max-w-none select-none object-contain object-top opacity-[0.22]"
+                style={{
+                  // Two masks, intersected: the vertical one dissolves the
+                  // lower half into the card, the horizontal one fades the
+                  // figure out before it reaches the name and tags on the
+                  // left. Webkit needs its own prefixed pair.
+                  maskImage:
+                    "linear-gradient(to bottom, black 0%, black 34%, transparent 66%), linear-gradient(to left, black 45%, transparent 95%)",
+                  maskComposite: "intersect",
+                  WebkitMaskImage:
+                    "linear-gradient(to bottom, black 0%, black 34%, transparent 66%), linear-gradient(to left, black 45%, transparent 95%)",
+                  WebkitMaskComposite: "source-in",
+                }}
+              />
+            </div>
+          )}
           {bannerSlot && (
             <div className="absolute right-4 top-4 z-20">{bannerSlot}</div>
           )}
@@ -1408,30 +1444,31 @@ function ProfileHeader({
                       {metaNodes.map((item) => (
                         <span key={item.key}>{item.node}</span>
                       ))}
+                      {/* Esports accolades, as tags in the same row rather
+                          than a stacked list off to the right. They're the
+                          same kind of claim as a legend title, and keeping
+                          them here leaves the right half of the banner free
+                          for the skin behind it. Gold, which the legend titles
+                          vacated — so gold now reads as "won something" and
+                          royal as "maxed a legend". */}
+                      {preview?.achievements?.map((a) => (
+                        <span
+                          key={a}
+                          className="inline-flex items-center gap-1 rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 normal-case text-tier-gold"
+                        >
+                          <Image
+                            src="/assets/Legendary_moment_trophy.png"
+                            alt=""
+                            width={616}
+                            height={1212}
+                            className="h-3 w-auto shrink-0 select-none object-contain"
+                          />
+                          {a}
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>
-
-                {/* Esports accolades — experimental, hardcoded per player. */}
-                {preview?.achievements && preview.achievements.length > 0 && (
-                  <ul className="flex shrink-0 flex-col gap-1 sm:items-end">
-                    {preview.achievements.map((a) => (
-                      <li
-                        key={a}
-                        className="flex items-center gap-1.5 text-xs font-semibold text-tier-gold"
-                      >
-                        <Image
-                          src="/assets/Legendary_moment_trophy.png"
-                          alt=""
-                          width={616}
-                          height={1212}
-                          className="h-5 w-auto shrink-0 select-none object-contain"
-                        />
-                        {a}
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </div>
 
             </div>
