@@ -54,7 +54,10 @@ import {
 import { clientLabel, isCrawler } from "@/lib/bots"
 import { recordPlayerGuild } from "@/lib/sync/guilds"
 import { recordFetch } from "@/lib/sync/fetch-log"
-import { getValhallanCutoff } from "@/lib/sync/valhallan-cutoff"
+import {
+  getValhallanCutoff,
+  getValhallanIds,
+} from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 import type { Tier } from "@/lib/types"
@@ -234,6 +237,7 @@ const loadEsports = cache((id: number) => getEsportsProfile(id))
 const loadCutoff = cache((mode: ApiGameMode, region: ApiRegion) =>
   getValhallanCutoff(mode, region),
 )
+const loadValhallanIds = cache((mode: ApiGameMode) => getValhallanIds(mode))
 
 const MAX_LEGEND_LEVEL = 100
 
@@ -266,22 +270,28 @@ async function valhallanCutoffFor(
 /**
  * Is this player Valhallan in 1v1?
  *
- * Ladder membership first: `data.rating` here can be up to six hours old (the
- * profile is a DB-first read-through), while the cutoff refreshes hourly, so
- * the rating comparison alone downgrades anyone who climbed since their last
- * sync. Membership is the ladder's own answer. The comparison stays as the
- * fallback for players below the tracked pages.
+ * Ladder membership first, across every region: `data.rating` here can be up
+ * to six hours old (the profile is a DB-first read-through) while the cutoff
+ * refreshes hourly, so the rating comparison alone downgrades anyone who
+ * climbed since their last sync — and a player's stored region is only where
+ * they mostly play, so a US-E regular who ranks on EU is Valhallan on a ladder
+ * their own region's cutoff knows nothing about. Both failures are the same
+ * mistake: asking a number when the ladder already holds the answer.
+ *
+ * The rating comparison stays as the fallback for players below the tracked
+ * pages, and is necessarily keyed on their own region's cutoff.
  *
  * 1v1 only — in 2v2 a player can hold several teams and being Valhallan on one
  * says nothing about the others, so those still go through the rating test.
  */
 function isValhallan1v1(
-  cutoff: { rating: number; ids: number[] } | null,
+  valhallanIds: number[],
+  cutoff: { rating: number } | null,
   playerId: number,
   rating: number | null,
   wins: number | null,
 ): boolean {
-  if (cutoff?.ids?.includes(playerId)) return true
+  if (valhallanIds.includes(playerId)) return true
   return isValhallan(rating, cutoff?.rating ?? null, wins)
 }
 
@@ -1845,14 +1855,16 @@ export default async function PlayerPage({
   // ladder cutoff — 1v1 for the header, 2v2 for the team cards.
   // Only the cutoffs are left here — they need data.region (and whether the
   // player has any 2v2 teams), so they can't join the fan-out above.
-  const [cut1v1, cutoff2v2] = await Promise.all([
+  const [cut1v1, cutoff2v2, valhallanIds] = await Promise.all([
     valhallanCutoffFor("1v1", data.region),
     teams.length > 0
       ? valhallanCutoffRating("2v2", data.region)
       : Promise.resolve(null),
+    loadValhallanIds("1v1"),
   ])
   const cutoff1v1 = cut1v1?.rating ?? null
   const headerValhallan = isValhallan1v1(
+    valhallanIds,
     cut1v1,
     numId,
     data.rating,

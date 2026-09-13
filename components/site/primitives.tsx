@@ -401,6 +401,8 @@ export const REGION_COLOR: Record<
   EU: { text: "text-[#60a5fa]", border: "border-[#60a5fa]/40", bg: "bg-[#60a5fa]/10" },
   SEA: { text: "text-[#2dd4bf]", border: "border-[#2dd4bf]/40", bg: "bg-[#2dd4bf]/10" },
   AUS: { text: "text-[#fb923c]", border: "border-[#fb923c]/40", bg: "bg-[#fb923c]/10" },
+  // Both spellings: player data says JPN, leaderboard rows say JPS.
+  JPN: { text: "text-[#facc15]", border: "border-[#facc15]/40", bg: "bg-[#facc15]/10" },
   JPS: { text: "text-[#facc15]", border: "border-[#facc15]/40", bg: "bg-[#facc15]/10" },
   SA: { text: "text-[#c084fc]", border: "border-[#c084fc]/40", bg: "bg-[#c084fc]/10" },
   ME: { text: "text-[#f472b6]", border: "border-[#f472b6]/40", bg: "bg-[#f472b6]/10" },
