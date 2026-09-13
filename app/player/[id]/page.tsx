@@ -1289,7 +1289,21 @@ function ProfileHeader({
                         />
                       </span>
                     )}
-                    {data.region && <RegionPill region={data.region} />}
+                    {/* The region tag carries the player's standing in that
+                        region when we know it — "US-E #1" rather than a bare
+                        "US-E". It belongs on the name line next to the
+                        verified mark, where it reads as part of who this
+                        player is, not down among the stat tags. */}
+                    {data.region &&
+                      (ladderRank?.region === data.region.toUpperCase() &&
+                      ladderRank.regionRank ? (
+                        <RegionRankTag
+                          region={ladderRank.region}
+                          rank={ladderRank.regionRank}
+                        />
+                      ) : (
+                        <RegionPill region={data.region} />
+                      ))}
                     {claimSlot}
                     {favoriteSlot}
                     {/* The in-game name trails the controls: it's the answer to
@@ -1307,23 +1321,16 @@ function ProfileHeader({
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
                       {preview?.claimed && <BrawlchemistUserBadge />}
+                      {/* Mystic, the same blue as the verified mark: both are
+                          standing rather than flavour, which separates them
+                          from the gold of earned titles. */}
                       {ladderRank && (
                         <span
                           title={`#${ladderRank.n.toLocaleString()} on the global 1v1 ladder`}
-                          className="inline-flex items-center gap-1 rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 text-tier-gold"
+                          className="inline-flex items-center gap-1 rounded-md border border-mystic/40 bg-mystic/10 px-1.5 py-0.5 text-mystic"
                         >
                           Global #{ladderRank.n.toLocaleString()}
                         </span>
-                      )}
-                      {/* Regional standing, wearing its region's colour so the
-                          tag is readable as "this is a US-E number" without
-                          parsing the text. Most players place far higher here
-                          than globally, which is the more meaningful number. */}
-                      {ladderRank?.region && ladderRank.regionRank && (
-                        <RegionRankTag
-                          region={ladderRank.region}
-                          rank={ladderRank.regionRank}
-                        />
                       )}
                       {/* No separators any more: every item in this row is a
                           bounded tag, so the dots were drawing a line between

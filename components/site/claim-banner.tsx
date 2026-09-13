@@ -45,14 +45,16 @@ export async function ClaimBanner({ brawlhallaId }: { brawlhallaId: number }) {
     }
   }
 
+  // Styled as the Track control beside it: both are neutral invitations to act
+  // on this profile, and the old copper fill made this one shout over the data.
   return (
     <Link
       href={`/claim?id=${brawlhallaId}`}
-      className="group inline-flex items-center gap-1.5 rounded-md border border-copper/50 bg-copper/10 px-2.5 py-1 text-[11px] font-medium text-copper transition-colors hover:bg-copper/20"
+      className="group inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-tier-gold/50 hover:text-foreground"
     >
       <UserRoundPlus className="size-3.5" />
       Is this you?
-      <span className="text-copper/70 transition-colors group-hover:text-copper">
+      <span className="text-muted-foreground/70 transition-colors group-hover:text-foreground">
         Claim
       </span>
     </Link>

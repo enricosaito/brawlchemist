@@ -346,17 +346,26 @@ export function StanceLabel({
 }
 
 /** A distinct text + border color per region, for at-a-glance region coding. */
-export const REGION_COLOR: Record<string, { text: string; border: string }> = {
-  ALL: { text: "text-muted-foreground", border: "border-border/60" },
-  BRZ: { text: "text-[#4ade80]", border: "border-[#4ade80]/40" },
-  "US-E": { text: "text-[#f87171]", border: "border-[#f87171]/40" },
-  "US-W": { text: "text-[#38bdf8]", border: "border-[#38bdf8]/40" },
-  EU: { text: "text-[#60a5fa]", border: "border-[#60a5fa]/40" },
-  SEA: { text: "text-[#2dd4bf]", border: "border-[#2dd4bf]/40" },
-  AUS: { text: "text-[#fb923c]", border: "border-[#fb923c]/40" },
-  JPS: { text: "text-[#facc15]", border: "border-[#facc15]/40" },
-  SA: { text: "text-[#c084fc]", border: "border-[#c084fc]/40" },
-  ME: { text: "text-[#f472b6]", border: "border-[#f472b6]/40" },
+/**
+ * Per-region text / outline / fill. The fill carries the region's own hue at
+ * the same 10% tint every other tag uses, so a region tag sits in a row of
+ * tags as one of them rather than as a neutral chip that happens to have
+ * coloured text.
+ */
+export const REGION_COLOR: Record<
+  string,
+  { text: string; border: string; bg: string }
+> = {
+  ALL: { text: "text-muted-foreground", border: "border-border/60", bg: "bg-muted/40" },
+  BRZ: { text: "text-[#4ade80]", border: "border-[#4ade80]/40", bg: "bg-[#4ade80]/10" },
+  "US-E": { text: "text-[#f87171]", border: "border-[#f87171]/40", bg: "bg-[#f87171]/10" },
+  "US-W": { text: "text-[#38bdf8]", border: "border-[#38bdf8]/40", bg: "bg-[#38bdf8]/10" },
+  EU: { text: "text-[#60a5fa]", border: "border-[#60a5fa]/40", bg: "bg-[#60a5fa]/10" },
+  SEA: { text: "text-[#2dd4bf]", border: "border-[#2dd4bf]/40", bg: "bg-[#2dd4bf]/10" },
+  AUS: { text: "text-[#fb923c]", border: "border-[#fb923c]/40", bg: "bg-[#fb923c]/10" },
+  JPS: { text: "text-[#facc15]", border: "border-[#facc15]/40", bg: "bg-[#facc15]/10" },
+  SA: { text: "text-[#c084fc]", border: "border-[#c084fc]/40", bg: "bg-[#c084fc]/10" },
+  ME: { text: "text-[#f472b6]", border: "border-[#f472b6]/40", bg: "bg-[#f472b6]/10" },
 }
 
 /**
@@ -381,9 +390,10 @@ export function RegionRankTag({
     <span
       title={`#${rank.toLocaleString()} in ${region}`}
       className={cn(
-        "inline-flex items-center gap-1 rounded-md border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
+        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
         c?.text ?? "text-muted-foreground",
         c?.border ?? "border-border/60",
+        c?.bg ?? "bg-muted/40",
         className,
       )}
     >
@@ -398,9 +408,10 @@ export function RegionPill({ region, className }: { region: string; className?: 
   return (
     <span
       className={cn(
-        "inline-flex min-w-[2.75rem] items-center justify-center rounded-md border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
+        "inline-flex min-w-[2.75rem] items-center justify-center rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
         c?.text ?? "text-muted-foreground",
         c?.border ?? "border-border/60",
+        c?.bg ?? "bg-muted/40",
         className,
       )}
     >
