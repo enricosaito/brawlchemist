@@ -1505,13 +1505,16 @@ function ProfileHeader({
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       {badges.map((badge) => (
                         <InfoTip key={badge.key} label={badge.label}>
-                          <span className="inline-flex size-7 items-center justify-center rounded-md border border-tier-gold/40 bg-tier-gold/10">
+                          {/* No chip around it: the art is already a bounded
+                              object, and a frame only made it read as another
+                              tag in a column of tags. */}
+                          <span className="inline-flex items-center">
                             <Image
                               src={badge.src}
                               alt={badge.label}
                               width={badge.width}
                               height={badge.height}
-                              className="h-4 w-auto select-none object-contain"
+                              className="h-6 w-auto select-none object-contain"
                             />
                           </span>
                         </InfoTip>
