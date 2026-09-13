@@ -7,11 +7,9 @@ import {
   PlayerLink,
   RankIcon,
   RegionPill,
-  SHIMMER_PINK,
   TIER_TEXT_COLOR,
 } from "@/components/site/primitives"
 import { type ColDef } from "@/components/site/data-table"
-import { ShimmerText } from "@/components/shimmer-text"
 import type {
   ApiGameMode,
   ApiRegion,
@@ -24,9 +22,6 @@ import type { PlayerPreview } from "@/lib/player-previews"
 import type { Tier } from "@/lib/types"
 
 const TOP_LEGENDS_LIMIT = 5
-
-/** Rows that get the shimmer — the top of the board, above the fold. */
-const SHIMMER_TOP_N = 6
 
 /**
  * Up to N most-played legends from a player's cached rankedJson, as slugs
@@ -157,7 +152,7 @@ export function buildLeaderboardColumns(
     {
       id: "player",
       label: "Player",
-      render: (r, i) => {
+      render: (r) => {
         // The name carries the row. The tier line that used to sit under it is
         // gone — it's already in the rank emblem (and, on 2v2, its own column) —
         // and so is the "Pro Player" tag, which the check mark says on its own.
@@ -173,7 +168,6 @@ export function buildLeaderboardColumns(
                 const handle = previews.get(p.id)?.verified?.handle
                 const ign =
                   handle && handle !== p.username ? p.username : null
-                const shimmer = i < SHIMMER_TOP_N
                 return (
                   <span key={p.id} className="flex min-w-0 items-baseline gap-2">
                     <PlayerLink
@@ -182,38 +176,14 @@ export function buildLeaderboardColumns(
                     >
                       {handle ? (
                         <span className="inline-flex min-w-0 items-center gap-1">
-                          <span className="min-w-0 truncate">
-                            {shimmer ? (
-                              <ShimmerText
-                                duration={2.2}
-                                delay={0.2 + i * 0.12}
-                                className={SHIMMER_PINK}
-                              >
-                                {handle}
-                              </ShimmerText>
-                            ) : (
-                              handle
-                            )}
-                          </span>
+                          <span className="min-w-0 truncate">{handle}</span>
                           <BadgeCheck
                             className="size-3.5 shrink-0 text-mystic"
                             aria-label="Verified pro player"
                           />
                         </span>
                       ) : (
-                        <span className="block min-w-0 truncate">
-                          {shimmer ? (
-                            <ShimmerText
-                              duration={2.2}
-                              delay={0.2 + i * 0.12}
-                              className={SHIMMER_PINK}
-                            >
-                              {p.username}
-                            </ShimmerText>
-                          ) : (
-                            p.username
-                          )}
-                        </span>
+                        <span className="block min-w-0 truncate">{p.username}</span>
                       )}
                     </PlayerLink>
                     {/* Revealed on hover of the whole row (group/row lives on

@@ -50,20 +50,6 @@ export function Delta({
   )
 }
 
-/**
- * Shimmer styling for top-of-board names.
- *
- * ShimmerText paints a moving band through the text via background-clip, and
- * the band's colour is `--shimmer-contrast`. Its own default is a dark stop,
- * which on these surfaces reads as the name briefly greying out; pink turns
- * the same sweep into a highlight in the brand colour.
- *
- * The `dark:` prefix is load-bearing — the component ships its own
- * `dark:[--shimmer-contrast:…]`, and a variant selector outranks an
- * unprefixed utility whatever order the two end up in.
- */
-export const SHIMMER_PINK = "dark:[--shimmer-contrast:var(--pink)]"
-
 const TIER_COLOR: Record<Tier, string> = {
   Tin: "text-tier-tin border-tier-tin/40 bg-tier-tin/10",
   Bronze: "text-tier-bronze border-tier-bronze/40 bg-tier-bronze/10",
