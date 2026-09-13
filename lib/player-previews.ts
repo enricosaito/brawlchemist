@@ -11,4 +11,11 @@ export interface PlayerPreview {
   verified?: { handle: string }
   /** Esports accolades, shown in gold with a trophy in the header. */
   achievements?: string[]
+  /**
+   * This player has been claimed by a Brawlchemist account — shown publicly as
+   * the "Brawlchemist User" badge. Deliberately a boolean and not the owner's
+   * id: who owns a profile stays private (see ClaimBanner), only that it is
+   * owned is public.
+   */
+  claimed?: boolean
 }

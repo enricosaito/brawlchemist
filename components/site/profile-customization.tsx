@@ -15,6 +15,11 @@ import { EditableBio } from "./editable-bio"
  * nothing — so unclaimed/empty profiles are unchanged. The verified owner
  * always gets the card, with an inline bio editor (and an "Add a bio" prompt
  * when empty). Fails open: ownership lookups degrade to the public view.
+ *
+ * Renders the bare card, no outer spacing: the Overview lays this and the
+ * account stats out as one two-column row, and it relies on this returning
+ * either exactly one element or nothing so its `:only-child` rule can widen
+ * whichever card is left when the other doesn't render.
  */
 export async function ProfileCustomization({
   brawlhallaId,
@@ -53,8 +58,8 @@ export async function ProfileCustomization({
   const bioShown = isOwner || !!custom.bio
 
   return (
-    <div className="mt-6 px-4 sm:px-6">
-      <section className="mx-auto max-w-[1280px] rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-sm">
+    <>
+      <section className="h-full rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-sm">
         {isOwner ? (
           <EditableBio brawlhallaId={brawlhallaId} initialBio={custom.bio} />
         ) : custom.bio ? (
@@ -111,6 +116,6 @@ export async function ProfileCustomization({
           </div>
         )}
       </section>
-    </div>
+    </>
   )
 }

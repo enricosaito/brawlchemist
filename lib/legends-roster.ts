@@ -1,19 +1,24 @@
 import type { WeaponId } from "./types"
 
 /**
- * Canonical Brawlhalla legend roster (68 entries) as of patch 10.07.
+ * Canonical Brawlhalla legend roster (70 entries), through Qinghua & Baobao.
  *
- * - `slug` matches the directory under public/assets/legends and is used
- *   throughout the UI to look up portraits.
+ * - `slug` is the portrait filename under public/assets/legends (`<slug>.png`)
+ *   and is used throughout the UI to look them up. Kebab-case, ASCII only —
+ *   it ends up in a URL path, so an ampersand in a display name is dropped
+ *   from the slug ("Qinghua & Baobao" -> qinghua-baobao).
  * - `legendId` is the integer ID returned by the Brawlhalla v1 API in
- *   GetPlayerStats / GetLegend. Refresh via scripts/scrape-legends.mjs +
- *   /legend/all when the roster grows.
- * - `weapons` is the canonical pair of weapons each legend wields.
- *   Sourced from the user's tier-list. The /weapons page derives its data
+ *   GetPlayerStats / GetLegend. It is what `top_legend_id` on `players` holds,
+ *   so a wrong value here silently mismaps a player's main to another
+ *   legend's portrait — verify against /legend/all rather than guessing.
+ * - `weapons` is the canonical pair each legend wields, `weapon_one` and
+ *   `weapon_two` from that same endpoint. The /weapons page derives its data
  *   from this mapping; do not let the mock-data fall out of sync with this.
  *
- * Ransom / Lady Vera / Rupture weapons are placeholders pending user
- * confirmation — TODO mark them out below.
+ * Every row below was diffed against /legend/all when Aurus and Qinghua &
+ * Baobao were added. That run also settled the three weapon pairs previously
+ * marked as unconfirmed guesses: Ransom was right, Lady Vera (was chakram/orb)
+ * and Rupture (was hammer/battle-boots, a copy of King Zuva's) were not.
  */
 export interface RosterEntry {
   slug: string
@@ -89,8 +94,10 @@ export const LEGEND_ROSTER: RosterEntry[] = [
   { slug: "king-zuva", name: "King Zuva", legendId: 66, weapons: ["hammer", "battle-boots"] },
   { slug: "priya", name: "Priya", legendId: 67, weapons: ["chakram", "sword"] },
   { slug: "ransom", name: "Ransom", legendId: 68, weapons: ["chakram", "bow"] },
-  { slug: "lady-vera", name: "Lady Vera", legendId: 69, weapons: ["chakram", "orb"] },
-  { slug: "rupture", name: "Rupture", legendId: 70, weapons: ["hammer", "battle-boots"] },
+  { slug: "lady-vera", name: "Lady Vera", legendId: 69, weapons: ["chakram", "scythe"] },
+  { slug: "rupture", name: "Rupture", legendId: 70, weapons: ["katar", "rocket-lance"] },
+  { slug: "aurus", name: "Aurus", legendId: 71, weapons: ["spear", "chakram"] },
+  { slug: "qinghua-baobao", name: "Qinghua & Baobao", legendId: 72, weapons: ["cannon", "orb"] },
 ]
 
 const SLUG_BY_LEGEND_ID = new Map<number, string>(

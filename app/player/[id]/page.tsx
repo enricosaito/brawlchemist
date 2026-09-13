@@ -21,6 +21,7 @@ import { getLadderPosition } from "@/lib/sync/live"
 import { ProfileCustomization } from "@/components/site/profile-customization"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { ProBadge } from "@/components/site/pro-badge"
+import { BrawlchemistUserBadge } from "@/components/site/brawlchemist-user-badge"
 import { RatingHistoryCard } from "@/components/player/rating-history-card"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { getProfile } from "@/lib/sync/profiles"
@@ -510,10 +511,8 @@ function AccountSection({
   guildName: string | null
 }) {
   return (
-    <section className="mt-8 px-4 sm:px-6">
-      <div className="mx-auto max-w-[1280px]">
-        <div className="rounded-2xl border border-border/60 bg-card/50 p-5">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="h-full rounded-2xl border border-border/60 bg-card/50 p-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <AccountTile
               label="Account Level"
               value={stats.level.toLocaleString()}
@@ -571,10 +570,8 @@ function AccountSection({
                 <span className="text-sm text-muted-foreground">No guild</span>
               )}
             </div>
-          </div>
-        </div>
       </div>
-    </section>
+    </div>
   )
 }
 
@@ -1203,7 +1200,11 @@ function ProfileHeader({
       node: <span className="normal-case text-tier-gold">{title}</span>,
     })
   })
-  const hasMeta = !!preview?.verified || !!ladderRank || metaNodes.length > 0
+  const hasMeta =
+    !!preview?.verified ||
+    !!preview?.claimed ||
+    !!ladderRank ||
+    metaNodes.length > 0
 
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
@@ -1259,6 +1260,7 @@ function ProfileHeader({
                   </div>
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
+                      {preview?.claimed && <BrawlchemistUserBadge />}
                       {preview?.verified && (
                         <span className="inline-flex items-center gap-2">
                           <ProBadge />
@@ -1457,6 +1459,7 @@ function FallbackHeader({
                   {favoriteSlot}
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
+                  {preview?.claimed && <BrawlchemistUserBadge />}
                   {preview?.verified && (
                     <span className="inline-flex items-center gap-2">
                       <ProBadge />
@@ -1897,15 +1900,28 @@ export default async function PlayerPage({
 
       {tab === "overview" && (
         <>
-          <ProfileCustomization brawlhallaId={numId} />
+          {/* Account stats and the owner's bio share one row, so the rating
+              chart and 2v2 teams below start higher up the page instead of
+              being pushed under two full-width bands.
 
-          {accountStats && (
-            <AccountSection
-              stats={accountStats}
-              guildId={guildId}
-              guildName={guildName}
-            />
-          )}
+              Either card can be absent — stats need a /stats payload, the bio
+              card hides itself for non-owners with nothing to show — so
+              `:only-child` widens whichever one is left rather than leaving a
+              half-empty row. It's guarded to lg because spanning 2 on the
+              single-column mobile grid would create an implicit second
+              column. */}
+          <div className="mt-6 px-4 sm:px-6">
+            <div className="mx-auto grid max-w-[1280px] grid-cols-1 items-stretch gap-4 lg:grid-cols-2 lg:[&>*:only-child]:col-span-2">
+              {accountStats && (
+                <AccountSection
+                  stats={accountStats}
+                  guildId={guildId}
+                  guildName={guildName}
+                />
+              )}
+              <ProfileCustomization brawlhallaId={numId} />
+            </div>
+          </div>
 
           {hasOneVOne && (
             <section className="mt-8 px-4 sm:px-6">
