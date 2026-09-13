@@ -261,4 +261,4 @@ export const META_SNAPSHOT: MetaSnapshot = {
 
 export const TRENDING_LEGEND_IDS = ["caspian", "bodvar", "orion", "mirage"]
 
-export const CURRENT_PATCH = "10.07"
+export const CURRENT_PATCH = "10.10"
