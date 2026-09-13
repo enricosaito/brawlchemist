@@ -360,7 +360,7 @@ function RatingTile({
 }) {
   const accent = tier ? TIER_TEXT_COLOR[tier] : undefined
   return (
-    <div className="min-w-0 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 sm:flex-1">
+    <div className="min-w-0 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 sm:shrink-0">
       <span className="flex min-w-0 items-baseline gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
         <span className="shrink-0">{label}</span>
         {partner && (
@@ -372,13 +372,28 @@ function RatingTile({
           </Link>
         )}
       </span>
-      <div
-        className="mt-1 flex h-7 items-center gap-1.5"
-        title={peak != null ? `Peak ${formatElo(peak)} ELO` : undefined}
-      >
-        {tier && <RankHelm tier={tier} className="h-6" />}
+      {/* Tier reads with the number rather than under it — "Valhallan 2,932
+          ELO" is one statement, and the same shape the team cards already
+          use. It keeps its tier colour, which is the only colour in the card
+          and so does the work of saying which band this is. */}
+      <div className="mt-1 flex h-7 min-w-0 items-baseline gap-1.5">
+        {tier && <RankHelm tier={tier} className="h-6 self-center" />}
+        {tier && (
+          <span
+            className={cn(
+              "shrink-0 font-mono text-[10px] font-medium uppercase tracking-wider",
+              accent,
+            )}
+          >
+            {tierName}
+          </span>
+        )}
+        {/* No "ELO" suffix: the card is labelled "1v1 Rating" and a tier name
+            now sits immediately before the number, so the unit was the third
+            thing saying the same thing — and the one that pushed this line
+            past the card's width. */}
         {rating != null ? (
-          <span className="font-display text-xl font-semibold tabular-nums text-foreground">
+          <span className="truncate font-display text-xl font-semibold tabular-nums text-foreground">
             {formatElo(rating)}
           </span>
         ) : (
@@ -387,12 +402,10 @@ function RatingTile({
           </span>
         )}
       </div>
-      {/* Tier only. Peak moved to the tooltip on the rating above: four cards
-          in one row leaves ~130px each, and "VALHALLAN · PEAK 2,883" truncated
-          mid-word — which reads as broken rather than as abbreviated. The tier
-          is the part that can't be inferred from the number beside it. */}
+      {/* Peak comes back off the tooltip now that the tier has vacated this
+          line — with three cards instead of four there is room for it. */}
       <div className="mt-0.5 h-4 truncate font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-        {tier && <span className={accent}>{tierName}</span>}
+        {peak != null && <>Peak {formatElo(peak)}</>}
       </div>
     </div>
   )
@@ -869,7 +882,7 @@ interface TopLegend {
 function MostPlayedLegend({ legend }: { legend: TopLegend }) {
   return (
     <div className="group/leg relative">
-      <LegendHead slug={legend.slug} className="size-10" />
+      <LegendHead slug={legend.slug} className="size-9" />
       <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-max -translate-x-1/2 rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-center shadow-lg group-hover/leg:block">
         <div className="text-xs font-semibold">{legend.name}</div>
         <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
@@ -1246,7 +1259,7 @@ function ProfileHeader({
                     alt={`${tier} rank banner`}
                     width={182}
                     height={330}
-                    className="h-32 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-40"
+                    className="h-28 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-36"
                     priority
                   />
                 )}
@@ -1257,7 +1270,7 @@ function ProfileHeader({
                     title={`Favorite skin: ${preview.favoriteSkin.name}`}
                     width={364}
                     height={323}
-                    className="h-32 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-40"
+                    className="h-28 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-36"
                   />
                 )}
               </div>
@@ -1375,7 +1388,7 @@ function ProfileHeader({
                     Counts 1v1 and every 2v2 team together: this is the card
                     that answers "how much have they played", and splitting it
                     by queue understated it for anyone who mostly plays 2v2. */}
-                <div className="flex min-w-0 flex-col rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 sm:flex-[1.35]">
+                <div className="flex min-w-0 flex-col rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 sm:flex-1">
                   <div className="flex min-w-0 justify-between gap-3">
                     <div className="flex min-w-0 flex-col">
                       {/* Which queues the total covers is a tooltip, not a
@@ -1451,7 +1464,7 @@ function ProfileHeader({
                                   title={`${weaponLabel(w.weaponId)} — ${w.pct.toFixed(0)}% of playtime`}
                                   className="flex flex-col items-center gap-0.5"
                                 >
-                                  <WeaponIcon weaponId={w.weaponId} size={22} />
+                                  <WeaponIcon weaponId={w.weaponId} size={20} />
                                   <span className="font-mono text-[9px] tabular-nums text-muted-foreground">
                                     {w.pct.toFixed(0)}%
                                   </span>
@@ -1545,7 +1558,7 @@ function FallbackHeader({
                     alt={`${tier} rank banner`}
                     width={182}
                     height={330}
-                    className="h-32 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-40"
+                    className="h-28 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-36"
                     priority
                   />
                 )}
@@ -1556,7 +1569,7 @@ function FallbackHeader({
                     title={`Favorite skin: ${preview.favoriteSkin.name}`}
                     width={364}
                     height={323}
-                    className="h-32 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-40"
+                    className="h-28 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-36"
                   />
                 )}
               </div>
