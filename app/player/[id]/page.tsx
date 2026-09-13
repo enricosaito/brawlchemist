@@ -341,12 +341,18 @@ function RatingTile({
   peak,
   tier,
   tierName,
+  footnote,
+  href,
 }: {
   label: string
   rating: number | null
   peak: number | null
   tier: Tier | null
   tierName: string
+  /** Extra line under the tier/peak row — used for "with <teammate>". */
+  footnote?: string
+  /** Makes the footnote a link (the teammate's profile). */
+  href?: string
 }) {
   const accent = tier ? TIER_TEXT_COLOR[tier] : undefined
   return (
@@ -376,6 +382,19 @@ function RatingTile({
         )}
         {peak != null && <>Peak {formatElo(peak)}</>}
       </div>
+      {footnote &&
+        (href ? (
+          <Link
+            href={href}
+            className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {footnote}
+          </Link>
+        ) : (
+          <span className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground">
+            {footnote}
+          </span>
+        ))}
     </div>
   )
 }
@@ -1134,6 +1153,8 @@ function ProfileHeader({
   ladderRank,
   preview,
   legendStats,
+  topTeam,
+  combined,
   claimSlot,
   favoriteSlot,
   bannerId,
@@ -1151,13 +1172,20 @@ function ProfileHeader({
   } | null
   preview: PlayerPreview | undefined
   legendStats: Map<number, { level: number; xp: number }>
+  /** Highest-rated 2v2 team, shown beside the 1v1 rating. */
+  topTeam: { view: TeamView; valhallan: boolean } | null
+  /** 1v1 + every 2v2 team combined, for the win-rate card. */
+  combined: { wins: number; games: number }
   claimSlot?: React.ReactNode
   favoriteSlot?: React.ReactNode
   bannerId?: string | null
   bannerSlot?: React.ReactNode
 }) {
   const tier = deriveTier(data.tier, valhallan)
-  const losses = Math.max(0, data.games - data.wins)
+  const teamTier = topTeam
+    ? deriveTier(topTeam.view.team.tier, topTeam.valhallan)
+    : null
+  const losses = Math.max(0, combined.games - combined.wins)
   const topLegends: TopLegend[] = [...(data.legends ?? [])]
     .filter((l) => l.games > 0)
     .sort((a, b) => b.games - a.games)
@@ -1347,9 +1375,7 @@ function ProfileHeader({
 
               {/* Stat cards row, anchored to the bottom so the banner/skin on
                   the left spans this and the name row above it. */}
-              <div className="mt-auto flex flex-col gap-3 sm:flex-row">
-                {/* Individual 1v1 stats — rating, then win rate / games. 2v2
-                    lives in the Overview section, not this header. */}
+              <div className="mt-auto flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <RatingTile
                   label="1v1 Rating"
                   rating={data.rating}
@@ -1357,15 +1383,41 @@ function ProfileHeader({
                   tier={tier}
                   tierName={tierLabel(data.tier, valhallan)}
                 />
+                {/* Best 2v2 team beside the 1v1 rating — a player's ceiling is
+                    often a team result, and it was only reachable by scrolling
+                    to the Overview or opening the Teams tab. Named, because a
+                    2v2 rating without the partner is half a fact. */}
+                {topTeam && (
+                  <RatingTile
+                    label="2v2 Rating"
+                    rating={topTeam.view.team.rating}
+                    peak={topTeam.view.team.peak_rating}
+                    tier={teamTier}
+                    tierName={tierLabel(
+                      topTeam.view.team.tier,
+                      topTeam.valhallan,
+                    )}
+                    footnote={`with ${topTeam.view.teammateName}`}
+                    href={`/player/${topTeam.view.teammateId}`}
+                  />
+                )}
                 {/* Win rate + games played — same label/value/sub rhythm as the
-                    1v1 card so the big numbers line up across the row. */}
+                    rating cards so the big numbers line up across the row.
+                    Counts 1v1 and every 2v2 team together: this is the card
+                    that answers "how much have they played", and splitting it
+                    by queue understated it for anyone who mostly plays 2v2. */}
                 <div className="flex justify-between gap-6 rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
                   <div className="flex min-w-0 flex-col">
                     <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                       Win Rate
                     </span>
                     <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold tabular-nums text-positive">
-                      {winRate(data.wins, data.games)}
+                      {winRate(combined.wins, combined.games)}
+                    </span>
+                    {/* Only claim the total covers both queues when it does —
+                        a 1v1-only player's number is not "1v1 + 2v2". */}
+                    <span className="mt-1 h-4 font-mono text-[10px] text-muted-foreground">
+                      {combined.games > data.games ? "1v1 + 2v2" : "1v1"}
                     </span>
                   </div>
                   <div className="flex min-w-0 flex-col">
@@ -1373,16 +1425,28 @@ function ProfileHeader({
                       Games
                     </span>
                     <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold tabular-nums">
-                      {data.games.toLocaleString()}
+                      {combined.games.toLocaleString()}
                     </span>
                     <span className="mt-1 h-4 font-mono text-[10px] text-muted-foreground">
-                      {data.wins.toLocaleString()}W · {losses.toLocaleString()}L
+                      {combined.wins.toLocaleString()}W ·{" "}
+                      {losses.toLocaleString()}L
                     </span>
                   </div>
                 </div>
                 {/* Most played — hover a head for pick rate, level, and XP. */}
+                {/* With the 2v2 card present there are four cards, and four
+                    don't fit: at 1440 the ELO suffix spilled its border and
+                    the 2v2 footnote collided with the peak line. So this one
+                    takes a full row of its own rather than competing — and
+                    spans it, since a narrow card beside dead space reads as a
+                    layout bug. Without a 2v2 card three still fit inline. */}
                 {topLegends.length > 0 && (
-                  <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:shrink-0">
+                  <div
+                    className={cn(
+                      "rounded-xl border border-border/60 bg-card/40 px-4 py-3",
+                      topTeam ? "sm:basis-full" : "sm:shrink-0",
+                    )}
+                  >
                     <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                       Most Played
                     </span>
@@ -1835,6 +1899,25 @@ export default async function PlayerPage({
   const hasOneVOne = hasRankedName && !!data.tier && data.tier !== "none"
   const topTeam = teams[0] ?? null
 
+  // Header totals: 1v1 plus every 2v2 team. `teams` is already filtered of the
+  // junk rows the API returns (self-teams, zero ids), so this doesn't
+  // double-count anything the Teams tab wouldn't also show.
+  const combinedRecord = teams.reduce(
+    (acc, t) => ({ wins: acc.wins + t.wins, games: acc.games + t.games }),
+    { wins: data.wins, games: data.games },
+  )
+  const topTeamHeader =
+    teamViews.length > 0
+      ? {
+          view: teamViews[0],
+          valhallan: isValhallan(
+            teamViews[0].team.rating,
+            cutoff2v2,
+            teamViews[0].team.wins,
+          ),
+        }
+      : null
+
   // Tabbed sections below the header. Tabs only appear when they have
   // content; Overview (rating history + account) is always first, esports
   // gets its own tab for tracked competitors.
@@ -1890,6 +1973,8 @@ export default async function PlayerPage({
           ladderRank={ladderRank}
           preview={preview}
           legendStats={legendStatsById}
+          topTeam={topTeamHeader}
+          combined={combinedRecord}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           favoriteSlot={favoriteToggle}
           bannerId={bannerId}
