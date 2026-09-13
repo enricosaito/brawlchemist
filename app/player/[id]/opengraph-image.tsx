@@ -56,7 +56,12 @@ export default async function OgImage({
   let valhallan = false
   if (data?.region && data.region !== "ALL" && isApiRegion(data.region)) {
     const c = await getValhallanCutoff("1v1", data.region)
-    valhallan = isValhallan(data.rating, c?.rating ?? null, data.wins)
+    // Ladder membership first (see isValhallan1v1 on the profile page) so the
+    // OG card can't say Diamond while the page it illustrates says Valhallan.
+    // `ids` is optional-chained: cutoffs cached before it existed lack it.
+    valhallan =
+      !!c?.ids?.includes(data.brawlhalla_id) ||
+      isValhallan(data.rating, c?.rating ?? null, data.wins)
   }
 
   const name = data?.name || "Player"

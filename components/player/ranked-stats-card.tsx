@@ -1,60 +1,99 @@
 import { TrendingDown, TrendingUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TIER_COLOR_VAR } from "@/components/site/primitives"
+import { formatElo, formatPercent } from "@/lib/format"
 import { getRatingHistory } from "@/lib/sync/snapshots"
 import { RatingTrendChart } from "./rating-trend-chart"
 import type { Tier } from "@/lib/types"
 
 const WINDOW_DAYS = 30
 
+export interface RankedStats {
+  /** Current 1v1 rating. */
+  rating: number | null
+  /** Career peak, not the window peak the chart would otherwise report. */
+  peak: number | null
+  tier: Tier | null
+  /** Spelled-out tier, for the tooltip on the helm-less bands. */
+  tierName: string
+  /** 1v1 + every 2v2 team, matching what the profile counts elsewhere. */
+  wins: number
+  games: number
+}
+
 /**
- * RatingHistoryCard — the profile's "rating over time" section. Reads the
- * snapshot series recorded by every fresh /ranked payload (zero extra API
- * calls; see lib/sync/snapshots.ts) and renders the 30-day trend.
+ * RankedStatsCard — the profile's ranked section: the season's numbers and the
+ * shape of how they got there.
+ *
+ * This was "Rating History", a chart on its own. The header above it carried
+ * the numbers, which meant the two halves of one story sat in different parts
+ * of the page and the header had to shrink every figure to fit them beside the
+ * art. Together they read as one panel and each gets room.
  *
  * The chart is deliberately one line in one colour — the player's current tier
  * — rather than the tier-banded version this replaced. That chart carried more
  * information (zone shading, threshold lines, rank helms) but read as a
- * diagram; the shape of the climb is what people actually come here for. The
- * numbers that framed it survive as the chips above: window delta, distance to
- * Valhallan, peak, sample size.
+ * diagram; the shape of the climb is what people actually come here for.
  */
-export async function RatingHistoryCard({
+export async function RankedStatsCard({
   brawlhallaId,
   valhallanCutoff,
-  tier,
+  stats,
+  ratingSlot,
+  mostPlayedSlot,
   embedded = false,
 }: {
   brawlhallaId: number
-  /** The region's live Valhallan cutoff — drawn as the top threshold line. */
+  /** The region's live Valhallan cutoff — drives the "to Valhallan" chip. */
   valhallanCutoff: number | null
-  /** Player's current tier — drives the line color. */
-  tier: Tier | null
-  /** When true, drop the outer section/width wrapper so a parent can place
-   * the card in its own layout (e.g. an Overview grid column). */
+  stats: RankedStats
+  /** The rating figure (helm + number + unit), rendered by the page. */
+  ratingSlot?: React.ReactNode
+  /** Legend heads + weapon shares, rendered by the page. */
+  mostPlayedSlot?: React.ReactNode
+  /** Drop the outer section/width wrapper so a parent can place the card. */
   embedded?: boolean
 }) {
   let history: Awaited<ReturnType<typeof getRatingHistory>> = []
   try {
     history = await getRatingHistory(brawlhallaId, WINDOW_DAYS)
   } catch (err) {
-    console.error("[rating-history] read failed:", err)
+    console.error("[ranked-stats] history read failed:", err)
   }
 
-  const heading = (
-    <div className="mb-3 flex items-center gap-2">
-      <h2 className="font-display text-lg font-semibold">Rating History</h2>
-      <span className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-        Last {WINDOW_DAYS}d
-      </span>
+  const losses = Math.max(0, stats.games - stats.wins)
+
+  const metrics = (
+    <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
+      <Metric label="1v1 Rating">{ratingSlot}</Metric>
+      <Metric
+        label="Win Rate"
+        sub={`${stats.wins.toLocaleString()}W · ${losses.toLocaleString()}L`}
+      >
+        <span className="text-positive">
+          {stats.games > 0
+            ? formatPercent((stats.wins / stats.games) * 100)
+            : "—"}
+        </span>
+      </Metric>
+      <Metric label="Games">{stats.games.toLocaleString()}</Metric>
+      <Metric label="Peak Elo">
+        {stats.peak != null ? formatElo(stats.peak) : "—"}
+      </Metric>
+      {mostPlayedSlot && (
+        <div className="min-w-0">{mostPlayedSlot}</div>
+      )}
     </div>
   )
 
   const card = (body: React.ReactNode) => {
     const inner = (
       <>
-        {heading}
+        <div className="mb-3 flex items-center gap-2">
+          <h2 className="font-display text-lg font-semibold">Ranked Stats</h2>
+        </div>
         <div className="rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-sm sm:p-6">
+          {metrics}
           {body}
         </div>
       </>
@@ -71,7 +110,7 @@ export async function RatingHistoryCard({
   // empty. One point can't draw a line either.
   if (history.length < 2) {
     return card(
-      <p className="py-6 text-center font-mono text-xs uppercase tracking-wider text-muted-foreground">
+      <p className="mt-5 border-t border-border/60 pt-5 text-center font-mono text-xs uppercase tracking-wider text-muted-foreground">
         Rating history records from each profile visit — check back after a few
         games.
       </p>,
@@ -83,7 +122,6 @@ export async function RatingHistoryCard({
     rating: h.rating,
   }))
   const ratings = points.map((p) => p.rating)
-  const peak = Math.max(...ratings)
   const current = ratings[ratings.length - 1]
   const delta = current - ratings[0]
 
@@ -94,11 +132,10 @@ export async function RatingHistoryCard({
       day: "numeric",
     }),
   )
-  const lineColor = TIER_COLOR_VAR[tier ?? "Diamond"]
+  const lineColor = TIER_COLOR_VAR[stats.tier ?? "Diamond"]
 
   // Honest span label — data often covers far less than the 30d window.
-  const spanDays =
-    (points[points.length - 1].t - points[0].t) / 86_400_000
+  const spanDays = (points[points.length - 1].t - points[0].t) / 86_400_000
   const spanLabel =
     spanDays >= WINDOW_DAYS * 0.8
       ? `Last ${WINDOW_DAYS}d`
@@ -106,14 +143,14 @@ export async function RatingHistoryCard({
         ? "Past 24h"
         : `Last ${Math.ceil(spanDays)}d`
 
-  // Distance to the Valhallan cutoff — the framing the top band visualizes.
+  // Distance to the Valhallan cutoff — the framing the top band visualized.
   const toValhallan =
     valhallanCutoff != null && current < valhallanCutoff
       ? valhallanCutoff - current
       : null
 
   return card(
-    <>
+    <div className="mt-5 border-t border-border/60 pt-5">
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span
           className={cn(
@@ -142,14 +179,40 @@ export async function RatingHistoryCard({
             </span>
           </span>
         )}
+        {/* No peak here any more — it's a metric above, and two "peak" numbers
+            meaning different things (career vs this window) was the confusing
+            part of the old card. */}
         <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          Peak <span className="text-foreground">{peak.toLocaleString()}</span>
-          <span className="px-1.5 opacity-60">·</span>
           {points.length} snapshots
         </span>
       </div>
 
       <RatingTrendChart ratings={ratings} labels={labels} color={lineColor} />
-    </>,
+    </div>,
+  )
+}
+
+/** One label / big-value / optional-sub column in the metrics strip. */
+function Metric({
+  label,
+  sub,
+  children,
+}: {
+  label: string
+  sub?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex min-w-0 flex-col">
+      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold tabular-nums">
+        {children}
+      </span>
+      <span className="mt-0.5 h-4 truncate font-mono text-[10px] text-muted-foreground">
+        {sub}
+      </span>
+    </div>
   )
 }

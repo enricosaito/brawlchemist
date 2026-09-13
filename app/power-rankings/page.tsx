@@ -14,6 +14,7 @@ import {
   type PrRegion,
 } from "@/lib/brawltools-api"
 import { PlayerLink } from "@/components/site/player-link"
+import { InfoTip } from "@/components/site/info-tip"
 
 export const metadata: Metadata = {
   title: "Brawlchemist | Power Rankings",
@@ -96,16 +97,17 @@ function MedalCount({
   title: string
 }) {
   return (
-    <span
-      title={title}
-      className={cn(
-        "inline-flex items-center gap-1 font-mono text-xs tabular-nums",
-        count > 0 ? MEDAL[tone] : "text-muted-foreground/40",
-      )}
-    >
-      <Medal className="size-3.5" />
-      {count}
-    </span>
+    <InfoTip label={title}>
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 font-mono text-xs tabular-nums",
+          count > 0 ? MEDAL[tone] : "text-muted-foreground/40",
+        )}
+      >
+        <Medal className="size-3.5" />
+        {count}
+      </span>
+    </InfoTip>
   )
 }
 

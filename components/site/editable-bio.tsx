@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Check, Pencil, Plus, Settings2, X } from "lucide-react"
 import { saveBioAction } from "@/app/account/actions"
 import { cn } from "@/lib/utils"
+import { InfoTip } from "./info-tip"
 
 // Mirrors the server-side cap in normalizeInput (lib/sync/customizations.ts).
 const BIO_MAX = 280
@@ -138,23 +139,25 @@ export function EditableBio({
     <div className="group/bio flex items-start gap-2">
       <p className="flex-1 text-sm leading-relaxed text-foreground/90">{bio}</p>
       <div className="flex shrink-0 items-center gap-1">
-        <button
-          type="button"
-          onClick={open}
-          aria-label="Edit bio"
-          title="Edit bio"
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <Pencil className="size-3.5" />
-        </button>
-        <a
-          href="/account"
-          aria-label="More profile options"
-          title="More profile options"
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <Settings2 className="size-3.5" />
-        </a>
+        <InfoTip label="Edit bio">
+          <button
+            type="button"
+            onClick={open}
+            aria-label="Edit bio"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Pencil className="size-3.5" />
+          </button>
+        </InfoTip>
+        <InfoTip label="More profile options">
+          <a
+            href="/account"
+            aria-label="More profile options"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Settings2 className="size-3.5" />
+          </a>
+        </InfoTip>
       </div>
     </div>
   )
