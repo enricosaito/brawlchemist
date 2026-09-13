@@ -256,6 +256,9 @@ async function valhallanCutoffRating(
   return c?.rating ?? null
 }
 
+/** Heads in the header's Most Played card. Four keeps the stat row one line. */
+const MOST_PLAYED_COUNT = 4
+
 function winRate(wins: number, games: number): string {
   if (games <= 0) return "—"
   return formatPercent((wins / games) * 100)
@@ -341,60 +344,56 @@ function RatingTile({
   peak,
   tier,
   tierName,
-  footnote,
-  href,
+  partner,
 }: {
   label: string
   rating: number | null
   peak: number | null
   tier: Tier | null
   tierName: string
-  /** Extra line under the tier/peak row — used for "with <teammate>". */
-  footnote?: string
-  /** Makes the footnote a link (the teammate's profile). */
-  href?: string
+  /**
+   * Teammate for a 2v2 rating. Rendered into the label row rather than as a
+   * fourth line, so both rating cards stay exactly three lines tall and the
+   * whole stat row can sit inside the height of the rank banner.
+   */
+  partner?: { name: string; id: number }
 }) {
   const accent = tier ? TIER_TEXT_COLOR[tier] : undefined
   return (
-    <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-        {label}
+    <div className="min-w-0 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 sm:flex-1">
+      <span className="flex min-w-0 items-baseline gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span className="shrink-0">{label}</span>
+        {partner && (
+          <Link
+            href={`/player/${partner.id}`}
+            className="min-w-0 truncate normal-case text-muted-foreground/70 transition-colors hover:text-foreground"
+          >
+            · {partner.name}
+          </Link>
+        )}
       </span>
-      <div className="mt-1 flex h-8 items-center gap-2">
-        {tier && <RankHelm tier={tier} />}
+      <div
+        className="mt-1 flex h-7 items-center gap-1.5"
+        title={peak != null ? `Peak ${formatElo(peak)} ELO` : undefined}
+      >
+        {tier && <RankHelm tier={tier} className="h-6" />}
         {rating != null ? (
-          <span className="font-display text-2xl font-semibold tabular-nums text-foreground">
+          <span className="font-display text-xl font-semibold tabular-nums text-foreground">
             {formatElo(rating)}
-            <span className="ml-1 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              ELO
-            </span>
           </span>
         ) : (
-          <span className="font-display text-2xl font-semibold text-muted-foreground">
+          <span className="font-display text-xl font-semibold text-muted-foreground">
             —
           </span>
         )}
       </div>
-      <div className="mt-1 h-4 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+      {/* Tier only. Peak moved to the tooltip on the rating above: four cards
+          in one row leaves ~130px each, and "VALHALLAN · PEAK 2,883" truncated
+          mid-word — which reads as broken rather than as abbreviated. The tier
+          is the part that can't be inferred from the number beside it. */}
+      <div className="mt-0.5 h-4 truncate font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         {tier && <span className={accent}>{tierName}</span>}
-        {tier && peak != null && (
-          <span className="text-muted-foreground/40"> · </span>
-        )}
-        {peak != null && <>Peak {formatElo(peak)}</>}
       </div>
-      {footnote &&
-        (href ? (
-          <Link
-            href={href}
-            className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {footnote}
-          </Link>
-        ) : (
-          <span className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground">
-            {footnote}
-          </span>
-        ))}
     </div>
   )
 }
@@ -862,7 +861,7 @@ interface TopLegend {
 function MostPlayedLegend({ legend }: { legend: TopLegend }) {
   return (
     <div className="group/leg relative">
-      <LegendHead slug={legend.slug} className="size-11" />
+      <LegendHead slug={legend.slug} className="size-10" />
       <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-max -translate-x-1/2 rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-center shadow-lg group-hover/leg:block">
         <div className="text-xs font-semibold">{legend.name}</div>
         <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
@@ -1189,7 +1188,7 @@ function ProfileHeader({
   const topLegends: TopLegend[] = [...(data.legends ?? [])]
     .filter((l) => l.games > 0)
     .sort((a, b) => b.games - a.games)
-    .slice(0, 5)
+    .slice(0, MOST_PLAYED_COUNT)
     .map((l): TopLegend | null => {
       const slug = slugForLegendId(l.legend_id)
       if (!slug) return null
@@ -1252,14 +1251,14 @@ function ProfileHeader({
           )}
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-stretch">
             {(tier || preview?.favoriteSkin) && (
-              <div className="flex shrink-0 items-center justify-center gap-3 sm:justify-start">
+              <div className="flex shrink-0 items-center justify-center gap-2 sm:justify-start">
                 {tier && (
                   <Image
                     src={`/assets/ranks/Banner_Rank_${tier}.webp`}
                     alt={`${tier} rank banner`}
                     width={182}
                     height={330}
-                    className="h-36 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-44"
+                    className="h-32 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-40"
                     priority
                   />
                 )}
@@ -1270,7 +1269,7 @@ function ProfileHeader({
                     title={`Favorite skin: ${preview.favoriteSkin.name}`}
                     width={364}
                     height={323}
-                    className="h-36 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-44"
+                    className="h-32 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-40"
                   />
                 )}
               </div>
@@ -1375,7 +1374,7 @@ function ProfileHeader({
 
               {/* Stat cards row, anchored to the bottom so the banner/skin on
                   the left spans this and the name row above it. */}
-              <div className="mt-auto flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <div className="mt-auto flex flex-col gap-2 sm:flex-row">
                 <RatingTile
                   label="1v1 Rating"
                   rating={data.rating}
@@ -1389,7 +1388,7 @@ function ProfileHeader({
                     2v2 rating without the partner is half a fact. */}
                 {topTeam && (
                   <RatingTile
-                    label="2v2 Rating"
+                    label="2v2"
                     rating={topTeam.view.team.rating}
                     peak={topTeam.view.team.peak_rating}
                     tier={teamTier}
@@ -1397,8 +1396,10 @@ function ProfileHeader({
                       topTeam.view.team.tier,
                       topTeam.valhallan,
                     )}
-                    footnote={`with ${topTeam.view.teammateName}`}
-                    href={`/player/${topTeam.view.teammateId}`}
+                    partner={{
+                      name: topTeam.view.teammateName,
+                      id: topTeam.view.teammateId,
+                    }}
                   />
                 )}
                 {/* Win rate + games played — same label/value/sub rhythm as the
@@ -1406,51 +1407,52 @@ function ProfileHeader({
                     Counts 1v1 and every 2v2 team together: this is the card
                     that answers "how much have they played", and splitting it
                     by queue understated it for anyone who mostly plays 2v2. */}
-                <div className="flex justify-between gap-6 rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
-                  <div className="flex min-w-0 flex-col">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Win Rate
-                    </span>
-                    <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold tabular-nums text-positive">
-                      {winRate(combined.wins, combined.games)}
-                    </span>
-                    {/* Only claim the total covers both queues when it does —
-                        a 1v1-only player's number is not "1v1 + 2v2". */}
-                    <span className="mt-1 h-4 font-mono text-[10px] text-muted-foreground">
-                      {combined.games > data.games ? "1v1 + 2v2" : "1v1"}
-                    </span>
+                <div className="flex min-w-0 flex-col rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 sm:flex-[1.35]">
+                  <div className="flex min-w-0 justify-between gap-3">
+                    <div className="flex min-w-0 flex-col">
+                      {/* Which queues the total covers is a tooltip, not a
+                          line: three lines per card is what keeps the row
+                          inside the banner's height. */}
+                      <span
+                        className="truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+                        title={
+                          combined.games > data.games
+                            ? "1v1 and 2v2 combined"
+                            : "1v1 only — no 2v2 record this season"
+                        }
+                      >
+                        Win Rate
+                      </span>
+                      <span className="mt-1 flex h-7 items-center font-display text-xl font-semibold tabular-nums text-positive">
+                        {winRate(combined.wins, combined.games)}
+                      </span>
+                    </div>
+                    <div className="flex min-w-0 flex-col">
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Games
+                      </span>
+                      <span className="mt-1 flex h-7 items-center font-display text-xl font-semibold tabular-nums">
+                        {combined.games.toLocaleString()}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex min-w-0 flex-col">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Games
-                    </span>
-                    <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold tabular-nums">
-                      {combined.games.toLocaleString()}
-                    </span>
-                    <span className="mt-1 h-4 font-mono text-[10px] text-muted-foreground">
-                      {combined.wins.toLocaleString()}W ·{" "}
-                      {losses.toLocaleString()}L
-                    </span>
-                  </div>
+                  {/* Spans the card rather than sitting under Win Rate alone —
+                      in half the width "1,382W · 334L" truncated. */}
+                  <span className="mt-0.5 h-4 truncate font-mono text-[10px] text-muted-foreground">
+                    {combined.wins.toLocaleString()}W · {losses.toLocaleString()}L
+                  </span>
                 </div>
-                {/* Most played — hover a head for pick rate, level, and XP. */}
-                {/* With the 2v2 card present there are four cards, and four
-                    don't fit: at 1440 the ELO suffix spilled its border and
-                    the 2v2 footnote collided with the peak line. So this one
-                    takes a full row of its own rather than competing — and
-                    spans it, since a narrow card beside dead space reads as a
-                    layout bug. Without a 2v2 card three still fit inline. */}
+                {/* Most played — hover a head for pick rate, level, and XP.
+                    Four heads rather than five, at size-10: the row has to
+                    hold four cards inside the banner's height, and the fifth
+                    head was the widest thing that could go without losing
+                    information the other cards don't already carry. */}
                 {topLegends.length > 0 && (
-                  <div
-                    className={cn(
-                      "rounded-xl border border-border/60 bg-card/40 px-4 py-3",
-                      topTeam ? "sm:basis-full" : "sm:shrink-0",
-                    )}
-                  >
+                  <div className="min-w-0 shrink-0 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5">
                     <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                       Most Played
                     </span>
-                    <div className="mt-2 flex items-center gap-2">
+                    <div className="mt-1.5 flex items-center gap-1.5">
                       {topLegends.map((l) => (
                         <MostPlayedLegend key={l.slug} legend={l} />
                       ))}
@@ -1523,7 +1525,7 @@ function FallbackHeader({
                     alt={`${tier} rank banner`}
                     width={182}
                     height={330}
-                    className="h-36 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-44"
+                    className="h-32 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-40"
                     priority
                   />
                 )}
@@ -1534,7 +1536,7 @@ function FallbackHeader({
                     title={`Favorite skin: ${preview.favoriteSkin.name}`}
                     width={364}
                     height={323}
-                    className="h-36 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-44"
+                    className="h-32 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-40"
                   />
                 )}
               </div>
