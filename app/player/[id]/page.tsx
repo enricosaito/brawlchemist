@@ -1230,6 +1230,38 @@ function LegendsSection({
 }
 
 
+type ProfileBadge = {
+  key: string
+  label: string
+  src: string
+  width: number
+  height: number
+}
+
+/**
+ * Badges a player's accolades entitle them to.
+ *
+ * Accolades are free text an admin types, so this matches on the phrase rather
+ * than a flag: "2v2 World Champion '24" and "1v1 World Champion '23" both earn
+ * the one trophy, which is the point — a badge is the honour, not each time it
+ * was won. Deliberately a small, closed list; unrecognised accolades simply
+ * stay as titles.
+ */
+function earnedBadges(achievements: string[] | undefined): ProfileBadge[] {
+  if (!achievements?.length) return []
+  const badges: ProfileBadge[] = []
+  if (achievements.some((a) => /world champion/i.test(a))) {
+    badges.push({
+      key: "world-champion",
+      label: "World Champion",
+      src: "/assets/Legendary_moment_trophy.png",
+      width: 616,
+      height: 1212,
+    })
+  }
+  return badges
+}
+
 /**
  * Way back from a sub-view.
  *
@@ -1309,6 +1341,7 @@ function ProfileHeader({
     !!ladderRank ||
     metaNodes.length > 0
   const hasAccolades = (preview?.achievements?.length ?? 0) > 0
+  const badges = earnedBadges(preview?.achievements)
 
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
@@ -1456,17 +1489,32 @@ function ProfileHeader({
                       {preview?.achievements?.map((a) => (
                         <span
                           key={a}
-                          className="inline-flex items-center gap-1 rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 text-tier-gold"
+                          className="inline-flex items-center rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 text-tier-gold"
                         >
-                          <Image
-                            src="/assets/Legendary_moment_trophy.png"
-                            alt=""
-                            width={616}
-                            height={1212}
-                            className="h-3 w-auto shrink-0 select-none object-contain"
-                          />
                           {a}
                         </span>
+                      ))}
+                    </div>
+                  )}
+                  {/* Badges: the third row, and the one that doesn't spell
+                      itself out. A title says what you won in words; a badge
+                      is the thing itself, earned once and recognised on sight,
+                      so it's art with the name in a tooltip rather than more
+                      text competing with the two rows above it. */}
+                  {badges.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {badges.map((badge) => (
+                        <InfoTip key={badge.key} label={badge.label}>
+                          <span className="inline-flex size-7 items-center justify-center rounded-md border border-tier-gold/40 bg-tier-gold/10">
+                            <Image
+                              src={badge.src}
+                              alt={badge.label}
+                              width={badge.width}
+                              height={badge.height}
+                              className="h-4 w-auto select-none object-contain"
+                            />
+                          </span>
+                        </InfoTip>
                       ))}
                     </div>
                   )}
