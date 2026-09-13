@@ -162,8 +162,12 @@ export async function TopPlayersCard({
                 {/* Small and muted: the ordinal is an index into a list that's
                     already in order, so it only needs to be findable, not
                     loud. Uniform across all six — the top of the list is
-                    already marked by being at the top. */}
-                <span className="w-4 shrink-0 text-right font-mono text-xs font-semibold leading-none tabular-nums text-muted-foreground">
+                    already marked by being at the top.
+
+                    Weighted like the ELO on the other end of the row, not like
+                    the name between them: both are figures about the row, and
+                    the semibold it used to carry made it read as a heading. */}
+                <span className="w-4 shrink-0 text-right font-mono text-xs leading-none tabular-nums text-muted-foreground">
                   {entry.rank}
                 </span>
                 {slug ? (
