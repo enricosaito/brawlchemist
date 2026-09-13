@@ -1,10 +1,12 @@
 import "server-only"
 
+import { revalidateTag } from "next/cache"
 import { and, eq, isNull } from "drizzle-orm"
 import type { PlayerRanked, PlayerRankedLegend } from "@/lib/brawlhalla-api"
 import { db } from "@/lib/db"
 import { profileClaims, profiles, players } from "@/lib/db/schema"
 import { rosterEntryByLegendId } from "@/lib/legends-roster"
+import { PROFILES_TAG } from "@/lib/sync/profiles"
 
 /**
  * "Prove it's you" player-claim engine.
@@ -316,6 +318,11 @@ async function finalizeClaim(
     .update(profileClaims)
     .set({ status: "verified", resolvedAt: now })
     .where(eq(profileClaims.id, claimId))
+
+  // The cached profiles map projects userId into PlayerPreview.claimed, which
+  // drives the public "Brawlchemist User" badge. Without this the player would
+  // finish claiming and not see their badge for up to an hour.
+  revalidateTag(PROFILES_TAG, "max")
 
   return { ok: true }
 }

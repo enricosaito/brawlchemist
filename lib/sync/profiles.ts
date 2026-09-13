@@ -17,6 +17,14 @@ import type { PlayerPreview } from "@/lib/player-previews"
  */
 const TAG = "profiles"
 
+/**
+ * Cache tag for the profiles map. Exported because the claim flow also writes
+ * `profiles.userId`, and the read side now projects that into
+ * `PlayerPreview.claimed` — so a claim has to bust this the same way an admin
+ * edit does, or the badge doesn't appear until the hourly revalidate.
+ */
+export const PROFILES_TAG = TAG
+
 export interface FavoriteSkin {
   src: string
   name: string
@@ -76,6 +84,9 @@ function toPreview(row: ProfileRow): PlayerPreview {
     favoriteSkin: skin ?? undefined,
     verified: row.isPro ? { handle: row.handle ?? "" } : undefined,
     achievements: achievements.length ? achievements : undefined,
+    // undefined rather than false so unclaimed players add no key to the
+    // cached object — this map holds every profile row.
+    claimed: row.userId ? true : undefined,
   }
 }
 
