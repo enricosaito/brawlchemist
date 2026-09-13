@@ -1268,12 +1268,14 @@ function ProfileHeader({
     metaNodes.push({
       key: `title-${i}`,
       node: (
-        // Same tag shape as the rest of the row. As bare gold text these read
-        // as a sentence fragment trailing the stats rather than as the earned
-        // thing they are.
+        // Same tag shape as the rest of the row. As bare text these read as a
+        // sentence fragment trailing the stats rather than as the earned thing
+        // they are. Royal blue rather than gold: gold is the tier language
+        // here (and tier-gold is a literal rank), so a title wearing it read
+        // as a rank rather than an accolade.
         <span
           title="Earned legend title"
-          className="inline-flex items-center rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 normal-case text-tier-gold"
+          className="inline-flex items-center rounded-md border border-royal/40 bg-royal/10 px-1.5 py-0.5 normal-case text-royal"
         >
           {title}
         </span>
@@ -1550,7 +1552,7 @@ function FallbackHeader({
                     <span
                       key={title}
                       title="Earned legend title"
-                      className="inline-flex items-center rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 normal-case text-tier-gold"
+                      className="inline-flex items-center rounded-md border border-royal/40 bg-royal/10 px-1.5 py-0.5 normal-case text-royal"
                     >
                       {title}
                     </span>
