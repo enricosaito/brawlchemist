@@ -1142,6 +1142,11 @@ type ProfileBadge = {
  * the one trophy, which is the point — a badge is the honour, not each time it
  * was won. Deliberately a small, closed list; unrecognised accolades simply
  * stay as titles.
+ *
+ * This returns the badges a player is *entitled* to, which is the half that
+ * has to be derived. The flair direction — a player picking which of their
+ * badges to fly, Reddit-style — is a selection on top of this set, so it lands
+ * as a stored choice filtered against this return value rather than a rewrite.
  */
 function earnedBadges(achievements: string[] | undefined): ProfileBadge[] {
   if (!achievements?.length) return []
@@ -1302,13 +1307,23 @@ function ProfileHeader({
                   alt={`${tier} rank banner`}
                   width={182}
                   height={330}
-                  className="h-28 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-36"
+                  // The banner is the tallest thing in the card, so it is what
+                  // sets the card's height. Sized to the default profile —
+                  // name line plus one row of tags — instead of the four-row
+                  // layout this header used to carry, which left most players
+                  // with a band of empty card under their tags. Pros run to a
+                  // second row of accolades and still fit inside it.
+                  className="h-28 w-auto shrink-0 select-none object-contain drop-shadow-md"
                   priority
                 />
               </div>
             )}
 
-            <div className="flex min-w-0 flex-1 flex-col gap-4">
+            {/* Centred, now that the card is sized to the banner rather than to
+                four rows of content: a player with no tags at all would
+                otherwise hang from the top edge with the banner centred beside
+                them. */}
+            <div className="flex min-w-0 flex-1 flex-col justify-center gap-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1343,6 +1358,27 @@ function ProfileHeader({
                       ) : (
                         <RegionPill region={data.region} />
                       ))}
+                    {/* Badges ride the name line, past the region tag. They're
+                        the smallest, rarest thing a player can hold and they
+                        say nothing in words, so a row of their own left them
+                        stranded under a wall of text; up here they read as
+                        insignia on the name, which is what they are. */}
+                    {badges.map((badge) => (
+                      <InfoTip key={badge.key} label={badge.label}>
+                        {/* No chip around it: the art is already a bounded
+                            object, and a frame only made it read as one more
+                            tag in a row of tags. */}
+                        <span className="inline-flex shrink-0 items-center">
+                          <Image
+                            src={badge.src}
+                            alt={badge.label}
+                            width={badge.width}
+                            height={badge.height}
+                            className="h-6 w-auto select-none object-contain"
+                          />
+                        </span>
+                      </InfoTip>
+                    ))}
                     {claimSlot}
                     {favoriteSlot}
                     {/* The in-game name trails the controls: it's the answer to
@@ -1400,31 +1436,6 @@ function ProfileHeader({
                         >
                           {a}
                         </span>
-                      ))}
-                    </div>
-                  )}
-                  {/* Badges: the third row, and the one that doesn't spell
-                      itself out. A title says what you won in words; a badge
-                      is the thing itself, earned once and recognised on sight,
-                      so it's art with the name in a tooltip rather than more
-                      text competing with the two rows above it. */}
-                  {badges.length > 0 && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {badges.map((badge) => (
-                        <InfoTip key={badge.key} label={badge.label}>
-                          {/* No chip around it: the art is already a bounded
-                              object, and a frame only made it read as another
-                              tag in a column of tags. */}
-                          <span className="inline-flex items-center">
-                            <Image
-                              src={badge.src}
-                              alt={badge.label}
-                              width={badge.width}
-                              height={badge.height}
-                              className="h-6 w-auto select-none object-contain"
-                            />
-                          </span>
-                        </InfoTip>
                       ))}
                     </div>
                   )}
