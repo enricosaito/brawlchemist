@@ -4,7 +4,7 @@ import { headers } from "next/headers"
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowUpRight, BadgeCheck, ChevronRight, Trophy, Users } from "lucide-react"
+import { BadgeCheck, ChevronRight, Users } from "lucide-react"
 import {
   LegendChip,
   RankHelm,
@@ -43,7 +43,6 @@ import {
 } from "@/lib/brawlhalla-api"
 import {
   getEsportsProfile,
-  type EsportsPr,
   type EsportsProfile,
 } from "@/lib/brawltools-api"
 import {
@@ -614,160 +613,6 @@ function AccountSection({
   )
 }
 
-function EsportsTile({
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  label: string
-  value: string
-  sub?: string
-  accent?: string
-}) {
-  return (
-    <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3">
-      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div
-        className={cn("mt-1 font-mono text-xl font-bold tabular-nums", accent)}
-      >
-        {value}
-      </div>
-      {sub && (
-        <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          {sub}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SocialLink({
-  href,
-  label,
-}: {
-  href: string
-  label: string
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2.5 py-1 text-xs text-foreground transition-colors hover:border-tier-valhallan/50 hover:text-tier-valhallan"
-    >
-      {label}
-      <ArrowUpRight className="size-3 shrink-0" />
-    </a>
-  )
-}
-
-/**
- * Esports section — competitive/esports profile from brawltools, shown only
- * for tracked competitors with a power ranking or career earnings. The "Pro"
- * mark (a power ranking) is separate from the manual /admin verified badge.
- */
-function EsportsSection({ profile }: { profile: EsportsProfile }) {
-  const { pr1v1, pr2v2, earnings, handle, twitter, twitch, country, isPro } =
-    profile
-  // Medals come from the mode the player is ranked highest in (lowest number).
-  const ranked = [
-    pr1v1 ? ({ mode: "1v1", pr: pr1v1 } as const) : null,
-    pr2v2 ? ({ mode: "2v2", pr: pr2v2 } as const) : null,
-  ].filter((x): x is { mode: "1v1" | "2v2"; pr: EsportsPr } => x !== null)
-  const primary = [...ranked].sort(
-    (a, b) => a.pr.powerRanking - b.pr.powerRanking,
-  )[0]
-
-  return (
-    // No section heading — the active "Esports" tab already names the view.
-    <section className="mt-6 px-4 sm:px-6">
-      <div className="mx-auto max-w-[1280px]">
-        <div className="rounded-2xl border border-border/60 bg-card/50 p-5">
-          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <span className="font-display text-lg font-semibold">{handle}</span>
-            {isPro && (
-              <span className="inline-flex items-center gap-1 rounded-md border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-copper">
-                <Trophy className="size-3" />
-                Pro
-              </span>
-            )}
-            {country && (
-              <span className="text-sm text-muted-foreground">{country}</span>
-            )}
-            <div className="flex flex-wrap items-center gap-2">
-              {twitter && (
-                <SocialLink
-                  href={`https://x.com/${twitter}`}
-                  label={`Twitter @${twitter}`}
-                />
-              )}
-              {twitch && (
-                <SocialLink
-                  href={`https://twitch.tv/${twitch}`}
-                  label={`Twitch ${twitch}`}
-                />
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {pr1v1 && (
-              <EsportsTile
-                label="1v1 Power Rank"
-                value={`#${pr1v1.powerRanking}`}
-                sub={pr1v1.region}
-                accent="text-copper"
-              />
-            )}
-            {pr2v2 && (
-              <EsportsTile
-                label="2v2 Power Rank"
-                value={`#${pr2v2.powerRanking}`}
-                sub={pr2v2.region}
-                accent="text-copper"
-              />
-            )}
-            <EsportsTile
-              label="Earnings"
-              value={`$${Math.round(earnings).toLocaleString()}`}
-              accent="text-positive"
-            />
-            {primary && (
-              <EsportsTile
-                label="Top 8 / Top 32"
-                value={`${primary.pr.top8} / ${primary.pr.top32}`}
-                sub={`${primary.mode} placements`}
-              />
-            )}
-          </div>
-
-          {primary && (
-            <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border/60 pt-5">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                {primary.mode} medals
-              </span>
-              <span className="flex items-center gap-1.5 font-mono text-sm tabular-nums">
-                <span aria-hidden>🥇</span> {primary.pr.gold}
-                <span className="ml-3" aria-hidden>
-                  🥈
-                </span>{" "}
-                {primary.pr.silver}
-                <span className="ml-3" aria-hidden>
-                  🥉
-                </span>{" "}
-                {primary.pr.bronze}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-    </section>
-  )
-}
-
 /** Slug of the player's most-played legend this season. */
 function topLegendSlug(legends: PlayerRankedLegend[] | undefined): string | null {
   const top = [...(legends ?? [])]
@@ -1230,6 +1075,57 @@ function LegendsSection({
 }
 
 
+/**
+ * Esports credentials as tags: both power rankings and career earnings.
+ *
+ * These used to be a four-tile section far below the fold that almost every
+ * profile rendered empty. They're three numbers, and a number that small wants
+ * to sit beside the player's name with the rest of their standing — ice blue
+ * throughout, so the row reads "this trio comes from the esports circuit"
+ * rather than the ladder. The region and the words ride in the tooltip; the
+ * tag keeps the figure.
+ */
+function esportsTags(
+  esports: EsportsProfile | null | undefined,
+): { key: string; node: React.ReactNode }[] {
+  if (!esports) return []
+  const tagClass =
+    "inline-flex items-center rounded-md border border-ice/40 bg-ice/10 px-1.5 py-0.5 normal-case text-ice"
+  const tags: { key: string; node: React.ReactNode }[] = []
+  const pr = [
+    { mode: "1v1", pr: esports.pr1v1 },
+    { mode: "2v2", pr: esports.pr2v2 },
+  ] as const
+  for (const { mode, pr: entry } of pr) {
+    if (!entry) continue
+    tags.push({
+      key: `pr-${mode}`,
+      node: (
+        <InfoTip
+          label={`#${entry.powerRanking} on the ${entry.region} ${mode} power rankings`}
+        >
+          <span className={tagClass}>
+            {mode} PR #{entry.powerRanking}
+          </span>
+        </InfoTip>
+      ),
+    })
+  }
+  if (esports.earnings > 0) {
+    tags.push({
+      key: "earnings",
+      node: (
+        <InfoTip label="Career tournament earnings">
+          <span className={tagClass}>
+            ${Math.round(esports.earnings).toLocaleString()}
+          </span>
+        </InfoTip>
+      ),
+    })
+  }
+  return tags
+}
+
 type ProfileBadge = {
   key: string
   label: string
@@ -1298,6 +1194,7 @@ function ProfileHeader({
   valhallan,
   ladderRank,
   preview,
+  esports,
   claimSlot,
   favoriteSlot,
   bannerId,
@@ -1314,6 +1211,7 @@ function ProfileHeader({
     regionRank: number | null
   } | null
   preview: PlayerPreview | undefined
+  esports: EsportsProfile | null
   claimSlot?: React.ReactNode
   favoriteSlot?: React.ReactNode
   bannerId?: string | null
@@ -1322,7 +1220,12 @@ function ProfileHeader({
   const tier = deriveTier(data.tier, valhallan)
   // Meta line under the name: earned legend titles. (Tier + ladder rank now live
   // in the rating card below.)
-  const metaNodes: { key: string; node: React.ReactNode }[] = []
+  // Esports credentials lead the legend titles: a power ranking is standing,
+  // the same kind of claim as the global rank it sits next to, where a title is
+  // flavour.
+  const metaNodes: { key: string; node: React.ReactNode }[] = [
+    ...esportsTags(esports),
+  ]
   titles.forEach((title, i) => {
     metaNodes.push({
       key: `title-${i}`,
@@ -1564,7 +1467,6 @@ function FallbackHeader({
   bannerSlot?: React.ReactNode
 }) {
   const tier = team ? deriveTier(team.data.tier, team.valhallan) : null
-  const proPr = esports?.pr1v1 ?? esports?.pr2v2 ?? null
   const losses = team ? Math.max(0, team.data.games - team.data.wins) : 0
   // Same rule as ProfileHeader: pros are titled by their handle.
   const proHandle = preview?.verified?.handle || null
@@ -1636,11 +1538,10 @@ function FallbackHeader({
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
                   {preview?.claimed && <BrawlchemistUserBadge />}
-                  {esports?.isPro && proPr && (
-                    <span className="inline-flex items-center rounded-md border border-copper/40 bg-copper/10 px-1.5 py-0.5 text-copper">
-                      PR #{proPr.powerRanking} {proPr.region}
-                    </span>
-                  )}
+                  {/* Same credential tags as the ranked header. */}
+                  {esportsTags(esports).map((item) => (
+                    <span key={item.key}>{item.node}</span>
+                  ))}
                   {titles.map((title) => (
                     <TitleTag key={title.text} title={title} />
                   ))}
@@ -1692,16 +1593,6 @@ function FallbackHeader({
                         />
                       </div>
                     </div>
-                    {esports?.isPro && proPr && (
-                      <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
-                        <Metric
-                          label="Power Rank"
-                          value={`#${proPr.powerRanking}`}
-                          sub={proPr.region}
-                          accent="text-copper"
-                        />
-                      </div>
-                    )}
                   </>
                 ) : null}
               </div>
@@ -2013,7 +1904,6 @@ export default async function PlayerPage({
       }
     })
     .filter((l): l is TopLegend => l !== null)
-  const showEsports = !!esports && (esports.isPro || esports.earnings > 0)
   // The tab bar is gone — these are still URL states, reached from the cards
   // that describe them (Most Played -> legends, Top 2v2 Teams -> teams). The
   // list is now only a guard on ?tab=, so an unreachable value falls back to
@@ -2063,6 +1953,7 @@ export default async function PlayerPage({
           valhallan={headerValhallan}
           ladderRank={ladderRank}
           preview={preview}
+          esports={esports}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           favoriteSlot={favoriteToggle}
           bannerId={bannerId}
@@ -2212,11 +2103,6 @@ export default async function PlayerPage({
               No 1v1 ranked play this season.
             </p>
           )}
-
-          {/* Esports used to be a tab. With the tab bar gone it renders inline
-              rather than becoming unreachable — it only appears for tracked
-              competitors, so for almost every profile this is nothing. */}
-          {showEsports && <EsportsSection profile={esports} />}
         </>
       )}
 
@@ -2256,7 +2142,6 @@ export default async function PlayerPage({
         </div>
       )}
 
-      {tab === "esports" && showEsports && <EsportsSection profile={esports} />}
     </Shell>
   )
 }

@@ -61,6 +61,7 @@
     --color-mystic: var(--mystic);
     --color-pink: var(--pink);
     --color-royal: var(--royal);
+    --color-ice: var(--ice);
 
     --color-tier-tin: var(--tier-tin);
     --color-tier-bronze: var(--tier-bronze);
@@ -119,6 +120,7 @@
     --mystic: oklch(0.74 0.13 175);
     --pink: oklch(0.7 0.2 350);
     --royal: oklch(0.58 0.17 262);
+    --ice: oklch(0.66 0.13 240);
 
     --tier-tin: oklch(0.55 0.01 250);
     --tier-bronze: oklch(0.6 0.09 50);
@@ -173,6 +175,7 @@
     --mystic: oklch(0.85 0.105 175);
     --pink: oklch(0.74 0.23 350);            /* nav accent glow */
     --royal: oklch(0.64 0.17 262);           /* earned legend titles */
+    --ice: oklch(0.80 0.10 240);             /* esports credentials (PR, earnings) */
 
     --tier-tin: oklch(0.62 0.012 250);
     --tier-bronze: oklch(0.65 0.1 50);
