@@ -66,7 +66,9 @@ export function DataTable<T>({
                 data-search={
                   searchValue ? searchValue(row, i).toLowerCase() : undefined
                 }
-                className="border-t border-border/40 transition-colors hover:bg-muted/40"
+                // group/row lets a cell reveal detail on hover of the whole
+                // row rather than only of its own contents.
+                className="group/row border-t border-border/40 transition-colors hover:bg-muted/40"
               >
                 {columns.map((c) => (
                   <td

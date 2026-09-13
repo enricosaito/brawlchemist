@@ -7,6 +7,7 @@ import {
   PlayerLink,
   RankIcon,
   RegionPill,
+  SHIMMER_PINK,
   TIER_TEXT_COLOR,
 } from "@/components/site/primitives"
 import { type ColDef } from "@/components/site/data-table"
@@ -161,10 +162,10 @@ export function buildLeaderboardColumns(
         // gone — it's already in the rank emblem (and, on 2v2, its own column) —
         // and so is the "Pro Player" tag, which the check mark says on its own.
         //
-        // Pros always show their handle; the in-game name sits beside it,
-        // labelled and muted, rather than swapping in on hover. A name that
-        // only exists while the cursor is on the row can't be read, copied, or
-        // reached at all on touch.
+        // Pros always show their handle. The in-game name appears beside it on
+        // row hover rather than replacing it — the row keeps its identity, and
+        // the handle is still what you read at rest. Shown only when it differs
+        // from the handle, so there's never a second copy of the same name.
         return (
           <div className="flex min-w-0 flex-col gap-0.5">
             {r.players.length > 0 ? (
@@ -186,6 +187,7 @@ export function buildLeaderboardColumns(
                               <ShimmerText
                                 duration={2.2}
                                 delay={0.2 + i * 0.12}
+                                className={SHIMMER_PINK}
                               >
                                 {handle}
                               </ShimmerText>
@@ -201,7 +203,11 @@ export function buildLeaderboardColumns(
                       ) : (
                         <span className="block min-w-0 truncate">
                           {shimmer ? (
-                            <ShimmerText duration={2.2} delay={0.2 + i * 0.12}>
+                            <ShimmerText
+                              duration={2.2}
+                              delay={0.2 + i * 0.12}
+                              className={SHIMMER_PINK}
+                            >
                               {p.username}
                             </ShimmerText>
                           ) : (
@@ -210,8 +216,13 @@ export function buildLeaderboardColumns(
                         </span>
                       )}
                     </PlayerLink>
+                    {/* Revealed on hover of the whole row (group/row lives on
+                        the <tr>), not just of the name, so the target is the
+                        row you're already pointing at. Kept out of the layout
+                        with `hidden` rather than opacity so it never reserves
+                        width it isn't using. */}
                     {ign && (
-                      <span className="hidden min-w-0 shrink truncate font-mono text-[10px] text-muted-foreground lg:inline">
+                      <span className="hidden min-w-0 shrink truncate font-mono text-[10px] text-muted-foreground lg:group-hover/row:inline">
                         <span className="text-muted-foreground/60">IGN:</span>{" "}
                         {ign}
                       </span>

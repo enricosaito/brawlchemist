@@ -11,7 +11,7 @@ import type { PlayerRow } from "@/lib/db/schema"
 import type { Tier } from "@/lib/types"
 import { ShimmerText } from "@/components/shimmer-text"
 import { PreviewCard } from "./preview-card"
-import { LegendChip, PlayerLink, RankIcon } from "./primitives"
+import { LegendChip, PlayerLink, RankIcon, SHIMMER_PINK } from "./primitives"
 
 /** How many rows get the shimmer treatment — the visible top of the board. */
 const SHIMMER_TOP_N = 6
@@ -132,9 +132,6 @@ export async function TopPlayersCard({
             const slug = lid ? slugForLegendId(lid) : null
             const handle = overrides.get(player.id)?.verified?.handle
             const name = handle ?? player.username
-            // Only worth showing when it's actually different information.
-            const ign =
-              handle && handle !== player.username ? player.username : null
             // The top six get the shimmer. Staggered so the board reads as a
             // sequence rather than six things pulsing in lockstep.
             const shimmer = i < SHIMMER_TOP_N
@@ -186,7 +183,11 @@ export async function TopPlayersCard({
                     <span className="inline-flex min-w-0 items-center gap-1 text-[15px] leading-tight">
                       <span className="min-w-0 truncate">
                         {shimmer ? (
-                          <ShimmerText duration={2.2} delay={0.2 + i * 0.12}>
+                          <ShimmerText
+                            duration={2.2}
+                            delay={0.2 + i * 0.12}
+                            className={SHIMMER_PINK}
+                          >
                             {name}
                           </ShimmerText>
                         ) : (
@@ -199,20 +200,6 @@ export async function TopPlayersCard({
                       />
                     </span>
                   </PlayerLink>
-                  {/* The in-game name earns its place only when it differs
-                      from the handle — labelled, because an unexplained second
-                      name beside the first is a puzzle.
-
-                      Under the name rather than beside it, unlike the wide
-                      leaderboard table: this column is ~150px, and side by side
-                      the flex row squeezed the IGN to nothing. It takes the
-                      line the "Pro Player" tag used to occupy. */}
-                  {ign && (
-                    <span className="min-w-0 truncate font-mono text-[10px] text-muted-foreground">
-                      <span className="text-muted-foreground/60">IGN:</span>{" "}
-                      {ign}
-                    </span>
-                  )}
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-0.5">
                   <span className="font-mono text-sm tabular-nums">
