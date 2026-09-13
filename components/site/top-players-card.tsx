@@ -9,27 +9,8 @@ import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { Tier } from "@/lib/types"
-import { ShimmerText } from "@/components/shimmer-text"
 import { PreviewCard } from "./preview-card"
 import { LegendChip, PlayerLink, RankHelm } from "./primitives"
-
-/**
- * Medal colours for the podium three. Rank is 1-indexed, so the map is keyed
- * that way and a miss (4th and below) falls through to plain foreground.
- */
-const PODIUM_TEXT: Record<number, string> = {
-  1: "text-tier-gold",
-  2: "text-tier-silver",
-  3: "text-tier-bronze",
-}
-
-/**
- * ShimmerText paints its sweep through currentColor, so the medal colour above
- * carries the number and this only sets the band. A near-white stop reads as a
- * glint across the metal; the component's own default is a dark band, which
- * just dims it. The `dark:` prefix is load-bearing — see the component.
- */
-const PODIUM_SHIMMER = "dark:[--shimmer-contrast:oklch(1_0_0_/_0.85)]"
 
 // All API regions (ALL first), shown in the home region dropdown.
 export const HOME_REGIONS = API_REGIONS
@@ -180,25 +161,10 @@ export async function TopPlayersCard({
                 </Link>
                 {/* Small and muted: the ordinal is an index into a list that's
                     already in order, so it only needs to be findable, not
-                    loud. The podium three keep their medal colour and sweep —
-                    at this size that's a marker rather than a headline. */}
-                <span
-                  className={cn(
-                    "w-4 shrink-0 text-right font-mono text-xs font-semibold leading-none tabular-nums",
-                    PODIUM_TEXT[entry.rank] ?? "text-muted-foreground",
-                  )}
-                >
-                  {PODIUM_TEXT[entry.rank] ? (
-                    <ShimmerText
-                      duration={2.4}
-                      delay={0.3 + entry.rank * 0.25}
-                      className={PODIUM_SHIMMER}
-                    >
-                      {entry.rank}
-                    </ShimmerText>
-                  ) : (
-                    entry.rank
-                  )}
+                    loud. Uniform across all six — the top of the list is
+                    already marked by being at the top. */}
+                <span className="w-4 shrink-0 text-right font-mono text-xs font-semibold leading-none tabular-nums text-muted-foreground">
+                  {entry.rank}
                 </span>
                 {slug ? (
                   <LegendChip legendId={slug} size="md" showName={false} />
