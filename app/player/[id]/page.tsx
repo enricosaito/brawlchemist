@@ -387,7 +387,6 @@ function RatingTile({
    */
   partner?: { name: string; id: number }
 }) {
-  const accent = tier ? TIER_TEXT_COLOR[tier] : undefined
   return (
     <div className="min-w-0 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 sm:shrink-0">
       <span className="flex min-w-0 items-baseline gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -401,29 +400,21 @@ function RatingTile({
           </Link>
         )}
       </span>
-      {/* Tier reads with the number rather than under it — "Valhallan 2,932
-          ELO" is one statement, and the same shape the team cards already
-          use. It keeps its tier colour, which is the only colour in the card
-          and so does the work of saying which band this is. */}
-      <div className="mt-1 flex h-7 min-w-0 items-baseline gap-1.5">
+      {/* The helm carries the tier here — the rank banner beside this card is
+          per-tier art saying the same thing, so spelling it out as well made
+          three things state one fact. Tier name stays in the tooltip for the
+          bands below Diamond, which have no helm. */}
+      <div
+        className="mt-1 flex h-7 min-w-0 items-baseline gap-1.5"
+        title={tier ? tierName : undefined}
+      >
         {tier && <RankHelm tier={tier} className="h-6 self-center" />}
-        {tier && (
-          <span
-            className={cn(
-              "shrink-0 font-mono text-[10px] font-medium uppercase tracking-wider",
-              accent,
-            )}
-          >
-            {tierName}
-          </span>
-        )}
-        {/* No "ELO" suffix: the card is labelled "1v1 Rating" and a tier name
-            now sits immediately before the number, so the unit was the third
-            thing saying the same thing — and the one that pushed this line
-            past the card's width. */}
         {rating != null ? (
           <span className="truncate font-display text-xl font-semibold tabular-nums text-foreground">
             {formatElo(rating)}
+            <span className="ml-1 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              ELO
+            </span>
           </span>
         ) : (
           <span className="font-display text-xl font-semibold text-muted-foreground">
