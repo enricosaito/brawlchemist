@@ -1080,17 +1080,17 @@ function LegendsSection({
  *
  * These used to be a four-tile section far below the fold that almost every
  * profile rendered empty. They're three numbers, and a number that small wants
- * to sit beside the player's name with the rest of their standing — ice blue
- * throughout, so the row reads "this trio comes from the esports circuit"
- * rather than the ladder. The region and the words ride in the tooltip; the
- * tag keeps the figure.
+ * to sit beside the player's name with the rest of their standing — mystic
+ * throughout, the same blue as the verified pro mark, so the row reads "this
+ * trio comes from the esports circuit" rather than the ladder. The region and
+ * the words ride in the tooltip; the tag keeps the figure.
  */
 function esportsTags(
   esports: EsportsProfile | null | undefined,
 ): { key: string; node: React.ReactNode }[] {
   if (!esports) return []
   const tagClass =
-    "inline-flex items-center rounded-md border border-ice/40 bg-ice/10 px-1.5 py-0.5 normal-case text-ice"
+    "inline-flex items-center rounded-md border border-mystic/40 bg-mystic/10 px-1.5 py-0.5 normal-case text-mystic"
   const tags: { key: string; node: React.ReactNode }[] = []
   const pr = [
     { mode: "1v1", pr: esports.pr1v1 },
@@ -1359,15 +1359,19 @@ function ProfileHeader({
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
                       {preview?.claimed && <BrawlchemistUserBadge />}
-                      {/* Mystic, the same blue as the verified mark: both are
-                          standing rather than flavour, which separates them
-                          from the gold of earned titles. */}
+                      {/* Ice, alone: this is the one tag that comes from our
+                          own ladder, so it doesn't share a colour with the
+                          esports credentials beside it or the gold of earned
+                          titles below. "Ranked", not "Global" — the number is
+                          a position in the ranked ladder, and "global" only
+                          ever answered a question ("as opposed to what?") that
+                          the region tag on the name row already settles. */}
                       {ladderRank && (
                         <InfoTip
                           label={`#${ladderRank.n.toLocaleString()} on the global 1v1 ladder`}
                         >
-                          <span className="inline-flex items-center gap-1 rounded-md border border-mystic/40 bg-mystic/10 px-1.5 py-0.5 normal-case text-mystic">
-                            Global #{ladderRank.n.toLocaleString()}
+                          <span className="inline-flex items-center gap-1 rounded-md border border-ice/40 bg-ice/10 px-1.5 py-0.5 normal-case text-ice">
+                            Ranked #{ladderRank.n.toLocaleString()}
                           </span>
                         </InfoTip>
                       )}

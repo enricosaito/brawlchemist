@@ -175,7 +175,7 @@
     --mystic: oklch(0.85 0.105 175);
     --pink: oklch(0.74 0.23 350);            /* nav accent glow */
     --royal: oklch(0.64 0.17 262);           /* earned legend titles */
-    --ice: oklch(0.80 0.10 240);             /* esports credentials (PR, earnings) */
+    --ice: oklch(0.80 0.10 240);             /* ranked ladder position */
 
     --tier-tin: oklch(0.62 0.012 250);
     --tier-bronze: oklch(0.65 0.1 50);
