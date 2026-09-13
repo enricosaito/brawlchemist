@@ -23,7 +23,7 @@ import { getLadderPosition } from "@/lib/sync/live"
 import { ProfileCustomization } from "@/components/site/profile-customization"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { BrawlchemistUserBadge } from "@/components/site/brawlchemist-user-badge"
-import { RatingHistoryCard } from "@/components/player/rating-history-card"
+import { RankedStatsCard } from "@/components/player/ranked-stats-card"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { getProfile } from "@/lib/sync/profiles"
 import {
@@ -899,6 +899,73 @@ interface TopLegend {
 }
 
 /** A most-played legend head with a hover card: name, pick rate, level, XP. */
+/**
+ * Most-played legends and weapons, as one metric in the Ranked Stats strip.
+ *
+ * Weapons sit beside the legends because they're the same fact at a coarser
+ * grain — a Mordex/Nix main is a scythe main — and reading them together is
+ * how you tell a one-trick from a weapon specialist. The whole block is the
+ * way into the full legends breakdown now that the tab bar is gone, so it
+ * carries a link's affordance.
+ */
+function MostPlayedCluster({
+  legends,
+  weapons,
+  href,
+}: {
+  legends: TopLegend[]
+  weapons: WeaponShare[]
+  href: string | null
+}) {
+  const body = (
+    <>
+      <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        Most Played
+        {href && (
+          <ChevronRight className="size-3 transition-transform group-hover/most:translate-x-0.5" />
+        )}
+      </span>
+      <div className="mt-1 flex h-8 items-center gap-3">
+        {legends.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            {legends.map((l) => (
+              <MostPlayedLegend key={l.slug} legend={l} />
+            ))}
+          </div>
+        )}
+        {legends.length > 0 && weapons.length > 0 && (
+          <span aria-hidden className="h-8 w-px shrink-0 bg-border/60" />
+        )}
+        {weapons.length > 0 && (
+          <div className="flex items-center gap-2">
+            {weapons.slice(0, 3).map((w) => (
+              <span
+                key={w.weaponId}
+                title={`${weaponLabel(w.weaponId)} — ${w.pct.toFixed(0)}% of playtime`}
+                className="flex flex-col items-center gap-0.5"
+              >
+                <WeaponIcon weaponId={w.weaponId} size={22} />
+                <span className="font-mono text-[9px] tabular-nums text-muted-foreground">
+                  {w.pct.toFixed(0)}%
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <span className="mt-0.5 block h-4" />
+    </>
+  )
+  const shell = "group/most flex min-w-0 flex-col"
+  return href ? (
+    <Link href={href} scroll={false} className={shell}>
+      {body}
+    </Link>
+  ) : (
+    <div className={shell}>{body}</div>
+  )
+}
+
 function MostPlayedLegend({ legend }: { legend: TopLegend }) {
   return (
     <div className="group/leg relative">
@@ -1172,10 +1239,6 @@ function ProfileHeader({
   valhallan,
   ladderRank,
   preview,
-  legendStats,
-  combined,
-  weapons,
-  legendsHref,
   claimSlot,
   favoriteSlot,
   bannerId,
@@ -1192,38 +1255,12 @@ function ProfileHeader({
     regionRank: number | null
   } | null
   preview: PlayerPreview | undefined
-  legendStats: Map<number, { level: number; xp: number }>
-  /** 1v1 + every 2v2 team combined, for the win-rate card. */
-  combined: { wins: number; games: number }
-  /** Most-used weapons, shown beside the most-played legends. */
-  weapons: WeaponShare[]
-  /** Opens the full legends breakdown — the Most Played card is the entry. */
-  legendsHref: string | null
   claimSlot?: React.ReactNode
   favoriteSlot?: React.ReactNode
   bannerId?: string | null
   bannerSlot?: React.ReactNode
 }) {
   const tier = deriveTier(data.tier, valhallan)
-  const losses = Math.max(0, combined.games - combined.wins)
-  const topLegends: TopLegend[] = [...(data.legends ?? [])]
-    .filter((l) => l.games > 0)
-    .sort((a, b) => b.games - a.games)
-    .slice(0, MOST_PLAYED_COUNT)
-    .map((l): TopLegend | null => {
-      const slug = slugForLegendId(l.legend_id)
-      if (!slug) return null
-      const stats = legendStats.get(l.legend_id)
-      return {
-        slug,
-        name: rosterEntryBySlug(slug)?.name ?? slug,
-        pickRate: data.games > 0 ? (l.games / data.games) * 100 : 0,
-        level: stats?.level,
-        xp: stats?.xp,
-      }
-    })
-    .filter((l): l is TopLegend => l !== null)
-
   // Meta line under the name: earned legend titles. (Tier + ladder rank now live
   // in the rating card below.)
   const metaNodes: { key: string; node: React.ReactNode }[] = []
@@ -1393,126 +1430,6 @@ function ProfileHeader({
                 )}
               </div>
 
-              {/* Stat cards row, anchored to the bottom so the banner/skin on
-                  the left spans this and the name row above it. */}
-              <div className="mt-auto flex flex-col gap-2 sm:flex-row">
-                <RatingTile
-                  label="1v1 Rating"
-                  rating={data.rating}
-                  peak={data.peak_rating}
-                  tier={tier}
-                  tierName={tierLabel(data.tier, valhallan)}
-                />
-                {/* Win rate + games played — same label/value/sub rhythm as the
-                    rating cards so the big numbers line up across the row.
-                    Counts 1v1 and every 2v2 team together: this is the card
-                    that answers "how much have they played", and splitting it
-                    by queue understated it for anyone who mostly plays 2v2. */}
-                <div className="flex min-w-0 flex-col rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 sm:flex-1">
-                  <div className="flex min-w-0 justify-between gap-3">
-                    <div className="flex min-w-0 flex-col">
-                      {/* Which queues the total covers is a tooltip, not a
-                          line: three lines per card is what keeps the row
-                          inside the banner's height. */}
-                      <span
-                        className="truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
-                        title={
-                          combined.games > data.games
-                            ? "1v1 and 2v2 combined"
-                            : "1v1 only — no 2v2 record this season"
-                        }
-                      >
-                        Win Rate
-                      </span>
-                      <span className="mt-1 flex h-7 items-center font-display text-xl font-semibold tabular-nums text-positive">
-                        {winRate(combined.wins, combined.games)}
-                      </span>
-                    </div>
-                    <div className="flex min-w-0 flex-col">
-                      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                        Games
-                      </span>
-                      <span className="mt-1 flex h-7 items-center font-display text-xl font-semibold tabular-nums">
-                        {combined.games.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                  {/* Spans the card rather than sitting under Win Rate alone —
-                      in half the width "1,382W · 334L" truncated. */}
-                  <span className="mt-0.5 h-4 truncate font-mono text-[10px] text-muted-foreground">
-                    {combined.wins.toLocaleString()}W · {losses.toLocaleString()}L
-                  </span>
-                </div>
-                {/* Most played legends and weapons. Hover a head for pick
-                    rate, level and XP; the card itself is the way into the
-                    full legends breakdown now that the tab bar is gone, so it
-                    carries the affordance of a link.
-
-                    Weapons sit beside the legends because they're the same
-                    fact at a coarser grain — a Mordex/Nix main is a scythe
-                    main — and reading them together is how you tell a
-                    one-trick from a weapon specialist. */}
-                {(topLegends.length > 0 || weapons.length > 0) &&
-                  (() => {
-                    const body = (
-                      <>
-                        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                          Most Played
-                          {legendsHref && (
-                            <ChevronRight className="size-3 transition-transform group-hover/most:translate-x-0.5" />
-                          )}
-                        </span>
-                        <div className="mt-1.5 flex items-center gap-3">
-                          {topLegends.length > 0 && (
-                            <div className="flex items-center gap-1.5">
-                              {topLegends.map((l) => (
-                                <MostPlayedLegend key={l.slug} legend={l} />
-                              ))}
-                            </div>
-                          )}
-                          {topLegends.length > 0 && weapons.length > 0 && (
-                            <span
-                              aria-hidden
-                              className="h-8 w-px shrink-0 bg-border/60"
-                            />
-                          )}
-                          {weapons.length > 0 && (
-                            <div className="flex items-center gap-2">
-                              {weapons.slice(0, 3).map((w) => (
-                                <span
-                                  key={w.weaponId}
-                                  title={`${weaponLabel(w.weaponId)} — ${w.pct.toFixed(0)}% of playtime`}
-                                  className="flex flex-col items-center gap-0.5"
-                                >
-                                  <WeaponIcon weaponId={w.weaponId} size={20} />
-                                  <span className="font-mono text-[9px] tabular-nums text-muted-foreground">
-                                    {w.pct.toFixed(0)}%
-                                  </span>
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )
-                    const shell =
-                      "group/most min-w-0 shrink-0 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5"
-                    return legendsHref ? (
-                      <Link
-                        href={legendsHref}
-                        scroll={false}
-                        className={cn(
-                          shell,
-                          "transition-colors hover:border-tier-valhallan/50",
-                        )}
-                      >
-                        {body}
-                      </Link>
-                    ) : (
-                      <div className={shell}>{body}</div>
-                    )
-                  })()}
-              </div>
             </div>
           </div>
         </div>
@@ -1977,6 +1894,26 @@ export default async function PlayerPage({
   // content; Overview (rating history + account) is always first, esports
   // gets its own tab for tracked competitors.
   const playedLegends = (data.legends ?? []).filter((l) => l.games > 0)
+  const headerTier = deriveTier(data.tier, headerValhallan)
+  const headerWeapons = accountStats?.weapons ?? []
+  // Most-played legends for the Ranked Stats strip. Lives here rather than in
+  // the header now that the stats do.
+  const headerTopLegends: TopLegend[] = [...(data.legends ?? [])]
+    .filter((l) => l.games > 0)
+    .sort((a, b) => b.games - a.games)
+    .slice(0, MOST_PLAYED_COUNT)
+    .map((l): TopLegend | null => {
+      const slug = slugForLegendId(l.legend_id)
+      if (!slug) return null
+      return {
+        slug,
+        name: rosterEntryBySlug(slug)?.name ?? slug,
+        pickRate: data.games > 0 ? (l.games / data.games) * 100 : 0,
+        level: legendStatsById.get(l.legend_id)?.level,
+        xp: legendStatsById.get(l.legend_id)?.xp,
+      }
+    })
+    .filter((l): l is TopLegend => l !== null)
   const showEsports = !!esports && (esports.isPro || esports.earnings > 0)
   // The tab bar is gone — these are still URL states, reached from the cards
   // that describe them (Most Played -> legends, Top 2v2 Teams -> teams). The
@@ -2027,12 +1964,6 @@ export default async function PlayerPage({
           valhallan={headerValhallan}
           ladderRank={ladderRank}
           preview={preview}
-          legendStats={legendStatsById}
-          combined={combinedRecord}
-          weapons={accountStats?.weapons ?? []}
-          legendsHref={
-            playedLegends.length > 0 ? `/player/${numId}?tab=legends` : null
-          }
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           favoriteSlot={favoriteToggle}
           bannerId={bannerId}
@@ -2096,11 +2027,51 @@ export default async function PlayerPage({
                 )}
               >
                 <div className={overviewTeams.length > 0 ? "lg:col-span-2" : ""}>
-                  <RatingHistoryCard
+                  <RankedStatsCard
                     embedded
                     brawlhallaId={numId}
                     valhallanCutoff={cutoff1v1}
-                    tier={deriveTier(data.tier, headerValhallan)}
+                    stats={{
+                      rating: data.rating,
+                      peak: data.peak_rating,
+                      tier: headerTier,
+                      tierName: tierLabel(data.tier, headerValhallan),
+                      wins: combinedRecord.wins,
+                      games: combinedRecord.games,
+                    }}
+                    ratingSlot={
+                      <span
+                        className="flex items-baseline gap-1.5"
+                        title={headerTier ? tierLabel(data.tier, headerValhallan) : undefined}
+                      >
+                        {headerTier && (
+                          <RankHelm tier={headerTier} className="h-7 self-center" />
+                        )}
+                        {data.rating != null ? (
+                          <span>
+                            {formatElo(data.rating)}
+                            <span className="ml-1 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                              ELO
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </span>
+                    }
+                    mostPlayedSlot={
+                      headerTopLegends.length > 0 || headerWeapons.length > 0 ? (
+                        <MostPlayedCluster
+                          legends={headerTopLegends}
+                          weapons={headerWeapons}
+                          href={
+                            playedLegends.length > 0
+                              ? `/player/${numId}?tab=legends`
+                              : null
+                          }
+                        />
+                      ) : null
+                    }
                   />
                 </div>
 
