@@ -15,6 +15,8 @@ interface PlayerHit {
   rating: number | null
   region: string | null
   pro: boolean
+  /** Verified pro handle, when set — the row leads with it. */
+  handle?: string | null
 }
 
 type Kind = "empty" | "name" | "id" | "steam"
@@ -263,13 +265,18 @@ export function LeaderboardPlayerSearch({ className }: { className?: string }) {
                           )}
                           <span className="flex min-w-0 flex-1 flex-col">
                             <span className="flex min-w-0 items-center gap-1.5">
+                              {/* Pros lead with their handle; the in-game name
+                                  drops to the sub-line so a handle match stays
+                                  explicable. */}
                               <span className="min-w-0 truncate text-sm font-medium">
-                                {opt.hit.username}
+                                {opt.hit.handle || opt.hit.username}
                               </span>
                               {opt.hit.pro && <ProBadge className="shrink-0" />}
                             </span>
-                            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                              ID {opt.hit.id}
+                            <span className="min-w-0 truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                              {opt.hit.handle
+                                ? opt.hit.username
+                                : `ID ${opt.hit.id}`}
                               {opt.hit.region ? ` · ${opt.hit.region}` : ""}
                             </span>
                           </span>

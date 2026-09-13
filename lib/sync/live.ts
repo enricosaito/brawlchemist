@@ -80,16 +80,38 @@ function entityKey(queue: LiveQueue, players: LivePlayer[]): string {
  * global_rank). A direct PK hit on `1v1:${id}`, zero API. Null = not top 500.
  * Fails open.
  */
-export async function getLadderPosition(
-  brawlhallaId: number,
-): Promise<{ rank: number; region: string | null } | null> {
+export async function getLadderPosition(brawlhallaId: number): Promise<{
+  rank: number
+  region: string | null
+  /** Position among entries from the same region, or null if region unknown. */
+  regionRank: number | null
+} | null> {
   try {
     const [row] = await db()
-      .select({ rank: liveRanked.rank, region: liveRanked.region })
+      .select({
+        rank: liveRanked.rank,
+        region: liveRanked.region,
+        // `rank` is the position on the ALL ladder, which is the only board we
+        // poll — there is no per-region rank to read. Derive it by counting the
+        // same region's entries ahead of this one. The correlated subquery
+        // stays server-side (no extra egress) and the snapshot is ~600 rows per
+        // queue, so it costs nothing worth optimising.
+        // Outer columns written out in full — see getLiveQueue for why
+        // interpolating them here silently returns 1 for every row.
+        regionRank: sql<number | null>`
+          case when live_ranked.region is null then null else (
+            select count(*) + 1 from live_ranked l2
+            where l2.queue = live_ranked.queue
+              and upper(l2.region) = upper(live_ranked.region)
+              and l2.rank < live_ranked.rank
+          ) end`,
+      })
       .from(liveRanked)
       .where(eq(liveRanked.id, `1v1:${brawlhallaId}`))
       .limit(1)
-    return row ? { rank: row.rank, region: row.region } : null
+    return row
+      ? { rank: row.rank, region: row.region, regionRank: row.regionRank }
+      : null
   } catch (err) {
     console.error("[live] ladder position lookup failed:", err)
     return null
@@ -301,6 +323,11 @@ export interface LiveRow {
   eloDiff: number
   rankDiff: number
   region: string | null
+  /**
+   * Position within `region`. Only populated when the feed was read scoped to
+   * a single region — on the ALL view there is no regional context to show.
+   */
+  regionRank: number | null
   players: LivePlayer[]
   lastActiveAt: Date
 }
@@ -326,10 +353,36 @@ export async function getLiveQueue(opts: {
     conds.push(sql`upper(${liveRanked.region}) = ${region.toUpperCase()}`)
   }
 
+  const scoped = !!region && region.toUpperCase() !== "ALL"
+
   let rows
   try {
     rows = await db()
-      .select()
+      .select({
+        id: liveRanked.id,
+        rank: liveRanked.rank,
+        rating: liveRanked.rating,
+        sessionStartRating: liveRanked.sessionStartRating,
+        sessionStartRank: liveRanked.sessionStartRank,
+        region: liveRanked.region,
+        players: liveRanked.players,
+        lastActiveAt: liveRanked.lastActiveAt,
+        // Only worth computing when the view is scoped to one region — on ALL
+        // the card shows the global number and this would be 200 correlated
+        // counts thrown away. See getLadderPosition for why it's derived.
+        // The outer columns are written out in full rather than interpolated:
+        // drizzle renders `${liveRanked.rank}` as a bare `"rank"`, which inside
+        // this subquery binds to l2 — making the test `l2.rank < l2.rank` and
+        // handing every row a regional rank of 1.
+        regionRank: scoped
+          ? sql<number | null>`(
+              select count(*) + 1 from live_ranked l2
+              where l2.queue = live_ranked.queue
+                and upper(l2.region) = upper(live_ranked.region)
+                and l2.rank < live_ranked.rank
+            )`
+          : sql<number | null>`null::int`,
+      })
       .from(liveRanked)
       .where(and(...conds))
       .orderBy(desc(liveRanked.lastActiveAt), desc(liveRanked.rating))
@@ -346,6 +399,7 @@ export async function getLiveQueue(opts: {
     eloDiff: r.rating - r.sessionStartRating,
     rankDiff: r.sessionStartRank - r.rank, // climbing (rank ↓) → positive
     region: r.region,
+    regionRank: r.regionRank,
     players: (r.players as LivePlayer[]) ?? [],
     // lastActiveAt is non-null here (gte filter excludes nulls).
     lastActiveAt: r.lastActiveAt as Date,
@@ -425,6 +479,8 @@ export async function getDailyMovers(opts: {
     eloDiff: r.rating - r.sessionStartRating,
     rankDiff: r.sessionStartRank - r.rank,
     region: r.region,
+    // The movers ticker never renders a rank, so there's nothing to derive.
+    regionRank: null,
     players: (r.players as LivePlayer[]) ?? [],
     lastActiveAt: r.lastActiveAt as Date,
   })

@@ -81,9 +81,6 @@ export function buildLeaderboardColumns(
   gameMode: ApiGameMode,
   region: ApiRegion,
   previews: Map<number, PlayerPreview>,
-  // On the pro board every row is already a pro, so show the handle + badge in
-  // the name but keep the real tier (not the "Pro Player" tag) in the subtext.
-  proBoard = false,
 ): ColDef<RankedEntry>[] {
   const regionColumn: ColDef<RankedEntry> = {
     id: "region",
@@ -156,79 +153,56 @@ export function buildLeaderboardColumns(
       id: "player",
       label: "Player",
       render: (r) => {
-        const tier = toTier(r.tier)
-        // Pros show "<handle> ✓" + a blue "Pro Player" tag by default; hovering
-        // the row reveals the in-game username and the real tier (one group/pro).
-        const rowPro = r.players.some((p) => !!previews.get(p.id)?.verified)
+        // The name carries the row. The tier line that used to sit under it is
+        // gone — it's already in the rank emblem (and, on 2v2, its own column) —
+        // and so is the "Pro Player" tag, which the check mark says on its own.
+        //
+        // Pros always show their handle. The in-game name appears beside it on
+        // row hover rather than replacing it — the row keeps its identity, and
+        // the handle is still what you read at rest. Shown only when it differs
+        // from the handle, so there's never a second copy of the same name.
         return (
-          <div
-            className={cn("flex min-w-0 flex-col gap-0.5", rowPro && "group/pro")}
-          >
+          <div className="flex min-w-0 flex-col gap-0.5">
             {r.players.length > 0 ? (
               r.players.map((p) => {
                 const handle = previews.get(p.id)?.verified?.handle
+                const ign =
+                  handle && handle !== p.username ? p.username : null
                 return (
-                  <PlayerLink
-                    key={p.id}
-                    id={p.id}
-                    className="text-sm font-medium leading-5"
-                  >
-                    {handle ? (
-                      <span className="inline-flex min-w-0 items-center gap-1">
-                        <span className="min-w-0 truncate">
-                          <span className="group-hover/pro:hidden">{handle}</span>
-                          <span className="hidden group-hover/pro:inline">
-                            {p.username}
-                          </span>
+                  <span key={p.id} className="flex min-w-0 items-baseline gap-2">
+                    <PlayerLink
+                      id={p.id}
+                      className="min-w-0 text-[15px] font-semibold leading-5"
+                    >
+                      {handle ? (
+                        <span className="inline-flex min-w-0 items-center gap-1">
+                          <span className="min-w-0 truncate">{handle}</span>
+                          <BadgeCheck
+                            className="size-3.5 shrink-0 text-mystic"
+                            aria-label="Verified pro player"
+                          />
                         </span>
-                        <BadgeCheck className="size-3.5 shrink-0 text-foreground group-hover/pro:hidden" />
+                      ) : (
+                        <span className="block min-w-0 truncate">{p.username}</span>
+                      )}
+                    </PlayerLink>
+                    {/* Revealed on hover of the whole row (group/row lives on
+                        the <tr>), not just of the name, so the target is the
+                        row you're already pointing at. Kept out of the layout
+                        with `hidden` rather than opacity so it never reserves
+                        width it isn't using. */}
+                    {ign && (
+                      <span className="hidden min-w-0 shrink truncate font-mono text-[10px] text-muted-foreground lg:group-hover/row:inline">
+                        <span className="text-muted-foreground/60">IGN:</span>{" "}
+                        {ign}
                       </span>
-                    ) : (
-                      <span className="truncate">{p.username}</span>
                     )}
-                  </PlayerLink>
+                  </span>
                 )
               })
             ) : (
               <span className="text-sm text-muted-foreground">—</span>
             )}
-            {proBoard ? (
-              tier ? (
-                <span
-                  className={cn(
-                    "mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
-                    TIER_TEXT_COLOR[tier],
-                  )}
-                >
-                  {r.tier}
-                </span>
-              ) : null
-            ) : rowPro ? (
-              <>
-                <span className="mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-mystic group-hover/pro:hidden">
-                  Pro Player
-                </span>
-                {tier && (
-                  <span
-                    className={cn(
-                      "mt-0.5 hidden font-mono text-[10px] font-medium uppercase tracking-wider group-hover/pro:block",
-                      TIER_TEXT_COLOR[tier],
-                    )}
-                  >
-                    {r.tier}
-                  </span>
-                )}
-              </>
-            ) : tier ? (
-              <span
-                className={cn(
-                  "mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
-                  TIER_TEXT_COLOR[tier],
-                )}
-              >
-                {r.tier}
-              </span>
-            ) : null}
           </div>
         )
       },

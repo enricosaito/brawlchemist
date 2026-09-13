@@ -10,7 +10,7 @@ import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { Tier } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
-import { LegendChip, PlayerLink, RankIcon } from "./primitives"
+import { LegendChip, PlayerLink, RankHelm } from "./primitives"
 
 // All API regions (ALL first), shown in the home region dropdown.
 export const HOME_REGIONS = API_REGIONS
@@ -127,6 +127,7 @@ export async function TopPlayersCard({
             const lid = playersMap.get(player.id)?.topLegendId
             const slug = lid ? slugForLegendId(lid) : null
             const handle = overrides.get(player.id)?.verified?.handle
+            const name = handle ?? player.username
             const wins = entry.wins
             const losses = entry.losses
             const total = (wins ?? 0) + (losses ?? 0)
@@ -158,10 +159,17 @@ export async function TopPlayersCard({
                   View Profile
                   <ArrowUpRight className="size-3.5" />
                 </Link>
-                <span className="w-4 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums">
+                {/* Small and muted: the ordinal is an index into a list that's
+                    already in order, so it only needs to be findable, not
+                    loud. Uniform across all six — the top of the list is
+                    already marked by being at the top.
+
+                    Weighted like the ELO on the other end of the row, not like
+                    the name between them: both are figures about the row, and
+                    the semibold it used to carry made it read as a heading. */}
+                <span className="w-4 shrink-0 text-right font-mono text-xs leading-none tabular-nums text-muted-foreground">
                   {entry.rank}
                 </span>
-                {tier && <RankIcon tier={tier} size={30} className="shrink-0" />}
                 {slug ? (
                   <LegendChip legendId={slug} size="md" showName={false} />
                 ) : (
@@ -171,23 +179,29 @@ export async function TopPlayersCard({
                   />
                 )}
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <PlayerLink id={player.id} className="font-medium">
-                    <span className="inline-flex min-w-0 items-center gap-1 text-sm leading-tight">
-                      <span className="min-w-0 truncate">
-                        {handle ?? player.username}
-                      </span>
-                      <BadgeCheck className="size-3.5 shrink-0 text-foreground" />
+                  <PlayerLink id={player.id} className="min-w-0 font-semibold">
+                    <span className="inline-flex min-w-0 items-center gap-1 text-[15px] leading-tight">
+                      <span className="min-w-0 truncate">{name}</span>
+                      <BadgeCheck
+                        className="size-3.5 shrink-0 text-mystic"
+                        aria-label="Verified pro player"
+                      />
                     </span>
                   </PlayerLink>
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-mystic">
-                    Pro Player
-                  </span>
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-0.5">
-                  <span className="font-mono text-sm tabular-nums">
-                    {entry.rating != null ? formatElo(entry.rating) : "—"}
-                    <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      ELO
+                  {/* The tier helm rides with the rating rather than with the
+                      rank: it describes where that number sits, and at cap
+                      height beside it the two read as one figure. The helm
+                      silhouette survives this size where the round avatar
+                      emblem turns to mush. */}
+                  <span className="flex items-center gap-1.5 font-mono text-sm tabular-nums">
+                    {tier && <RankHelm tier={tier} className="h-[18px]" />}
+                    <span>
+                      {entry.rating != null ? formatElo(entry.rating) : "—"}
+                      <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        ELO
+                      </span>
                     </span>
                   </span>
                   {wins != null && losses != null && (

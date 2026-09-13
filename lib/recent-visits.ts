@@ -19,6 +19,12 @@ export interface RecentVisit {
   rating: number | null
   region: string | null
   pro?: boolean
+  /**
+   * Verified pro handle. Optional because entries stored before this existed
+   * are read back from localStorage without it — those just show the in-game
+   * name, which is what they showed when they were written.
+   */
+  handle?: string | null
 }
 
 const KEY = "bc-recent-visits"

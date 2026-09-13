@@ -33,7 +33,7 @@ export async function WeaponMetaCard({
       }
     >
       <ol className="grid auto-rows-fr divide-y divide-border/60">
-        {top.map((weapon, i) => {
+        {top.map((weapon) => {
           const topLegends = weapon.top_legend_ids
             .map((id) => {
               const slug = slugForLegendId(id)
@@ -58,9 +58,9 @@ export async function WeaponMetaCard({
                 View Weapon Meta
                 <ArrowUpRight className="size-3.5" />
               </Link>
-              <span className="w-4 text-right font-mono text-xs text-muted-foreground tabular-nums">
-                {i + 1}
-              </span>
+              {/* No rank number: the list is already ordered top-down and the
+                  games column says by how much, so the index was a third way
+                  of stating the same thing. The icon leads instead. */}
               <WeaponIcon weaponId={weapon.weapon_id} size={28} />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-sm font-medium">

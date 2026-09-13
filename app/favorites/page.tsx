@@ -118,7 +118,7 @@ function FavoriteRow({
               </span>
               {handle && <ProBadge className="shrink-0" />}
               {self && (
-                <span className="shrink-0 rounded-full border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-tier-gold">
+                <span className="shrink-0 rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-tier-gold">
                   You
                 </span>
               )}

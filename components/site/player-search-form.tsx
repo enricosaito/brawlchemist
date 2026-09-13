@@ -338,15 +338,22 @@ export function PlayerSearchForm({
                           )}
                           <span className="flex min-w-0 flex-1 flex-col">
                             <span className="flex min-w-0 items-center gap-1.5">
+                              {/* A pro leads with their handle — it's what was
+                                  typed to find them, and what they're known by.
+                                  The in-game name moves to the sub-line rather
+                                  than disappearing, so the match stays
+                                  explicable. */}
                               <span className="min-w-0 truncate text-sm font-medium">
-                                {opt.result.username}
+                                {opt.result.handle || opt.result.username}
                               </span>
                               {opt.result.pro && (
                                 <ProBadge className="shrink-0" />
                               )}
                             </span>
-                            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                              ID {opt.result.id}
+                            <span className="min-w-0 truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                              {opt.result.handle
+                                ? opt.result.username
+                                : `ID ${opt.result.id}`}
                               {opt.result.region ? ` · ${opt.result.region}` : ""}
                             </span>
                           </span>

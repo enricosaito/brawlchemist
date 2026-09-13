@@ -4,10 +4,12 @@ import { headers } from "next/headers"
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowUpRight, ChevronRight, Trophy, Users } from "lucide-react"
+import { ArrowUpRight, BadgeCheck, ChevronRight, Trophy, Users } from "lucide-react"
 import {
   LegendChip,
+  RankHelm,
   RegionPill,
+  RegionRankTag,
   TIER_TEXT_COLOR,
   WeaponIcon,
 } from "@/components/site/primitives"
@@ -20,7 +22,6 @@ import { getCustomization } from "@/lib/sync/customizations"
 import { getLadderPosition } from "@/lib/sync/live"
 import { ProfileCustomization } from "@/components/site/profile-customization"
 import { DataTable, type ColDef } from "@/components/site/data-table"
-import { ProBadge } from "@/components/site/pro-badge"
 import { BrawlchemistUserBadge } from "@/components/site/brawlchemist-user-badge"
 import { RatingHistoryCard } from "@/components/player/rating-history-card"
 import type { PlayerPreview } from "@/lib/player-previews"
@@ -255,6 +256,9 @@ async function valhallanCutoffRating(
   return c?.rating ?? null
 }
 
+/** Heads in the header's Most Played card. Four keeps the stat row one line. */
+const MOST_PLAYED_COUNT = 4
+
 function winRate(wins: number, games: number): string {
   if (games <= 0) return "—"
   return formatPercent((wins / games) * 100)
@@ -332,27 +336,6 @@ function NoticeCard({ title, children }: { title: string; children: React.ReactN
   )
 }
 
-/** Rank helm shown beside a rating — only the two top tiers have one; lower
- * tiers ride on the number alone ("no helm for less"). */
-const RANK_HELM_SRC: Partial<Record<Tier, string>> = {
-  Valhallan: "/assets/valhallan-helm.png",
-  Diamond: "/assets/diamond-helm.png",
-}
-function RankHelm({ tier }: { tier: Tier }) {
-  const src = RANK_HELM_SRC[tier]
-  if (!src) return null
-  return (
-    <Image
-      src={src}
-      alt={`${tier} helm`}
-      width={48}
-      height={48}
-      unoptimized
-      className="h-7 w-auto shrink-0 select-none object-contain drop-shadow-sm"
-    />
-  )
-}
-
 /** A rank rating card: helm (Diamond/Valhallan) + rating + ELO (white headline),
  * tier name + peak beneath. Shared by the 1v1 header and the 2v2-led fallback. */
 function RatingTile({
@@ -361,40 +344,55 @@ function RatingTile({
   peak,
   tier,
   tierName,
+  partner,
 }: {
   label: string
   rating: number | null
   peak: number | null
   tier: Tier | null
   tierName: string
+  /**
+   * Teammate for a 2v2 rating. Rendered into the label row rather than as a
+   * fourth line, so both rating cards stay exactly three lines tall and the
+   * whole stat row can sit inside the height of the rank banner.
+   */
+  partner?: { name: string; id: number }
 }) {
   const accent = tier ? TIER_TEXT_COLOR[tier] : undefined
   return (
-    <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-        {label}
+    <div className="min-w-0 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 sm:flex-1">
+      <span className="flex min-w-0 items-baseline gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span className="shrink-0">{label}</span>
+        {partner && (
+          <Link
+            href={`/player/${partner.id}`}
+            className="min-w-0 truncate normal-case text-muted-foreground/70 transition-colors hover:text-foreground"
+          >
+            · {partner.name}
+          </Link>
+        )}
       </span>
-      <div className="mt-1 flex h-8 items-center gap-2">
-        {tier && <RankHelm tier={tier} />}
+      <div
+        className="mt-1 flex h-7 items-center gap-1.5"
+        title={peak != null ? `Peak ${formatElo(peak)} ELO` : undefined}
+      >
+        {tier && <RankHelm tier={tier} className="h-6" />}
         {rating != null ? (
-          <span className="font-display text-2xl font-semibold tabular-nums text-foreground">
+          <span className="font-display text-xl font-semibold tabular-nums text-foreground">
             {formatElo(rating)}
-            <span className="ml-1 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              ELO
-            </span>
           </span>
         ) : (
-          <span className="font-display text-2xl font-semibold text-muted-foreground">
+          <span className="font-display text-xl font-semibold text-muted-foreground">
             —
           </span>
         )}
       </div>
-      <div className="mt-1 h-4 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+      {/* Tier only. Peak moved to the tooltip on the rating above: four cards
+          in one row leaves ~130px each, and "VALHALLAN · PEAK 2,883" truncated
+          mid-word — which reads as broken rather than as abbreviated. The tier
+          is the part that can't be inferred from the number beside it. */}
+      <div className="mt-0.5 h-4 truncate font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         {tier && <span className={accent}>{tierName}</span>}
-        {tier && peak != null && (
-          <span className="text-muted-foreground/40"> · </span>
-        )}
-        {peak != null && <>Peak {formatElo(peak)}</>}
       </div>
     </div>
   )
@@ -501,6 +499,14 @@ function AccountTile({ label, value }: { label: string; value: string }) {
   )
 }
 
+/**
+ * PARKED: account level / playtime / XP / lifetime games / guild.
+ *
+ * Pulled off the profile pending the advanced-stats component that will own
+ * these. computeAccountStats still runs (the header reads its weapon shares),
+ * so restoring this is a render, not a refetch.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function AccountSection({
   stats,
   guildId,
@@ -863,7 +869,7 @@ interface TopLegend {
 function MostPlayedLegend({ legend }: { legend: TopLegend }) {
   return (
     <div className="group/leg relative">
-      <LegendHead slug={legend.slug} className="size-11" />
+      <LegendHead slug={legend.slug} className="size-10" />
       <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-max -translate-x-1/2 rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-center shadow-lg group-hover/leg:block">
         <div className="text-xs font-semibold">{legend.name}</div>
         <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
@@ -1096,55 +1102,35 @@ function LegendsSection({
   )
 }
 
-interface ProfileTab {
-  key: string
-  label: string
-  count?: number
-}
 
-/** Link-based tab bar under the profile header. `scroll={false}` keeps the
- * viewport in place when switching. */
-function ProfileTabs({
-  tabs,
-  active,
-  baseHref,
+/**
+ * Way back from a sub-view.
+ *
+ * The tab bar used to be the navigation *and* the way home; with it gone, the
+ * cards that open these views are one-way without this. `bare` skips the outer
+ * padding for callers that already sit inside a padded section.
+ */
+function BackToProfile({
+  href,
+  label,
+  bare = false,
 }: {
-  tabs: ProfileTab[]
-  active: string
-  baseHref: string
+  href: string
+  label: string
+  bare?: boolean
 }) {
-  return (
-    <div className="mt-8 px-4 sm:px-6">
-      <div
-        role="tablist"
-        aria-label="Profile sections"
-        className="mx-auto flex max-w-[1280px] items-center gap-1 overflow-x-auto border-b border-border/60"
-      >
-        {tabs.map((t) => (
-          <Link
-            key={t.key}
-            role="tab"
-            aria-selected={active === t.key}
-            href={t.key === "overview" ? baseHref : `${baseHref}?tab=${t.key}`}
-            scroll={false}
-            className={cn(
-              "-mb-px inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 font-mono text-xs uppercase tracking-wider transition-colors",
-              active === t.key
-                ? "border-tier-valhallan text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-            {t.count != null && (
-              <span className="rounded border border-border/60 bg-muted/40 px-1 py-px font-mono text-[9px] tabular-nums">
-                {t.count}
-              </span>
-            )}
-          </Link>
-        ))}
-      </div>
-    </div>
+  const link = (
+    <Link
+      href={href}
+      scroll={false}
+      className="group/back mx-auto flex max-w-[1280px] items-center gap-2 font-mono text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <ChevronRight className="size-3.5 rotate-180 transition-transform group-hover/back:-translate-x-0.5" />
+      <span className="text-foreground/80">{label}</span>
+      <span className="text-muted-foreground/50">· back to profile</span>
+    </Link>
   )
+  return bare ? link : <div className="mt-8 px-4 sm:px-6">{link}</div>
 }
 
 function ProfileHeader({
@@ -1154,6 +1140,9 @@ function ProfileHeader({
   ladderRank,
   preview,
   legendStats,
+  combined,
+  weapons,
+  legendsHref,
   claimSlot,
   favoriteSlot,
   bannerId,
@@ -1163,20 +1152,31 @@ function ProfileHeader({
   titles: string[]
   valhallan: boolean
   /** 1v1 ladder position when top ~500 (from live_ranked), else null. */
-  ladderRank: { n: number; scope: string } | null
+  ladderRank: {
+    n: number
+    scope: string
+    region: string | null
+    regionRank: number | null
+  } | null
   preview: PlayerPreview | undefined
   legendStats: Map<number, { level: number; xp: number }>
+  /** 1v1 + every 2v2 team combined, for the win-rate card. */
+  combined: { wins: number; games: number }
+  /** Most-used weapons, shown beside the most-played legends. */
+  weapons: WeaponShare[]
+  /** Opens the full legends breakdown — the Most Played card is the entry. */
+  legendsHref: string | null
   claimSlot?: React.ReactNode
   favoriteSlot?: React.ReactNode
   bannerId?: string | null
   bannerSlot?: React.ReactNode
 }) {
   const tier = deriveTier(data.tier, valhallan)
-  const losses = Math.max(0, data.games - data.wins)
+  const losses = Math.max(0, combined.games - combined.wins)
   const topLegends: TopLegend[] = [...(data.legends ?? [])]
     .filter((l) => l.games > 0)
     .sort((a, b) => b.games - a.games)
-    .slice(0, 5)
+    .slice(0, MOST_PLAYED_COUNT)
     .map((l): TopLegend | null => {
       const slug = slugForLegendId(l.legend_id)
       if (!slug) return null
@@ -1197,11 +1197,27 @@ function ProfileHeader({
   titles.forEach((title, i) => {
     metaNodes.push({
       key: `title-${i}`,
-      node: <span className="normal-case text-tier-gold">{title}</span>,
+      node: (
+        // Same tag shape as the rest of the row. As bare gold text these read
+        // as a sentence fragment trailing the stats rather than as the earned
+        // thing they are.
+        <span
+          title="Earned legend title"
+          className="inline-flex items-center rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 normal-case text-tier-gold"
+        >
+          {title}
+        </span>
+      ),
     })
   })
+  // A pro is known by their handle, so that's the title; the Brawlhalla/Steam
+  // name they actually queue under moves to the meta row. Falls back to the
+  // in-game name for everyone else, and for a pro with no handle recorded.
+  const proHandle = preview?.verified?.handle || null
+  const titleName = proHandle || data.name
+
   const hasMeta =
-    !!preview?.verified ||
+    !!proHandle ||
     !!preview?.claimed ||
     !!ladderRank ||
     metaNodes.length > 0
@@ -1223,14 +1239,14 @@ function ProfileHeader({
           )}
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-stretch">
             {(tier || preview?.favoriteSkin) && (
-              <div className="flex shrink-0 items-center justify-center gap-3 sm:justify-start">
+              <div className="flex shrink-0 items-center justify-center gap-2 sm:justify-start">
                 {tier && (
                   <Image
                     src={`/assets/ranks/Banner_Rank_${tier}.webp`}
                     alt={`${tier} rank banner`}
                     width={182}
                     height={330}
-                    className="h-36 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-44"
+                    className="h-32 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-40"
                     priority
                   />
                 )}
@@ -1241,7 +1257,7 @@ function ProfileHeader({
                     title={`Favorite skin: ${preview.favoriteSkin.name}`}
                     width={364}
                     height={323}
-                    className="h-36 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-44"
+                    className="h-32 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-40"
                   />
                 )}
               </div>
@@ -1252,46 +1268,71 @@ function ProfileHeader({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h1 className="truncate font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-                      {data.name}
+                      {titleName}
                     </h1>
-                    {data.region && <RegionPill region={data.region} />}
+                    {/* Verification reads as a mark on the name, not as one
+                        more tag in the row — so it sits tight against the
+                        title and carries its meaning in a tooltip. */}
+                    {proHandle && (
+                      <span
+                        title="Verified pro player"
+                        className="inline-flex shrink-0"
+                      >
+                        <BadgeCheck
+                          className="size-5 text-mystic sm:size-6"
+                          aria-label="Verified pro player"
+                        />
+                      </span>
+                    )}
+                    {/* The region tag carries the player's standing in that
+                        region when we know it — "US-E #1" rather than a bare
+                        "US-E". It belongs on the name line next to the
+                        verified mark, where it reads as part of who this
+                        player is, not down among the stat tags. */}
+                    {data.region &&
+                      (ladderRank?.region === data.region.toUpperCase() &&
+                      ladderRank.regionRank ? (
+                        <RegionRankTag
+                          region={ladderRank.region}
+                          rank={ladderRank.regionRank}
+                        />
+                      ) : (
+                        <RegionPill region={data.region} />
+                      ))}
                     {claimSlot}
                     {favoriteSlot}
+                    {/* The in-game name trails the controls: it's the answer to
+                        "who is this on the ladder", which you want beside the
+                        name, not buried a line below among the stat tags. */}
+                    {proHandle && (
+                      <span
+                        title="In-game name"
+                        className="min-w-0 truncate font-mono text-[11px] text-muted-foreground"
+                      >
+                        {data.name}
+                      </span>
+                    )}
                   </div>
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
                       {preview?.claimed && <BrawlchemistUserBadge />}
-                      {preview?.verified && (
-                        <span className="inline-flex items-center gap-2">
-                          <ProBadge />
-                          <span className="text-sm font-semibold normal-case text-mystic">
-                            {preview.verified.handle}
-                          </span>
-                        </span>
-                      )}
+                      {/* Mystic, the same blue as the verified mark: both are
+                          standing rather than flavour, which separates them
+                          from the gold of earned titles. */}
                       {ladderRank && (
                         <span
-                          title={`#${ladderRank.n.toLocaleString()} on the ${ladderRank.scope} ladder`}
-                          className="inline-flex items-center gap-1 rounded-full border border-tier-gold/40 bg-tier-gold/10 px-2 py-0.5 normal-case text-tier-gold"
+                          title={`#${ladderRank.n.toLocaleString()} on the global 1v1 ladder`}
+                          className="inline-flex items-center gap-1 rounded-md border border-mystic/40 bg-mystic/10 px-1.5 py-0.5 text-mystic"
                         >
-                          Ladder #{ladderRank.n.toLocaleString()}
+                          Global #{ladderRank.n.toLocaleString()}
                         </span>
                       )}
-                      {metaNodes.map((item, i) => (
-                        <span
-                          key={item.key}
-                          className="inline-flex items-center gap-2"
-                        >
-                          {(i > 0 || preview?.verified) && (
-                            <span
-                              aria-hidden
-                              className="text-muted-foreground/40"
-                            >
-                              ·
-                            </span>
-                          )}
-                          {item.node}
-                        </span>
+                      {/* No separators any more: every item in this row is a
+                          bounded tag, so the dots were drawing a line between
+                          things already visibly apart — and the leading one
+                          orphaned itself whenever the row wrapped. */}
+                      {metaNodes.map((item) => (
+                        <span key={item.key}>{item.node}</span>
                       ))}
                     </div>
                   )}
@@ -1321,9 +1362,7 @@ function ProfileHeader({
 
               {/* Stat cards row, anchored to the bottom so the banner/skin on
                   the left spans this and the name row above it. */}
-              <div className="mt-auto flex flex-col gap-3 sm:flex-row">
-                {/* Individual 1v1 stats — rating, then win rate / games. 2v2
-                    lives in the Overview section, not this header. */}
+              <div className="mt-auto flex flex-col gap-2 sm:flex-row">
                 <RatingTile
                   label="1v1 Rating"
                   rating={data.rating}
@@ -1332,41 +1371,114 @@ function ProfileHeader({
                   tierName={tierLabel(data.tier, valhallan)}
                 />
                 {/* Win rate + games played — same label/value/sub rhythm as the
-                    1v1 card so the big numbers line up across the row. */}
-                <div className="flex justify-between gap-6 rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
-                  <div className="flex min-w-0 flex-col">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Win Rate
-                    </span>
-                    <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold tabular-nums text-positive">
-                      {winRate(data.wins, data.games)}
-                    </span>
-                  </div>
-                  <div className="flex min-w-0 flex-col">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Games
-                    </span>
-                    <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold tabular-nums">
-                      {data.games.toLocaleString()}
-                    </span>
-                    <span className="mt-1 h-4 font-mono text-[10px] text-muted-foreground">
-                      {data.wins.toLocaleString()}W · {losses.toLocaleString()}L
-                    </span>
-                  </div>
-                </div>
-                {/* Most played — hover a head for pick rate, level, and XP. */}
-                {topLegends.length > 0 && (
-                  <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:shrink-0">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Most Played
-                    </span>
-                    <div className="mt-2 flex items-center gap-2">
-                      {topLegends.map((l) => (
-                        <MostPlayedLegend key={l.slug} legend={l} />
-                      ))}
+                    rating cards so the big numbers line up across the row.
+                    Counts 1v1 and every 2v2 team together: this is the card
+                    that answers "how much have they played", and splitting it
+                    by queue understated it for anyone who mostly plays 2v2. */}
+                <div className="flex min-w-0 flex-col rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 sm:flex-[1.35]">
+                  <div className="flex min-w-0 justify-between gap-3">
+                    <div className="flex min-w-0 flex-col">
+                      {/* Which queues the total covers is a tooltip, not a
+                          line: three lines per card is what keeps the row
+                          inside the banner's height. */}
+                      <span
+                        className="truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+                        title={
+                          combined.games > data.games
+                            ? "1v1 and 2v2 combined"
+                            : "1v1 only — no 2v2 record this season"
+                        }
+                      >
+                        Win Rate
+                      </span>
+                      <span className="mt-1 flex h-7 items-center font-display text-xl font-semibold tabular-nums text-positive">
+                        {winRate(combined.wins, combined.games)}
+                      </span>
+                    </div>
+                    <div className="flex min-w-0 flex-col">
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Games
+                      </span>
+                      <span className="mt-1 flex h-7 items-center font-display text-xl font-semibold tabular-nums">
+                        {combined.games.toLocaleString()}
+                      </span>
                     </div>
                   </div>
-                )}
+                  {/* Spans the card rather than sitting under Win Rate alone —
+                      in half the width "1,382W · 334L" truncated. */}
+                  <span className="mt-0.5 h-4 truncate font-mono text-[10px] text-muted-foreground">
+                    {combined.wins.toLocaleString()}W · {losses.toLocaleString()}L
+                  </span>
+                </div>
+                {/* Most played legends and weapons. Hover a head for pick
+                    rate, level and XP; the card itself is the way into the
+                    full legends breakdown now that the tab bar is gone, so it
+                    carries the affordance of a link.
+
+                    Weapons sit beside the legends because they're the same
+                    fact at a coarser grain — a Mordex/Nix main is a scythe
+                    main — and reading them together is how you tell a
+                    one-trick from a weapon specialist. */}
+                {(topLegends.length > 0 || weapons.length > 0) &&
+                  (() => {
+                    const body = (
+                      <>
+                        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Most Played
+                          {legendsHref && (
+                            <ChevronRight className="size-3 transition-transform group-hover/most:translate-x-0.5" />
+                          )}
+                        </span>
+                        <div className="mt-1.5 flex items-center gap-3">
+                          {topLegends.length > 0 && (
+                            <div className="flex items-center gap-1.5">
+                              {topLegends.map((l) => (
+                                <MostPlayedLegend key={l.slug} legend={l} />
+                              ))}
+                            </div>
+                          )}
+                          {topLegends.length > 0 && weapons.length > 0 && (
+                            <span
+                              aria-hidden
+                              className="h-8 w-px shrink-0 bg-border/60"
+                            />
+                          )}
+                          {weapons.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              {weapons.slice(0, 3).map((w) => (
+                                <span
+                                  key={w.weaponId}
+                                  title={`${weaponLabel(w.weaponId)} — ${w.pct.toFixed(0)}% of playtime`}
+                                  className="flex flex-col items-center gap-0.5"
+                                >
+                                  <WeaponIcon weaponId={w.weaponId} size={22} />
+                                  <span className="font-mono text-[9px] tabular-nums text-muted-foreground">
+                                    {w.pct.toFixed(0)}%
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )
+                    const shell =
+                      "group/most min-w-0 shrink-0 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5"
+                    return legendsHref ? (
+                      <Link
+                        href={legendsHref}
+                        scroll={false}
+                        className={cn(
+                          shell,
+                          "transition-colors hover:border-tier-valhallan/50",
+                        )}
+                      >
+                        {body}
+                      </Link>
+                    ) : (
+                      <div className={shell}>{body}</div>
+                    )
+                  })()}
               </div>
             </div>
           </div>
@@ -1410,6 +1522,8 @@ function FallbackHeader({
   const tier = team ? deriveTier(team.data.tier, team.valhallan) : null
   const proPr = esports?.pr1v1 ?? esports?.pr2v2 ?? null
   const losses = team ? Math.max(0, team.data.games - team.data.wins) : 0
+  // Same rule as ProfileHeader: pros are titled by their handle.
+  const proHandle = preview?.verified?.handle || null
 
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
@@ -1431,7 +1545,7 @@ function FallbackHeader({
                     alt={`${tier} rank banner`}
                     width={182}
                     height={330}
-                    className="h-36 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-44"
+                    className="h-32 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-40"
                     priority
                   />
                 )}
@@ -1442,7 +1556,7 @@ function FallbackHeader({
                     title={`Favorite skin: ${preview.favoriteSkin.name}`}
                     width={364}
                     height={323}
-                    className="h-36 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-44"
+                    className="h-32 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-40"
                   />
                 )}
               </div>
@@ -1452,42 +1566,43 @@ function FallbackHeader({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="truncate font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-                    {name}
+                    {proHandle || name}
                   </h1>
+                  {/* See ProfileHeader — the mark belongs on the name. */}
+                  {proHandle && (
+                    <span title="Verified pro player" className="inline-flex shrink-0">
+                      <BadgeCheck
+                        className="size-5 text-mystic sm:size-6"
+                        aria-label="Verified pro player"
+                      />
+                    </span>
+                  )}
                   {region && <RegionPill region={region} />}
                   {claimSlot}
                   {favoriteSlot}
+                  {proHandle && (
+                    <span
+                      title="In-game name"
+                      className="min-w-0 truncate font-mono text-[11px] text-muted-foreground"
+                    >
+                      {name}
+                    </span>
+                  )}
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
                   {preview?.claimed && <BrawlchemistUserBadge />}
-                  {preview?.verified && (
-                    <span className="inline-flex items-center gap-2">
-                      <ProBadge />
-                      <span className="text-sm font-semibold normal-case text-mystic">
-                        {preview.verified.handle}
-                      </span>
-                    </span>
-                  )}
                   {esports?.isPro && proPr && (
-                    <span className="inline-flex items-center gap-2">
-                      {preview?.verified && (
-                        <span aria-hidden className="text-muted-foreground/40">
-                          ·
-                        </span>
-                      )}
-                      <span className="text-copper">
-                        PR #{proPr.powerRanking} {proPr.region}
-                      </span>
+                    <span className="inline-flex items-center rounded-md border border-copper/40 bg-copper/10 px-1.5 py-0.5 text-copper">
+                      PR #{proPr.powerRanking} {proPr.region}
                     </span>
                   )}
-                  {titles.map((title, i) => (
-                    <span key={title} className="inline-flex items-center gap-2">
-                      {(i > 0 || preview?.verified || (esports?.isPro && proPr)) && (
-                        <span aria-hidden className="text-muted-foreground/40">
-                          ·
-                        </span>
-                      )}
-                      <span className="normal-case text-tier-gold">{title}</span>
+                  {titles.map((title) => (
+                    <span
+                      key={title}
+                      title="Earned legend title"
+                      className="inline-flex items-center rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 normal-case text-tier-gold"
+                    >
+                      {title}
                     </span>
                   ))}
                 </div>
@@ -1687,7 +1802,12 @@ export default async function PlayerPage({
   // Prefer a live answer, then the stored one, then the clan embedded in
   // /stats. The stored value is authoritative on a `guildFresh` view — that's
   // the whole point of not making the call.
+  // Parked with AccountSection below — the precedence here is non-obvious
+  // (live guild > stored > /stats clan), so it stays rather than being
+  // rederived when the advanced-stats component lands.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const guildId = guild?.guild_id ?? syncState?.guildId ?? clan?.clan_id ?? null
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const guildName =
     guild?.guild_name || syncState?.guildName || clan?.clan_name || null
   let titles: string[] = []
@@ -1778,7 +1898,14 @@ export default async function PlayerPage({
   ])
   const headerValhallan = isValhallan(data.rating, cutoff1v1, data.wins)
   // Live top-500 ladder position (global ALL ladder); null below the top 500.
-  const ladderRank = ladderPos ? { n: ladderPos.rank, scope: "Global" } : null
+  const ladderRank = ladderPos
+    ? {
+        n: ladderPos.rank,
+        scope: "Global",
+        region: ladderPos.region?.toUpperCase() ?? null,
+        regionRank: ladderPos.regionRank,
+      }
+    : null
 
   // Name from the best available source: ranked → lifetime stats → esports.
   const displayName =
@@ -1799,22 +1926,30 @@ export default async function PlayerPage({
   const hasOneVOne = hasRankedName && !!data.tier && data.tier !== "none"
   const topTeam = teams[0] ?? null
 
+  // Header totals: 1v1 plus every 2v2 team. `teams` is already filtered of the
+  // junk rows the API returns (self-teams, zero ids), so this doesn't
+  // double-count anything the Teams tab wouldn't also show.
+  const combinedRecord = teams.reduce(
+    (acc, t) => ({ wins: acc.wins + t.wins, games: acc.games + t.games }),
+    { wins: data.wins, games: data.games },
+  )
+
   // Tabbed sections below the header. Tabs only appear when they have
   // content; Overview (rating history + account) is always first, esports
   // gets its own tab for tracked competitors.
   const playedLegends = (data.legends ?? []).filter((l) => l.games > 0)
   const showEsports = !!esports && (esports.isPro || esports.earnings > 0)
-  const tabs: ProfileTab[] = [
-    { key: "overview", label: "Overview" },
-    ...(playedLegends.length > 0
-      ? [{ key: "legends", label: "Legends", count: playedLegends.length }]
-      : []),
-    ...(teamViews.length > 0
-      ? [{ key: "teams", label: "2v2 Teams", count: teamViews.length }]
-      : []),
-    ...(showEsports ? [{ key: "esports", label: "Esports" }] : []),
+  // The tab bar is gone — these are still URL states, reached from the cards
+  // that describe them (Most Played -> legends, Top 2v2 Teams -> teams). The
+  // list is now only a guard on ?tab=, so an unreachable value falls back to
+  // the profile rather than rendering an empty view.
+  const reachableTabs = [
+    ...(playedLegends.length > 0 ? ["legends"] : []),
+    ...(teamViews.length > 0 ? ["teams"] : []),
   ]
-  const tab = tabs.some((t) => t.key === sp.tab) ? (sp.tab as string) : "overview"
+  const tab = reachableTabs.includes(sp.tab as string)
+    ? (sp.tab as string)
+    : "overview"
   // Best three teams (already rating-sorted) for the Overview side column.
   const overviewTeams = teamViews.slice(0, 3)
 
@@ -1854,6 +1989,11 @@ export default async function PlayerPage({
           ladderRank={ladderRank}
           preview={preview}
           legendStats={legendStatsById}
+          combined={combinedRecord}
+          weapons={accountStats?.weapons ?? []}
+          legendsHref={
+            playedLegends.length > 0 ? `/player/${numId}?tab=legends` : null
+          }
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           favoriteSlot={favoriteToggle}
           bannerId={bannerId}
@@ -1896,29 +2036,14 @@ export default async function PlayerPage({
         />
       )}
 
-      <ProfileTabs tabs={tabs} active={tab} baseHref={`/player/${numId}`} />
-
       {tab === "overview" && (
         <>
-          {/* Account stats and the owner's bio share one row, so the rating
-              chart and 2v2 teams below start higher up the page instead of
-              being pushed under two full-width bands.
-
-              Either card can be absent — stats need a /stats payload, the bio
-              card hides itself for non-owners with nothing to show — so
-              `:only-child` widens whichever one is left rather than leaving a
-              half-empty row. It's guarded to lg because spanning 2 on the
-              single-column mobile grid would create an implicit second
-              column. */}
+          {/* Account level / playtime / XP / lifetime games / guild are hidden
+              pending the advanced-stats component that will own them.
+              computeAccountStats still runs — the header reads its weapon
+              shares — so bringing them back is a render, not a refetch. */}
           <div className="mt-6 px-4 sm:px-6">
-            <div className="mx-auto grid max-w-[1280px] grid-cols-1 items-stretch gap-4 lg:grid-cols-2 lg:[&>*:only-child]:col-span-2">
-              {accountStats && (
-                <AccountSection
-                  stats={accountStats}
-                  guildId={guildId}
-                  guildName={guildName}
-                />
-              )}
+            <div className="mx-auto max-w-[1280px]">
               <ProfileCustomization brawlhallaId={numId} />
             </div>
           </div>
@@ -1973,27 +2098,42 @@ export default async function PlayerPage({
             </section>
           )}
 
-          {!hasOneVOne && !accountStats && (
+          {!hasOneVOne && (
             <p className="mt-10 text-center font-mono text-xs uppercase tracking-wider text-muted-foreground">
-              No 1v1 ranked play this season — see the other tabs.
+              No 1v1 ranked play this season.
             </p>
           )}
+
+          {/* Esports used to be a tab. With the tab bar gone it renders inline
+              rather than becoming unreachable — it only appears for tracked
+              competitors, so for almost every profile this is nothing. */}
+          {showEsports && <EsportsSection profile={esports} />}
         </>
       )}
 
       {tab === "legends" && (
-        <LegendsSection
-          legends={playedLegends}
-          overallWinRate={
-            hasOneVOne && data.games > 0 ? (data.wins / data.games) * 100 : null
-          }
-          statsByLegendId={fullLegendStatsById}
-        />
+        <>
+          <BackToProfile href={`/player/${numId}`} label="Legends" />
+          <LegendsSection
+            legends={playedLegends}
+            overallWinRate={
+              hasOneVOne && data.games > 0
+                ? (data.wins / data.games) * 100
+                : null
+            }
+            statsByLegendId={fullLegendStatsById}
+          />
+        </>
       )}
 
       {tab === "teams" && (
         <div className="mt-8 px-4 sm:px-6">
-          <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2">
+          <BackToProfile
+            href={`/player/${numId}`}
+            label={`2v2 Teams · ${teamViews.length}`}
+            bare
+          />
+          <div className="mx-auto mt-3 grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2">
             {teamViews.map((view) => (
               <TeamCard
                 key={`${view.team.brawlhalla_id_one}-${view.team.brawlhalla_id_two}`}
