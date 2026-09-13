@@ -23,6 +23,7 @@ import { getLadderPosition } from "@/lib/sync/live"
 import { ProfileCustomization } from "@/components/site/profile-customization"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { BrawlchemistUserBadge } from "@/components/site/brawlchemist-user-badge"
+import { InfoTip } from "@/components/site/info-tip"
 import { RankedStatsCard } from "@/components/player/ranked-stats-card"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { getProfile } from "@/lib/sync/profiles"
@@ -404,24 +405,23 @@ function RatingTile({
           per-tier art saying the same thing, so spelling it out as well made
           three things state one fact. Tier name stays in the tooltip for the
           bands below Diamond, which have no helm. */}
-      <div
-        className="mt-1 flex h-7 min-w-0 items-baseline gap-1.5"
-        title={tier ? tierName : undefined}
-      >
-        {tier && <RankHelm tier={tier} className="h-6 self-center" />}
-        {rating != null ? (
-          <span className="truncate font-display text-xl font-semibold tabular-nums text-foreground">
-            {formatElo(rating)}
-            <span className="ml-1 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              ELO
+      <InfoTip label={tier ? tierName : "Unranked"}>
+        <div className="mt-1 flex h-7 min-w-0 items-baseline gap-1.5">
+          {tier && <RankHelm tier={tier} className="h-6 self-center" />}
+          {rating != null ? (
+            <span className="truncate font-display text-xl font-semibold tabular-nums text-foreground">
+              {formatElo(rating)}
+              <span className="ml-1 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                ELO
+              </span>
             </span>
-          </span>
-        ) : (
-          <span className="font-display text-xl font-semibold text-muted-foreground">
-            —
-          </span>
-        )}
-      </div>
+          ) : (
+            <span className="font-display text-xl font-semibold text-muted-foreground">
+              —
+            </span>
+          )}
+        </div>
+      </InfoTip>
       {/* Peak comes back off the tooltip now that the tier has vacated this
           line — with three cards instead of four there is room for it. */}
       <div className="mt-0.5 h-4 truncate font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -889,6 +889,32 @@ function TeamCard({
   )
 }
 
+/** A level-100 legend title, plus the legend that earned it. */
+export interface EarnedTitle {
+  text: string
+  legend: string | null
+}
+
+/**
+ * One earned title.
+ *
+ * Same tag shape as the rest of the meta row — as bare text these read as a
+ * sentence fragment trailing the stats rather than as the earned thing they
+ * are. Royal blue rather than gold: gold is the tier language here (tier-gold
+ * is a literal rank), so a title wearing it read as a rank.
+ *
+ * The tooltip names the legend, which is the part the title alone never says.
+ */
+function TitleTag({ title }: { title: EarnedTitle }) {
+  const tag = (
+    <span className="inline-flex items-center rounded-md border border-royal/40 bg-royal/10 px-1.5 py-0.5 normal-case text-royal">
+      {title.text}
+    </span>
+  )
+  if (!title.legend) return tag
+  return <InfoTip label={`Level 100: ${title.legend}`}>{tag}</InfoTip>
+}
+
 interface TopLegend {
   slug: string
   name: string
@@ -939,16 +965,17 @@ function MostPlayedCluster({
         {weapons.length > 0 && (
           <div className="flex items-center gap-2">
             {weapons.slice(0, 3).map((w) => (
-              <span
+              <InfoTip
                 key={w.weaponId}
-                title={`${weaponLabel(w.weaponId)} — ${w.pct.toFixed(0)}% of playtime`}
-                className="flex flex-col items-center gap-0.5"
+                label={`${weaponLabel(w.weaponId)} — ${w.pct.toFixed(0)}% of playtime`}
               >
-                <WeaponIcon weaponId={w.weaponId} size={22} />
-                <span className="font-mono text-[9px] tabular-nums text-muted-foreground">
-                  {w.pct.toFixed(0)}%
+                <span className="flex flex-col items-center gap-0.5">
+                  <WeaponIcon weaponId={w.weaponId} size={22} />
+                  <span className="font-mono text-[9px] tabular-nums text-muted-foreground">
+                    {w.pct.toFixed(0)}%
+                  </span>
                 </span>
-              </span>
+              </InfoTip>
             ))}
           </div>
         )}
@@ -1245,7 +1272,7 @@ function ProfileHeader({
   bannerSlot,
 }: {
   data: PlayerRanked
-  titles: string[]
+  titles: EarnedTitle[]
   valhallan: boolean
   /** 1v1 ladder position when top ~500 (from live_ranked), else null. */
   ladderRank: {
@@ -1267,19 +1294,7 @@ function ProfileHeader({
   titles.forEach((title, i) => {
     metaNodes.push({
       key: `title-${i}`,
-      node: (
-        // Same tag shape as the rest of the row. As bare text these read as a
-        // sentence fragment trailing the stats rather than as the earned thing
-        // they are. Royal blue rather than gold: gold is the tier language
-        // here (and tier-gold is a literal rank), so a title wearing it read
-        // as a rank rather than an accolade.
-        <span
-          title="Earned legend title"
-          className="inline-flex items-center rounded-md border border-royal/40 bg-royal/10 px-1.5 py-0.5 normal-case text-royal"
-        >
-          {title}
-        </span>
-      ),
+      node: <TitleTag title={title} />,
     })
   })
   // A pro is known by their handle, so that's the title; the Brawlhalla/Steam
@@ -1310,28 +1325,16 @@ function ProfileHeader({
             <div className="absolute right-4 top-4 z-20">{bannerSlot}</div>
           )}
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-stretch">
-            {(tier || preview?.favoriteSkin) && (
-              <div className="flex shrink-0 items-center justify-center gap-2 sm:justify-start">
-                {tier && (
-                  <Image
-                    src={`/assets/ranks/Banner_Rank_${tier}.webp`}
-                    alt={`${tier} rank banner`}
-                    width={182}
-                    height={330}
-                    className="h-28 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-36"
-                    priority
-                  />
-                )}
-                {preview?.favoriteSkin && (
-                  <Image
-                    src={preview.favoriteSkin.src}
-                    alt={preview.favoriteSkin.name}
-                    title={`Favorite skin: ${preview.favoriteSkin.name}`}
-                    width={364}
-                    height={323}
-                    className="h-28 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-36"
-                  />
-                )}
+            {tier && (
+              <div className="flex shrink-0 items-center justify-center sm:justify-start">
+                <Image
+                  src={`/assets/ranks/Banner_Rank_${tier}.webp`}
+                  alt={`${tier} rank banner`}
+                  width={182}
+                  height={330}
+                  className="h-28 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-36"
+                  priority
+                />
               </div>
             )}
 
@@ -1346,15 +1349,14 @@ function ProfileHeader({
                         more tag in the row — so it sits tight against the
                         title and carries its meaning in a tooltip. */}
                     {proHandle && (
-                      <span
-                        title="Verified pro player"
-                        className="inline-flex shrink-0"
-                      >
-                        <BadgeCheck
-                          className="size-5 text-mystic sm:size-6"
-                          aria-label="Verified pro player"
-                        />
-                      </span>
+                      <InfoTip label="Verified pro player">
+                        <span className="inline-flex shrink-0">
+                          <BadgeCheck
+                            className="size-5 text-mystic sm:size-6"
+                            aria-label="Verified pro player"
+                          />
+                        </span>
+                      </InfoTip>
                     )}
                     {/* The region tag carries the player's standing in that
                         region when we know it — "US-E #1" rather than a bare
@@ -1377,12 +1379,11 @@ function ProfileHeader({
                         "who is this on the ladder", which you want beside the
                         name, not buried a line below among the stat tags. */}
                     {proHandle && (
-                      <span
-                        title="In-game name"
-                        className="min-w-0 truncate font-mono text-[11px] text-muted-foreground"
-                      >
-                        {data.name}
-                      </span>
+                      <InfoTip label="In-game name">
+                        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+                          {data.name}
+                        </span>
+                      </InfoTip>
                     )}
                   </div>
                   {hasMeta && (
@@ -1392,12 +1393,13 @@ function ProfileHeader({
                           standing rather than flavour, which separates them
                           from the gold of earned titles. */}
                       {ladderRank && (
-                        <span
-                          title={`#${ladderRank.n.toLocaleString()} on the global 1v1 ladder`}
-                          className="inline-flex items-center gap-1 rounded-md border border-mystic/40 bg-mystic/10 px-1.5 py-0.5 text-mystic"
+                        <InfoTip
+                          label={`#${ladderRank.n.toLocaleString()} on the global 1v1 ladder`}
                         >
-                          Global #{ladderRank.n.toLocaleString()}
-                        </span>
+                          <span className="inline-flex items-center gap-1 rounded-md border border-mystic/40 bg-mystic/10 px-1.5 py-0.5 text-mystic">
+                            Global #{ladderRank.n.toLocaleString()}
+                          </span>
+                        </InfoTip>
                       )}
                       {/* No separators any more: every item in this row is a
                           bounded tag, so the dots were drawing a line between
@@ -1462,7 +1464,7 @@ function FallbackHeader({
   name: string
   region: string | null
   preview: PlayerPreview | undefined
-  titles: string[]
+  titles: EarnedTitle[]
   esports: EsportsProfile | null
   team: { data: PlayerRanked2v2; valhallan: boolean } | null
   account: { level: number; games: number } | null
@@ -1522,23 +1524,24 @@ function FallbackHeader({
                   </h1>
                   {/* See ProfileHeader — the mark belongs on the name. */}
                   {proHandle && (
-                    <span title="Verified pro player" className="inline-flex shrink-0">
-                      <BadgeCheck
-                        className="size-5 text-mystic sm:size-6"
-                        aria-label="Verified pro player"
-                      />
-                    </span>
+                    <InfoTip label="Verified pro player">
+                      <span className="inline-flex shrink-0">
+                        <BadgeCheck
+                          className="size-5 text-mystic sm:size-6"
+                          aria-label="Verified pro player"
+                        />
+                      </span>
+                    </InfoTip>
                   )}
                   {region && <RegionPill region={region} />}
                   {claimSlot}
                   {favoriteSlot}
                   {proHandle && (
-                    <span
-                      title="In-game name"
-                      className="min-w-0 truncate font-mono text-[11px] text-muted-foreground"
-                    >
-                      {name}
-                    </span>
+                    <InfoTip label="In-game name">
+                      <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+                        {name}
+                      </span>
+                    </InfoTip>
                   )}
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
@@ -1549,13 +1552,7 @@ function FallbackHeader({
                     </span>
                   )}
                   {titles.map((title) => (
-                    <span
-                      key={title}
-                      title="Earned legend title"
-                      className="inline-flex items-center rounded-md border border-royal/40 bg-royal/10 px-1.5 py-0.5 normal-case text-royal"
-                    >
-                      {title}
-                    </span>
+                    <TitleTag key={title.text} title={title} />
                   ))}
                 </div>
               </div>
@@ -1762,7 +1759,7 @@ export default async function PlayerPage({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const guildName =
     guild?.guild_name || syncState?.guildName || clan?.clan_name || null
-  let titles: string[] = []
+  let titles: EarnedTitle[] = []
   if (statsRes.ok && legendsRes.ok) {
     const akaById = new Map(
       legendsRes.data.map((l) => [l.legend_id, l.bio_aka]),
@@ -1770,10 +1767,20 @@ export default async function PlayerPage({
     titles = [...(statsRes.data.legends ?? [])]
       .filter((l) => l.level >= MAX_LEGEND_LEVEL)
       .sort((a, b) => (b.games ?? 0) - (a.games ?? 0))
-      // Some legends list multiple titles ("The Unconquered Viking, The Great
-      // Bear") — keep only the first.
-      .map((l) => akaById.get(l.legend_id)?.split(",")[0].trim())
-      .filter((t): t is string => !!t)
+      .map((l) => {
+        // Some legends list multiple titles ("The Unconquered Viking, The
+        // Great Bear") — keep only the first.
+        const text = akaById.get(l.legend_id)?.split(",")[0].trim()
+        if (!text) return null
+        // The legend that earned it: a title on its own says nothing about
+        // where it came from, which is the whole interest of having it.
+        const slug = slugForLegendId(l.legend_id)
+        return {
+          text,
+          legend: (slug && rosterEntryBySlug(slug)?.name) || null,
+        }
+      })
+      .filter((t): t is EarnedTitle => t !== null)
   }
 
   // Per-legend level/XP (from GetPlayerStats) for the Most Played hover cards.

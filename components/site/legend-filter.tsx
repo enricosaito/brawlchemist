@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Check, ChevronDown, Search, Swords, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LegendChip } from "./primitives"
+import { InfoTip } from "./info-tip"
 
 interface LegendOption {
   slug: string
@@ -108,14 +109,15 @@ export function LegendFilter({
       {/* Clear chip — only when a legend is active, so the empty state reads
           as the resting board. */}
       {selected && (
-        <Link
-          href={allHref}
-          aria-label="Clear legend filter"
-          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          title="Clear legend filter"
-        >
-          <X className="size-3.5" />
-        </Link>
+        <InfoTip label="Clear legend filter">
+          <Link
+            href={allHref}
+            aria-label="Clear legend filter"
+            className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <X className="size-3.5" />
+          </Link>
+        </InfoTip>
       )}
 
       {open && (

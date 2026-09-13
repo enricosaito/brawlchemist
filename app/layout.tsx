@@ -6,6 +6,7 @@ import "./globals.css"
 import { AppShell } from "@/components/site/launcher/app-shell"
 import type { ClaimedProfile } from "@/components/site/launcher/account-control"
 import { ThemeProvider } from "@/components/theme-provider"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { getSessionUser } from "@/lib/auth/session"
 import { getClaimedBrawlhallaId } from "@/lib/sync/claims"
 import { getFavoriteIds } from "@/lib/sync/favorites"
@@ -104,9 +105,14 @@ export default async function RootLayout({
     >
       <body>
         <ThemeProvider defaultTheme="dark">
-          <AppShell user={user} claimed={claimed} favoriteIds={favoriteIds}>
-            {children}
-          </AppShell>
+          {/* One provider for every InfoTip in the tree. 200ms rather than the
+              component's 0 default — instant tooltips fire on every glancing
+              pass of the cursor across a dense stat row. */}
+          <TooltipProvider delayDuration={200}>
+            <AppShell user={user} claimed={claimed} favoriteIds={favoriteIds}>
+              {children}
+            </AppShell>
+          </TooltipProvider>
         </ThemeProvider>
       </body>
       <GoogleAnalytics gaId="G-L7WXF6YDF1" />

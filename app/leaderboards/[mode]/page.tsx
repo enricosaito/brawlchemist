@@ -25,6 +25,7 @@ import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerRow } from "@/lib/db/schema"
+import { InfoTip } from "@/components/site/info-tip"
 
 const QUEUES: { id: ApiGameMode; label: string }[] = [
   { id: "1v1", label: "1v1" },
@@ -327,23 +328,24 @@ export default async function LeaderboardPage({
                   const c = cutoffs.get(r)
                   if (!c) return null
                   return (
-                    <span
+                    <InfoTip
                       key={r}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/60 px-2 py-1.5 font-mono text-[10px] uppercase tracking-wider text-foreground"
-                      title={`${r} Valhallan cutoff — #${c.rank} ${c.username}, ${c.count} Valhallans total`}
+                      label={`${r} Valhallan cutoff — #${c.rank} ${c.username}, ${c.count} Valhallans total`}
                     >
-                      <Image
-                        src="/assets/valhallan-helm.png"
-                        alt="Valhallan cutoff"
-                        width={16}
-                        height={16}
-                        className="shrink-0 select-none object-contain"
-                      />
-                      <span className="text-muted-foreground">{r}</span>
-                      <span className="tabular-nums">
-                        {c.rating.toLocaleString()}
+                      <span className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/60 px-2 py-1.5 font-mono text-[10px] uppercase tracking-wider text-foreground">
+                        <Image
+                          src="/assets/valhallan-helm.png"
+                          alt="Valhallan cutoff"
+                          width={16}
+                          height={16}
+                          className="shrink-0 select-none object-contain"
+                        />
+                        <span className="text-muted-foreground">{r}</span>
+                        <span className="tabular-nums">
+                          {c.rating.toLocaleString()}
+                        </span>
                       </span>
-                    </span>
+                    </InfoTip>
                   )
                 })}
               </div>

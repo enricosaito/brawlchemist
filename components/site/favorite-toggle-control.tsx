@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { Star } from "lucide-react"
 import { useFavorites } from "./favorites-provider"
 import { cn } from "@/lib/utils"
+import { InfoTip } from "./info-tip"
 
 /** How long the "Tracking" confirmation label lingers after a star is added. */
 const TRACKING_MS = 2400
@@ -54,28 +55,30 @@ export function FavoriteToggleControl({
   // /favorites). Show a disabled star so the affordance reads as intentional.
   if (isSelf) {
     return (
-      <span
-        title="This is your profile"
-        aria-disabled
-        className="inline-flex cursor-default items-center gap-1.5 rounded-md border border-border/50 bg-card/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground/50"
-      >
-        <Star className="size-3.5 shrink-0" />
-        {size === "md" && "Your profile"}
-      </span>
+      <InfoTip label="This is your profile">
+        <span
+          aria-disabled
+          className="inline-flex cursor-default items-center gap-1.5 rounded-md border border-border/50 bg-card/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground/50"
+        >
+          <Star className="size-3.5 shrink-0" />
+          {size === "md" && "Your profile"}
+        </span>
+      </InfoTip>
     )
   }
 
   // Signed-out: a nudge to sign in, returning to wherever the star lives.
   if (!loggedIn) {
     return (
-      <Link
-        href={`/login?next=${encodeURIComponent(pathname)}`}
-        title="Sign in to track this player"
-        className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-tier-gold/50 hover:text-foreground"
-      >
-        <Star className="size-3.5 shrink-0" />
-        {size === "md" && "Track"}
-      </Link>
+      <InfoTip label="Sign in to track this player">
+        <Link
+          href={`/login?next=${encodeURIComponent(pathname)}`}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-tier-gold/50 hover:text-foreground"
+        >
+          <Star className="size-3.5 shrink-0" />
+          {size === "md" && "Track"}
+        </Link>
+      </InfoTip>
     )
   }
 
