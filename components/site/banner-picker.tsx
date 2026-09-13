@@ -11,19 +11,25 @@ import { BannerPickerControl } from "./banner-picker-control"
  * rather than breaking the header (cardinal constraint #3).
  */
 export async function BannerPicker({ brawlhallaId }: { brawlhallaId: number }) {
+  // The try wraps only the lookups. JSX returned from inside a try reads as if
+  // render errors were being caught, and they aren't — React renders the
+  // element after this function has returned, so nothing it throws can reach
+  // this catch. Keeping the element outside says what the guard actually
+  // covers. (Same shape as ProfileCustomization.)
+  let bannerId: string | null
   try {
     const user = await getSessionUser()
     if (!user) return null
     if ((await getClaimState(brawlhallaId, user.id)) !== "mine") return null
-
-    const { bannerId } = await getCustomization(brawlhallaId)
-    return (
-      <BannerPickerControl
-        brawlhallaId={brawlhallaId}
-        currentBannerId={bannerId}
-      />
-    )
+    bannerId = (await getCustomization(brawlhallaId)).bannerId
   } catch {
     return null
   }
+
+  return (
+    <BannerPickerControl
+      brawlhallaId={brawlhallaId}
+      currentBannerId={bannerId}
+    />
+  )
 }
