@@ -52,10 +52,18 @@ async function fetchProLeaderboard(region: ApiRegion): Promise<RankedEntry[]> {
         ]
       : [region]
   const cutoffByRegion = new Map<string, number>()
+  // Ids the live ladder calls Valhallan. These rows come from stored
+  // ranked_json, which can be days old, so comparing a stale rating against an
+  // hourly cutoff downgraded anyone who had climbed since their last sync —
+  // measured on two pros, one stored 1 point under the bar and one 5 days
+  // cold. Ladder membership settles it without another API call.
+  const valhallanIds = new Set<number>()
   await Promise.all(
     regionsNeeded.map(async (r) => {
       const c = await getValhallanCutoff("1v1", r)
-      if (c) cutoffByRegion.set(r, c.rating)
+      if (!c) return
+      cutoffByRegion.set(r, c.rating)
+      for (const id of c.ids ?? []) valhallanIds.add(id)
     }),
   )
 
@@ -74,7 +82,11 @@ async function fetchProLeaderboard(region: ApiRegion): Promise<RankedEntry[]> {
             ? Math.max(0, d.games - d.wins)
             : null,
         region: d.region ?? null,
-        tier: isValhallan(d.rating, cutoff, d.wins) ? "Valhallan" : d.tier,
+        tier:
+          valhallanIds.has(d.brawlhalla_id) ||
+          isValhallan(d.rating, cutoff, d.wins)
+            ? "Valhallan"
+            : d.tier,
       }
     })
 }

@@ -251,9 +251,38 @@ async function valhallanCutoffRating(
   mode: ApiGameMode,
   region: string | null | undefined,
 ): Promise<number | null> {
+  return (await valhallanCutoffFor(mode, region))?.rating ?? null
+}
+
+/** The whole cutoff record, including the ids the ladder calls Valhallan. */
+async function valhallanCutoffFor(
+  mode: ApiGameMode,
+  region: string | null | undefined,
+) {
   if (!region || region === "ALL" || !isApiRegion(region)) return null
-  const c = await loadCutoff(mode, region)
-  return c?.rating ?? null
+  return (await loadCutoff(mode, region)) ?? null
+}
+
+/**
+ * Is this player Valhallan in 1v1?
+ *
+ * Ladder membership first: `data.rating` here can be up to six hours old (the
+ * profile is a DB-first read-through), while the cutoff refreshes hourly, so
+ * the rating comparison alone downgrades anyone who climbed since their last
+ * sync. Membership is the ladder's own answer. The comparison stays as the
+ * fallback for players below the tracked pages.
+ *
+ * 1v1 only — in 2v2 a player can hold several teams and being Valhallan on one
+ * says nothing about the others, so those still go through the rating test.
+ */
+function isValhallan1v1(
+  cutoff: { rating: number; ids: number[] } | null,
+  playerId: number,
+  rating: number | null,
+  wins: number | null,
+): boolean {
+  if (cutoff?.ids?.includes(playerId)) return true
+  return isValhallan(rating, cutoff?.rating ?? null, wins)
 }
 
 /** Heads in the header's Most Played card. Four keeps the stat row one line. */
@@ -1903,13 +1932,19 @@ export default async function PlayerPage({
   // ladder cutoff — 1v1 for the header, 2v2 for the team cards.
   // Only the cutoffs are left here — they need data.region (and whether the
   // player has any 2v2 teams), so they can't join the fan-out above.
-  const [cutoff1v1, cutoff2v2] = await Promise.all([
-    valhallanCutoffRating("1v1", data.region),
+  const [cut1v1, cutoff2v2] = await Promise.all([
+    valhallanCutoffFor("1v1", data.region),
     teams.length > 0
       ? valhallanCutoffRating("2v2", data.region)
       : Promise.resolve(null),
   ])
-  const headerValhallan = isValhallan(data.rating, cutoff1v1, data.wins)
+  const cutoff1v1 = cut1v1?.rating ?? null
+  const headerValhallan = isValhallan1v1(
+    cut1v1,
+    numId,
+    data.rating,
+    data.wins,
+  )
   // Live top-500 ladder position (global ALL ladder); null below the top 500.
   const ladderRank = ladderPos
     ? {

@@ -16,6 +16,20 @@ export interface ValhallanCutoff {
   /** Total Valhallans found in the region for this queue. */
   count: number
   username: string
+  /**
+   * Brawlhalla ids the live ladder itself calls Valhallan.
+   *
+   * The rating comparison this cutoff exists for is only a fallback — it pits
+   * a player's *stored* rating against a cutoff refreshed hourly, so anyone
+   * who climbed since their last sync is judged on an old number against a new
+   * bar and silently shown as Diamond. Membership here is the ladder's own
+   * answer and can't go stale that way.
+   *
+   * An array rather than a Set because unstable_cache round-trips through
+   * JSON. Covers the pages the walk below visits (the top ~50 per region),
+   * which is every Valhallan — the walk stops when the tier runs out.
+   */
+  ids: number[]
 }
 
 const PAGE_SIZE = 50
@@ -49,6 +63,7 @@ async function computeValhallanCutoff(
     username: string
   } | null = null
   let count = 0
+  const ids: number[] = []
 
   for (let page = 1; page <= MAX_PAGES; page++) {
     const res = await getRankedLeaderboard({
@@ -61,6 +76,11 @@ async function computeValhallanCutoff(
 
     const valhallans = res.data.rankings.filter((r) => r.tier === "Valhallan")
     for (const entry of valhallans) {
+      // Every player on the entry: 1v1 rows carry one, 2v2 rows carry both,
+      // and for a team both members hold the tier.
+      for (const p of entry.players) {
+        if (p.id > 0) ids.push(p.id)
+      }
       const username = entry.players[0]?.username
       if (entry.rating != null && username) {
         lastValhallan = {
@@ -89,6 +109,7 @@ async function computeValhallanCutoff(
     rank: lastValhallan.rank,
     count,
     username: lastValhallan.username,
+    ids,
   }
 }
 

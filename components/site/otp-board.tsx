@@ -247,10 +247,18 @@ export async function OtpBoard({
   const cutoffs = await getValhallanCutoffs("1v1", regions)
   const cutoffFor = (region: string | null) =>
     region && isApiRegion(region) ? cutoffs.get(region)?.rating ?? null : null
+  // Ladder membership first — these ratings are stored and the cutoff is live,
+  // so the comparison alone downgrades anyone who climbed since their last
+  // sync. See isValhallan1v1 on the profile page.
+  const ladderValhallan = new Set<number>()
+  for (const c of cutoffs.values()) {
+    for (const id of c.ids ?? []) ladderValhallan.add(id)
+  }
   const valhallanById = new Map<number, boolean>(
     players.map((p) => [
       p.brawlhalla_id,
-      isValhallan(p.rating, cutoffFor(p.region), p.wins),
+      ladderValhallan.has(p.brawlhalla_id) ||
+        isValhallan(p.rating, cutoffFor(p.region), p.wins),
     ]),
   )
   // Admin-curated pro handles/badges for the player column.
