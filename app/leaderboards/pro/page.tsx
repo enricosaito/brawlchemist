@@ -43,13 +43,7 @@ export default async function ProLeaderboardPage({
   // proBoard mode: show the pro handle + verified badge in the name, keep the
   // real Valhallan/Diamond tier in the subtext.
   const overrides = await getProfilesMap()
-  const columns = buildLeaderboardColumns(
-    playersMap,
-    "1v1",
-    region,
-    overrides,
-    true,
-  )
+  const columns = buildLeaderboardColumns(playersMap, "1v1", region, overrides)
 
   return (
     <main className="pb-16">

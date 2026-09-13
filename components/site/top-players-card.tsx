@@ -9,8 +9,12 @@ import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { Tier } from "@/lib/types"
+import { ShimmerText } from "@/components/shimmer-text"
 import { PreviewCard } from "./preview-card"
 import { LegendChip, PlayerLink, RankIcon } from "./primitives"
+
+/** How many rows get the shimmer treatment — the visible top of the board. */
+const SHIMMER_TOP_N = 6
 
 // All API regions (ALL first), shown in the home region dropdown.
 export const HOME_REGIONS = API_REGIONS
@@ -120,13 +124,20 @@ export async function TopPlayersCard({
             No verified pros in {region} yet.
           </li>
         ) : (
-          rows.map((entry) => {
+          rows.map((entry, i) => {
             const tier = toTier(entry.tier)
             const player = entry.players[0]
             if (!player) return null
             const lid = playersMap.get(player.id)?.topLegendId
             const slug = lid ? slugForLegendId(lid) : null
             const handle = overrides.get(player.id)?.verified?.handle
+            const name = handle ?? player.username
+            // Only worth showing when it's actually different information.
+            const ign =
+              handle && handle !== player.username ? player.username : null
+            // The top six get the shimmer. Staggered so the board reads as a
+            // sequence rather than six things pulsing in lockstep.
+            const shimmer = i < SHIMMER_TOP_N
             const wins = entry.wins
             const losses = entry.losses
             const total = (wins ?? 0) + (losses ?? 0)
@@ -171,17 +182,37 @@ export async function TopPlayersCard({
                   />
                 )}
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <PlayerLink id={player.id} className="font-medium">
-                    <span className="inline-flex min-w-0 items-center gap-1 text-sm leading-tight">
+                  <PlayerLink id={player.id} className="min-w-0 font-semibold">
+                    <span className="inline-flex min-w-0 items-center gap-1 text-[15px] leading-tight">
                       <span className="min-w-0 truncate">
-                        {handle ?? player.username}
+                        {shimmer ? (
+                          <ShimmerText duration={2.2} delay={0.2 + i * 0.12}>
+                            {name}
+                          </ShimmerText>
+                        ) : (
+                          name
+                        )}
                       </span>
-                      <BadgeCheck className="size-3.5 shrink-0 text-foreground" />
+                      <BadgeCheck
+                        className="size-3.5 shrink-0 text-mystic"
+                        aria-label="Verified pro player"
+                      />
                     </span>
                   </PlayerLink>
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-mystic">
-                    Pro Player
-                  </span>
+                  {/* The in-game name earns its place only when it differs
+                      from the handle — labelled, because an unexplained second
+                      name beside the first is a puzzle.
+
+                      Under the name rather than beside it, unlike the wide
+                      leaderboard table: this column is ~150px, and side by side
+                      the flex row squeezed the IGN to nothing. It takes the
+                      line the "Pro Player" tag used to occupy. */}
+                  {ign && (
+                    <span className="min-w-0 truncate font-mono text-[10px] text-muted-foreground">
+                      <span className="text-muted-foreground/60">IGN:</span>{" "}
+                      {ign}
+                    </span>
+                  )}
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-0.5">
                   <span className="font-mono text-sm tabular-nums">
