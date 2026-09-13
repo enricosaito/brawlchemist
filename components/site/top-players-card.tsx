@@ -178,16 +178,14 @@ export async function TopPlayersCard({
                   View Profile
                   <ArrowUpRight className="size-3.5" />
                 </Link>
-                {/* The standing is what orders the board, so it reads as a
-                    number rather than as a caption: display face, foreground
-                    weight, sized to sit with the name instead of under it.
-                    The podium three take medal colours and a slow sweep —
-                    three moving numbers mark the top without competing with
-                    the names the way six shimmering names did. */}
+                {/* Small and muted: the ordinal is an index into a list that's
+                    already in order, so it only needs to be findable, not
+                    loud. The podium three keep their medal colour and sweep —
+                    at this size that's a marker rather than a headline. */}
                 <span
                   className={cn(
-                    "w-5 shrink-0 text-right font-display text-lg font-bold leading-none tabular-nums",
-                    PODIUM_TEXT[entry.rank] ?? "text-foreground",
+                    "w-4 shrink-0 text-right font-mono text-xs font-semibold leading-none tabular-nums",
+                    PODIUM_TEXT[entry.rank] ?? "text-muted-foreground",
                   )}
                 >
                   {PODIUM_TEXT[entry.rank] ? (
