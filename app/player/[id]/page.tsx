@@ -4,7 +4,7 @@ import { headers } from "next/headers"
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
-import { BadgeCheck, ChevronRight, Users } from "lucide-react"
+import { ChevronRight, Users } from "lucide-react"
 import {
   LegendChip,
   RankHelm,
@@ -16,6 +16,7 @@ import {
 import { ClaimBanner } from "@/components/site/claim-banner"
 import { ProfileCustomizerSlot } from "@/components/site/profile-customizer-slot"
 import { TrackPlayerCard } from "@/components/site/track-player-card"
+import { VerifiedMark } from "@/components/site/pro-badge"
 import { RecentVisitRecorder } from "@/components/site/recent-visit-recorder"
 import { resolveBanner } from "@/lib/profile/banners"
 import { getCustomization } from "@/lib/sync/customizations"
@@ -300,8 +301,12 @@ function isValhallan1v1(
   return isValhallan(rating, cutoff?.rating ?? null, wins)
 }
 
-/** Heads in the header's Most Played card. Four keeps the stat row one line. */
-const MOST_PLAYED_COUNT = 4
+/**
+ * Heads and weapon icons in the Most Played cluster. Five fits now that the
+ * weapons lost their percentage labels and stopped needing two lines each.
+ */
+const MOST_PLAYED_COUNT = 5
+const MOST_PLAYED_WEAPONS = 2
 
 function winRate(wins: number, games: number): string {
   if (games <= 0) return "—"
@@ -315,14 +320,19 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params
   const numId = parseId(id)
-  if (!numId) return { title: "Brawlchemist | Player" }
+  if (!numId) return { title: "Player | Brawlchemist" }
+  // A pro is titled by their handle here for the same reason the page is: it is
+  // the name they are known by. It also spares the tab an in-game name with a
+  // pipe in it, which reads as a second separator once the name comes first.
+  // Free — getProfile reads the profiles map the page already caches.
+  const handle = (await getProfile(numId))?.verified?.handle
   const ranked = await loadRanked(numId)
   if (!ranked.data || !ranked.data.name) {
     // No ranked this season — fall back to lifetime stats for the name/desc.
     const statsRes = await loadStats(numId)
     if (statsRes.ok && statsRes.data?.name) {
       const s = statsRes.data
-      const title = `Brawlchemist | ${s.name}`
+      const title = `${handle ?? s.name} | Brawlchemist`
       const description = [
         `Level ${s.level}`,
         `${(s.games ?? 0).toLocaleString()} games`,
@@ -334,7 +344,7 @@ export async function generateMetadata({
         twitter: { card: "summary_large_image", title, description },
       }
     }
-    return { title: "Brawlchemist | Player" }
+    return { title: "Player | Brawlchemist" }
   }
   const d = ranked.data
   const cutoff = await valhallanCutoffRating("1v1", d.region)
@@ -349,7 +359,7 @@ export async function generateMetadata({
   ]
     .filter(Boolean)
     .join(" · ")
-  const title = `Brawlchemist | ${d.name}`
+  const title = `${handle ?? d.name} | Brawlchemist`
   // og:image is auto-attached from opengraph-image.tsx in this folder.
   return {
     title,
@@ -805,10 +815,23 @@ function MostPlayedCluster({
 }) {
   const body = (
     <>
-      <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      {/* The label is the affordance, so it says what clicking does rather
+          than only what it's showing. A bare chevron after a muted micro-label
+          read as decoration — the whole cluster is a link and nothing
+          announced it. Both halves brighten on hover so the target reads as
+          one thing. */}
+      <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors group-hover/most:text-foreground">
         Most Played
         {href && (
-          <ChevronRight className="size-3 transition-transform group-hover/most:translate-x-0.5" />
+          <>
+            <span aria-hidden className="text-muted-foreground/40">
+              ·
+            </span>
+            <span className="text-copper transition-colors group-hover/most:text-foreground">
+              All legends
+            </span>
+            <ChevronRight className="size-3 text-copper transition-transform group-hover/most:translate-x-0.5 group-hover/most:text-foreground" />
+          </>
         )}
       </span>
       <div className="mt-1 flex h-8 items-center gap-3">
@@ -822,18 +845,19 @@ function MostPlayedCluster({
         {legends.length > 0 && weapons.length > 0 && (
           <span aria-hidden className="h-8 w-px shrink-0 bg-border/60" />
         )}
+        {/* Two weapons, no percentages. The share was a number nobody acts on
+            sitting under an icon that already says the thing, and it made each
+            weapon two lines tall next to single-line legend heads. The figure
+            survives in the tooltip for anyone who wants it. */}
         {weapons.length > 0 && (
           <div className="flex items-center gap-2">
-            {weapons.slice(0, 3).map((w) => (
+            {weapons.slice(0, MOST_PLAYED_WEAPONS).map((w) => (
               <InfoTip
                 key={w.weaponId}
                 label={`${weaponLabel(w.weaponId)} — ${w.pct.toFixed(0)}% of playtime`}
               >
-                <span className="flex flex-col items-center gap-0.5">
-                  <WeaponIcon weaponId={w.weaponId} size={22} />
-                  <span className="font-mono text-[9px] tabular-nums text-muted-foreground">
-                    {w.pct.toFixed(0)}%
-                  </span>
+                <span className="flex items-center">
+                  <WeaponIcon weaponId={w.weaponId} size={24} />
                 </span>
               </InfoTip>
             ))}
@@ -1312,14 +1336,7 @@ function ProfileHeader({
                         more tag in the row — so it sits tight against the
                         title and carries its meaning in a tooltip. */}
                     {proHandle && (
-                      <InfoTip label="Verified pro player">
-                        <span className="inline-flex shrink-0">
-                          <BadgeCheck
-                            className="size-5 text-mystic sm:size-6"
-                            aria-label="Verified pro player"
-                          />
-                        </span>
-                      </InfoTip>
+                      <VerifiedMark className="size-5 sm:size-6" />
                     )}
                     {/* Flair rides the name line. It's the smallest, rarest
                         thing a player can hold and it says nothing in words,
@@ -1344,16 +1361,6 @@ function ProfileHeader({
                       </InfoTip>
                     )}
                     {claimSlot}
-                    {/* The in-game name trails the controls: it's the answer to
-                        "who is this on the ladder", which you want beside the
-                        name, not buried a line below among the stat tags. */}
-                    {proHandle && (
-                      <InfoTip label="In-game name">
-                        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
-                          {data.name}
-                        </span>
-                      </InfoTip>
-                    )}
                   </div>
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
@@ -1504,24 +1511,10 @@ function FallbackHeader({
                   </h1>
                   {/* See ProfileHeader — the mark belongs on the name. */}
                   {proHandle && (
-                    <InfoTip label="Verified pro player">
-                      <span className="inline-flex shrink-0">
-                        <BadgeCheck
-                          className="size-5 text-mystic sm:size-6"
-                          aria-label="Verified pro player"
-                        />
-                      </span>
-                    </InfoTip>
+                    <VerifiedMark className="size-5 sm:size-6" />
                   )}
                   {region && <RegionPill region={region} tone="ice" />}
                   {claimSlot}
-                  {proHandle && (
-                    <InfoTip label="In-game name">
-                      <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
-                        {name}
-                      </span>
-                    </InfoTip>
-                  )}
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
                   {preview?.claimed && <BrawlchemistUserBadge />}
@@ -1912,12 +1905,7 @@ export default async function PlayerPage({
   const { bannerId } = customization
   // Everything the flair rules read is already loaded for the header, so this
   // costs nothing beyond the derivation itself.
-  const flairContext: FlairContext = {
-    achievements: preview?.achievements,
-    valhallan: headerValhallan,
-    ladderRank: ladderPos?.rank ?? null,
-    games: data.games,
-  }
+  const flairContext: FlairContext = { achievements: preview?.achievements }
   const flair = resolveFlair(customization.flairId, flairContext)
   // The name the page titles with — a pro is known by their handle, so the
   // track card shouldn't call them something the heading never did.

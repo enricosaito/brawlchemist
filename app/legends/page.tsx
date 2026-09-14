@@ -1,7 +1,7 @@
 import Link from "next/link"
-import { BadgeCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DataTable, type ColDef } from "@/components/site/data-table"
+import { VerifiedMark } from "@/components/site/pro-badge"
 import { LegendChip, PlayerLink, RegionPill } from "@/components/site/primitives"
 import {
   PopularityLabel,
@@ -187,10 +187,7 @@ function buildColumns(
               {handle ?? top.username}
             </PlayerLink>
             {handle && (
-              <BadgeCheck
-                className="size-3 shrink-0 text-mystic"
-                aria-label="Verified pro player"
-              />
+              <VerifiedMark className="size-3" />
             )}
           </span>
         )

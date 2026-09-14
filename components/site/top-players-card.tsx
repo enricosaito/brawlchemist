@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { BadgeCheck, ChevronDown } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
@@ -9,6 +9,7 @@ import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
 import { FlairMark } from "./flair-mark"
+import { VerifiedMark } from "./pro-badge"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { Tier } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
@@ -179,22 +180,13 @@ export async function TopPlayersCard({
                   <PlayerLink id={player.id} className="min-w-0 font-semibold">
                     <span className="inline-flex min-w-0 items-center gap-1 text-[15px] leading-tight">
                       <span className="min-w-0 truncate">{name}</span>
-                      <BadgeCheck
-                        className="size-3.5 shrink-0 text-mystic"
-                        aria-label="Verified pro player"
-                      />
-                      {/* No ladderRank in the context: this card ranks pros
-                          among themselves, so its ordinal is not a ladder
-                          position and must not be read as one. */}
+                      <VerifiedMark />
                       <FlairMark
                         selectedId={flairs.get(player.id)}
                         context={{
                           achievements: overrides.get(player.id)?.achievements,
-                          valhallan: tier === "Valhallan",
-                          games: total || undefined,
                         }}
                         className="h-4"
-                        onlyWhenChosen
                       />
                     </span>
                   </PlayerLink>

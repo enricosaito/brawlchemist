@@ -2,6 +2,7 @@ import { TrendingDown, TrendingUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TIER_COLOR_VAR } from "@/components/site/primitives"
 import { formatElo, formatPercent } from "@/lib/format"
+import { CURRENT_SEASON } from "@/lib/mock-data"
 import { getRatingHistory } from "@/lib/sync/snapshots"
 import { RatingTrendChart } from "./rating-trend-chart"
 import type { Tier } from "@/lib/types"
@@ -109,7 +110,9 @@ export async function RankedStatsCard({
     const inner = (
       <>
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="font-display text-lg font-semibold">Ranked Stats</h2>
+          <h2 className="font-display text-lg font-semibold">
+            Ranked Season {CURRENT_SEASON}
+          </h2>
         </div>
         <div className="rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-sm sm:p-6">
           {metrics}

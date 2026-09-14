@@ -240,7 +240,6 @@ export default async function LeaderboardPage({
     region,
     overrides,
     flairs,
-    gameMode === "1v1" && region === "ALL",
   )
 
   // Roster options for the legend filter, sorted by display name.

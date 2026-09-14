@@ -2,11 +2,11 @@ import { Suspense, cache } from "react"
 import type { Metadata } from "next"
 import { cookies } from "next/headers"
 import Link from "next/link"
-import { BadgeCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ShimmerText } from "@/components/shimmer-text"
 import { ShineBorder } from "@/components/ui/shine-border"
 import { LiveAutoRefresh } from "@/components/site/live-auto-refresh"
+import { VerifiedMark } from "@/components/site/pro-badge"
 import { LiveClimbers } from "@/components/site/live-climbers"
 import { QueueActivityCard } from "@/components/site/queue-activity-card"
 import { RememberLiveView } from "@/components/site/remember-live-view"
@@ -176,10 +176,7 @@ function LiveCard({
               {previews.get(player!.id)?.verified?.handle ?? player?.name ?? "—"}
             </span>
             {previews.get(player!.id)?.verified?.handle && (
-              <BadgeCheck
-                className="size-3.5 shrink-0 text-mystic"
-                aria-label="Verified pro player"
-              />
+              <VerifiedMark />
             )}
           </span>
         ) : (
@@ -197,10 +194,7 @@ function LiveCard({
                   {handle ?? p.name}
                 </PlayerLink>
                 {handle && (
-                  <BadgeCheck
-                className="size-3.5 shrink-0 text-mystic"
-                aria-label="Verified pro player"
-              />
+                  <VerifiedMark />
                 )}
               </span>
             )

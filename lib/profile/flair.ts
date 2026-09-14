@@ -11,7 +11,7 @@
  * catalogue's labels and art. Entitlement is computed server-side and passed in.
  */
 
-export type FlairId = "world-champion" | "valhallan" | "top-10" | "veteran"
+export type FlairId = "world-champion"
 
 export interface FlairDef {
   id: FlairId
@@ -38,30 +38,6 @@ export const FLAIRS: FlairDef[] = [
     width: 616,
     height: 1212,
   },
-  {
-    id: "valhallan",
-    label: "Valhallan",
-    requirement: "Reach Valhallan in 1v1",
-    src: "/assets/valhallan-helm.png",
-    width: 48,
-    height: 48,
-  },
-  {
-    id: "top-10",
-    label: "Top 10",
-    requirement: "Reach the global top 10 in 1v1",
-    src: "/assets/Valhallan-GIF.webp",
-    width: 48,
-    height: 48,
-  },
-  {
-    id: "veteran",
-    label: "Veteran",
-    requirement: "Play 1,000 ranked 1v1 games in a season",
-    src: "/assets/diamond-helm.png",
-    width: 48,
-    height: 48,
-  },
 ]
 
 const BY_ID = new Map(FLAIRS.map((f) => [f.id, f]))
@@ -74,32 +50,25 @@ export function isValidFlairId(id: string): id is FlairId {
   return BY_ID.has(id as FlairId)
 }
 
-/** Everything the entitlement rules need, all of it already on the profile. */
+/**
+ * Everything the entitlement rules read, all of it already on the profile.
+ *
+ * One field today because there is one flair. Tier-, ladder- and games-based
+ * flair were tried and pulled: they fire for so many players at once that a
+ * leaderboard column fills with the same badge, which is the opposite of what
+ * a badge is for. Anything added back has to stay rare, and has to be
+ * decidable from data the page already holds — a flair that needs its own
+ * query puts a cost on every render for a 20px image.
+ */
 export interface FlairContext {
   /** Admin-curated esports accolades, the same strings the title tags use. */
   achievements?: string[]
-  valhallan?: boolean
-  /** Global 1v1 ladder position, or null below the tracked top 500. */
-  ladderRank?: number | null
-  /** Ranked 1v1 games this season. */
-  games?: number | null
 }
-
-/**
- * Which flair this player has earned.
- *
- * Accolades are free text an admin types, so world champion matches on the
- * phrase: "2v2 World Champion '24" and "1v1 World Champion '23" both earn the
- * one trophy, because the badge is the honour and not each time it was won.
- */
 export function earnedFlairIds(ctx: FlairContext): FlairId[] {
   const earned: FlairId[] = []
   if (ctx.achievements?.some((a) => /world champion/i.test(a))) {
     earned.push("world-champion")
   }
-  if (ctx.valhallan) earned.push("valhallan")
-  if (ctx.ladderRank != null && ctx.ladderRank <= 10) earned.push("top-10")
-  if ((ctx.games ?? 0) >= 1000) earned.push("veteran")
   return earned
 }
 

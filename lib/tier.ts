@@ -43,21 +43,41 @@ export const KNOWN_TIERS: readonly Tier[] = [
 ]
 
 /**
+ * Rating at which we call someone Valhallan *without* a cutoff to compare
+ * against.
+ *
+ * A safety net, not a shortcut. When `getValhallanCutoff` can't answer — the
+ * API is down, the region doesn't resolve, the hourly cache is cold — the
+ * honest answer used to be "not Valhallan", which showed a 2,900-rated player
+ * as Diamond. Rating alone can't decide the question in general (Valhallan is
+ * a regional top-N, and the boundary moves all season: US-E was 2,485 one day
+ * and 2,525 the next), so this only applies where there is nothing better.
+ *
+ * Deliberately conservative. Real cutoffs routinely sit ABOVE this — EU 2,560,
+ * AUS 2,547, US-E 2,525, BRZ 2,505 as measured — so applying it as an
+ * override rather than a fallback would promote high Diamonds instead: 117
+ * players on the day it was measured, and more as cutoffs climb. Below the
+ * cutoff it is only ever consulted when the cutoff is absent, where being
+ * generous to a 2,500-rated player is the better failure.
+ */
+export const VALHALLAN_FALLBACK_RATING = 2500
+
+/**
  * Whether a player currently clears their region's Valhallan cutoff. `cutoff`
  * is the lowest Valhallan rating in that region (from the live leaderboard);
- * pass null when unknown (no cutoff data, or a region we don't track) so we
- * fall back to the API tier rather than guessing Valhallan. `wins` is checked
- * against the 100-win requirement only when provided.
+ * pass null when it's unknown, and the rating falls back to
+ * VALHALLAN_FALLBACK_RATING rather than reporting a false negative. `wins` is
+ * checked against the 100-win requirement in both cases.
  */
 export function isValhallan(
   rating: number | null | undefined,
   cutoff: number | null | undefined,
   wins?: number | null,
 ): boolean {
-  if (cutoff == null || rating == null) return false
-  if (rating < cutoff) return false
+  if (rating == null) return false
   if (wins != null && wins < VALHALLAN_MIN_WINS) return false
-  return true
+  if (cutoff == null) return rating >= VALHALLAN_FALLBACK_RATING
+  return rating >= cutoff
 }
 
 export function deriveTier(
