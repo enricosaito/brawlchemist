@@ -1381,9 +1381,10 @@ function ProfileHeader({
                           <RegionRankTag
                             region={ladderRank.region}
                             rank={ladderRank.regionRank}
+                            tone="ice"
                           />
                         ) : (
-                          <RegionPill region={data.region} />
+                          <RegionPill region={data.region} tone="ice" />
                         ))}
                       {/* No separators any more: every item in this row is a
                           bounded tag, so the dots were drawing a line between
@@ -1512,7 +1513,7 @@ function FallbackHeader({
                       </span>
                     </InfoTip>
                   )}
-                  {region && <RegionPill region={region} />}
+                  {region && <RegionPill region={region} tone="ice" />}
                   {claimSlot}
                   {proHandle && (
                     <InfoTip label="In-game name">

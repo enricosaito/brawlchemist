@@ -12,7 +12,8 @@ import { slugForLegendId } from "@/lib/legends-roster"
 import type { PlayerPreview } from "@/lib/player-previews"
 import type { Tier } from "@/lib/types"
 import { LegendChip, REGION_COLOR, TIER_TEXT_COLOR } from "./primitives"
-import { PlayerName, ProBadge } from "./pro-badge"
+import { BadgeCheck } from "lucide-react"
+import { InfoTip } from "./info-tip"
 
 const KNOWN_TIERS: readonly Tier[] = [
   "Tin",
@@ -133,20 +134,27 @@ function PodiumCard({
           <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/40 font-display text-sm font-bold text-foreground">
             {entry.rank}
           </span>
-          {entry.players.length === 1 && player && handle ? (
-            <PlayerName
-              username={player.username}
-              handle={handle}
-              className="flex-1 text-base font-semibold leading-tight"
-            />
-          ) : (
-            <>
-              <span className="min-w-0 flex-1 truncate text-base font-semibold leading-tight">
-                {username || "—"}
-              </span>
-              {verified && <ProBadge className="shrink-0" />}
-            </>
-          )}
+          {/* The check mark alone, not the "PRO" tag. On a card this size the
+              name is the subject and the tag was a second block of text
+              competing with it — the mark says the same thing as a mark on the
+              name, which is what verification is. */}
+          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+            <span className="min-w-0 truncate text-base font-semibold leading-tight">
+              {(entry.players.length === 1 && player && handle
+                ? handle
+                : username) || "—"}
+            </span>
+            {verified && (
+              <InfoTip label="Verified pro player">
+                <span className="inline-flex shrink-0">
+                  <BadgeCheck
+                    className="size-4 text-mystic"
+                    aria-label="Verified pro player"
+                  />
+                </span>
+              </InfoTip>
+            )}
+          </span>
         </div>
 
         <div className="flex items-baseline gap-1.5">

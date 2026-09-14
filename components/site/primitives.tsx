@@ -384,41 +384,46 @@ export function StanceLabel({
 }
 
 /**
- * Region tag colours — one ice blue for every region.
+ * Per-region text / outline / fill. The fill carries the region's own hue at
+ * the same 10% tint every other tag uses, so a region tag sits in a row of
+ * tags as one of them rather than as a neutral chip that happens to have
+ * coloured text.
  *
- * These used to be a rainbow, a hue per region. It looked like information and
- * wasn't: nobody learns that orange means AUS, so each colour had to be read as
- * the word beside it anyway, while ten saturated hues competed with the tier,
- * pro and accolade colours that *do* carry meaning. A region tag now shares the
- * ice of the ladder rank it sits beside, because that is what it is — the same
- * standing at a regional scope.
- *
- * Kept as a map rather than collapsed to a constant: region-specific colour is
- * a reasonable thing to want back for a map or a per-region chart, and the call
- * sites shouldn't have to change if it returns.
+ * This is the colour for lists, where a column of regions is something you
+ * scan and group by eye — ten hues down a leaderboard do real work. On a
+ * profile there is exactly one region and nothing to compare it against, so
+ * the hue says nothing and competes with the tier and pro colours around it;
+ * pass `tone="ice"` there to match the ladder rank it sits beside.
  */
-const REGION_TAG = {
-  text: "text-ice",
-  border: "border-ice/40",
-  bg: "bg-ice/10",
-} as const
-
 export const REGION_COLOR: Record<
   string,
   { text: string; border: string; bg: string }
 > = {
   ALL: { text: "text-muted-foreground", border: "border-border/60", bg: "bg-muted/40" },
-  BRZ: REGION_TAG,
-  "US-E": REGION_TAG,
-  "US-W": REGION_TAG,
-  EU: REGION_TAG,
-  SEA: REGION_TAG,
-  AUS: REGION_TAG,
+  BRZ: { text: "text-[#4ade80]", border: "border-[#4ade80]/40", bg: "bg-[#4ade80]/10" },
+  "US-E": { text: "text-[#f87171]", border: "border-[#f87171]/40", bg: "bg-[#f87171]/10" },
+  "US-W": { text: "text-[#38bdf8]", border: "border-[#38bdf8]/40", bg: "bg-[#38bdf8]/10" },
+  EU: { text: "text-[#60a5fa]", border: "border-[#60a5fa]/40", bg: "bg-[#60a5fa]/10" },
+  SEA: { text: "text-[#2dd4bf]", border: "border-[#2dd4bf]/40", bg: "bg-[#2dd4bf]/10" },
+  AUS: { text: "text-[#fb923c]", border: "border-[#fb923c]/40", bg: "bg-[#fb923c]/10" },
   // Both spellings: player data says JPN, leaderboard rows say JPS.
-  JPN: REGION_TAG,
-  JPS: REGION_TAG,
-  SA: REGION_TAG,
-  ME: REGION_TAG,
+  JPN: { text: "text-[#facc15]", border: "border-[#facc15]/40", bg: "bg-[#facc15]/10" },
+  JPS: { text: "text-[#facc15]", border: "border-[#facc15]/40", bg: "bg-[#facc15]/10" },
+  SA: { text: "text-[#c084fc]", border: "border-[#c084fc]/40", bg: "bg-[#c084fc]/10" },
+  ME: { text: "text-[#f472b6]", border: "border-[#f472b6]/40", bg: "bg-[#f472b6]/10" },
+}
+
+/** Region tag in the ladder's ice, for the profile — see REGION_COLOR. */
+const REGION_ICE = {
+  text: "text-ice",
+  border: "border-ice/40",
+  bg: "bg-ice/10",
+} as const
+
+export type RegionTone = "region" | "ice"
+
+function regionTone(region: string, tone: RegionTone) {
+  return tone === "ice" ? REGION_ICE : REGION_COLOR[region]
 }
 
 /**
@@ -433,12 +438,14 @@ export function RegionRankTag({
   region,
   rank,
   className,
+  tone = "region",
 }: {
   region: string
   rank: number
   className?: string
+  tone?: RegionTone
 }) {
-  const c = REGION_COLOR[region]
+  const c = regionTone(region, tone)
   return (
     <InfoTip label={`#${rank.toLocaleString()} in ${region}`}>
       <span
@@ -457,8 +464,16 @@ export function RegionRankTag({
 }
 
 /** Region pill — flat, compact, monospace, color-coded per region (text + outline). */
-export function RegionPill({ region, className }: { region: string; className?: string }) {
-  const c = REGION_COLOR[region]
+export function RegionPill({
+  region,
+  className,
+  tone = "region",
+}: {
+  region: string
+  className?: string
+  tone?: RegionTone
+}) {
+  const c = regionTone(region, tone)
   return (
     <span
       className={cn(

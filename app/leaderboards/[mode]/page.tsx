@@ -216,7 +216,7 @@ export default async function LeaderboardPage({
   const page = Math.min(requestedPage, totalPages)
 
   // Cached player rows for legend enrichment. Fail open if the DB is down.
-  // Only the 1v1/solo board renders the best-legends column (which reads
+  // Only the 1v1/solo board renders the best-picks column (which reads
   // ranked_json); 2v2 shows just the main-legend chip (topLegendId), so it
   // skips the ranked_json blob.
   let playersMap = new Map<number, PlayerRow>()

@@ -2,13 +2,18 @@ import { BadgeCheck } from "lucide-react"
 import { FlairMark } from "@/components/site/flair-mark"
 import { cn } from "@/lib/utils"
 import { formatElo, formatPercent } from "@/lib/format"
-import { slugForLegendId } from "@/lib/legends-roster"
+import {
+  rosterEntryByLegendId,
+  slugForLegendId,
+} from "@/lib/legends-roster"
 import {
   LegendChip,
   PlayerLink,
   RankIcon,
+  RankHelm,
   RegionPill,
   TIER_TEXT_COLOR,
+  WeaponIcon,
 } from "@/components/site/primitives"
 import { type ColDef } from "@/components/site/data-table"
 import type {
@@ -20,9 +25,10 @@ import type {
 } from "@/lib/brawlhalla-api"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
-import type { Tier } from "@/lib/types"
+import type { Tier, WeaponId } from "@/lib/types"
 
-const TOP_LEGENDS_LIMIT = 5
+const TOP_LEGENDS_LIMIT = 3
+const TOP_WEAPONS_LIMIT = 2
 
 /**
  * Up to N most-played legends from a player's cached rankedJson, as slugs
@@ -40,6 +46,36 @@ export function topLegendSlugsFor(player: PlayerRow | undefined): string[] {
     .slice(0, TOP_LEGENDS_LIMIT)
     .map((l) => slugForLegendId(l.legend_id))
     .filter((s): s is string => !!s)
+}
+
+/**
+ * The weapons behind a player's play, from the legends we already hold.
+ *
+ * Weapon time lives in GetPlayerStats, a call per player the leaderboard is
+ * never going to make. Every legend carries exactly two weapons though, so
+ * attributing each legend's games to both and summing gives a good answer for
+ * free — it's inferred from picks rather than measured from time held, which
+ * is the honest reading of "best picks".
+ */
+export function topWeaponsFor(player: PlayerRow | undefined): WeaponId[] {
+  if (!player?.rankedJson) return []
+  const ranked = player.rankedJson as PlayerRanked
+  const legends: PlayerRankedLegend[] = Array.isArray(ranked.legends)
+    ? ranked.legends
+    : []
+  const games = new Map<WeaponId, number>()
+  for (const l of legends) {
+    if (typeof l.games !== "number" || l.games <= 0) continue
+    const entry = rosterEntryByLegendId(l.legend_id)
+    if (!entry) continue
+    for (const w of entry.weapons) {
+      games.set(w, (games.get(w) ?? 0) + l.games)
+    }
+  }
+  return [...games.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, TOP_WEAPONS_LIMIT)
+    .map(([w]) => w)
 }
 
 const KNOWN_TIERS: readonly Tier[] = [
@@ -248,29 +284,38 @@ export function buildLeaderboardColumns(
       label: "Rating",
       align: "right",
       width: "120px",
-      render: (r) => (
-        <span className="font-mono text-sm tabular-nums">
-          {formatNullableElo(r.rating)}
-          {r.rating != null && (
-            <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-              ELO
+      render: (r) => {
+        // The helm rides with the rating, as it does on the profile and the
+        // home card: it describes where that number sits, so the two read as
+        // one figure. Only the top two tiers have one.
+        const tier = toTier(r.tier)
+        return (
+          <span className="flex items-center justify-end gap-1.5 font-mono text-sm tabular-nums">
+            {tier && <RankHelm tier={tier} className="h-[18px]" />}
+            <span>
+              {formatNullableElo(r.rating)}
+              {r.rating != null && (
+                <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                  ELO
+                </span>
+              )}
             </span>
-          )}
-        </span>
-      ),
+          </span>
+        )
+      },
     },
     // Single-player modes (1v1, solo 2v2): show up to 5 most-played legends.
-    // Team 2v2: textual tier (best-legends would be ambiguous across the two).
+    // Team 2v2: textual tier (best picks would be ambiguous across the two).
     gameMode !== "2v2"
       ? {
-          id: "best-legends",
-          label: "Best Legends",
+          id: "best-picks",
+          label: "Best Picks",
           width: "200px",
           render: (r) => {
             const player = r.players[0]
-            const slugs = player
-              ? topLegendSlugsFor(playersMap.get(player.id))
-              : []
+            const row = player ? playersMap.get(player.id) : undefined
+            const slugs = topLegendSlugsFor(row)
+            const weapons = topWeaponsFor(row)
             if (slugs.length === 0) {
               return (
                 <span className="font-mono text-[10px] text-muted-foreground/60">
@@ -287,6 +332,18 @@ export function buildLeaderboardColumns(
                     size="md"
                     showName={false}
                   />
+                ))}
+                {/* A rule, not a gap: legends and weapons are different kinds
+                    of answer to "what do they play", and without it the icons
+                    read as one undifferentiated row of pictures. */}
+                {weapons.length > 0 && (
+                  <span
+                    aria-hidden
+                    className="mx-0.5 h-5 w-px shrink-0 bg-border/60"
+                  />
+                )}
+                {weapons.map((w) => (
+                  <WeaponIcon key={w} weaponId={w} size={20} />
                 ))}
               </div>
             )
