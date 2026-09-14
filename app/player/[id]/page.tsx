@@ -300,8 +300,12 @@ function isValhallan1v1(
   return isValhallan(rating, cutoff?.rating ?? null, wins)
 }
 
-/** Heads in the header's Most Played card. Four keeps the stat row one line. */
-const MOST_PLAYED_COUNT = 4
+/**
+ * Heads and weapon icons in the Most Played cluster. Five fits now that the
+ * weapons lost their percentage labels and stopped needing two lines each.
+ */
+const MOST_PLAYED_COUNT = 5
+const MOST_PLAYED_WEAPONS = 2
 
 function winRate(wins: number, games: number): string {
   if (games <= 0) return "—"
@@ -805,10 +809,23 @@ function MostPlayedCluster({
 }) {
   const body = (
     <>
-      <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      {/* The label is the affordance, so it says what clicking does rather
+          than only what it's showing. A bare chevron after a muted micro-label
+          read as decoration — the whole cluster is a link and nothing
+          announced it. Both halves brighten on hover so the target reads as
+          one thing. */}
+      <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors group-hover/most:text-foreground">
         Most Played
         {href && (
-          <ChevronRight className="size-3 transition-transform group-hover/most:translate-x-0.5" />
+          <>
+            <span aria-hidden className="text-muted-foreground/40">
+              ·
+            </span>
+            <span className="text-copper transition-colors group-hover/most:text-foreground">
+              All legends
+            </span>
+            <ChevronRight className="size-3 text-copper transition-transform group-hover/most:translate-x-0.5 group-hover/most:text-foreground" />
+          </>
         )}
       </span>
       <div className="mt-1 flex h-8 items-center gap-3">
@@ -822,18 +839,19 @@ function MostPlayedCluster({
         {legends.length > 0 && weapons.length > 0 && (
           <span aria-hidden className="h-8 w-px shrink-0 bg-border/60" />
         )}
+        {/* Two weapons, no percentages. The share was a number nobody acts on
+            sitting under an icon that already says the thing, and it made each
+            weapon two lines tall next to single-line legend heads. The figure
+            survives in the tooltip for anyone who wants it. */}
         {weapons.length > 0 && (
           <div className="flex items-center gap-2">
-            {weapons.slice(0, 3).map((w) => (
+            {weapons.slice(0, MOST_PLAYED_WEAPONS).map((w) => (
               <InfoTip
                 key={w.weaponId}
                 label={`${weaponLabel(w.weaponId)} — ${w.pct.toFixed(0)}% of playtime`}
               >
-                <span className="flex flex-col items-center gap-0.5">
-                  <WeaponIcon weaponId={w.weaponId} size={22} />
-                  <span className="font-mono text-[9px] tabular-nums text-muted-foreground">
-                    {w.pct.toFixed(0)}%
-                  </span>
+                <span className="flex items-center">
+                  <WeaponIcon weaponId={w.weaponId} size={24} />
                 </span>
               </InfoTip>
             ))}
@@ -1344,16 +1362,6 @@ function ProfileHeader({
                       </InfoTip>
                     )}
                     {claimSlot}
-                    {/* The in-game name trails the controls: it's the answer to
-                        "who is this on the ladder", which you want beside the
-                        name, not buried a line below among the stat tags. */}
-                    {proHandle && (
-                      <InfoTip label="In-game name">
-                        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
-                          {data.name}
-                        </span>
-                      </InfoTip>
-                    )}
                   </div>
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
@@ -1515,13 +1523,6 @@ function FallbackHeader({
                   )}
                   {region && <RegionPill region={region} tone="ice" />}
                   {claimSlot}
-                  {proHandle && (
-                    <InfoTip label="In-game name">
-                      <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
-                        {name}
-                      </span>
-                    </InfoTip>
-                  )}
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
                   {preview?.claimed && <BrawlchemistUserBadge />}
