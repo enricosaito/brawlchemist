@@ -1,5 +1,5 @@
-import { BadgeCheck } from "lucide-react"
 import { FlairMark } from "@/components/site/flair-mark"
+import { VerifiedMark } from "@/components/site/pro-badge"
 import { cn } from "@/lib/utils"
 import { formatElo, formatPercent } from "@/lib/format"
 import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
@@ -220,10 +220,7 @@ export function buildLeaderboardColumns(
                       {handle ? (
                         <span className="inline-flex min-w-0 items-center gap-1">
                           <span className="min-w-0 truncate">{handle}</span>
-                          <BadgeCheck
-                            className="size-3.5 shrink-0 text-mystic"
-                            aria-label="Verified pro player"
-                          />
+                          <VerifiedMark />
                           {flairFor(p.id)}
                         </span>
                       ) : (

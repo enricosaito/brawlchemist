@@ -21,6 +21,31 @@ export function ProBadge({ className }: { className?: string }) {
 }
 
 /**
+ * VerifiedMark — the blue check that says "this is really them".
+ *
+ * One component because it appeared in seven places and only three of them
+ * had the tooltip, so the same mark meant something you could hover to read
+ * on a podium and nothing at all in the row directly beneath it. The label is
+ * the whole point of the mark: a check on its own is decoration until it says
+ * what was verified.
+ *
+ * Sized by the caller — it sits beside a 4xl name on a profile and a 15px one
+ * in a table row.
+ */
+export function VerifiedMark({ className = "size-3.5" }: { className?: string }) {
+  return (
+    <InfoTip label="Verified pro player">
+      <span className="inline-flex shrink-0">
+        <BadgeCheck
+          className={cn("text-mystic", className)}
+          aria-label="Verified pro player"
+        />
+      </span>
+    </InfoTip>
+  )
+}
+
+/**
  * PlayerName — for verified pros, shows the PRO badge + clean handle by default.
  * On hover (driven by an ancestor `group/pro`, e.g. the leaderboard row/card)
  * the badge stays and the handle swaps to the in-game username, with the tier

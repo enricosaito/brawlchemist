@@ -12,8 +12,7 @@ import { slugForLegendId } from "@/lib/legends-roster"
 import type { PlayerPreview } from "@/lib/player-previews"
 import type { Tier } from "@/lib/types"
 import { LegendChip, REGION_COLOR, TIER_TEXT_COLOR } from "./primitives"
-import { BadgeCheck } from "lucide-react"
-import { InfoTip } from "./info-tip"
+import { VerifiedMark } from "./pro-badge"
 
 const KNOWN_TIERS: readonly Tier[] = [
   "Tin",
@@ -144,16 +143,7 @@ function PodiumCard({
                 ? handle
                 : username) || "—"}
             </span>
-            {verified && (
-              <InfoTip label="Verified pro player">
-                <span className="inline-flex shrink-0">
-                  <BadgeCheck
-                    className="size-4 text-mystic"
-                    aria-label="Verified pro player"
-                  />
-                </span>
-              </InfoTip>
-            )}
+            {verified && <VerifiedMark className="size-4" />}
           </span>
         </div>
 

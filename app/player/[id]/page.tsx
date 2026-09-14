@@ -4,7 +4,7 @@ import { headers } from "next/headers"
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
-import { BadgeCheck, ChevronRight, Users } from "lucide-react"
+import { ChevronRight, Users } from "lucide-react"
 import {
   LegendChip,
   RankHelm,
@@ -16,6 +16,7 @@ import {
 import { ClaimBanner } from "@/components/site/claim-banner"
 import { ProfileCustomizerSlot } from "@/components/site/profile-customizer-slot"
 import { TrackPlayerCard } from "@/components/site/track-player-card"
+import { VerifiedMark } from "@/components/site/pro-badge"
 import { RecentVisitRecorder } from "@/components/site/recent-visit-recorder"
 import { resolveBanner } from "@/lib/profile/banners"
 import { getCustomization } from "@/lib/sync/customizations"
@@ -319,14 +320,19 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params
   const numId = parseId(id)
-  if (!numId) return { title: "Brawlchemist | Player" }
+  if (!numId) return { title: "Player | Brawlchemist" }
+  // A pro is titled by their handle here for the same reason the page is: it is
+  // the name they are known by. It also spares the tab an in-game name with a
+  // pipe in it, which reads as a second separator once the name comes first.
+  // Free — getProfile reads the profiles map the page already caches.
+  const handle = (await getProfile(numId))?.verified?.handle
   const ranked = await loadRanked(numId)
   if (!ranked.data || !ranked.data.name) {
     // No ranked this season — fall back to lifetime stats for the name/desc.
     const statsRes = await loadStats(numId)
     if (statsRes.ok && statsRes.data?.name) {
       const s = statsRes.data
-      const title = `Brawlchemist | ${s.name}`
+      const title = `${handle ?? s.name} | Brawlchemist`
       const description = [
         `Level ${s.level}`,
         `${(s.games ?? 0).toLocaleString()} games`,
@@ -338,7 +344,7 @@ export async function generateMetadata({
         twitter: { card: "summary_large_image", title, description },
       }
     }
-    return { title: "Brawlchemist | Player" }
+    return { title: "Player | Brawlchemist" }
   }
   const d = ranked.data
   const cutoff = await valhallanCutoffRating("1v1", d.region)
@@ -353,7 +359,7 @@ export async function generateMetadata({
   ]
     .filter(Boolean)
     .join(" · ")
-  const title = `Brawlchemist | ${d.name}`
+  const title = `${handle ?? d.name} | Brawlchemist`
   // og:image is auto-attached from opengraph-image.tsx in this folder.
   return {
     title,
@@ -1330,14 +1336,7 @@ function ProfileHeader({
                         more tag in the row — so it sits tight against the
                         title and carries its meaning in a tooltip. */}
                     {proHandle && (
-                      <InfoTip label="Verified pro player">
-                        <span className="inline-flex shrink-0">
-                          <BadgeCheck
-                            className="size-5 text-mystic sm:size-6"
-                            aria-label="Verified pro player"
-                          />
-                        </span>
-                      </InfoTip>
+                      <VerifiedMark className="size-5 sm:size-6" />
                     )}
                     {/* Flair rides the name line. It's the smallest, rarest
                         thing a player can hold and it says nothing in words,
@@ -1512,14 +1511,7 @@ function FallbackHeader({
                   </h1>
                   {/* See ProfileHeader — the mark belongs on the name. */}
                   {proHandle && (
-                    <InfoTip label="Verified pro player">
-                      <span className="inline-flex shrink-0">
-                        <BadgeCheck
-                          className="size-5 text-mystic sm:size-6"
-                          aria-label="Verified pro player"
-                        />
-                      </span>
-                    </InfoTip>
+                    <VerifiedMark className="size-5 sm:size-6" />
                   )}
                   {region && <RegionPill region={region} tone="ice" />}
                   {claimSlot}
