@@ -301,3 +301,19 @@ export async function setFlair(
   revalidateTag(FLAIR_MAP_TAG, "max")
 }
 
+
+/**
+ * Admin: drop a player's flair choice, returning them to the automatic pick.
+ *
+ * Moderation for a selection, not for entitlement — there is no entitlement to
+ * revoke here, since it's derived on every render from the player's own record.
+ * To take a badge away you take away the thing that earns it.
+ */
+export async function clearFlair(brawlhallaId: number): Promise<void> {
+  await db()
+    .update(userCustomizations)
+    .set({ flairId: null, updatedAt: new Date() })
+    .where(eq(userCustomizations.brawlhallaId, brawlhallaId))
+  revalidateTag(customizationTag(brawlhallaId), "max")
+  revalidateTag(FLAIR_MAP_TAG, "max")
+}

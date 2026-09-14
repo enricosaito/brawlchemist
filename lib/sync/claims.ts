@@ -347,3 +347,26 @@ export async function getClaimState(
   if (userId && owner === userId) return "mine"
   return "other"
 }
+
+/**
+ * Admin: release a profile's ownership so it can be claimed again.
+ *
+ * Clears the whole ownership set, not just userId — a row left with a
+ * claimedAt and a claimMethod but no owner would read as claimed to anyone
+ * inspecting the table later. Curation (isPro, handle, titles, skin) is
+ * deliberately untouched: who owns an account and who we've marked a pro are
+ * separate facts, and unlinking shouldn't quietly demote anyone.
+ */
+export async function unlinkProfile(brawlhallaId: number): Promise<void> {
+  await db()
+    .update(profiles)
+    .set({
+      userId: null,
+      claimedAt: null,
+      claimMethod: null,
+      verifiedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(profiles.brawlhallaId, brawlhallaId))
+  revalidateTag(PROFILES_TAG, "max")
+}
