@@ -1,4 +1,5 @@
 import { BadgeCheck } from "lucide-react"
+import { FlairMark } from "@/components/site/flair-mark"
 import { cn } from "@/lib/utils"
 import { formatElo, formatPercent } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
@@ -81,7 +82,35 @@ export function buildLeaderboardColumns(
   gameMode: ApiGameMode,
   region: ApiRegion,
   previews: Map<number, PlayerPreview>,
+  /** Chosen flair per player (getFlairMap); omit to render no flair. */
+  flairs: Map<number, string> = new Map(),
+  /** True when this board IS the global 1v1 ladder, so a row's rank can be
+   * read as a ladder position. On a regional or 2v2 board it cannot. */
+  rankIsGlobalLadder = false,
 ): ColDef<RankedEntry>[] {
+  // Entitlement from the facts this row actually carries, never from ones it
+  // only looks like it carries. A row's rank is a position within the selected
+  // mode and region, so it stands in for a ladder position only on the global
+  // 1v1 board; wins + losses is 1v1 season games only in 1v1 (in 2v2 it counts
+  // team games, which the Veteran rule is not about). Where a fact is
+  // unavailable the flair simply does not appear — under-awarding here is the
+  // safe direction, since the profile remains the authority.
+  const flairFor = (id: number, r: RankedEntry) => {
+    const total = (r.wins ?? 0) + (r.losses ?? 0)
+    return (
+      <FlairMark
+        selectedId={flairs.get(id)}
+        context={{
+          achievements: previews.get(id)?.achievements,
+          valhallan: toTier(r.tier) === "Valhallan",
+          games: gameMode === "1v1" && total > 0 ? total : undefined,
+          ladderRank: rankIsGlobalLadder ? r.rank : null,
+        }}
+        onlyWhenChosen
+      />
+    )
+  }
+
   const regionColumn: ColDef<RankedEntry> = {
     id: "region",
     label: "Region",
@@ -181,9 +210,13 @@ export function buildLeaderboardColumns(
                             className="size-3.5 shrink-0 text-mystic"
                             aria-label="Verified pro player"
                           />
+                          {flairFor(p.id, r)}
                         </span>
                       ) : (
-                        <span className="block min-w-0 truncate">{p.username}</span>
+                        <span className="inline-flex min-w-0 items-center gap-1">
+                          <span className="min-w-0 truncate">{p.username}</span>
+                          {flairFor(p.id, r)}
+                        </span>
                       )}
                     </PlayerLink>
                     {/* Revealed on hover of the whole row (group/row lives on

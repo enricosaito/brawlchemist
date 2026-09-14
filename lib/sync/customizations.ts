@@ -1,7 +1,7 @@
 import "server-only"
 
 import { revalidateTag, unstable_cache } from "next/cache"
-import { eq } from "drizzle-orm"
+import { eq, isNotNull } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { userCustomizations, type UserCustomizationRow } from "@/lib/db/schema"
 import { rosterEntryByLegendId } from "@/lib/legends-roster"
@@ -157,6 +157,54 @@ export async function getCustomization(
   )()
 }
 
+/** Busted whenever anyone's flair changes — see getFlairMap. */
+const FLAIR_MAP_TAG = "flair-map"
+
+/**
+ * Every player's chosen flair, as one cached map.
+ *
+ * List views (the home Live Rankings card, the leaderboards) need a selection
+ * per row, and a read per row is exactly the shape that has blown the egress
+ * budget before. Instead this reads two narrow columns for the whole table
+ * once and shares the result — only claimed owners who have touched the
+ * setting have a row at all, so it stays small for a long time.
+ *
+ * Fails open to an empty map: no flair anywhere beats a broken leaderboard.
+ */
+const getFlairObject = unstable_cache(
+  async (): Promise<Record<string, string>> => {
+    try {
+      const rows = await db()
+        .select({
+          brawlhallaId: userCustomizations.brawlhallaId,
+          flairId: userCustomizations.flairId,
+        })
+        .from(userCustomizations)
+        .where(isNotNull(userCustomizations.flairId))
+      const out: Record<string, string> = {}
+      for (const r of rows) {
+        const parsed = parseFlairId(r.flairId)
+        if (parsed) out[String(r.brawlhallaId)] = parsed
+      }
+      return out
+    } catch (err) {
+      console.error("[customizations] flair map read failed:", err)
+      return {}
+    }
+  },
+  ["flair-map"],
+  { tags: [FLAIR_MAP_TAG], revalidate: 300 },
+)
+
+/** `unstable_cache` can't serialize a Map, so it caches an object and we
+ * hydrate here (same shape as getProfilesMap). */
+export async function getFlairMap(): Promise<Map<number, string>> {
+  const obj = await getFlairObject()
+  const map = new Map<number, string>()
+  for (const [k, v] of Object.entries(obj)) map.set(Number(k), v)
+  return map
+}
+
 /** Uncached read for the owner's edit form. */
 export async function getCustomizationRecord(
   brawlhallaId: number,
@@ -248,4 +296,8 @@ export async function setFlair(
       set: { flairId, updatedAt: now },
     })
   revalidateTag(customizationTag(brawlhallaId), "max")
+  // The list views read every selection from one shared map, so a single
+  // player changing theirs has to invalidate it.
+  revalidateTag(FLAIR_MAP_TAG, "max")
 }
+

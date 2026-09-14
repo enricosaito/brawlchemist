@@ -24,6 +24,7 @@ import { getPlayersByIds } from "@/lib/sync/players"
 import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getProfilesMap } from "@/lib/sync/profiles"
+import { getFlairMap } from "@/lib/sync/customizations"
 import type { PlayerRow } from "@/lib/db/schema"
 import { InfoTip } from "@/components/site/info-tip"
 
@@ -232,11 +233,14 @@ export default async function LeaderboardPage({
 
   // Pro rows show the blue "Pro Player" tag in place of the tier (the default
   // treatment), including in the toggled pro view.
+  const flairs = await getFlairMap()
   const columns = buildLeaderboardColumns(
     playersMap,
     gameMode,
     region,
     overrides,
+    flairs,
+    gameMode === "1v1" && region === "ALL",
   )
 
   // Roster options for the legend filter, sorted by display name.

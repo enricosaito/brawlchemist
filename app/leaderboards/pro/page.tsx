@@ -7,6 +7,7 @@ import { isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
+import { getFlairMap } from "@/lib/sync/customizations"
 import type { PlayerRow } from "@/lib/db/schema"
 
 export const metadata = {
@@ -42,8 +43,18 @@ export default async function ProLeaderboardPage({
 
   // proBoard mode: show the pro handle + verified badge in the name, keep the
   // real Valhallan/Diamond tier in the subtext.
-  const overrides = await getProfilesMap()
-  const columns = buildLeaderboardColumns(playersMap, "1v1", region, overrides)
+  const [overrides, flairs] = await Promise.all([
+    getProfilesMap(),
+    getFlairMap(),
+  ])
+  // rankIsGlobalLadder stays false: this board ranks pros among themselves.
+  const columns = buildLeaderboardColumns(
+    playersMap,
+    "1v1",
+    region,
+    overrides,
+    flairs,
+  )
 
   return (
     <main className="pb-16">

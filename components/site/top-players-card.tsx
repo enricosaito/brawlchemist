@@ -7,6 +7,8 @@ import { API_REGIONS } from "@/lib/brawlhalla-api"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getProfilesMap } from "@/lib/sync/profiles"
+import { getFlairMap } from "@/lib/sync/customizations"
+import { FlairMark } from "./flair-mark"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { Tier } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
@@ -60,8 +62,12 @@ export async function TopPlayersCard({
     }
   }
 
-  // Handles come from the admin-curated profiles (verified pros).
-  const overrides = await getProfilesMap()
+  // Handles come from the admin-curated profiles (verified pros); flair
+  // selections from one shared cached map rather than a read per row.
+  const [overrides, flairs] = await Promise.all([
+    getProfilesMap(),
+    getFlairMap(),
+  ])
 
   return (
     <PreviewCard
@@ -185,6 +191,19 @@ export async function TopPlayersCard({
                       <BadgeCheck
                         className="size-3.5 shrink-0 text-mystic"
                         aria-label="Verified pro player"
+                      />
+                      {/* No ladderRank in the context: this card ranks pros
+                          among themselves, so its ordinal is not a ladder
+                          position and must not be read as one. */}
+                      <FlairMark
+                        selectedId={flairs.get(player.id)}
+                        context={{
+                          achievements: overrides.get(player.id)?.achievements,
+                          valhallan: tier === "Valhallan",
+                          games: total || undefined,
+                        }}
+                        className="h-4"
+                        onlyWhenChosen
                       />
                     </span>
                   </PlayerLink>
