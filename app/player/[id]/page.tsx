@@ -1913,12 +1913,7 @@ export default async function PlayerPage({
   const { bannerId } = customization
   // Everything the flair rules read is already loaded for the header, so this
   // costs nothing beyond the derivation itself.
-  const flairContext: FlairContext = {
-    achievements: preview?.achievements,
-    valhallan: headerValhallan,
-    ladderRank: ladderPos?.rank ?? null,
-    games: data.games,
-  }
+  const flairContext: FlairContext = { achievements: preview?.achievements }
   const flair = resolveFlair(customization.flairId, flairContext)
   // The name the page titles with — a pro is known by their handle, so the
   // track card shouldn't call them something the heading never did.

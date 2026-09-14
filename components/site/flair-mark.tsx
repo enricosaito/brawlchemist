@@ -19,24 +19,12 @@ export function FlairMark({
   selectedId,
   context,
   className = "h-4",
-  onlyWhenChosen = false,
 }: {
   selectedId: string | null | undefined
   context: FlairContext
   /** Height utility; width follows the art. */
   className?: string
-  /**
-   * Require a deliberate choice instead of falling back to the best earned.
-   *
-   * For list views. A profile showing your rarest badge automatically is a
-   * nice touch; a leaderboard doing it puts the same Valhallan helm on fifty
-   * consecutive rows, restating the tier the rank column already gives and
-   * turning a rare mark into wallpaper. Here flair earns its place by being
-   * something the player picked.
-   */
-  onlyWhenChosen?: boolean
 }) {
-  if (onlyWhenChosen && !selectedId) return null
   const flair = resolveFlair(selectedId, context)
   if (!flair) return null
   return (
@@ -48,7 +36,7 @@ export function FlairMark({
           width={flair.width}
           height={flair.height}
           unoptimized
-          className={cn("w-auto select-none object-contain", className)}
+          className={cn("w-auto object-contain select-none", className)}
         />
       </span>
     </InfoTip>

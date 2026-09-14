@@ -183,18 +183,12 @@ export async function TopPlayersCard({
                         className="size-3.5 shrink-0 text-mystic"
                         aria-label="Verified pro player"
                       />
-                      {/* No ladderRank in the context: this card ranks pros
-                          among themselves, so its ordinal is not a ladder
-                          position and must not be read as one. */}
                       <FlairMark
                         selectedId={flairs.get(player.id)}
                         context={{
                           achievements: overrides.get(player.id)?.achievements,
-                          valhallan: tier === "Valhallan",
-                          games: total || undefined,
                         }}
                         className="h-4"
-                        onlyWhenChosen
                       />
                     </span>
                   </PlayerLink>

@@ -2,10 +2,7 @@ import { BadgeCheck } from "lucide-react"
 import { FlairMark } from "@/components/site/flair-mark"
 import { cn } from "@/lib/utils"
 import { formatElo, formatPercent } from "@/lib/format"
-import {
-  rosterEntryByLegendId,
-  slugForLegendId,
-} from "@/lib/legends-roster"
+import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import {
   LegendChip,
   PlayerLink,
@@ -119,34 +116,17 @@ export function buildLeaderboardColumns(
   region: ApiRegion,
   previews: Map<number, PlayerPreview>,
   /** Chosen flair per player (getFlairMap); omit to render no flair. */
-  flairs: Map<number, string> = new Map(),
-  /** True when this board IS the global 1v1 ladder, so a row's rank can be
-   * read as a ladder position. On a regional or 2v2 board it cannot. */
-  rankIsGlobalLadder = false,
+  flairs: Map<number, string> = new Map()
 ): ColDef<RankedEntry>[] {
-  // Entitlement from the facts this row actually carries, never from ones it
-  // only looks like it carries. A row's rank is a position within the selected
-  // mode and region, so it stands in for a ladder position only on the global
-  // 1v1 board; wins + losses is 1v1 season games only in 1v1 (in 2v2 it counts
-  // team games, which the Veteran rule is not about). Where a fact is
-  // unavailable the flair simply does not appear — under-awarding here is the
-  // safe direction, since the profile remains the authority.
-  const flairFor = (id: number, r: RankedEntry) => {
-    const total = (r.wins ?? 0) + (r.losses ?? 0)
-    return (
-      <FlairMark
-        selectedId={flairs.get(id)}
-        context={{
-          achievements: previews.get(id)?.achievements,
-          valhallan: toTier(r.tier) === "Valhallan",
-          games: gameMode === "1v1" && total > 0 ? total : undefined,
-          ladderRank: rankIsGlobalLadder ? r.rank : null,
-        }}
-        onlyWhenChosen
-      />
-    )
-  }
-
+  // Accolades are the only thing flair reads now, and previews already holds
+  // them — so no per-row derivation, and nothing here can disagree with the
+  // profile.
+  const flairFor = (id: number) => (
+    <FlairMark
+      selectedId={flairs.get(id)}
+      context={{ achievements: previews.get(id)?.achievements }}
+    />
+  )
   const regionColumn: ColDef<RankedEntry> = {
     id: "region",
     label: "Region",
@@ -229,10 +209,13 @@ export function buildLeaderboardColumns(
               r.players.map((p) => {
                 const handle = previews.get(p.id)?.verified?.handle
                 return (
-                  <span key={p.id} className="flex min-w-0 items-baseline gap-2">
+                  <span
+                    key={p.id}
+                    className="flex min-w-0 items-baseline gap-2"
+                  >
                     <PlayerLink
                       id={p.id}
-                      className="min-w-0 text-[15px] font-semibold leading-5"
+                      className="min-w-0 text-[15px] leading-5 font-semibold"
                     >
                       {handle ? (
                         <span className="inline-flex min-w-0 items-center gap-1">
@@ -241,12 +224,12 @@ export function buildLeaderboardColumns(
                             className="size-3.5 shrink-0 text-mystic"
                             aria-label="Verified pro player"
                           />
-                          {flairFor(p.id, r)}
+                          {flairFor(p.id)}
                         </span>
                       ) : (
                         <span className="inline-flex min-w-0 items-center gap-1">
                           <span className="min-w-0 truncate">{p.username}</span>
-                          {flairFor(p.id, r)}
+                          {flairFor(p.id)}
                         </span>
                       )}
                     </PlayerLink>
@@ -279,7 +262,7 @@ export function buildLeaderboardColumns(
             <span>
               {formatNullableElo(r.rating)}
               {r.rating != null && (
-                <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <span className="ml-1 text-[10px] tracking-wider text-muted-foreground uppercase">
                   ELO
                 </span>
               )}
@@ -342,8 +325,8 @@ export function buildLeaderboardColumns(
             return (
               <span
                 className={cn(
-                  "font-mono text-[11px] font-medium uppercase tracking-wider",
-                  tier ? TIER_TEXT_COLOR[tier] : "text-muted-foreground",
+                  "font-mono text-[11px] font-medium tracking-wider uppercase",
+                  tier ? TIER_TEXT_COLOR[tier] : "text-muted-foreground"
                 )}
               >
                 {r.tier ?? "—"}
@@ -357,7 +340,7 @@ export function buildLeaderboardColumns(
       align: "right",
       width: "100px",
       render: (r) => (
-        <span className="font-mono text-sm tabular-nums text-muted-foreground">
+        <span className="font-mono text-sm text-muted-foreground tabular-nums">
           {formatNullableElo(r.best_rating)}
         </span>
       ),
@@ -368,7 +351,7 @@ export function buildLeaderboardColumns(
       align: "right",
       width: "110px",
       render: (r) => (
-        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+        <span className="font-mono text-xs text-muted-foreground tabular-nums">
           <span className="text-positive">{r.wins ?? "—"}</span>
           <span className="px-1 opacity-60">–</span>
           <span className="text-negative">{r.losses ?? "—"}</span>
