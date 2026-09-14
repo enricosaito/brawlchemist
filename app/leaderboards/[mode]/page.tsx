@@ -393,6 +393,12 @@ export default async function LeaderboardPage({
                 columns={columns}
                 rows={rows}
                 rowKey={(r) => `${r.rank}-${r.players[0]?.id ?? "x"}`}
+                rowPlayer={(r) => {
+                  // Only single-player rows: a 2v2 team has two players and
+                  // so no one destination the row could mean.
+                  const id = r.players.length === 1 ? r.players[0]?.id : null
+                  return id ? { id, href: `/player/${id}` } : null
+                }}
               />
               <Pagination
                 page={page}

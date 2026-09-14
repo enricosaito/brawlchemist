@@ -218,21 +218,16 @@ export function buildLeaderboardColumns(
       id: "player",
       label: "Player",
       render: (r) => {
-        // The name carries the row. The tier line that used to sit under it is
-        // gone — it's already in the rank emblem (and, on 2v2, its own column) —
-        // and so is the "Pro Player" tag, which the check mark says on its own.
-        //
-        // Pros always show their handle. The in-game name appears beside it on
-        // row hover rather than replacing it — the row keeps its identity, and
-        // the handle is still what you read at rest. Shown only when it differs
-        // from the handle, so there's never a second copy of the same name.
+        // The name carries the row, and only the name: the tier line under it
+        // is already in the rank emblem, the "Pro Player" tag is what the check
+        // mark says on its own, and the in-game name that used to appear on
+        // hover was a second copy of an identity the row had already
+        // established. Pros are known by their handle — that's the name.
         return (
           <div className="flex min-w-0 flex-col gap-0.5">
             {r.players.length > 0 ? (
               r.players.map((p) => {
                 const handle = previews.get(p.id)?.verified?.handle
-                const ign =
-                  handle && handle !== p.username ? p.username : null
                 return (
                   <span key={p.id} className="flex min-w-0 items-baseline gap-2">
                     <PlayerLink
@@ -255,17 +250,6 @@ export function buildLeaderboardColumns(
                         </span>
                       )}
                     </PlayerLink>
-                    {/* Revealed on hover of the whole row (group/row lives on
-                        the <tr>), not just of the name, so the target is the
-                        row you're already pointing at. Kept out of the layout
-                        with `hidden` rather than opacity so it never reserves
-                        width it isn't using. */}
-                    {ign && (
-                      <span className="hidden min-w-0 shrink truncate font-mono text-[10px] text-muted-foreground lg:group-hover/row:inline">
-                        <span className="text-muted-foreground/60">IGN:</span>{" "}
-                        {ign}
-                      </span>
-                    )}
                   </span>
                 )
               })
