@@ -383,29 +383,42 @@ export function StanceLabel({
   )
 }
 
-/** A distinct text + border color per region, for at-a-glance region coding. */
 /**
- * Per-region text / outline / fill. The fill carries the region's own hue at
- * the same 10% tint every other tag uses, so a region tag sits in a row of
- * tags as one of them rather than as a neutral chip that happens to have
- * coloured text.
+ * Region tag colours — one ice blue for every region.
+ *
+ * These used to be a rainbow, a hue per region. It looked like information and
+ * wasn't: nobody learns that orange means AUS, so each colour had to be read as
+ * the word beside it anyway, while ten saturated hues competed with the tier,
+ * pro and accolade colours that *do* carry meaning. A region tag now shares the
+ * ice of the ladder rank it sits beside, because that is what it is — the same
+ * standing at a regional scope.
+ *
+ * Kept as a map rather than collapsed to a constant: region-specific colour is
+ * a reasonable thing to want back for a map or a per-region chart, and the call
+ * sites shouldn't have to change if it returns.
  */
+const REGION_TAG = {
+  text: "text-ice",
+  border: "border-ice/40",
+  bg: "bg-ice/10",
+} as const
+
 export const REGION_COLOR: Record<
   string,
   { text: string; border: string; bg: string }
 > = {
   ALL: { text: "text-muted-foreground", border: "border-border/60", bg: "bg-muted/40" },
-  BRZ: { text: "text-[#4ade80]", border: "border-[#4ade80]/40", bg: "bg-[#4ade80]/10" },
-  "US-E": { text: "text-[#f87171]", border: "border-[#f87171]/40", bg: "bg-[#f87171]/10" },
-  "US-W": { text: "text-[#38bdf8]", border: "border-[#38bdf8]/40", bg: "bg-[#38bdf8]/10" },
-  EU: { text: "text-[#60a5fa]", border: "border-[#60a5fa]/40", bg: "bg-[#60a5fa]/10" },
-  SEA: { text: "text-[#2dd4bf]", border: "border-[#2dd4bf]/40", bg: "bg-[#2dd4bf]/10" },
-  AUS: { text: "text-[#fb923c]", border: "border-[#fb923c]/40", bg: "bg-[#fb923c]/10" },
+  BRZ: REGION_TAG,
+  "US-E": REGION_TAG,
+  "US-W": REGION_TAG,
+  EU: REGION_TAG,
+  SEA: REGION_TAG,
+  AUS: REGION_TAG,
   // Both spellings: player data says JPN, leaderboard rows say JPS.
-  JPN: { text: "text-[#facc15]", border: "border-[#facc15]/40", bg: "bg-[#facc15]/10" },
-  JPS: { text: "text-[#facc15]", border: "border-[#facc15]/40", bg: "bg-[#facc15]/10" },
-  SA: { text: "text-[#c084fc]", border: "border-[#c084fc]/40", bg: "bg-[#c084fc]/10" },
-  ME: { text: "text-[#f472b6]", border: "border-[#f472b6]/40", bg: "bg-[#f472b6]/10" },
+  JPN: REGION_TAG,
+  JPS: REGION_TAG,
+  SA: REGION_TAG,
+  ME: REGION_TAG,
 }
 
 /**

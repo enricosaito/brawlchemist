@@ -15,7 +15,7 @@ import {
 } from "@/components/site/primitives"
 import { ClaimBanner } from "@/components/site/claim-banner"
 import { ProfileCustomizerSlot } from "@/components/site/profile-customizer-slot"
-import { FavoriteToggleControl } from "@/components/site/favorite-toggle-control"
+import { TrackPlayerCard } from "@/components/site/track-player-card"
 import { RecentVisitRecorder } from "@/components/site/recent-visit-recorder"
 import { resolveBanner } from "@/lib/profile/banners"
 import { getCustomization } from "@/lib/sync/customizations"
@@ -1180,7 +1180,6 @@ function ProfileHeader({
   esports,
   flair,
   claimSlot,
-  favoriteSlot,
   bannerId,
   customizeSlot,
 }: {
@@ -1199,7 +1198,6 @@ function ProfileHeader({
   /** The one flair this player flies, already resolved against what they own. */
   flair: FlairDef | null
   claimSlot?: React.ReactNode
-  favoriteSlot?: React.ReactNode
   bannerId?: string | null
   customizeSlot?: React.ReactNode
 }) {
@@ -1323,26 +1321,11 @@ function ProfileHeader({
                         </span>
                       </InfoTip>
                     )}
-                    {/* The region tag carries the player's standing in that
-                        region when we know it — "US-E #1" rather than a bare
-                        "US-E". It belongs on the name line next to the
-                        verified mark, where it reads as part of who this
-                        player is, not down among the stat tags. */}
-                    {data.region &&
-                      (ladderRank?.region === data.region.toUpperCase() &&
-                      ladderRank.regionRank ? (
-                        <RegionRankTag
-                          region={ladderRank.region}
-                          rank={ladderRank.regionRank}
-                        />
-                      ) : (
-                        <RegionPill region={data.region} />
-                      ))}
-                    {/* Flair rides the name line, past the region tag. It's the
-                        smallest, rarest thing a player can hold and it says
-                        nothing in words, so a row of its own left it stranded
-                        under a wall of text; up here it reads as insignia on
-                        the name, which is what it is. */}
+                    {/* Flair rides the name line. It's the smallest, rarest
+                        thing a player can hold and it says nothing in words,
+                        so a row of its own left it stranded under a wall of
+                        text; up here it reads as insignia on the name, which
+                        is what it is. */}
                     {flair && (
                       <InfoTip label={flair.label}>
                         {/* No chip around it: the art is already a bounded
@@ -1355,13 +1338,12 @@ function ProfileHeader({
                             width={flair.width}
                             height={flair.height}
                             unoptimized
-                            className="h-6 w-auto select-none object-contain"
+                            className="h-8 w-auto select-none object-contain"
                           />
                         </span>
                       </InfoTip>
                     )}
                     {claimSlot}
-                    {favoriteSlot}
                     {/* The in-game name trails the controls: it's the answer to
                         "who is this on the ladder", which you want beside the
                         name, not buried a line below among the stat tags. */}
@@ -1376,13 +1358,14 @@ function ProfileHeader({
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
                       {preview?.claimed && <BrawlchemistUserBadge />}
-                      {/* Ice, alone: this is the one tag that comes from our
-                          own ladder, so it doesn't share a colour with the
-                          esports credentials beside it or the gold of earned
-                          titles below. "Ranked", not "Global" — the number is
-                          a position in the ranked ladder, and "global" only
-                          ever answered a question ("as opposed to what?") that
-                          the region tag on the name row already settles. */}
+                      {/* Ladder standing, global then regional, in the one ice
+                          blue they now share: they answer the same question at
+                          two scopes, so reading them as one pair beats the old
+                          arrangement where the region tag sat up on the name
+                          line in its own colour, looking like a different kind
+                          of fact entirely. "Ranked", not "Global" — the number
+                          is a position in the ranked ladder, and the regional
+                          tag beside it settles "as opposed to what?". */}
                       {ladderRank && (
                         <InfoTip
                           label={`#${ladderRank.n.toLocaleString()} on the global 1v1 ladder`}
@@ -1392,6 +1375,16 @@ function ProfileHeader({
                           </span>
                         </InfoTip>
                       )}
+                      {data.region &&
+                        (ladderRank?.region === data.region.toUpperCase() &&
+                        ladderRank.regionRank ? (
+                          <RegionRankTag
+                            region={ladderRank.region}
+                            rank={ladderRank.regionRank}
+                          />
+                        ) : (
+                          <RegionPill region={data.region} />
+                        ))}
                       {/* No separators any more: every item in this row is a
                           bounded tag, so the dots were drawing a line between
                           things already visibly apart — and the leading one
@@ -1446,7 +1439,6 @@ function FallbackHeader({
   team,
   account,
   claimSlot,
-  favoriteSlot,
   bannerId,
   customizeSlot,
 }: {
@@ -1458,7 +1450,6 @@ function FallbackHeader({
   team: { data: PlayerRanked2v2; valhallan: boolean } | null
   account: { level: number; games: number } | null
   claimSlot?: React.ReactNode
-  favoriteSlot?: React.ReactNode
   bannerId?: string | null
   customizeSlot?: React.ReactNode
 }) {
@@ -1523,7 +1514,6 @@ function FallbackHeader({
                   )}
                   {region && <RegionPill region={region} />}
                   {claimSlot}
-                  {favoriteSlot}
                   {proHandle && (
                     <InfoTip label="In-game name">
                       <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
@@ -1928,6 +1918,9 @@ export default async function PlayerPage({
     games: data.games,
   }
   const flair = resolveFlair(customization.flairId, flairContext)
+  // The name the page titles with — a pro is known by their handle, so the
+  // track card shouldn't call them something the heading never did.
+  const trackName = preview?.verified?.handle || displayName
   // One panel for every owner-settable axis, gated to the owner inside the
   // slot. It supersedes the standalone banner popover.
   const customizeSlot = (
@@ -1935,7 +1928,6 @@ export default async function PlayerPage({
   )
   // Track/untrack star — reads shared favorites state; signed-out viewers get a
   // sign-in nudge from inside the control.
-  const favoriteToggle = <FavoriteToggleControl brawlhallaId={numId} />
 
   // Device-local recent-visit crumb: mirror the search-result shape so the home
   // dropdown renders this identically to a live suggestion. Top legend = most
@@ -1967,7 +1959,6 @@ export default async function PlayerPage({
           esports={esports}
           flair={flair}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
-          favoriteSlot={favoriteToggle}
           bannerId={bannerId}
           customizeSlot={customizeSlot}
         />
@@ -1984,7 +1975,6 @@ export default async function PlayerPage({
           }}
           account={null}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
-          favoriteSlot={favoriteToggle}
           bannerId={bannerId}
           customizeSlot={customizeSlot}
         />
@@ -2002,7 +1992,6 @@ export default async function PlayerPage({
               : null
           }
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
-          favoriteSlot={favoriteToggle}
           bannerId={bannerId}
           customizeSlot={customizeSlot}
         />
@@ -2077,43 +2066,57 @@ export default async function PlayerPage({
                   />
                 </div>
 
-                {overviewTeams.length > 0 && (
-                  <div>
-                    <div className="mb-3 flex items-center gap-2">
-                      <h2 className="font-display text-lg font-semibold">
-                        Top 2v2 Teams
-                      </h2>
-                      {teamViews.length > overviewTeams.length && (
-                        <Link
-                          href={`/player/${numId}?tab=teams`}
-                          scroll={false}
-                          className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                          all {teamViews.length} →
-                        </Link>
-                      )}
+                {/* The side column, as one grid child. The track card was a
+                    third child of a three-column grid, which put it on a new
+                    row under the stats rather than under the teams. */}
+                <div className="flex flex-col gap-4">
+                  {overviewTeams.length > 0 && (
+                    <div>
+                      <div className="mb-3 flex items-center gap-2">
+                        <h2 className="font-display text-lg font-semibold">
+                          Top 2v2 Teams
+                        </h2>
+                        {teamViews.length > overviewTeams.length && (
+                          <Link
+                            href={`/player/${numId}?tab=teams`}
+                            scroll={false}
+                            className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            all {teamViews.length} →
+                          </Link>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        {overviewTeams.map((view) => (
+                          <TeamCard
+                            key={`${view.team.brawlhalla_id_one}-${view.team.brawlhalla_id_two}`}
+                            view={view}
+                            ownerName={data.name}
+                            ownerSlug={ownerSlug}
+                            valhallanCutoff={cutoff2v2}
+                          />
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex flex-col gap-3">
-                      {overviewTeams.map((view) => (
-                        <TeamCard
-                          key={`${view.team.brawlhalla_id_one}-${view.team.brawlhalla_id_two}`}
-                          view={view}
-                          ownerName={data.name}
-                          ownerSlug={ownerSlug}
-                          valhallanCutoff={cutoff2v2}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  )}
+                  <TrackPlayerCard brawlhallaId={numId} name={trackName} />
+                </div>
               </div>
             </section>
           )}
 
           {!hasOneVOne && (
-            <p className="mt-10 text-center font-mono text-xs uppercase tracking-wider text-muted-foreground">
-              No 1v1 ranked play this season.
-            </p>
+            <>
+              <p className="mt-10 text-center font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                No 1v1 ranked play this season.
+              </p>
+              {/* The track card lives in the Overview's side column, which only
+                  exists for players with 1v1 data — without this, a player who
+                  hasn't queued 1v1 this season couldn't be tracked at all. */}
+              <div className="mx-auto mt-6 max-w-[1280px] px-4 sm:px-6">
+                <TrackPlayerCard brawlhallaId={numId} name={trackName} />
+              </div>
+            </>
           )}
         </>
       )}
