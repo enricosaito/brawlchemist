@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { DataTableRow } from "./data-table-row"
 
 export interface ColDef<T> {
   id: string
@@ -18,12 +19,16 @@ export function DataTable<T>({
   columns,
   rows,
   rowKey,
+  rowPlayer,
   className,
   searchValue,
 }: {
   columns: ColDef<T>[]
   rows: T[]
   rowKey: (row: T, index: number) => string
+  /** Makes the whole row clickable + right-clickable. Return null to opt a row
+   * out (a team row has two players and no single destination). */
+  rowPlayer?: (row: T, index: number) => { id: number | null; href: string | null } | null
   className?: string
   /** When set, each row gets a lowercased `data-search` attr for client-side
    * text filtering (see LeaderboardSearch). */
@@ -61,8 +66,10 @@ export function DataTable<T>({
           </thead>
           <tbody>
             {rows.map((row, i) => (
-              <tr
+              <DataTableRow
                 key={rowKey(row, i)}
+                playerId={rowPlayer?.(row, i)?.id ?? null}
+                href={rowPlayer?.(row, i)?.href ?? null}
                 data-search={
                   searchValue ? searchValue(row, i).toLowerCase() : undefined
                 }
@@ -83,7 +90,7 @@ export function DataTable<T>({
                     {c.render(row, i)}
                   </td>
                 ))}
-              </tr>
+              </DataTableRow>
             ))}
           </tbody>
         </table>

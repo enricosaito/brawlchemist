@@ -18,19 +18,24 @@ import { useFavorites } from "./favorites-provider"
  * of each linked profile, firing loadRanked + recordFetch per row. Left-clicks
  * still navigate normally.
  */
-export function PlayerLink({
+/**
+ * PlayerContextMenu — the right-click menu, around whatever you give it.
+ *
+ * Split out of PlayerLink so a leaderboard row and the name inside it can
+ * offer the same menu without two copies of it: the row is the target people
+ * actually aim at, and a menu that only appears over the four characters of a
+ * short name is a menu most people never find.
+ */
+export function PlayerContextMenu({
   id,
-  className,
   children,
 }: {
-  id: number | null | undefined
-  className?: string
+  id: number
+  /** The trigger. Must accept a ref (ContextMenu.Trigger uses asChild). */
   children: React.ReactNode
 }) {
   const pathname = usePathname() ?? "/"
   const { loggedIn, selfId, isFavorite, toggle } = useFavorites()
-
-  if (id == null) return <span className={className}>{children}</span>
 
   const fav = isFavorite(id)
   const isSelf = selfId === id
@@ -49,18 +54,7 @@ export function PlayerLink({
 
   return (
     <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>
-        <Link
-          href={`/player/${id}`}
-          prefetch={false}
-          className={cn(
-            "underline-offset-2 transition-colors hover:underline",
-            className,
-          )}
-        >
-          {children}
-        </Link>
-      </ContextMenu.Trigger>
+      <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
       <ContextMenu.Portal>
         <ContextMenu.Content className="z-50 min-w-[200px] overflow-hidden rounded-md border border-border/60 bg-card/95 p-1 shadow-lg backdrop-blur-sm">
           <ContextMenu.Item onSelect={handleCopyId} className={itemCls}>
@@ -118,5 +112,31 @@ export function PlayerLink({
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>
+  )
+}
+
+export function PlayerLink({
+  id,
+  className,
+  children,
+}: {
+  id: number | null | undefined
+  className?: string
+  children: React.ReactNode
+}) {
+  if (id == null) return <span className={className}>{children}</span>
+  return (
+    <PlayerContextMenu id={id}>
+      <Link
+        href={`/player/${id}`}
+        prefetch={false}
+        className={cn(
+          "underline-offset-2 transition-colors hover:underline",
+          className,
+        )}
+      >
+        {children}
+      </Link>
+    </PlayerContextMenu>
   )
 }

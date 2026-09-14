@@ -5,16 +5,16 @@ import {
   slugForLegendId,
 } from "@/lib/legends-roster"
 import { getCustomization, SOCIAL_META } from "@/lib/sync/customizations"
-import { getSessionUser } from "@/lib/auth/session"
-import { getClaimState } from "@/lib/sync/claims"
-import { EditableBio } from "./editable-bio"
 
 /**
- * Owner-set profile customization (bio, favorite legends, social links) on the
- * public profile. For non-owners it renders nothing when the player has set
- * nothing — so unclaimed/empty profiles are unchanged. The verified owner
- * always gets the card, with an inline bio editor (and an "Add a bio" prompt
- * when empty). Fails open: ownership lookups degrade to the public view.
+ * Owner-set profile customization (bio, favorite legends, social links) as it
+ * appears on the public profile. Display only — editing lives in the Customize
+ * panel in the header, which is the single place anything here is set. This
+ * card used to carry its own inline bio editor, which meant a bio could be
+ * changed in two places with two different save paths.
+ *
+ * Renders nothing when the player has set nothing, owner or not: an empty card
+ * offering no affordance is just a hole in the layout.
  *
  * Renders the bare card, no outer spacing: the Overview lays this and the
  * account stats out as one two-column row, and it relies on this returning
@@ -28,17 +28,6 @@ export async function ProfileCustomization({
 }) {
   const custom = await getCustomization(brawlhallaId)
 
-  // Is the viewer the verified owner? Fail open to a plain (non-editable) view.
-  let isOwner = false
-  try {
-    const user = await getSessionUser()
-    if (user) {
-      isOwner = (await getClaimState(brawlhallaId, user.id)) === "mine"
-    }
-  } catch {
-    isOwner = false
-  }
-
   const favorites = custom.favoriteLegendIds
     .map((id) => {
       const entry = rosterEntryByLegendId(id)
@@ -49,24 +38,18 @@ export async function ProfileCustomization({
 
   const hasContent =
     !!custom.bio || favorites.length > 0 || custom.socialLinks.length > 0
-  // Non-owners only see the card when there's something to show. Owners always
-  // see it so they have an entry point to add a bio.
-  if (!hasContent && !isOwner) return null
+  if (!hasContent) return null
 
-  // The bio block is always present for owners (editor/prompt), so downstream
-  // sections always get their top margin in that case.
-  const bioShown = isOwner || !!custom.bio
+  const bioShown = !!custom.bio
 
   return (
     <>
       <section className="h-full rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-sm">
-        {isOwner ? (
-          <EditableBio brawlhallaId={brawlhallaId} initialBio={custom.bio} />
-        ) : custom.bio ? (
+        {custom.bio && (
           <p className="text-sm leading-relaxed text-foreground/90">
             {custom.bio}
           </p>
-        ) : null}
+        )}
 
         {favorites.length > 0 && (
           <div className={bioShown ? "mt-4" : ""}>

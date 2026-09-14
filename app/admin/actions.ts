@@ -13,6 +13,8 @@ import {
   type ProfileInput,
 } from "@/lib/sync/profiles"
 import { setCronPaused } from "@/lib/sync/cron-controls"
+import { unlinkProfile } from "@/lib/sync/claims"
+import { clearFlair } from "@/lib/sync/customizations"
 import { clearFetchLog, recordFetch } from "@/lib/sync/fetch-log"
 import { syncManyPlayers, syncPlayer } from "@/lib/sync/players"
 import {
@@ -107,7 +109,7 @@ export async function toggleCronAction(formData: FormData) {
   // The form sends the desired next state, so the click is idempotent.
   const paused = String(formData.get("paused")) === "true"
   await setCronPaused(key, paused)
-  redirect("/admin#crons")
+  redirect("/admin?tab=system#crons")
 }
 
 /**
@@ -130,12 +132,12 @@ export async function backfillValhallansAction() {
     for (const id of list) discovered.add(id)
   }
   if (discovered.size === 0) {
-    redirect("/admin?backfill=none")
+    redirect("/admin?tab=system&backfill=none")
   }
 
   const stale = await getStaleValhallanIds(discovered)
   if (stale.length === 0) {
-    redirect("/admin?backfill=caughtup")
+    redirect("/admin?tab=system&backfill=caughtup")
   }
 
   const PER_CLICK = 40
@@ -148,7 +150,7 @@ export async function backfillValhallansAction() {
   const remaining = Math.max(stale.length - batch.length, 0)
 
   redirect(
-    `/admin?backfill=${synced}&remaining=${remaining}${failed ? `&failed=${failed}` : ""}`,
+    `/admin?tab=system&backfill=${synced}&remaining=${remaining}${failed ? `&failed=${failed}` : ""}`,
   )
 }
 
@@ -156,5 +158,21 @@ export async function backfillValhallansAction() {
 export async function clearFetchLogAction() {
   await requireAdmin()
   await clearFetchLog()
-  redirect("/admin?cleared=log")
+  redirect("/admin?tab=system&cleared=log")
+}
+
+/** Release a profile's ownership (admin). Curation is left intact. */
+export async function unlinkProfileAction(formData: FormData) {
+  await requireAdmin()
+  const id = Number(formData.get("brawlhallaId"))
+  if (Number.isInteger(id) && id > 0) await unlinkProfile(id)
+  redirect("/admin?unlinked=1")
+}
+
+/** Reset a player's flair choice to the automatic pick (admin). */
+export async function clearFlairAction(formData: FormData) {
+  await requireAdmin()
+  const id = Number(formData.get("brawlhallaId"))
+  if (Number.isInteger(id) && id > 0) await clearFlair(id)
+  redirect("/admin?flaircleared=1")
 }

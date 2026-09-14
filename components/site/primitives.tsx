@@ -383,12 +383,17 @@ export function StanceLabel({
   )
 }
 
-/** A distinct text + border color per region, for at-a-glance region coding. */
 /**
  * Per-region text / outline / fill. The fill carries the region's own hue at
  * the same 10% tint every other tag uses, so a region tag sits in a row of
  * tags as one of them rather than as a neutral chip that happens to have
  * coloured text.
+ *
+ * This is the colour for lists, where a column of regions is something you
+ * scan and group by eye — ten hues down a leaderboard do real work. On a
+ * profile there is exactly one region and nothing to compare it against, so
+ * the hue says nothing and competes with the tier and pro colours around it;
+ * pass `tone="ice"` there to match the ladder rank it sits beside.
  */
 export const REGION_COLOR: Record<
   string,
@@ -408,6 +413,19 @@ export const REGION_COLOR: Record<
   ME: { text: "text-[#f472b6]", border: "border-[#f472b6]/40", bg: "bg-[#f472b6]/10" },
 }
 
+/** Region tag in the ladder's ice, for the profile — see REGION_COLOR. */
+const REGION_ICE = {
+  text: "text-ice",
+  border: "border-ice/40",
+  bg: "bg-ice/10",
+} as const
+
+export type RegionTone = "region" | "ice"
+
+function regionTone(region: string, tone: RegionTone) {
+  return tone === "ice" ? REGION_ICE : REGION_COLOR[region]
+}
+
 /**
  * "<REGION> #N" — a player's standing inside their own region, in that
  * region's colour.
@@ -420,12 +438,14 @@ export function RegionRankTag({
   region,
   rank,
   className,
+  tone = "region",
 }: {
   region: string
   rank: number
   className?: string
+  tone?: RegionTone
 }) {
-  const c = REGION_COLOR[region]
+  const c = regionTone(region, tone)
   return (
     <InfoTip label={`#${rank.toLocaleString()} in ${region}`}>
       <span
@@ -444,8 +464,16 @@ export function RegionRankTag({
 }
 
 /** Region pill — flat, compact, monospace, color-coded per region (text + outline). */
-export function RegionPill({ region, className }: { region: string; className?: string }) {
-  const c = REGION_COLOR[region]
+export function RegionPill({
+  region,
+  className,
+  tone = "region",
+}: {
+  region: string
+  className?: string
+  tone?: RegionTone
+}) {
+  const c = regionTone(region, tone)
   return (
     <span
       className={cn(

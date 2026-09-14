@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowUpRight, BadgeCheck, ChevronDown } from "lucide-react"
+import { BadgeCheck, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
@@ -7,6 +7,8 @@ import { API_REGIONS } from "@/lib/brawlhalla-api"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getProfilesMap } from "@/lib/sync/profiles"
+import { getFlairMap } from "@/lib/sync/customizations"
+import { FlairMark } from "./flair-mark"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { Tier } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
@@ -60,8 +62,12 @@ export async function TopPlayersCard({
     }
   }
 
-  // Handles come from the admin-curated profiles (verified pros).
-  const overrides = await getProfilesMap()
+  // Handles come from the admin-curated profiles (verified pros); flair
+  // selections from one shared cached map rather than a read per row.
+  const [overrides, flairs] = await Promise.all([
+    getProfilesMap(),
+    getFlairMap(),
+  ])
 
   return (
     <PreviewCard
@@ -138,27 +144,18 @@ export async function TopPlayersCard({
             return (
               <li
                 key={`${entry.rank}-${player.id}`}
-                className="group/row relative flex min-h-14 items-center gap-3 overflow-hidden px-4 py-2"
+                className="group/row relative flex min-h-14 items-center gap-3 px-4 py-2 transition-colors hover:bg-muted/40"
               >
-                {/* Hover affordance — a glass panel slides in from the left
-                    (iOS-style) and turns the whole row into a profile link.
-                    pointer-events gate so touch/no-hover still hits the
-                    inline links underneath. */}
+                {/* The whole row is the link, but invisibly: the hover state is
+                    the row lighting up, not a panel sliding over the data you
+                    were reading. pointer-events stay gated to hover so the
+                    inline links underneath still work on touch. */}
                 <Link
                   href={`/player/${player.id}`}
                   aria-label={`View ${handle ?? player.username}'s profile`}
                   tabIndex={-1}
-                  className={cn(
-                    "pointer-events-none absolute inset-0 z-10 flex -translate-x-full items-center justify-center gap-1.5",
-                    "bg-gradient-to-r from-card/90 via-card/70 to-card/40 backdrop-blur-md",
-                    "font-mono text-xs uppercase tracking-[0.2em] text-foreground",
-                    "transition-transform duration-300 ease-out motion-reduce:transition-none",
-                    "group-hover/row:pointer-events-auto group-hover/row:translate-x-0",
-                  )}
-                >
-                  View Profile
-                  <ArrowUpRight className="size-3.5" />
-                </Link>
+                  className="pointer-events-none absolute inset-0 z-10 group-hover/row:pointer-events-auto"
+                />
                 {/* Small and muted: the ordinal is an index into a list that's
                     already in order, so it only needs to be findable, not
                     loud. Uniform across all six — the top of the list is
@@ -185,6 +182,19 @@ export async function TopPlayersCard({
                       <BadgeCheck
                         className="size-3.5 shrink-0 text-mystic"
                         aria-label="Verified pro player"
+                      />
+                      {/* No ladderRank in the context: this card ranks pros
+                          among themselves, so its ordinal is not a ladder
+                          position and must not be read as one. */}
+                      <FlairMark
+                        selectedId={flairs.get(player.id)}
+                        context={{
+                          achievements: overrides.get(player.id)?.achievements,
+                          valhallan: tier === "Valhallan",
+                          games: total || undefined,
+                        }}
+                        className="h-4"
+                        onlyWhenChosen
                       />
                     </span>
                   </PlayerLink>
