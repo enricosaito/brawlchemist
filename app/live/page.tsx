@@ -26,6 +26,7 @@ import type { Tier } from "@/lib/types"
 import { API_REGIONS, isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import { slugForLegendId } from "@/lib/legends-roster"
 import {
+  FAST_RANK_MAX,
   getDailyMovers,
   getLiveQueue,
   IN_QUEUE_MS,
@@ -336,7 +337,12 @@ export default async function LivePage({
   // needs no per-ladder anchoring — each row is judged against the clock, not
   // against the freshest row in its own set — and if the cron is late nothing
   // is marked, which is the honest answer rather than a stale highlight.
+  // Only the fast tier can claim this. Entries below FAST_RANK_MAX are polled
+  // every half hour, so "played since the last poll" means "in the last thirty
+  // minutes" for them — true, but not the same sentence as "in queue right
+  // now", and the badge would be a lie at five-minute precision.
   const inQueue = (r: LiveRow) =>
+    r.rank <= FAST_RANK_MAX &&
     requestNow() - r.lastActiveAt.getTime() < IN_QUEUE_MS
 
   let valhallan1v1 = new Set<number>()
@@ -438,9 +444,9 @@ export default async function LivePage({
               <h2 className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-foreground/90">
                 {QUEUE_LABEL[queue]}
               </h2>
-              {/* "Active", not "in queue" — most of these finished a match in
-                  the last 20 minutes rather than being in one right now. The
-                  pill above counts the ones that are. */}
+              {/* "Active", not "in queue" — most of these finished a match
+                  recently rather than being in one right now. The pill above
+                  counts the ones that are. */}
               <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                 {rows.length} active
               </span>
@@ -449,10 +455,10 @@ export default async function LivePage({
 
             {rows.length === 0 ? (
               <div className="rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">
-                No {QUEUE_LABEL[queue]} players active in the last 20 minutes
-                {region !== "ALL" ? ` in ${region}` : ""}. The live poll runs
-                every 5 minutes — give it a tick, or widen the region filter to
-                ALL.
+                No {QUEUE_LABEL[queue]} players active recently
+                {region !== "ALL" ? ` in ${region}` : ""}. The top of the ladder
+                is polled every 5 minutes and the rest every half hour — give it
+                a tick, or widen the region filter to ALL.
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

@@ -17,9 +17,10 @@ import { ClaimBanner } from "@/components/site/claim-banner"
 import { ProfileCustomizerSlot } from "@/components/site/profile-customizer-slot"
 import { TrackPlayerCard } from "@/components/site/track-player-card"
 import { VerifiedMark } from "@/components/site/pro-badge"
+import { FlairMark } from "@/components/site/flair-mark"
 import { RecentVisitRecorder } from "@/components/site/recent-visit-recorder"
 import { resolveBanner } from "@/lib/profile/banners"
-import { getCustomization } from "@/lib/sync/customizations"
+import { getCustomization, getFlairMap } from "@/lib/sync/customizations"
 import { getLadderPosition } from "@/lib/sync/live"
 import { ProfileCustomization } from "@/components/site/profile-customization"
 import { DataTable, type ColDef } from "@/components/site/data-table"
@@ -27,7 +28,7 @@ import { BrawlchemistUserBadge } from "@/components/site/brawlchemist-user-badge
 import { InfoTip } from "@/components/site/info-tip"
 import { RankedStatsCard } from "@/components/player/ranked-stats-card"
 import type { PlayerPreview } from "@/lib/player-previews"
-import { getProfile } from "@/lib/sync/profiles"
+import { getProfile, getProfilesMap } from "@/lib/sync/profiles"
 import {
   getPlayerGuild,
   getPlayerRanked,
@@ -50,6 +51,7 @@ import {
   getPlayerRankedJson,
   getPlayersByIds,
   getPlayerSyncState,
+  recordUnrankedPlayer,
   upsertPlayerRanked,
 } from "@/lib/sync/players"
 import { clientLabel, isCrawler } from "@/lib/bots"
@@ -116,15 +118,40 @@ const PROFILE_REVALIDATE = 300
  * mid-session climbs in minutes and deserves a short window; someone who hasn't
  * queued in days has identical data whether we ask now or in six hours.
  */
-const PROFILE_FRESH_ACTIVE_MS = 15 * 60 * 1000
+/*
+ * Raised from 15 minutes after measuring where the budget actually goes.
+ *
+ * "Active" means the live ladder saw this player within LIVE_SESSION_MS, which
+ * is true of every top-500 regular all day long — so the short window applied
+ * permanently to exactly the most-viewed profiles on the site, not to a burst
+ * around a session. Measured over 24h: 1,119 of 4,283 upstream calls (26%) went
+ * to ladder players, and the worst single case was re-fetched 126 times in a
+ * day, one every eleven minutes.
+ *
+ * Aligned with LIVE_SESSION_MS on purpose: asking upstream more often than the
+ * signal that classified the player as active is asking faster than we can
+ * learn anything. And the number these players are watched for is not stale
+ * meanwhile — /live reads live_ranked, which the 5-minute cron refreshes at
+ * zero API cost.
+ */
+const PROFILE_FRESH_ACTIVE_MS = 45 * 60 * 1000
 const PROFILE_FRESH_IDLE_MS = 6 * 60 * 60 * 1000
+/**
+ * How long we trust "this player has no ranked record".
+ *
+ * Six hours, matching the idle window, and for the same reason: the answer
+ * only changes when they play, and someone with no ranked season at all is
+ * not mid-climb. The floor on being wrong is one stale render of a state the
+ * page already shows for every unranked player.
+ */
+const UNRANKED_FRESH_MS = 6 * 60 * 60 * 1000
 /** Treat a player as mid-session if the live ladder saw them this recently. */
 const LIVE_SESSION_MS = 45 * 60 * 1000
 /** Re-ask GetPlayerGuild only this often; the stored guild serves every other view. */
 const GUILD_FRESH_MS = 7 * 24 * 60 * 60 * 1000
 type LoadedRanked = {
   data: PlayerRanked | null
-  source: "db-fresh" | "db-crawler" | "api" | "db-fallback"
+  source: "db-fresh" | "db-crawler" | "api" | "db-fallback" | "db-unranked"
   apiStatus?: number
   apiError?: string
 }
@@ -161,6 +188,14 @@ const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
     Date.now() - state.lastSynced.getTime() < freshMs
   // A crawler is happy with whatever we already hold.
   const serveFromCache = !!state?.hasRankedJson && (fresh || crawler)
+  // We asked about this player recently and the API had no ranked record for
+  // them (see recordUnrankedPlayer). A row with no payload and a recent
+  // last_synced means exactly that, and the answer cannot change until they
+  // play a ranked match — so re-asking every view buys nothing.
+  const unrankedFresh =
+    !!state &&
+    !state.hasRankedJson &&
+    Date.now() - state.lastSynced.getTime() < UNRANKED_FRESH_MS
 
   let result: LoadedRanked
   if (serveFromCache) {
@@ -168,6 +203,10 @@ const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
     result = data
       ? { data, source: fresh ? "db-fresh" : "db-crawler" }
       : { data: null, source: "api", apiError: "cached payload disappeared" }
+  } else if (unrankedFresh) {
+    // Renders exactly as it would have with the live empty payload: the page
+    // keys its "no ranked season" state off a missing name, which this has.
+    result = { data: null, source: "db-unranked" }
   } else {
     const res = await getPlayerRanked(numId, { revalidate: PROFILE_REVALIDATE })
     if (res.ok) {
@@ -200,7 +239,9 @@ const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
   // Supabase round-trip before the profile can stream is backwards. after()
   // runs it once the response is done, still inside the request context.
   const logResult =
-    result.source === "db-fresh" || result.source === "db-crawler"
+    result.source === "db-fresh" ||
+    result.source === "db-crawler" ||
+    result.source === "db-unranked"
       ? "cached"
       : result.source === "api" && result.data
         ? "synced"
@@ -678,25 +719,55 @@ function LegendHead({
   )
 }
 
+/**
+ * One half of a team, as the card renders them.
+ *
+ * A teammate is a player like any other, so they carry the same identity here
+ * as anywhere else on the site: pro handle in place of the in-game name, the
+ * verified check, and their flair. Before this the card showed two bare
+ * usernames, which made a world champion look like an anonymous partner.
+ */
+interface TeamMember {
+  id: number
+  /** Pro handle when there is one, otherwise the in-game name. */
+  name: string
+  slug: string | null
+  pro: boolean
+  flairId?: string
+  achievements?: string[]
+}
+
+function TeamMemberName({ member }: { member: TeamMember }) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1">
+      <span className="truncate">{member.name}</span>
+      {member.pro && <VerifiedMark className="size-3" />}
+      <FlairMark
+        selectedId={member.flairId}
+        context={{ achievements: member.achievements }}
+        className="h-3.5"
+      />
+    </span>
+  )
+}
+
 interface TeamView {
   team: PlayerRanked2v2
   teammateId: number
-  teammateName: string
-  teammateSlug: string | null
+  /** Identity + art for the other half; the owner is passed by the page. */
+  teammate: TeamMember
 }
 
 function TeamCard({
   view,
-  ownerName,
-  ownerSlug,
+  owner,
   valhallanCutoff,
 }: {
   view: TeamView
-  ownerName: string
-  ownerSlug: string | null
+  owner: TeamMember
   valhallanCutoff: number | null
 }) {
-  const { team, teammateId, teammateName, teammateSlug } = view
+  const { team, teammateId, teammate } = view
   const valhallan = isValhallan(team.rating, valhallanCutoff, team.wins)
   const tier = deriveTier(team.tier, valhallan)
   const losses = Math.max(0, team.games - team.wins)
@@ -718,12 +789,25 @@ function TeamCard({
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-center gap-2">
           <span className="flex shrink-0 items-center -space-x-1.5">
-            <LegendHead slug={ownerSlug} className="size-8 ring-1 ring-card" />
-            <LegendHead slug={teammateSlug} className="size-8 ring-1 ring-card" />
+            <LegendHead slug={owner.slug} className="size-8 ring-1 ring-card" />
+            <LegendHead
+              slug={teammate.slug}
+              className="size-8 ring-1 ring-card"
+            />
           </span>
-          <span className="truncate text-sm font-medium">
-            {ownerName} <span className="text-muted-foreground">+</span>{" "}
-            {teammateName}
+          {/* Wraps rather than truncating as one string: with two names, two
+              checks and two flairs the line is long, and clipping it mid-pair
+              hides whichever player sorted second. */}
+          <span className="flex min-w-0 flex-wrap items-center gap-x-1 text-sm font-medium">
+            <TeamMemberName member={owner} />
+            {/* The "+" travels with the second player. In the narrow side
+                column this pair wraps, and left on the first line the plus
+                trailed two badges and read as a third icon; leading the second
+                line it reads as the continuation it is. */}
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <span className="text-muted-foreground">+</span>
+              <TeamMemberName member={teammate} />
+            </span>
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-x-2 font-mono text-[11px]">
@@ -1644,6 +1728,20 @@ export default async function PlayerPage({
         // A cache write failure shouldn't take down the page.
       }
     })
+  } else if (ranked.source === "api" && ranked.data && !hasRankedName) {
+    // The API answered and this player has no ranked record. Remember that we
+    // asked, or the next view asks again for the same nothing.
+    //
+    // `ranked.data` is the guard that matters: on a failed call it is null, and
+    // writing a "we looked, there's nothing" marker off a 429 would show a real
+    // player as unranked for six hours.
+    after(async () => {
+      try {
+        await recordUnrankedPlayer(numId)
+      } catch {
+        // Same as above — telemetry for the cache, never fatal.
+      }
+    })
   }
 
   // Legend titles: every legend the player has maxed (level 100) earns its
@@ -1789,6 +1887,27 @@ export default async function PlayerPage({
       console.error("[player] teammate lookup failed:", err)
     }
   }
+  // Teammate identity — pro handle, verified status and flair — so a team card
+  // names them the way every other surface does. Both maps are cached app-wide
+  // (getProfile above already warmed the profiles one), so this adds no query
+  // per teammate, and both fail open to the plain in-game name.
+  let teamProfiles = new Map<number, PlayerPreview>()
+  let teamFlairs = new Map<number, string>()
+  if (teams.length > 0) {
+    const [pm, fm] = await Promise.all([
+      getProfilesMap().catch((err) => {
+        console.error("[player] team profiles lookup failed:", err)
+        return new Map<number, PlayerPreview>()
+      }),
+      getFlairMap().catch((err) => {
+        console.error("[player] team flair lookup failed:", err)
+        return new Map<number, string>()
+      }),
+    ])
+    teamProfiles = pm
+    teamFlairs = fm
+  }
+
   const teamViews: TeamView[] = teams.map((t) => {
     const teammateId = teammateIdFor(t)
     const row = teammates.get(teammateId)
@@ -1799,11 +1918,19 @@ export default async function PlayerPage({
           ? parts[1]
           : parts[0]
         : `Player #${teammateId}`
+    const username = row?.username || fallbackName || `Player #${teammateId}`
+    const mate = teamProfiles.get(teammateId)
     return {
       team: t,
       teammateId,
-      teammateName: row?.username || fallbackName || `Player #${teammateId}`,
-      teammateSlug: row?.topLegendId ? slugForLegendId(row.topLegendId) : null,
+      teammate: {
+        id: teammateId,
+        name: mate?.verified?.handle || username,
+        slug: row?.topLegendId ? slugForLegendId(row.topLegendId) : null,
+        pro: !!mate?.verified,
+        flairId: teamFlairs.get(teammateId),
+        achievements: mate?.achievements,
+      },
     }
   })
 
@@ -1908,6 +2035,16 @@ export default async function PlayerPage({
   // costs nothing beyond the derivation itself.
   const flairContext: FlairContext = { achievements: preview?.achievements }
   const flair = resolveFlair(customization.flairId, flairContext)
+  // This player as a team member. Same shape as the teammate opposite them, so
+  // a card can't render one side richer than the other.
+  const teamOwner: TeamMember = {
+    id: numId,
+    name: preview?.verified?.handle || data.name,
+    slug: ownerSlug,
+    pro: !!preview?.verified,
+    flairId: customization.flairId ?? undefined,
+    achievements: preview?.achievements,
+  }
   // The name the page titles with — a pro is known by their handle, so the
   // track card shouldn't call them something the heading never did.
   const trackName = preview?.verified?.handle || displayName
@@ -2067,7 +2204,7 @@ export default async function PlayerPage({
                     <div>
                       <div className="mb-3 flex items-center gap-2">
                         <h2 className="font-display text-lg font-semibold">
-                          Top 2v2 Teams
+                          2v2 Teams
                         </h2>
                         {teamViews.length > overviewTeams.length && (
                           <Link
@@ -2084,8 +2221,7 @@ export default async function PlayerPage({
                           <TeamCard
                             key={`${view.team.brawlhalla_id_one}-${view.team.brawlhalla_id_two}`}
                             view={view}
-                            ownerName={data.name}
-                            ownerSlug={ownerSlug}
+                            owner={teamOwner}
                             valhallanCutoff={cutoff2v2}
                           />
                         ))}
@@ -2141,8 +2277,7 @@ export default async function PlayerPage({
               <TeamCard
                 key={`${view.team.brawlhalla_id_one}-${view.team.brawlhalla_id_two}`}
                 view={view}
-                ownerName={data.name}
-                ownerSlug={ownerSlug}
+                owner={teamOwner}
                 valhallanCutoff={cutoff2v2}
               />
             ))}

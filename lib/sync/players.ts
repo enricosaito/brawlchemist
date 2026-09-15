@@ -67,6 +67,36 @@ export async function upsertPlayerRanked(ranked: PlayerRanked): Promise<void> {
   }
 }
 
+/**
+ * Record that we asked the API about this player and it had nothing.
+ *
+ * `/player/{id}/ranked` answers 200 for a player who has never played ranked,
+ * with `name: ""`, `rating: 0`, `tier: "none"`. That is a real answer, but
+ * `upsertPlayerRanked` is gated on a non-empty name, so nothing was ever
+ * stored and the next view asked again — measured at 1,237 upstream calls in
+ * 24h across 823 such players, several of them fetched ten times a day, for
+ * an answer that cannot change until they play a ranked match.
+ *
+ * Deliberately NOT the full payload: those responses are 4-13 KB of empty
+ * `legends` array, and `players` is already the largest table in the database.
+ * A row with a null `ranked_json` and a fresh `last_synced` carries the whole
+ * message — see the unranked branch in loadRanked, which reads exactly that.
+ *
+ * Only the timestamp is written on conflict. A row that already holds a real
+ * payload keeps it: the API answering "none" for a player we have data for is
+ * a season reset or a blip, not a reason to erase them.
+ */
+export async function recordUnrankedPlayer(brawlhallaId: number): Promise<void> {
+  const now = new Date()
+  await db()
+    .insert(players)
+    .values({ brawlhallaId, username: "", lastSynced: now })
+    .onConflictDoUpdate({
+      target: players.brawlhallaId,
+      set: { lastSynced: now },
+    })
+}
+
 export interface SyncOutcome {
   status: "synced" | "fresh" | "failed"
   brawlhallaId: number
