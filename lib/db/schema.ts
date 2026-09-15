@@ -391,6 +391,47 @@ export type LiveRankedRow = typeof liveRanked.$inferSelect
 export type LiveRankedInsert = typeof liveRanked.$inferInsert
 
 /**
+ * valhallan_members — who each (queue, region) ladder currently calls
+ * Valhallan, as one row per ladder.
+ *
+ * Valhallan is the one tier the /ranked payload never returns, so membership
+ * has to be read off the leaderboard. The catch measured on US-E 1v1: the
+ * tier is NOT a contiguous prefix of the ladder. Rank 121 at 2,507 is not
+ * Valhallan; rank 299 at 2,138 is. Neither `rating` nor `best_rating`
+ * predicts it — it's the game's own roster snapshot, and players who have
+ * since fallen out of the top-N keep the label. So the only way to know the
+ * population is to walk until a page holds no Valhallans at all, which is 6-8
+ * pages on the big ladders.
+ *
+ * That walk is too expensive to run per hour behind a render (lib/sync/
+ * valhallan-cutoff.ts used to guess at it and truncated by 25-40%), but the
+ * daily sync-valhallan cron already pays for exactly this walk to pick who to
+ * re-sync — and used to throw the membership away. This table keeps it, so
+ * every read side gets the complete set for free.
+ *
+ * 18 rows (2 queues × 9 regions), a few KB of ids each. Rewritten daily, and
+ * only for a ladder whose walk completed — a walk cut short by a 429 leaves
+ * the previous, better answer in place rather than overwriting it.
+ */
+export const valhallanMembers = pgTable(
+  "valhallan_members",
+  {
+    /** "1v1" | "2v2". */
+    queue: text("queue").notNull(),
+    /** Canonical ApiRegion, never "ALL" — membership is per ladder. */
+    region: text("region").notNull(),
+    /** Brawlhalla ids at Valhallan on that ladder: number[]. */
+    ids: jsonb("ids").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.queue, t.region] })],
+)
+
+export type ValhallanMemberRow = typeof valhallanMembers.$inferSelect
+
+/**
  * ranked_snapshots — a player's 1v1 rating over time, powering the profile's
  * rating-history chart. Rows are piggybacked onto upsertPlayerRanked (the
  * single point where every fresh /ranked payload lands: profile views,

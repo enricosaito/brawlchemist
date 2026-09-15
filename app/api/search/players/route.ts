@@ -4,6 +4,9 @@ import {
   type PlayerSuggestion,
 } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
+import { getFlairMap } from "@/lib/sync/customizations"
+import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
+import { tierFromRating } from "@/lib/tier"
 import { slugForLegendId } from "@/lib/legends-roster"
 
 // Always dynamic — this reads the query string and the live DB.
@@ -91,6 +94,26 @@ export async function GET(req: Request) {
         .sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1)),
     ]
 
+    // Tier + flair for the rows we're actually returning.
+    //
+    // Both are cached app-wide and shared with /live and the leaderboards, so
+    // a warm process pays nothing per keystroke — and both fail open, because
+    // a helm or a badge is never worth a 500 on the search box. Valhallan has
+    // to come from ladder membership rather than a rating threshold; below it
+    // the bands are fixed (see lib/tier.ts).
+    const [valhallan, flairs] = await Promise.all([
+      getValhallanIds("1v1")
+        .then((ids) => new Set(ids))
+        .catch((err) => {
+          console.error("[api/search/players] valhallan ids failed:", err)
+          return new Set<number>()
+        }),
+      getFlairMap().catch((err) => {
+        console.error("[api/search/players] flair map failed:", err)
+        return new Map<number, string>()
+      }),
+    ])
+
     const results = ordered.slice(0, LIMIT).map((p) => ({
       id: p.id,
       username: p.username,
@@ -100,6 +123,15 @@ export async function GET(req: Request) {
       pro: proIds.has(p.id),
       /** Verified pro handle, when there is one — the dropdown leads with it. */
       handle: handleById.get(p.id) ?? null,
+      tier: tierFromRating(p.rating, valhallan.has(p.id)),
+      /**
+       * The raw selection plus the facts entitlement is derived from, not a
+       * resolved flair — FlairMark runs the same rule here as on the profile,
+       * so the dropdown can't show a badge the profile wouldn't. Undefined for
+       * the ~everyone who has neither, which keeps the payload small.
+       */
+      flairId: flairs.get(p.id) ?? null,
+      achievements: profiles.get(p.id)?.achievements,
     }))
     return Response.json({ results }, { headers })
   } catch (err) {

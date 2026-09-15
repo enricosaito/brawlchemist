@@ -12,6 +12,8 @@
  * must never break the search bar.
  */
 
+import type { Tier } from "@/lib/types"
+
 export interface RecentVisit {
   id: number
   username: string
@@ -25,6 +27,19 @@ export interface RecentVisit {
    * name, which is what they showed when they were written.
    */
   handle?: string | null
+  /**
+   * Rank tier, for the helm beside the rating. Derived server-side because
+   * Valhallan is ladder membership, not a rating threshold, and the client
+   * has no way to ask.
+   */
+  tier?: Tier | null
+  /**
+   * Flair selection + the accolades entitlement is derived from. Passed raw,
+   * not as a resolved flair, so the dropdown runs the same rule as the profile
+   * (see lib/profile/flair.ts) rather than trusting a precomputed answer.
+   */
+  flairId?: string | null
+  achievements?: string[]
 }
 
 const KEY = "bc-recent-visits"

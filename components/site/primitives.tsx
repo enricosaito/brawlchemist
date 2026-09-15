@@ -133,9 +133,27 @@ const RANK_ICON_SRC: Partial<Record<Tier, string>> = {
  * Distinct from RankIcon, which is the round avatar emblem. The helm is the
  * silhouette that reads at small sizes, so it's what goes next to a number.
  */
-const RANK_HELM_SRC: Partial<Record<Tier, string>> = {
-  Valhallan: "/assets/valhallan-helm.png",
-  Diamond: "/assets/diamond-helm.png",
+/**
+ * Helm art per tier, with each source's real pixel dimensions.
+ *
+ * All seven tiers have art now — until recently only Valhallan and Diamond
+ * did, and every surface that draws a helm was written around that gap ("no
+ * helm below Diamond"). Those workarounds are gone; a tier always has a helm.
+ *
+ * The dimensions are intrinsic, not a placeholder square. `RankHelm` renders
+ * `unoptimized` like the rest of this codebase, so the browser gets the raw
+ * file and uses these numbers to reserve the right box before it lands — a
+ * 48×48 hint against 192×122 art reserved a box half again too tall and
+ * shifted the row when the image arrived.
+ */
+const RANK_HELM: Record<Tier, { src: string; width: number; height: number }> = {
+  Valhallan: { src: "/assets/valhallan-helm.png", width: 192, height: 153 },
+  Diamond: { src: "/assets/diamond-helm.png", width: 192, height: 168 },
+  Platinum: { src: "/assets/platinum-helm.png", width: 192, height: 122 },
+  Gold: { src: "/assets/gold-helm.png", width: 192, height: 169 },
+  Silver: { src: "/assets/silver-helm.png", width: 192, height: 140 },
+  Bronze: { src: "/assets/bronze-helm.png", width: 192, height: 150 },
+  Tin: { src: "/assets/tin-helm.png", width: 192, height: 140 },
 }
 
 export function RankHelm({
@@ -146,14 +164,16 @@ export function RankHelm({
   /** Height utility; width follows the art's aspect ratio. */
   className?: string
 }) {
-  const src = RANK_HELM_SRC[tier]
-  if (!src) return null
+  // Still guarded: `tier` reaches some callers from stored JSON (live rows,
+  // recent visits), where an unknown string is possible.
+  const helm = RANK_HELM[tier]
+  if (!helm) return null
   return (
     <Image
-      src={src}
+      src={helm.src}
       alt={`${tier} helm`}
-      width={48}
-      height={48}
+      width={helm.width}
+      height={helm.height}
       unoptimized
       className={cn(
         "w-auto shrink-0 select-none object-contain drop-shadow-sm",

@@ -1,14 +1,15 @@
 import "server-only"
 
 import { unstable_cache } from "next/cache"
-import { and, gte, inArray, sql } from "drizzle-orm"
+import { and, eq, gte, inArray, sql } from "drizzle-orm"
 import {
+  API_REGIONS,
   type ApiGameMode,
   type ApiRegion,
   getRankedLeaderboard,
 } from "@/lib/brawlhalla-api"
 import { db } from "@/lib/db"
-import { players } from "@/lib/db/schema"
+import { players, valhallanMembers } from "@/lib/db/schema"
 
 const QUEUES: ApiGameMode[] = ["1v1", "2v2"]
 
@@ -44,17 +45,34 @@ const PAGE_SIZE = 50
 const MAX_PAGES = 10
 
 /**
- * Paginate the ranked leaderboard for one (queue, region) until the tier
- * stops being Valhallan, returning every player id we saw at that tier.
+ * Paginate the ranked leaderboard for one (queue, region) until a page holds
+ * no Valhallans at all, returning every player id we saw at that tier.
+ *
+ * The stop rule is load-bearing and is NOT "stop at the first non-Valhallan
+ * row" — the tier is interleaved, not a contiguous prefix (see the
+ * valhallan_members comment in lib/db/schema.ts). Stopping at the first mixed
+ * page, which lib/sync/valhallan-cutoff.ts used to do, misses 25-40% of the
+ * population.
  *
  * For 2v2 each entry has 2 players; we collect both because we want the
  * full Valhallan-tier population, not just one teammate.
+ *
+ * `complete` says the walk ended on its own terms rather than on a failed
+ * fetch. A 429 mid-walk looks exactly like a short ladder otherwise, and
+ * callers that persist the result need to tell those apart.
+ *
+ * `capped` says it ran out of pages while Valhallans were still appearing, so
+ * the tail is cut. Worth reporting rather than swallowing: the cap is a guess
+ * about ladder depth, and a ladder that reports `capped` every day is the
+ * signal to raise MAX_PAGES. The result is still usable — it's a prefix of
+ * the truth, not a wrong answer.
  */
 export async function discoverValhallanIds(
   gameMode: ApiGameMode,
   region: ApiRegion,
-): Promise<number[]> {
+): Promise<{ ids: number[]; complete: boolean; capped: boolean }> {
   const ids: number[] = []
+  let capped = true
   for (let page = 1; page <= MAX_PAGES; page++) {
     const lb = await getRankedLeaderboard({
       gameMode,
@@ -62,7 +80,7 @@ export async function discoverValhallanIds(
       page,
       maxResults: PAGE_SIZE,
     })
-    if (!lb.ok) break
+    if (!lb.ok) return { ids, complete: false, capped: false }
 
     const valhallans = lb.data.rankings.filter((r) => r.tier === "Valhallan")
     for (const entry of valhallans) {
@@ -71,21 +89,171 @@ export async function discoverValhallanIds(
 
     // Stop when this page had no Valhallans (ladder dropped below tier)
     // or when we've consumed the API's pagination.
-    if (valhallans.length === 0 || page >= lb.data.total_pages) break
+    if (valhallans.length === 0 || page >= lb.data.total_pages) {
+      capped = false
+      break
+    }
   }
-  return ids
+  return { ids, complete: true, capped }
 }
 
-/** Discovery across all 9 specific regions and both queues. ~54 API calls max. */
+/**
+ * Discovery across the competitive regions and both queues, for the re-sync
+ * pool. Deliberately still COMPETITIVE_REGIONS: this set decides whose
+ * `ranked_json` we spend /player calls and storage on, and only those three
+ * ladders feed the legend aggregations.
+ *
+ * Membership for the *other* six regions is a separate question with a
+ * separate cost profile — see refreshValhallanMembers.
+ */
 export async function discoverAllValhallanIds(): Promise<Set<number>> {
   const all = new Set<number>()
   for (const queue of QUEUES) {
     for (const region of REGIONS) {
-      const ids = await discoverValhallanIds(queue, region)
+      const { ids } = await discoverValhallanIds(queue, region)
       for (const id of ids) all.add(id)
     }
   }
   return all
+}
+
+/** Every real ladder. "ALL" is excluded — membership is per region. */
+const MEMBER_REGIONS: ApiRegion[] = API_REGIONS.filter(
+  (r): r is ApiRegion => r !== "ALL",
+)
+
+/**
+ * Walk every (queue, region) ladder and persist who is Valhallan on it.
+ *
+ * Called from the daily sync-valhallan cron, right beside the discovery it
+ * already runs — the three competitive ladders are the same URLs the re-sync
+ * pool just fetched, so within the tick they come back off the fetch cache
+ * (`getRankedLeaderboard` revalidates at 300s) and cost nothing upstream. The
+ * six small ladders are genuinely new, and they're shallow: SEA/US-W bottom
+ * out around rank 130-155 and AUS/SA/ME/JPN inside 80, so the whole widening
+ * is ~36 extra calls once a day.
+ *
+ * Writes per ladder rather than in one transaction, and skips any ladder
+ * whose walk came back incomplete: a rate-limited walk returning 40 of 180
+ * ids must not replace yesterday's complete answer. A ladder that has
+ * genuinely emptied writes `[]`, which is different from not writing.
+ */
+export async function refreshValhallanMembers(): Promise<
+  {
+    queue: ApiGameMode
+    region: ApiRegion
+    count: number
+    stored: boolean
+    capped: boolean
+  }[]
+> {
+  const results: {
+    queue: ApiGameMode
+    region: ApiRegion
+    count: number
+    stored: boolean
+    capped: boolean
+  }[] = []
+  for (const queue of QUEUES) {
+    for (const region of MEMBER_REGIONS) {
+      const { ids, complete, capped } = await discoverValhallanIds(
+        queue,
+        region,
+      )
+      const unique = [...new Set(ids)]
+      if (complete) {
+        try {
+          await db()
+            .insert(valhallanMembers)
+            .values({ queue, region, ids: unique })
+            .onConflictDoUpdate({
+              target: [valhallanMembers.queue, valhallanMembers.region],
+              set: { ids: unique, updatedAt: new Date() },
+            })
+        } catch (err) {
+          console.error(
+            `[valhallan] member write failed for ${queue}/${region}:`,
+            err,
+          )
+          results.push({
+            queue,
+            region,
+            count: unique.length,
+            stored: false,
+            capped,
+          })
+          continue
+        }
+      }
+      results.push({
+        queue,
+        region,
+        count: unique.length,
+        stored: complete,
+        capped,
+      })
+    }
+  }
+  return results
+}
+
+/**
+ * Stored Valhallan ids for a queue, by region. Fails open to an empty map —
+ * the cutoff walk's own (shallower) ids still cover the top of each ladder,
+ * so a cold or unreachable table degrades to the old behaviour rather than
+ * un-tiering everyone.
+ */
+export async function readValhallanMembers(
+  queue: ApiGameMode,
+): Promise<Map<string, number[]>> {
+  const out = new Map<string, number[]>()
+  try {
+    const rows = await db()
+      .select({ region: valhallanMembers.region, ids: valhallanMembers.ids })
+      .from(valhallanMembers)
+      .where(eq(valhallanMembers.queue, queue))
+    for (const r of rows) {
+      if (Array.isArray(r.ids)) {
+        out.set(
+          r.region,
+          r.ids.filter((v): v is number => typeof v === "number"),
+        )
+      }
+    }
+  } catch (err) {
+    console.error("[valhallan] member read failed:", err)
+  }
+  return out
+}
+
+/**
+ * How many Valhallans one ladder holds, without shipping the ids.
+ *
+ * The cutoff chip wants a population count per region; reading the whole map
+ * for a `.length` would move ~15 kB of ids per region per refresh for one
+ * integer, which is exactly the egress shape that has bitten this project
+ * before. `jsonb_array_length` does it server-side.
+ */
+export async function readValhallanMemberCount(
+  queue: ApiGameMode,
+  region: ApiRegion,
+): Promise<number | null> {
+  try {
+    const [row] = await db()
+      .select({ n: sql<number>`jsonb_array_length(${valhallanMembers.ids})` })
+      .from(valhallanMembers)
+      .where(
+        and(
+          eq(valhallanMembers.queue, queue),
+          eq(valhallanMembers.region, region),
+        ),
+      )
+      .limit(1)
+    return row?.n ?? null
+  } catch (err) {
+    console.error("[valhallan] member count read failed:", err)
+    return null
+  }
 }
 
 /**

@@ -49,9 +49,37 @@ export interface ProfileInput {
   achievements: string[]
 }
 
-function parseSkin(value: unknown): FavoriteSkin | null {
-  if (value && typeof value === "object") {
-    const v = value as { src?: unknown; name?: unknown }
+/**
+ * Unwrap a jsonb value that was stored double-encoded — an array or object
+ * serialised to a *string* and then written into the jsonb column, so the
+ * column holds `"[\"…\"]"` rather than `["…"]`.
+ *
+ * The admin form and the seed script both write these columns properly; two
+ * rows (Kyna, Lopes) arrived this way from hand-written SQL, and the shape is
+ * invisible until something reads it: `Array.isArray` says no, the parser
+ * returns empty, and the player silently loses their accolades — and with
+ * them their favorite skin *and* their flair, since flair entitlement is
+ * derived from `achievements`. It read as "the Live Rankings card drops some
+ * flair" because that card is where a missing badge is most visible, but the
+ * row was blank on every surface.
+ *
+ * Unwrapping exactly one level (and only for a string that parses) keeps a
+ * legitimately string-valued field from being reinterpreted, and costs one
+ * `typeof` on the common path.
+ */
+function unwrapJson(value: unknown): unknown {
+  if (typeof value !== "string") return value
+  try {
+    return JSON.parse(value)
+  } catch {
+    return value
+  }
+}
+
+export function parseSkin(value: unknown): FavoriteSkin | null {
+  const raw = unwrapJson(value)
+  if (raw && typeof raw === "object") {
+    const v = raw as { src?: unknown; name?: unknown }
     if (typeof v.src === "string" && v.src) {
       return { src: v.src, name: typeof v.name === "string" ? v.name : "" }
     }
@@ -59,9 +87,10 @@ function parseSkin(value: unknown): FavoriteSkin | null {
   return null
 }
 
-function parseAchievements(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((a): a is string => typeof a === "string")
+export function parseAchievements(value: unknown): string[] {
+  const raw = unwrapJson(value)
+  return Array.isArray(raw)
+    ? raw.filter((a): a is string => typeof a === "string")
     : []
 }
 

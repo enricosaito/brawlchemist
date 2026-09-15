@@ -7,18 +7,40 @@ import {
   type ApiRegion,
   getRankedLeaderboard,
 } from "@/lib/brawlhalla-api"
+import {
+  readValhallanMemberCount,
+  readValhallanMembers,
+} from "@/lib/sync/valhallan"
 
 export interface ValhallanCutoff {
   region: ApiRegion
-  /** Rating of the lowest-ranked Valhallan-tier player in the region. */
+  /**
+   * Where the region's *solid* Valhallan run ends — the rating of the last
+   * Valhallan before the first non-Valhallan row on the ladder.
+   *
+   * Not "the lowest Valhallan": the tier is interleaved rather than a
+   * contiguous prefix (see lib/db/schema.ts, valhallan_members), so the true
+   * minimum on US-E is ~2,138 while rank 121 at 2,507 is not Valhallan. A
+   * threshold set at the minimum would promote every 2,138+ Diamond in the
+   * region — hundreds of players — which is far worse than the handful this
+   * under-promotes. As the answer to "what rating do I need", the end of the
+   * unbroken run is also the honest one.
+   *
+   * Membership proper is settled by `ids`, not by comparing against this.
+   */
   rating: number
   /** Leaderboard rank of that player (their place among all ranked players). */
   rank: number
-  /** Total Valhallans found in the region for this queue. */
+  /**
+   * Valhallans in the region for this queue. Read from the daily
+   * valhallan_members walk when it's available — the prefix this walk sees is
+   * only ~65% of the population — and falls back to the prefix count.
+   */
   count: number
   username: string
   /**
-   * Brawlhalla ids the live ladder itself calls Valhallan.
+   * Brawlhalla ids the live ladder itself calls Valhallan, from the prefix
+   * this walk covers.
    *
    * The rating comparison this cutoff exists for is only a fallback — it pits
    * a player's *stored* rating against a cutoff refreshed hourly, so anyone
@@ -26,15 +48,18 @@ export interface ValhallanCutoff {
    * bar and silently shown as Diamond. Membership here is the ladder's own
    * answer and can't go stale that way.
    *
-   * An array rather than a Set because unstable_cache round-trips through
-   * JSON. Covers the pages the walk below visits (the top ~50 per region),
-   * which is every Valhallan — the walk stops when the tier runs out.
+   * These are the hourly-fresh top of the ladder; the complete set (including
+   * the interleaved tail) comes from valhallan_members and the two are unioned
+   * in computeValhallanIds. An array rather than a Set because unstable_cache
+   * round-trips through JSON.
    */
   ids: number[]
 }
 
 const PAGE_SIZE = 50
-// Valhallan ladders cap around 150 in NA/EU; 6 pages × 50 is a generous safety.
+// The unbroken run ends by rank ~120 on the deepest ladder (US-E) and inside
+// rank 50 on the quiet ones, so this only ever binds if the API starts
+// returning a very different shape.
 const MAX_PAGES = 6
 
 // Cutoffs move slowly (a tier boundary shifts only as the lowest Valhallan
@@ -47,9 +72,21 @@ const MAX_PAGES = 6
 const CUTOFF_TTL_SECONDS = 60 * 60
 
 /**
- * Walk the leaderboard for a single (queue, region) until tier drops off
- * Valhallan. Returns the lowest-rated Valhallan and the total count. Returns
- * null if no Valhallans exist (e.g. quiet region).
+ * Walk the leaderboard for a single (queue, region) and return where the
+ * unbroken Valhallan run ends. Null if the region has no Valhallans at all.
+ *
+ * Reads rows one at a time and stops at the FIRST non-Valhallan, rather than
+ * at the first page containing one. The old page-granular version kept every
+ * Valhallan on the page it broke on and reported the last of them as the
+ * cutoff, which is neither end of anything: on US-E it claimed rank 150 /
+ * 2,486 when the run actually ends at rank 120 / 2,508, and called 125 the
+ * regional total when the real population is 180+.
+ *
+ * Deliberately does NOT walk the interleaved tail. That's a much deeper walk
+ * (6-8 pages on the big ladders, per region, per queue) and it is already
+ * paid for once a day by refreshValhallanMembers — this one sits behind page
+ * renders and has to stay cheap. Costs the same 1-3 pages per region it
+ * always did.
  *
  * Uses the same /v1/leaderboard/ranked endpoint as the discovery sweep —
  * fetch revalidate=300 means the page-1 hit is shared cache.
@@ -63,10 +100,9 @@ async function computeValhallanCutoff(
     rank: number
     username: string
   } | null = null
-  let count = 0
   const ids: number[] = []
 
-  for (let page = 1; page <= MAX_PAGES; page++) {
+  walk: for (let page = 1; page <= MAX_PAGES; page++) {
     const res = await getRankedLeaderboard({
       gameMode,
       region,
@@ -75,8 +111,8 @@ async function computeValhallanCutoff(
     })
     if (!res.ok) break
 
-    const valhallans = res.data.rankings.filter((r) => r.tier === "Valhallan")
-    for (const entry of valhallans) {
+    for (const entry of res.data.rankings) {
+      if (entry.tier !== "Valhallan") break walk
       // Every player on the entry: 1v1 rows carry one, 2v2 rows carry both,
       // and for a team both members hold the tier.
       for (const p of entry.players) {
@@ -84,31 +120,23 @@ async function computeValhallanCutoff(
       }
       const username = entry.players[0]?.username
       if (entry.rating != null && username) {
-        lastValhallan = {
-          rating: entry.rating,
-          rank: entry.rank,
-          username,
-        }
+        lastValhallan = { rating: entry.rating, rank: entry.rank, username }
       }
     }
-    count += valhallans.length
 
-    // Stop when the page included any non-Valhallan (ladder dropped off tier)
-    // or when we've exhausted pagination.
-    if (
-      valhallans.length < res.data.rankings.length ||
-      page >= res.data.total_pages
-    ) {
-      break
-    }
+    if (page >= res.data.total_pages) break
   }
 
   if (!lastValhallan) return null
+
+  // The chip's "N Valhallans total" has to be the region's real population,
+  // not the length of the prefix above — those differ by ~35%.
+  const stored = await readValhallanMemberCount(gameMode, region)
   return {
     region,
     rating: lastValhallan.rating,
     rank: lastValhallan.rank,
-    count,
+    count: stored ?? ids.length,
     username: lastValhallan.username,
     ids,
   }
@@ -142,10 +170,22 @@ export const getValhallanCutoff = unstable_cache(
  */
 async function computeValhallanIds(gameMode: ApiGameMode): Promise<number[]> {
   const regions = API_REGIONS.filter((r) => r !== "ALL")
-  const cutoffs = await Promise.all(
-    regions.map((r) => getValhallanCutoff(gameMode, r)),
-  )
+  const [stored, cutoffs] = await Promise.all([
+    // The complete population, including the interleaved tail the cutoff walk
+    // deliberately doesn't reach. Refreshed daily by the sync-valhallan cron;
+    // empty until its first run, which degrades to the prefix below rather
+    // than to nothing.
+    readValhallanMembers(gameMode),
+    Promise.all(regions.map((r) => getValhallanCutoff(gameMode, r))),
+  ])
   const ids = new Set<number>()
+  for (const list of stored.values()) {
+    for (const id of list) ids.add(id)
+  }
+  // Unioned, not preferred: the stored set is up to a day old, so someone who
+  // reached Valhallan this morning is only in the hourly prefix. Union means
+  // the two answers can only ever add to each other — the failure mode of
+  // either going cold is a smaller set, never a wrong one.
   for (const c of cutoffs) {
     for (const id of c?.ids ?? []) ids.add(id)
   }

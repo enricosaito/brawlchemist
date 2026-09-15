@@ -128,8 +128,8 @@ export async function backfillValhallansAction() {
 
   const discovered = new Set<number>()
   for (const queue of ["1v1", "2v2"] as const) {
-    const list = await discoverValhallanIds(queue, "ALL")
-    for (const id of list) discovered.add(id)
+    const { ids } = await discoverValhallanIds(queue, "ALL")
+    for (const id of ids) discovered.add(id)
   }
   if (discovered.size === 0) {
     redirect("/admin?tab=system&backfill=none")
