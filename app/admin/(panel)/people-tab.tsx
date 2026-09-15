@@ -276,12 +276,14 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
               id="skinFile"
               name="skinFile"
               type="file"
-              accept="image/png,image/jpeg,image/webp"
+              accept="image/png,image/jpeg,image/webp,image/gif"
               className="mt-1 block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-pink file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-background hover:file:bg-pink/90"
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              On save, an uploaded image replaces the path above. Keep it under
-              ~1&nbsp;MB.
+              On save, an uploaded image replaces the path above. Animated GIFs
+              work — they render frame-for-frame, so keep them short and small.
+              Hard limit 3&nbsp;MB; a static skin should be well under
+              ~500&nbsp;KB.
             </p>
           </div>
 

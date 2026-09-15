@@ -110,7 +110,9 @@ function noticeFor(sp: {
       text:
         sp.error === "upload"
           ? "Skin upload failed — is Vercel Blob set up (BLOB_READ_WRITE_TOKEN)?"
-          : "Couldn’t save — check the Brawlhalla ID.",
+          : sp.error === "skin-too-large"
+            ? "That skin is over 3 MB. An animated GIF is served whole on every profile view — trim the frames or the dimensions and try again."
+            : "Couldn’t save — check the Brawlhalla ID.",
     }
   }
   if (sp.deleted) return { tone: "ok", text: "Profile removed." }
