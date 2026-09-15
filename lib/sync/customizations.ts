@@ -158,7 +158,7 @@ export async function getCustomization(
 }
 
 /** Busted whenever anyone's flair changes — see getFlairMap. */
-const FLAIR_MAP_TAG = "flair-map"
+export const FLAIR_MAP_TAG = "flair-map"
 
 /**
  * Every player's chosen flair, as one cached map.

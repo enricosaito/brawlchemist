@@ -1,6 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { revalidateTag } from "next/cache"
 import { put } from "@vercel/blob"
 import {
   createAdminSession,
@@ -10,16 +11,18 @@ import {
 import {
   deleteProfile,
   upsertProfile,
+  PROFILES_TAG,
   type ProfileInput,
 } from "@/lib/sync/profiles"
 import { setCronPaused } from "@/lib/sync/cron-controls"
 import { unlinkProfile } from "@/lib/sync/claims"
-import { clearFlair } from "@/lib/sync/customizations"
+import { clearFlair, FLAIR_MAP_TAG } from "@/lib/sync/customizations"
 import { clearFetchLog, recordFetch } from "@/lib/sync/fetch-log"
 import { syncManyPlayers, syncPlayer } from "@/lib/sync/players"
 import {
   discoverValhallanIds,
   getStaleValhallanIds,
+  VALHALLAN_STATS_TAG,
 } from "@/lib/sync/valhallan"
 
 export async function loginAction(formData: FormData) {
@@ -159,6 +162,31 @@ export async function clearFetchLogAction() {
   await requireAdmin()
   await clearFetchLog()
   redirect("/admin?tab=system&cleared=log")
+}
+
+/**
+ * Drop the shared read caches so the next render reads the database.
+ *
+ * Every cached read here is invalidated by the write that owns it —
+ * `upsertProfile` busts "profiles", `setFlair` busts "flair-map". That only
+ * holds for writes that go through the app. A row changed in the SQL editor
+ * (a repair, a manual seed, a bulk edit) leaves the caches untouched and the
+ * site keeps serving the old value for up to an hour, inconsistently: the
+ * Data Cache is regional, so one visitor sees the fix and the next doesn't.
+ *
+ * That is exactly how two pros silently lost their flair after their rows were
+ * repaired directly, and there was no way to fix it short of re-saving a
+ * profile to piggyback on its revalidation. This is that button.
+ *
+ * Cheap and safe to press: it discards cached values, it does not delete
+ * anything, and the next request repopulates from Postgres.
+ */
+export async function refreshCachesAction() {
+  await requireAdmin()
+  revalidateTag(PROFILES_TAG, "max")
+  revalidateTag(FLAIR_MAP_TAG, "max")
+  revalidateTag(VALHALLAN_STATS_TAG, "max")
+  redirect("/admin?tab=system&refreshed=caches")
 }
 
 /** Release a profile's ownership (admin). Curation is left intact. */

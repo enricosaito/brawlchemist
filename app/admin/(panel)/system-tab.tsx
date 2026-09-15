@@ -6,6 +6,7 @@ import { getRecentFetches } from "@/lib/sync/fetch-log"
 import {
   backfillValhallansAction,
   clearFetchLogAction,
+  refreshCachesAction,
   toggleCronAction,
 } from "../actions"
 
@@ -114,6 +115,29 @@ export async function SystemTab() {
             className="rounded-md border border-positive/40 bg-positive/15 px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-wider text-positive transition-colors hover:bg-positive/25"
           >
             Backfill Valhallans (1v1 + 2v2 ALL)
+          </button>
+        </form>
+      </section>
+
+      {/* Cache refresh */}
+      <section>
+        <h2 className="font-display text-lg font-semibold">Refresh caches</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Drops the shared read caches — verified pros and accolades, flair
+          selections, and the Valhallan aggregations — so the next render reads
+          Postgres. Saving a profile here already does this for you; press this
+          when a row was changed <em>outside</em> the app (a SQL-editor repair,
+          a manual seed), which otherwise keeps serving the old value for up to
+          an hour, and inconsistently — the cache is regional, so one visitor
+          sees the change and the next doesn&apos;t. Safe to press: it discards
+          cached values, it deletes nothing.
+        </p>
+        <form action={refreshCachesAction} className="mt-3">
+          <button
+            type="submit"
+            className="rounded-md border border-mystic/40 bg-mystic/15 px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-wider text-mystic transition-colors hover:bg-mystic/25"
+          >
+            Refresh caches
           </button>
         </form>
       </section>
