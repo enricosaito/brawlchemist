@@ -1,6 +1,6 @@
 import "server-only"
 
-import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm"
+import { and, desc, eq, gt, gte, inArray, lt, lte, or, sql } from "drizzle-orm"
 import {
   getRankedLeaderboard,
   type RankedEntry,
@@ -29,6 +29,66 @@ const PAGES = 10
 const PAGE_SIZE = 50
 
 /**
+ * The "ALL" ladder is two concatenated lists, not one sorted one.
+ *
+ * Measured on 1v1: ranks 1-1098 descend 2,919 -> 1,499 and are the game's
+ * Valhallan roster (most rows carry tier "Valhallan", including ones down at
+ * 1,908 — the label survives falling out of the top-N). Rank 1099 then jumps
+ * back up to 2,637 and a second, ordinary ladder descends from there.
+ *
+ * So polling pages 1-10 does not mean "the top 500 players". It means the top
+ * 500 of the Valhallan roster, and it misses the second list entirely — a
+ * 2,500-rated Diamond who never made the roster sits around rank 1,100 and
+ * has never appeared on /live. That is the gap this tier closes.
+ */
+const DEEP_PAGES: Record<LiveQueue, [number, number]> = {
+  // Pages 11-22 finish the roster, 23-45 walk the ordinary ladder from 2,637
+  // down to roughly 2,320.
+  "1v1": [11, 45],
+  // 2v2's roster is shorter, so its second list starts earlier.
+  "2v2": [11, 25],
+}
+
+/** How long a full sweep of the deep range should take. */
+const DEEP_CYCLE_MS = 30 * 60 * 1000
+/** The cron's own period — how often syncLiveQueue runs (vercel.ts). */
+const TICK_MS = 5 * 60 * 1000
+
+/**
+ * The slice of deep pages this tick should fetch.
+ *
+ * Deep pages rotate rather than all being fetched every tick: the whole point
+ * is that below the top a 30-minute refresh is enough, and fetching them at
+ * the fast cadence would cost more than the entire API budget. The tick index
+ * comes off the wall clock rather than a stored cursor so a missed or retried
+ * run doesn't shift the phase.
+ */
+function deepPagesForTick(queue: LiveQueue, now: number): number[] {
+  const [from, to] = DEEP_PAGES[queue]
+  const all = Array.from({ length: to - from + 1 }, (_, i) => from + i)
+  if (all.length === 0) return []
+  const ticksPerCycle = Math.max(1, Math.round(DEEP_CYCLE_MS / TICK_MS))
+  const perTick = Math.ceil(all.length / ticksPerCycle)
+  const tick = Math.floor(now / TICK_MS)
+  const start = (tick * perTick) % all.length
+  // Wraps, so the slice is always `perTick` long even at the end of the range.
+  return Array.from(
+    { length: perTick },
+    (_, i) => all[(start + i) % all.length],
+  )
+}
+
+/**
+ * Ladder rank above which an entry is polled on the fast tier.
+ *
+ * Doubles as the read-side marker for which cadence last touched a row: a row
+ * carries the rank it had when it was polled, so `rank <= FAST_RANK_MAX` is
+ * exactly "this row's activity is fresh to within a tick". /live uses it to
+ * decide what may claim to be in queue right now.
+ */
+export const FAST_RANK_MAX = PAGES * PAGE_SIZE
+
+/**
  * How recently an entry must have played to appear on /live at all.
  *
  * Deliberately wider than IN_QUEUE_MS: the page shows a 20-minute tail of
@@ -37,6 +97,20 @@ const PAGE_SIZE = 50
  * it's a read-side filter over rows the cron already wrote.
  */
 export const ACTIVE_WINDOW_MS = 20 * 60 * 1000
+
+/**
+ * The same window for deep-tier entries, which are polled every DEEP_CYCLE_MS
+ * rather than every tick.
+ *
+ * It has to be wider than the poll cycle or the tier would visibly pulse: a
+ * deep entry marked active at its poll would fall out of a 20-minute window
+ * ten minutes before the next poll could renew it, so the lower half of the
+ * grid would empty and refill on a 30-minute sawtooth. Slightly wider than the
+ * cycle means an entry stays until its own next poll either renews it or
+ * doesn't. The cost is honest and stated in the UI: for these rows "active"
+ * means within the last half hour, not the last twenty minutes.
+ */
+export const DEEP_ACTIVE_WINDOW_MS = 35 * 60 * 1000
 
 /**
  * How recently an entry must have played to count as *in queue right now*.
@@ -126,18 +200,25 @@ export async function syncLiveQueue(queue: LiveQueue): Promise<{
   queue: LiveQueue
   fetched: number
   active: number
+  /** Pages requested this tick: the fast tier plus this tick's deep slice. */
+  pages: number
   pagesFailed: number
   pruned: number
 }> {
   const now = new Date()
 
-  // 1. Fetch the top PAGES pages of the ALL ladder.
+  // 1. Fetch the fast tier (pages 1..PAGES, every tick) plus this tick's slice
+  //    of the deep tier. Deep pages are a rotation, so each is refreshed about
+  //    every DEEP_CYCLE_MS rather than every tick — see deepPagesForTick.
+  const fastPages = Array.from({ length: PAGES }, (_, i) => i + 1)
+  const deepPages = deepPagesForTick(queue, now.getTime())
+  const pageNumbers = [...fastPages, ...deepPages]
   const pages = await Promise.all(
-    Array.from({ length: PAGES }, (_, i) =>
+    pageNumbers.map((page) =>
       getRankedLeaderboard({
         gameMode: queue,
         region: "ALL",
-        page: i + 1,
+        page,
         maxResults: PAGE_SIZE,
       }),
     ),
@@ -150,7 +231,7 @@ export async function syncLiveQueue(queue: LiveQueue): Promise<{
     else pagesFailed++
   }
   if (entries.length === 0) {
-    return { queue, fetched: 0, active: 0, pagesFailed, pruned: 0 }
+    return { queue, fetched: 0, active: 0, pages: pageNumbers.length, pagesFailed, pruned: 0 }
   }
 
   // 2. Resolve the polled entries to their stable ids first, so step 3 can ask
@@ -313,7 +394,14 @@ export async function syncLiveQueue(queue: LiveQueue): Promise<{
     console.error("[live] stale prune failed:", err)
   }
 
-  return { queue, fetched: rows.length, active, pagesFailed, pruned }
+  return {
+    queue,
+    fetched: rows.length,
+    active,
+    pages: pageNumbers.length,
+    pagesFailed,
+    pruned,
+  }
 }
 
 export interface LiveRow {
@@ -344,10 +432,23 @@ export async function getLiveQueue(opts: {
 }): Promise<LiveRow[]> {
   const { queue, region, limit = 200 } = opts
   const cutoff = new Date(Date.now() - ACTIVE_WINDOW_MS)
+  const deepCutoff = new Date(Date.now() - DEEP_ACTIVE_WINDOW_MS)
 
   const conds = [
     eq(liveRanked.queue, queue),
-    gte(liveRanked.lastActiveAt, cutoff),
+    // Each tier is judged against its own poll cadence. A single cutoff would
+    // either drop deep rows between their 30-minute polls or let fast rows
+    // linger half an hour after they stopped playing.
+    or(
+      and(
+        lte(liveRanked.rank, FAST_RANK_MAX),
+        gte(liveRanked.lastActiveAt, cutoff),
+      ),
+      and(
+        gt(liveRanked.rank, FAST_RANK_MAX),
+        gte(liveRanked.lastActiveAt, deepCutoff),
+      ),
+    )!,
   ]
   if (region && region.toUpperCase() !== "ALL") {
     conds.push(sql`upper(${liveRanked.region}) = ${region.toUpperCase()}`)
