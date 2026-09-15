@@ -18,8 +18,11 @@ import {
   Delta,
   LegendChip,
   PlayerLink,
+  RankHelm,
   RegionPill,
 } from "@/components/site/primitives"
+import { TIER_FLOOR } from "@/lib/tier"
+import type { Tier } from "@/lib/types"
 import { API_REGIONS, isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import { slugForLegendId } from "@/lib/legends-roster"
 import {
@@ -33,6 +36,7 @@ import {
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
+import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 
@@ -77,18 +81,30 @@ function LiveCard({
   playersMap,
   previews,
   flairs,
+  valhallanIds,
   fresh,
 }: {
   row: LiveRow
   playersMap: Map<number, PlayerRow>
   previews: Map<number, PlayerPreview>
   flairs: Map<number, string>
+  /** Ids this queue's ladder calls Valhallan. */
+  valhallanIds: Set<number>
   /** Played within the last 5 minutes — i.e. almost certainly still queueing. */
   fresh: boolean
 }) {
   const solo = row.players.length === 1
   const player = row.players[0]
   const href = solo && player ? `/player/${player.id}` : null
+
+  // A 2v2 entry is Valhallan when the team is on that ladder, which is true of
+  // either member — the ids come from the 2v2 walk, where both teammates are
+  // collected per entry.
+  const tier: Tier | null = row.players.some((p) => valhallanIds.has(p.id))
+    ? "Valhallan"
+    : row.rating >= TIER_FLOOR.Diamond
+      ? "Diamond"
+      : null
 
   const slugFor = (id: number) => {
     const lid = playersMap.get(id)?.topLegendId
@@ -213,8 +229,17 @@ function LiveCard({
       </div>
 
       {/* Rating + session movement, with the age tucked on the same line so the
-          card stays four rows tall instead of five. */}
+          card stays four rows tall instead of five.
+
+          The helm rides with the rating as it does on the profile, the home
+          card and the leaderboard: it says where that number sits, so the two
+          read as one figure. live_ranked carries no tier, so it is derived —
+          Valhallan from the ladder ids (which is what the ladder itself says,
+          and needs no per-region cutoff or win count, neither of which this
+          feed has), Diamond from the tier floor. Below Diamond there is no
+          helm anyway, and the top-500 feed rarely goes there. */}
       <div className="flex items-baseline gap-1.5">
+        {tier && <RankHelm tier={tier} className="h-5 self-center" />}
         <span className="font-mono text-xl font-bold tabular-nums text-foreground">
           {row.rating.toLocaleString()}
         </span>
@@ -314,9 +339,22 @@ export default async function LivePage({
   const inQueue = (r: LiveRow) =>
     requestNow() - r.lastActiveAt.getTime() < IN_QUEUE_MS
 
+  let valhallan1v1 = new Set<number>()
+  let valhallan2v2 = new Set<number>()
+  try {
+    const [ids1, ids2] = await Promise.all([
+      getValhallanIds("1v1"),
+      getValhallanIds("2v2"),
+    ])
+    valhallan1v1 = new Set(ids1)
+    valhallan2v2 = new Set(ids2)
+  } catch (err) {
+    console.error("[live] valhallan ids lookup failed:", err)
+  }
+
   const sections = [
-    { queue: "1v1" as LiveQueue, rows: rows1v1 },
-    { queue: "2v2" as LiveQueue, rows: rows2v2 },
+    { queue: "1v1" as LiveQueue, rows: rows1v1, valhallanIds: valhallan1v1 },
+    { queue: "2v2" as LiveQueue, rows: rows2v2, valhallanIds: valhallan2v2 },
   ]
   const inQueueCount = [...rows1v1, ...rows2v2].filter(inQueue).length
 
@@ -394,7 +432,7 @@ export default async function LivePage({
             queue reads as "2 playing" rather than as a grid that failed to
             load, and each section stands alone — cards, then the hours that
             ladder is actually busy. */}
-        {sections.map(({ queue, rows }) => (
+        {sections.map(({ queue, rows, valhallanIds }) => (
           <section key={queue} className="mx-auto mt-8 max-w-[1280px] first:mt-0">
             <div className="mb-3 flex items-center gap-2">
               <h2 className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-foreground/90">
@@ -424,6 +462,7 @@ export default async function LivePage({
                     row={row}
                     playersMap={playersMap}
                     flairs={flairs}
+                    valhallanIds={valhallanIds}
                     previews={previews}
                     fresh={inQueue(row)}
                   />
