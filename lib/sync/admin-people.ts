@@ -4,7 +4,14 @@ import { eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { appUsers, profiles, userCustomizations } from "@/lib/db/schema"
 import { getPlayersByIds } from "@/lib/sync/players"
-import { type FavoriteSkin } from "@/lib/sync/profiles"
+// Shared with the public read side on purpose: /admin is where a malformed row
+// gets noticed and repaired, so it has to see exactly what the site sees —
+// including the double-encoded-jsonb unwrap.
+import {
+  parseAchievements,
+  parseSkin,
+  type FavoriteSkin,
+} from "@/lib/sync/profiles"
 
 /**
  * The admin "People" view: every player we hold a profiles row for, whether we
@@ -36,20 +43,6 @@ export interface AdminPerson {
   claimMethod: string | null
   /** The flair they chose, or null for "show my best". */
   flairId: string | null
-}
-
-function parseAchievements(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v) => typeof v === "string") : []
-}
-
-function parseSkin(value: unknown): FavoriteSkin | null {
-  if (value && typeof value === "object") {
-    const v = value as { src?: unknown; name?: unknown }
-    if (typeof v.src === "string" && v.src) {
-      return { src: v.src, name: typeof v.name === "string" ? v.name : "" }
-    }
-  }
-  return null
 }
 
 /** Uncached: this is an admin screen, and staleness here is worse than a read. */

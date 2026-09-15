@@ -6,6 +6,7 @@ import { syncManyPlayers } from "@/lib/sync/players"
 import {
   discoverAllValhallanIds,
   getStaleValhallanIds,
+  refreshValhallanMembers,
 } from "@/lib/sync/valhallan"
 import { isCronPaused } from "@/lib/sync/cron-controls"
 
@@ -70,6 +71,20 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const limit = Number(url.searchParams.get("limit") ?? DEFAULT_LIMIT)
   const force = url.searchParams.get("force") === "1"
+
+  // Persist who each ladder calls Valhallan, for every region.
+  //
+  // Runs before the re-sync discovery on purpose: the three competitive
+  // ladders are the same leaderboard URLs, so doing it in this order means
+  // discoverAllValhallanIds below comes off the fetch cache instead of the
+  // other way round. Best-effort — a membership refresh failure must not cost
+  // us the player sync, which is what this cron is actually scheduled for.
+  let members: Awaited<ReturnType<typeof refreshValhallanMembers>> = []
+  try {
+    members = await refreshValhallanMembers()
+  } catch (err) {
+    console.error("[sync-valhallan] member refresh failed:", err)
+  }
 
   const discovered = await discoverAllValhallanIds()
   const stale = force
@@ -154,6 +169,20 @@ export async function GET(req: Request) {
   }
 
   const summary = {
+    // Per-ladder membership. `skipped` names any ladder whose walk came back
+    // incomplete (almost always a 429) and therefore kept its previous row —
+    // worth seeing, since a ladder that skips every day is silently stale.
+    members: members.reduce((n, m) => n + m.count, 0),
+    memberLadders: members.filter((m) => m.stored).length,
+    memberSkipped: members
+      .filter((m) => !m.stored)
+      .map((m) => `${m.queue}/${m.region}`),
+    // Ladders that ran out of pages while still finding Valhallans — their
+    // tail is cut. One-offs are noise; a ladder here every day means the walk
+    // needs more pages (MAX_PAGES in lib/sync/valhallan.ts).
+    memberCapped: members
+      .filter((m) => m.capped)
+      .map((m) => `${m.queue}/${m.region}`),
     discovered: discovered.size,
     stale: stale.length,
     batched: batch.length,
