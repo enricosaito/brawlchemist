@@ -6,8 +6,13 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Loader2, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { ProBadge } from "./pro-badge"
+import { VerifiedMark } from "./pro-badge"
+import { FlairMark } from "./flair-mark"
+import { RankHelm, RegionPill } from "./primitives"
+import type { Tier } from "@/lib/types"
 
+/** Mirrors a row from /api/search/players — see RecentVisit for the same shape
+ * on the home dropdown, which renders these identically. */
 interface PlayerHit {
   id: number
   username: string
@@ -17,6 +22,12 @@ interface PlayerHit {
   pro: boolean
   /** Verified pro handle, when set — the row leads with it. */
   handle?: string | null
+  /** Derived server-side: Valhallan is ladder membership, not a rating band. */
+  tier?: Tier | null
+  /** Raw selection + the accolades it's checked against, so this runs the same
+   * entitlement rule as the profile rather than trusting a resolved flair. */
+  flairId?: string | null
+  achievements?: string[]
 }
 
 type Kind = "empty" | "name" | "id" | "steam"
@@ -71,7 +82,17 @@ export function LeaderboardPlayerSearch({ className }: { className?: string }) {
     const el = boxRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
-    setAnchor({ top: r.bottom + 6, left: r.left, width: r.width })
+    // The popover is allowed to be wider than the input it hangs off. This box
+    // is ~240px on desktop, and once a row carries a region pill, a helm and a
+    // rating there is nothing left for the name — it truncated to "Ky…". Cap at
+    // whatever still fits to the viewport's right edge, so a wide popover can
+    // never be what puts a horizontal scrollbar on the page.
+    const room = window.innerWidth - r.left - 16
+    setAnchor({
+      top: r.bottom + 6,
+      left: r.left,
+      width: Math.max(r.width, Math.min(400, room)),
+    })
   }, [])
 
   const openDropdown = useCallback(() => {
@@ -231,7 +252,7 @@ export function LeaderboardPlayerSearch({ className }: { className?: string }) {
               position: "fixed",
               top: anchor.top,
               left: anchor.left,
-              width: Math.max(anchor.width, 280),
+              width: anchor.width,
             }}
             className="z-[100] overflow-hidden rounded-xl border border-border/80 bg-card/95 text-left shadow-xl backdrop-blur-md"
           >
@@ -263,28 +284,38 @@ export function LeaderboardPlayerSearch({ className }: { className?: string }) {
                           ) : (
                             <span className="size-7 shrink-0 rounded-md border border-border/60 bg-muted/30" />
                           )}
-                          <span className="flex min-w-0 flex-1 flex-col">
-                            <span className="flex min-w-0 items-center gap-1.5">
-                              {/* Pros lead with their handle; the in-game name
-                                  drops to the sub-line so a handle match stays
-                                  explicable. */}
-                              <span className="min-w-0 truncate text-sm font-medium">
-                                {opt.hit.handle || opt.hit.username}
-                              </span>
-                              {opt.hit.pro && <ProBadge className="shrink-0" />}
+                          {/* Same row as the home search dropdown, down to the
+                              class names — these two are the same control in
+                              two places, and a player who looks one way on the
+                              homepage and another on the leaderboard reads as
+                              two different records. */}
+                          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                            <span className="min-w-0 truncate text-sm font-medium">
+                              {opt.hit.handle || opt.hit.username}
                             </span>
-                            <span className="min-w-0 truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                              {opt.hit.handle
-                                ? opt.hit.username
-                                : `ID ${opt.hit.id}`}
-                              {opt.hit.region ? ` · ${opt.hit.region}` : ""}
-                            </span>
+                            {opt.hit.pro && <VerifiedMark />}
+                            <FlairMark
+                              selectedId={opt.hit.flairId}
+                              context={{ achievements: opt.hit.achievements }}
+                              className="h-3.5"
+                            />
                           </span>
+                          {opt.hit.region && (
+                            <RegionPill
+                              region={opt.hit.region.toUpperCase()}
+                              className="shrink-0"
+                            />
+                          )}
                           {opt.hit.rating != null && (
-                            <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-                              {opt.hit.rating.toLocaleString()}
-                              <span className="ml-1 text-[9px] uppercase">
-                                ELO
+                            <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs tabular-nums text-foreground">
+                              {opt.hit.tier && (
+                                <RankHelm tier={opt.hit.tier} className="h-4" />
+                              )}
+                              <span>
+                                {opt.hit.rating.toLocaleString()}
+                                <span className="ml-1 text-[9px] uppercase text-muted-foreground">
+                                  ELO
+                                </span>
                               </span>
                             </span>
                           )}

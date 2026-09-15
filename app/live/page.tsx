@@ -21,7 +21,7 @@ import {
   RankHelm,
   RegionPill,
 } from "@/components/site/primitives"
-import { TIER_FLOOR } from "@/lib/tier"
+import { tierFromRating } from "@/lib/tier"
 import type { Tier } from "@/lib/types"
 import { API_REGIONS, isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import { slugForLegendId } from "@/lib/legends-roster"
@@ -99,12 +99,13 @@ function LiveCard({
 
   // A 2v2 entry is Valhallan when the team is on that ladder, which is true of
   // either member — the ids come from the 2v2 walk, where both teammates are
-  // collected per entry.
-  const tier: Tier | null = row.players.some((p) => valhallanIds.has(p.id))
-    ? "Valhallan"
-    : row.rating >= TIER_FLOOR.Diamond
-      ? "Diamond"
-      : null
+  // collected per entry. Below that the fixed bands decide: every tier has
+  // helm art now, so a quiet ladder's Platinum entry gets its own helm instead
+  // of the bare rating it used to show.
+  const tier: Tier | null = tierFromRating(
+    row.rating,
+    row.players.some((p) => valhallanIds.has(p.id)),
+  )
 
   const slugFor = (id: number) => {
     const lid = playersMap.get(id)?.topLegendId
@@ -236,8 +237,7 @@ function LiveCard({
           read as one figure. live_ranked carries no tier, so it is derived —
           Valhallan from the ladder ids (which is what the ladder itself says,
           and needs no per-region cutoff or win count, neither of which this
-          feed has), Diamond from the tier floor. Below Diamond there is no
-          helm anyway, and the top-500 feed rarely goes there. */}
+          feed has), everything below it from the fixed bands. */}
       <div className="flex items-baseline gap-1.5">
         {tier && <RankHelm tier={tier} className="h-5 self-center" />}
         <span className="font-mono text-xl font-bold tabular-nums text-foreground">

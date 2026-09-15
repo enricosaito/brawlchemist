@@ -8,10 +8,15 @@ import { getClaimedBrawlhallaId } from "@/lib/sync/claims"
 import { getFavoriteIds } from "@/lib/sync/favorites"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
+import { getFlairMap } from "@/lib/sync/customizations"
+import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
+import { tierFromRating } from "@/lib/tier"
+import type { Tier } from "@/lib/types"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
-import { LegendChip, RegionPill } from "@/components/site/primitives"
-import { ProBadge } from "@/components/site/pro-badge"
+import { LegendChip, RankHelm, RegionPill } from "@/components/site/primitives"
+import { VerifiedMark } from "@/components/site/pro-badge"
+import { FlairMark } from "@/components/site/flair-mark"
 import { FavoriteToggleControl } from "@/components/site/favorite-toggle-control"
 
 export const metadata = { title: "Brawlchemist | Favorites" }
@@ -32,11 +37,24 @@ export default async function FavoritesPage() {
       ? [claimedId, ...favoriteIds.filter((id) => id !== claimedId)]
       : favoriteIds
 
-  const [playersMap, profiles] = await Promise.all([
+  // Tier + flair alongside the rows. Both cached app-wide and shared with
+  // /live and the leaderboards, and both fail open — a favorites list that
+  // loads without a helm beats one that doesn't load.
+  const [playersMap, profiles, valhallan, flairs] = await Promise.all([
     ids.length
       ? getPlayersByIds(ids, { includeRankedJson: false })
       : Promise.resolve(new Map<number, PlayerRow>()),
     getProfilesMap(),
+    getValhallanIds("1v1")
+      .then((v) => new Set(v))
+      .catch((err) => {
+        console.error("[favorites] valhallan ids failed:", err)
+        return new Set<number>()
+      }),
+    getFlairMap().catch((err) => {
+      console.error("[favorites] flair map failed:", err)
+      return new Map<number, string>()
+    }),
   ])
 
   return (
@@ -73,6 +91,11 @@ export default async function FavoritesPage() {
               self={id === claimedId}
               player={playersMap.get(id) ?? null}
               preview={profiles.get(id)}
+              tier={tierFromRating(
+                playersMap.get(id)?.ladderRating,
+                valhallan.has(id),
+              )}
+              flairId={flairs.get(id)}
             />
           ))}
         </ul>
@@ -86,11 +109,16 @@ function FavoriteRow({
   self,
   player,
   preview,
+  tier,
+  flairId,
 }: {
   id: number
   self: boolean
   player: PlayerRow | null
   preview?: PlayerPreview
+  /** Derived by the page — Valhallan is ladder membership, not a rating band. */
+  tier: Tier | null
+  flairId?: string
 }) {
   const slug = player?.topLegendId ? slugForLegendId(player.topLegendId) : null
   const rating = player?.ladderRating ?? null
@@ -112,30 +140,36 @@ function FavoriteRow({
             <span className="size-9 shrink-0 rounded-md border border-border/60 bg-muted/30" />
           )}
           <div className="flex min-w-0 flex-col">
+            {/* Single line: the id was noise and the region was already in the
+                pill opposite, so the meta line under the name had nothing left
+                that wasn't said better elsewhere. */}
             <span className="flex min-w-0 items-center gap-1.5">
               <span className="min-w-0 truncate font-medium">
                 {handle ?? username}
               </span>
-              {handle && <ProBadge className="shrink-0" />}
+              {handle && <VerifiedMark />}
+              <FlairMark
+                selectedId={flairId}
+                context={{ achievements: preview?.achievements }}
+              />
               {self && (
                 <span className="shrink-0 rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-tier-gold">
                   You
                 </span>
               )}
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              ID {id}
-              {region ? ` · ${region}` : ""}
-            </span>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-3">
           {region && <RegionPill region={region} />}
           {rating != null && (
-            <span className="font-mono text-sm tabular-nums">
-              {formatElo(rating)}
-              <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-                ELO
+            <span className="flex items-center gap-1.5 font-mono text-sm tabular-nums text-foreground">
+              {tier && <RankHelm tier={tier} className="h-[18px]" />}
+              <span>
+                {formatElo(rating)}
+                <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                  ELO
+                </span>
               </span>
             </span>
           )}

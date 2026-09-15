@@ -427,8 +427,9 @@ function RatingTile({
       </span>
       {/* The helm carries the tier here — the rank banner beside this card is
           per-tier art saying the same thing, so spelling it out as well made
-          three things state one fact. Tier name stays in the tooltip for the
-          bands below Diamond, which have no helm. */}
+          three things state one fact. The tier name stays in the tooltip: the
+          helm says which band at a glance, but only the name settles it for
+          someone who doesn't know the art by sight. */}
       <InfoTip label={tier ? tierName : "Unranked"}>
         <div className="mt-1 flex h-7 min-w-0 items-baseline gap-1.5">
           {tier && <RankHelm tier={tier} className="h-6 self-center" />}

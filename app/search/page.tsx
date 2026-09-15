@@ -1,11 +1,16 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { LegendChip, RegionPill } from "@/components/site/primitives"
+import { LegendChip, RankHelm, RegionPill } from "@/components/site/primitives"
 import { PlayerSearchForm } from "@/components/site/player-search-form"
-import { ProBadge } from "@/components/site/pro-badge"
+import { VerifiedMark } from "@/components/site/pro-badge"
+import { FlairMark } from "@/components/site/flair-mark"
 import { searchPlayerBySteamId, type PlayerRanked } from "@/lib/brawlhalla-api"
 import { getPlayersByIds, searchPlayersByUsername } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
+import { getFlairMap } from "@/lib/sync/customizations"
+import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
+import { tierFromRating } from "@/lib/tier"
+import type { Tier } from "@/lib/types"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { formatElo } from "@/lib/format"
@@ -37,9 +42,14 @@ function ResultCard({ title, children }: { title: string; children: React.ReactN
 function PlayerResultRow({
   player,
   preview,
+  tier,
+  flairId,
 }: {
   player: PlayerRow
   preview?: PlayerPreview
+  /** Derived by the page — Valhallan is ladder membership, not a rating band. */
+  tier: Tier | null
+  flairId?: string
 }) {
   const ranked = (player.rankedJson ?? null) as PlayerRanked | null
   const slug = player.topLegendId ? slugForLegendId(player.topLegendId) : null
@@ -68,24 +78,33 @@ function PlayerResultRow({
             <span className="min-w-0 truncate font-medium">
               {handle ?? player.username}
             </span>
-            {handle && <ProBadge className="shrink-0" />}
+            {handle && <VerifiedMark />}
+            <FlairMark
+              selectedId={flairId}
+              context={{ achievements: preview?.achievements }}
+            />
           </span>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            ID {player.brawlhallaId}
-            {region ? ` · ${region}` : ""}
-            {handle && handle !== player.username && (
-              <span className="normal-case"> · IGN {player.username}</span>
-            )}
-          </span>
+          {/* Only the in-game name survives on the meta line. The raw id was
+              noise nobody searches by, and the region was already sitting in
+              the pill on the right — the line was stating it twice. A non-pro
+              has nothing left to say here, so the row collapses to one line. */}
+          {handle && handle !== player.username && (
+            <span className="min-w-0 truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className="normal-case">IGN {player.username}</span>
+            </span>
+          )}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-3">
         {region && <RegionPill region={region} />}
         {rating != null && (
-          <span className="font-mono text-sm tabular-nums">
-            {formatElo(rating)}
-            <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-              ELO
+          <span className="flex items-center gap-1.5 font-mono text-sm tabular-nums text-foreground">
+            {tier && <RankHelm tier={tier} className="h-[18px]" />}
+            <span>
+              {formatElo(rating)}
+              <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                ELO
+              </span>
             </span>
           </span>
         )}
@@ -122,7 +141,24 @@ export default async function SearchPage({
   let results: PlayerRow[] = []
   let overrides: Map<number, PlayerPreview> | null = null
   let searchFailed = false
+  // Tier + flair for the rows. Both are cached app-wide and shared with /live
+  // and the leaderboards, and both fail open — a helm or a badge is never
+  // worth losing the search results over.
+  let valhallanIds = new Set<number>()
+  let flairs = new Map<number, string>()
   if (isUsername) {
+    const [v, f] = await Promise.all([
+      getValhallanIds("1v1").catch((err) => {
+        console.error("[search] valhallan ids failed:", err)
+        return [] as number[]
+      }),
+      getFlairMap().catch((err) => {
+        console.error("[search] flair map failed:", err)
+        return new Map<number, string>()
+      }),
+    ])
+    valhallanIds = new Set(v)
+    flairs = f
     try {
       overrides = await getProfilesMap()
       const byName = await searchPlayersByUsername(raw)
@@ -211,6 +247,12 @@ export default async function SearchPage({
                     <PlayerResultRow
                       player={p}
                       preview={overrides?.get(p.brawlhallaId)}
+                      tier={tierFromRating(
+                        (p.rankedJson as PlayerRanked | null)?.rating ??
+                          p.ladderRating,
+                        valhallanIds.has(p.brawlhallaId),
+                      )}
+                      flairId={flairs.get(p.brawlhallaId)}
                     />
                   </li>
                 ))}
