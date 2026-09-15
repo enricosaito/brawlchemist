@@ -149,10 +149,13 @@ function entityKey(queue: LiveQueue, players: LivePlayer[]): string {
 }
 
 /**
- * The player's 1v1 ladder position, IF they're in the live top ~500 (the only
- * reliable source — the per-player /ranked payload rarely carries a usable
- * global_rank). A direct PK hit on `1v1:${id}`, zero API. Null = not top 500.
- * Fails open.
+ * The player's 1v1 ladder position, if the live snapshot holds them — the only
+ * reliable source, since the per-player /ranked payload rarely carries a usable
+ * global_rank. A direct PK hit on `1v1:${id}`, zero API, fails open.
+ *
+ * Coverage is whatever sync-live tracks: the fast tier's top 500 plus the deep
+ * tier's rotation, so currently around 2,250 entries rather than 500. Null
+ * means "not in the snapshot", not "outside the top 500".
  */
 export async function getLadderPosition(brawlhallaId: number): Promise<{
   rank: number
