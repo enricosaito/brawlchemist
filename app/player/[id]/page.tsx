@@ -51,6 +51,7 @@ import {
   getPlayerRankedJson,
   getPlayersByIds,
   getPlayerSyncState,
+  recordUnrankedPlayer,
   upsertPlayerRanked,
 } from "@/lib/sync/players"
 import { clientLabel, isCrawler } from "@/lib/bots"
@@ -135,13 +136,22 @@ const PROFILE_REVALIDATE = 300
  */
 const PROFILE_FRESH_ACTIVE_MS = 45 * 60 * 1000
 const PROFILE_FRESH_IDLE_MS = 6 * 60 * 60 * 1000
+/**
+ * How long we trust "this player has no ranked record".
+ *
+ * Six hours, matching the idle window, and for the same reason: the answer
+ * only changes when they play, and someone with no ranked season at all is
+ * not mid-climb. The floor on being wrong is one stale render of a state the
+ * page already shows for every unranked player.
+ */
+const UNRANKED_FRESH_MS = 6 * 60 * 60 * 1000
 /** Treat a player as mid-session if the live ladder saw them this recently. */
 const LIVE_SESSION_MS = 45 * 60 * 1000
 /** Re-ask GetPlayerGuild only this often; the stored guild serves every other view. */
 const GUILD_FRESH_MS = 7 * 24 * 60 * 60 * 1000
 type LoadedRanked = {
   data: PlayerRanked | null
-  source: "db-fresh" | "db-crawler" | "api" | "db-fallback"
+  source: "db-fresh" | "db-crawler" | "api" | "db-fallback" | "db-unranked"
   apiStatus?: number
   apiError?: string
 }
@@ -178,6 +188,14 @@ const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
     Date.now() - state.lastSynced.getTime() < freshMs
   // A crawler is happy with whatever we already hold.
   const serveFromCache = !!state?.hasRankedJson && (fresh || crawler)
+  // We asked about this player recently and the API had no ranked record for
+  // them (see recordUnrankedPlayer). A row with no payload and a recent
+  // last_synced means exactly that, and the answer cannot change until they
+  // play a ranked match — so re-asking every view buys nothing.
+  const unrankedFresh =
+    !!state &&
+    !state.hasRankedJson &&
+    Date.now() - state.lastSynced.getTime() < UNRANKED_FRESH_MS
 
   let result: LoadedRanked
   if (serveFromCache) {
@@ -185,6 +203,10 @@ const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
     result = data
       ? { data, source: fresh ? "db-fresh" : "db-crawler" }
       : { data: null, source: "api", apiError: "cached payload disappeared" }
+  } else if (unrankedFresh) {
+    // Renders exactly as it would have with the live empty payload: the page
+    // keys its "no ranked season" state off a missing name, which this has.
+    result = { data: null, source: "db-unranked" }
   } else {
     const res = await getPlayerRanked(numId, { revalidate: PROFILE_REVALIDATE })
     if (res.ok) {
@@ -217,7 +239,9 @@ const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
   // Supabase round-trip before the profile can stream is backwards. after()
   // runs it once the response is done, still inside the request context.
   const logResult =
-    result.source === "db-fresh" || result.source === "db-crawler"
+    result.source === "db-fresh" ||
+    result.source === "db-crawler" ||
+    result.source === "db-unranked"
       ? "cached"
       : result.source === "api" && result.data
         ? "synced"
@@ -1702,6 +1726,20 @@ export default async function PlayerPage({
         await upsertPlayerRanked(data)
       } catch {
         // A cache write failure shouldn't take down the page.
+      }
+    })
+  } else if (ranked.source === "api" && ranked.data && !hasRankedName) {
+    // The API answered and this player has no ranked record. Remember that we
+    // asked, or the next view asks again for the same nothing.
+    //
+    // `ranked.data` is the guard that matters: on a failed call it is null, and
+    // writing a "we looked, there's nothing" marker off a 429 would show a real
+    // player as unranked for six hours.
+    after(async () => {
+      try {
+        await recordUnrankedPlayer(numId)
+      } catch {
+        // Same as above — telemetry for the cache, never fatal.
       }
     })
   }
