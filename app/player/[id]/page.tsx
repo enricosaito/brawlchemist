@@ -2157,6 +2157,7 @@ export default async function PlayerPage({
                       peak: data.peak_rating,
                       tier: headerTier,
                       tierName: tierLabel(data.tier, headerValhallan),
+                      globalRank: ladderRank?.n ?? null,
                       wins: combinedRecord.wins,
                       games: combinedRecord.games,
                     }}
