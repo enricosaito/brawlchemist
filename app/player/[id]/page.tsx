@@ -1937,6 +1937,13 @@ export default async function PlayerPage({
         rating={typeof data.rating === "number" && data.rating > 0 ? data.rating : null}
         region={data.region || null}
         pro={!!preview?.verified}
+        // Everything the search dropdown renders, recorded as the page already
+        // knows it — a recent visit should come back looking exactly like a
+        // live suggestion for the same player, badge and helm included.
+        handle={preview?.verified?.handle || null}
+        tier={headerTier}
+        flairId={customization.flairId}
+        achievements={preview?.achievements}
       />
       {hasOneVOne ? (
         <ProfileHeader

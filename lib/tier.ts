@@ -80,6 +80,36 @@ export function isValhallan(
   return rating >= cutoff
 }
 
+/**
+ * Tier from a rating alone, for surfaces that hold a rating and a Valhallan
+ * answer but no API tier string — the search typeahead, the live feed.
+ *
+ * `valhallan` has to be passed in rather than inferred: it is ladder
+ * membership, not a rating threshold (see CLAUDE.md), so no function of
+ * `rating` can decide it. Below Diamond the bands are fixed and this is exact.
+ */
+export function tierFromRating(
+  rating: number | null | undefined,
+  valhallan = false,
+): Tier | null {
+  if (valhallan) return "Valhallan"
+  if (rating == null) return null
+  // Descending, so the first floor cleared is the tier.
+  const bands = [
+    "Diamond",
+    "Platinum",
+    "Gold",
+    "Silver",
+    "Bronze",
+    "Tin",
+  ] as const
+  for (const tier of bands) {
+    if (rating >= TIER_FLOOR[tier]) return tier
+  }
+  // Below the Tin floor is still Tin — the ladder has no tier under it.
+  return "Tin"
+}
+
 export function deriveTier(
   apiTier: string | null,
   valhallan: boolean,

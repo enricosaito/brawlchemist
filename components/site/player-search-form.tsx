@@ -12,7 +12,9 @@ import {
   removeRecentVisit,
   type RecentVisit,
 } from "@/lib/recent-visits"
-import { ProBadge } from "./pro-badge"
+import { VerifiedMark } from "./pro-badge"
+import { FlairMark } from "./flair-mark"
+import { RankHelm, RegionPill } from "./primitives"
 
 type SearchResult = RecentVisit
 
@@ -336,31 +338,57 @@ export function PlayerSearchForm({
                           ) : (
                             <span className="size-7 shrink-0 rounded-md border border-border/60 bg-muted/30" />
                           )}
-                          <span className="flex min-w-0 flex-1 flex-col">
-                            <span className="flex min-w-0 items-center gap-1.5">
-                              {/* A pro leads with their handle — it's what was
-                                  typed to find them, and what they're known by.
-                                  The in-game name moves to the sub-line rather
-                                  than disappearing, so the match stays
-                                  explicable. */}
-                              <span className="min-w-0 truncate text-sm font-medium">
-                                {opt.result.handle || opt.result.username}
-                              </span>
-                              {opt.result.pro && (
-                                <ProBadge className="shrink-0" />
-                              )}
+                          {/* One line per result. A pro leads with their handle
+                              and carries the same verified check + flair they
+                              wear on the profile, the leaderboard and the home
+                              card — the identity a player is known by should
+                              not change shape depending on which list they turn
+                              up in. The raw Brawlhalla id is gone: it was the
+                              only number here nobody searches by, and the row
+                              already resolves to that player on click. */}
+                          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                            <span className="min-w-0 truncate text-sm font-medium">
+                              {opt.result.handle || opt.result.username}
                             </span>
-                            <span className="min-w-0 truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                              {opt.result.handle
-                                ? opt.result.username
-                                : `ID ${opt.result.id}`}
-                              {opt.result.region ? ` · ${opt.result.region}` : ""}
-                            </span>
+                            {opt.result.pro && <VerifiedMark />}
+                            <FlairMark
+                              selectedId={opt.result.flairId}
+                              context={{
+                                achievements: opt.result.achievements,
+                              }}
+                              className="h-3.5"
+                            />
                           </span>
+                          {/* Region reads as a tag rather than as text in a
+                              sub-line: colour-coded, it's scannable down the
+                              column when several same-named accounts differ
+                              only by ladder. */}
+                          {opt.result.region && (
+                            <RegionPill
+                              region={opt.result.region.toUpperCase()}
+                              className="shrink-0"
+                            />
+                          )}
                           {opt.result.rating != null && (
-                            <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-                              {opt.result.rating.toLocaleString()}
-                              <span className="ml-1 text-[9px] uppercase">ELO</span>
+                            <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs tabular-nums text-foreground">
+                              {/* The helm rides with the rating exactly as it
+                                  does on the profile, the home card and the
+                                  leaderboard, so the two read as one figure.
+                                  Full-strength text for the number, muted only
+                                  for the unit — the rating is the fact, "ELO"
+                                  is the label. */}
+                              {opt.result.tier && (
+                                <RankHelm
+                                  tier={opt.result.tier}
+                                  className="h-4"
+                                />
+                              )}
+                              <span>
+                                {opt.result.rating.toLocaleString()}
+                                <span className="ml-1 text-[9px] uppercase text-muted-foreground">
+                                  ELO
+                                </span>
+                              </span>
                             </span>
                           )}
                         </>
