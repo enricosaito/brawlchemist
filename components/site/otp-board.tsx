@@ -6,7 +6,6 @@ import {
   TIER_TEXT_COLOR,
 } from "@/components/site/primitives"
 import { cn } from "@/lib/utils"
-import { BadgeCheck } from "lucide-react"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { LeaderboardPodium } from "@/components/site/leaderboard-podium"
 import { Pagination } from "@/components/site/pagination"
@@ -22,8 +21,11 @@ import { getOtpsForLegend, type OtpPlayer } from "@/lib/sync/otps"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import { getProfilesMap } from "@/lib/sync/profiles"
+import { getFlairMap } from "@/lib/sync/customizations"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
+import { VerifiedMark } from "@/components/site/pro-badge"
+import { FlairMark } from "@/components/site/flair-mark"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 
 const PAGE_SIZE = 50
@@ -41,6 +43,7 @@ function buildColumns(
   legendSlug: string,
   valhallanById: Map<number, boolean>,
   previews: Map<number, PlayerPreview>,
+  flairs: Map<number, string>,
   // The top 3 render in the podium, so the table starts at this rank.
   rankOffset = 0,
 ): ColDef<OtpPlayer>[] {
@@ -99,10 +102,26 @@ function buildColumns(
                         {p.username}
                       </span>
                     </span>
-                    <BadgeCheck className="size-3.5 shrink-0 text-foreground group-hover/pro:hidden" />
+                    <VerifiedMark className="size-3.5 group-hover/pro:hidden" />
+                    <FlairMark
+                      selectedId={flairs.get(p.brawlhalla_id)}
+                      context={{
+                        achievements: previews.get(p.brawlhalla_id)?.achievements,
+                      }}
+                      className="h-3.5"
+                    />
                   </span>
                 ) : (
-                  <span className="truncate">{p.username}</span>
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    <span className="truncate">{p.username}</span>
+                    <FlairMark
+                      selectedId={flairs.get(p.brawlhalla_id)}
+                      context={{
+                        achievements: previews.get(p.brawlhalla_id)?.achievements,
+                      }}
+                      className="h-3.5"
+                    />
+                  </span>
                 )}
               </PlayerLink>
               {handle ? (
@@ -261,8 +280,12 @@ export async function OtpBoard({
         isValhallan(p.rating, cutoffFor(p.region), p.wins),
     ]),
   )
-  // Admin-curated pro handles/badges for the player column.
-  const overrides = await getProfilesMap()
+  // Admin-curated pro handles/badges for the player column, plus the flair
+  // selections (one cached map, not a read per row).
+  const [overrides, flairs] = await Promise.all([
+    getProfilesMap(),
+    getFlairMap(),
+  ])
 
   // Top 3 reuse the shared leaderboard podium — adapt OtpPlayer → RankedEntry,
   // deriving the real Valhallan tier (the /ranked tier caps at Diamond).
@@ -336,6 +359,7 @@ export async function OtpBoard({
           playersMap={playersMap}
           gameMode="1v1"
           previews={overrides}
+          flairs={flairs}
           showRegion={region === "ALL"}
         />
       )}
@@ -347,6 +371,7 @@ export async function OtpBoard({
               legendSlug,
               valhallanById,
               overrides,
+              flairs,
               tableStart,
             )}
             rows={tableRows}

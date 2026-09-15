@@ -2,6 +2,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { VerifiedMark } from "@/components/site/pro-badge"
+import { FlairMark } from "@/components/site/flair-mark"
 import { LegendChip, PlayerLink, RegionPill } from "@/components/site/primitives"
 import {
   PopularityLabel,
@@ -11,6 +12,7 @@ import { getLegend } from "@/lib/mock-data"
 import { slugForLegendId } from "@/lib/legends-roster"
 import { API_REGIONS, isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import { getProfilesMap } from "@/lib/sync/profiles"
+import { getFlairMap } from "@/lib/sync/customizations"
 import type { PlayerPreview } from "@/lib/player-previews"
 import {
   type AggregationMethod,
@@ -61,6 +63,7 @@ function buildColumns(
   mainers: Map<number, TopMainer[]>,
   mainerCounts: Map<number, number>,
   previews: Map<number, PlayerPreview>,
+  flairs: Map<number, string>,
 ): ColDef<LegendStat>[] {
   const cols: ColDef<LegendStat>[] = [
     {
@@ -186,9 +189,12 @@ function buildColumns(
             >
               {handle ?? top.username}
             </PlayerLink>
-            {handle && (
-              <VerifiedMark className="size-3" />
-            )}
+            {handle && <VerifiedMark className="size-3" />}
+            <FlairMark
+              selectedId={flairs.get(top.brawlhallaId)}
+              context={{ achievements: previews.get(top.brawlhallaId)?.achievements }}
+              className="h-3.5"
+            />
           </span>
         )
       },
@@ -239,7 +245,7 @@ export default async function LegendsPage({
         ? 20
         : 100
 
-  const [{ legends, sampleSize }, mainers, mainerCounts, overrides] =
+  const [{ legends, sampleSize }, mainers, mainerCounts, overrides, flairs] =
     await Promise.all([
       getValhallanLegendStats({
         region: regionFilter,
@@ -249,9 +255,10 @@ export default async function LegendsPage({
       getTopValhallanMainers({ region: regionFilter, perLegend: 1 }),
       getValhallanMainerCounts({ region: regionFilter }),
       getProfilesMap(),
+      getFlairMap(),
     ])
 
-  const columns = buildColumns(method, mainers, mainerCounts, overrides)
+  const columns = buildColumns(method, mainers, mainerCounts, overrides, flairs)
 
   return (
     <main className="pb-16">

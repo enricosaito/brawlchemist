@@ -383,6 +383,7 @@ export default async function LeaderboardPage({
                   playersMap={playersMap}
                   gameMode={gameMode}
                   previews={overrides}
+                  flairs={flairs}
                   showRegion={region === "ALL"}
                 />
               )}

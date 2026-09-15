@@ -7,6 +7,7 @@ import { ShimmerText } from "@/components/shimmer-text"
 import { ShineBorder } from "@/components/ui/shine-border"
 import { LiveAutoRefresh } from "@/components/site/live-auto-refresh"
 import { VerifiedMark } from "@/components/site/pro-badge"
+import { FlairMark } from "@/components/site/flair-mark"
 import { LiveClimbers } from "@/components/site/live-climbers"
 import { QueueActivityCard } from "@/components/site/queue-activity-card"
 import { RememberLiveView } from "@/components/site/remember-live-view"
@@ -31,6 +32,7 @@ import {
 } from "@/lib/sync/live"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
+import { getFlairMap } from "@/lib/sync/customizations"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 
@@ -74,11 +76,13 @@ function LiveCard({
   row,
   playersMap,
   previews,
+  flairs,
   fresh,
 }: {
   row: LiveRow
   playersMap: Map<number, PlayerRow>
   previews: Map<number, PlayerPreview>
+  flairs: Map<number, string>
   /** Played within the last 5 minutes — i.e. almost certainly still queueing. */
   fresh: boolean
 }) {
@@ -175,8 +179,12 @@ function LiveCard({
             <span className="min-w-0 truncate text-sm font-semibold leading-tight">
               {previews.get(player!.id)?.verified?.handle ?? player?.name ?? "—"}
             </span>
-            {previews.get(player!.id)?.verified?.handle && (
-              <VerifiedMark />
+            {previews.get(player!.id)?.verified?.handle && <VerifiedMark />}
+            {player && (
+              <FlairMark
+                selectedId={flairs.get(player.id)}
+                context={{ achievements: previews.get(player.id)?.achievements }}
+              />
             )}
           </span>
         ) : (
@@ -193,9 +201,11 @@ function LiveCard({
                 >
                   {handle ?? p.name}
                 </PlayerLink>
-                {handle && (
-                  <VerifiedMark />
-                )}
+                {handle && <VerifiedMark />}
+                <FlairMark
+                  selectedId={flairs.get(p.id)}
+                  context={{ achievements: previews.get(p.id)?.achievements }}
+                />
               </span>
             )
           })
@@ -315,17 +325,21 @@ export default async function LivePage({
   // fail open to plain names.
   let playersMap = new Map<number, PlayerRow>()
   let previews = new Map<number, PlayerPreview>()
+  let flairs = new Map<number, string>()
   const allRows = [...rows1v1, ...rows2v2, ...gainers]
   if (allRows.length > 0) {
     const ids = allRows.flatMap((r) => r.players.map((p) => p.id))
-    const [players, profiles] = await Promise.allSettled([
+    const [players, profiles, flairMap] = await Promise.allSettled([
       getPlayersByIds(ids, { includeRankedJson: false }),
       getProfilesMap(),
+      getFlairMap(),
     ])
     if (players.status === "fulfilled") playersMap = players.value
     else console.error("[live] player cache lookup failed:", players.reason)
     if (profiles.status === "fulfilled") previews = profiles.value
     else console.error("[live] profiles lookup failed:", profiles.reason)
+    if (flairMap.status === "fulfilled") flairs = flairMap.value
+    else console.error("[live] flair lookup failed:", flairMap.reason)
   }
 
   return (
@@ -409,6 +423,7 @@ export default async function LivePage({
                     key={row.id}
                     row={row}
                     playersMap={playersMap}
+                    flairs={flairs}
                     previews={previews}
                     fresh={inQueue(row)}
                   />

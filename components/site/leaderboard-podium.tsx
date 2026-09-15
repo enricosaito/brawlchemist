@@ -13,6 +13,7 @@ import type { PlayerPreview } from "@/lib/player-previews"
 import type { Tier } from "@/lib/types"
 import { LegendChip, REGION_COLOR, TIER_TEXT_COLOR } from "./primitives"
 import { VerifiedMark } from "./pro-badge"
+import { FlairMark } from "./flair-mark"
 
 const KNOWN_TIERS: readonly Tier[] = [
   "Tin",
@@ -60,12 +61,14 @@ function PodiumCard({
   playersMap,
   gameMode,
   previews,
+  flairs,
   showRegion,
 }: {
   entry: RankedEntry
   playersMap: Map<number, PlayerRow>
   gameMode: ApiGameMode
   previews: Map<number, PlayerPreview>
+  flairs: Map<number, string>
   showRegion: boolean
 }) {
   const tier = toTier(entry.tier)
@@ -144,6 +147,13 @@ function PodiumCard({
                 : username) || "—"}
             </span>
             {verified && <VerifiedMark className="size-4" />}
+            {player && (
+              <FlairMark
+                selectedId={flairs.get(player.id)}
+                context={{ achievements: primaryPreview?.achievements }}
+                className="h-4"
+              />
+            )}
           </span>
         </div>
 
@@ -216,12 +226,15 @@ export function LeaderboardPodium({
   playersMap,
   gameMode,
   previews,
+  flairs = new Map(),
   showRegion = false,
 }: {
   entries: RankedEntry[]
   playersMap: Map<number, PlayerRow>
   gameMode: ApiGameMode
   previews: Map<number, PlayerPreview>
+  /** Chosen flair per player (getFlairMap); omit to render none. */
+  flairs?: Map<number, string>
   showRegion?: boolean
 }) {
   const top3 = entries.slice(0, 3)
@@ -236,6 +249,7 @@ export function LeaderboardPodium({
           playersMap={playersMap}
           gameMode={gameMode}
           previews={previews}
+          flairs={flairs}
           showRegion={showRegion}
         />
       ))}
