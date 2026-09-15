@@ -110,7 +110,7 @@ function buildColumns(
       align: "right",
       width: "100px",
       render: (row) => (
-        <span className="font-mono text-sm font-medium tabular-nums text-copper">
+        <span className="font-mono text-sm font-medium tabular-nums text-pink">
           {row.pick_rate.toFixed(2)}%
         </span>
       ),

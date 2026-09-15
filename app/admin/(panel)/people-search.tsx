@@ -23,7 +23,7 @@ export function AdminPeopleSearch() {
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-1.5 transition-colors focus-within:border-copper">
+    <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-1.5 transition-colors focus-within:border-pink">
       <Search className="size-4 shrink-0 text-muted-foreground" />
       <input
         type="search"

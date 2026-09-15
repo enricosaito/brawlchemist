@@ -64,7 +64,7 @@ function MatchCard({ match }: { match: Match }) {
     <article className="flex w-[340px] shrink-0 flex-col gap-2.5 rounded-xl border border-border/60 bg-card/60 p-3 transition-colors hover:border-border">
       <header className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
-          <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-copper">
+          <span className="rounded border border-pink/40 bg-pink/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-pink">
             {match.queue}
           </span>
           <RegionPill region={match.region} />

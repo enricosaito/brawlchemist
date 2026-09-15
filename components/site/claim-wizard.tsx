@@ -96,7 +96,7 @@ export function ClaimWizard({ initialId }: { initialId?: string }) {
         </p>
         <Link
           href={`/player/${encodeURIComponent(bhId)}`}
-          className="mt-4 inline-block rounded-md bg-copper px-4 py-2 text-sm font-semibold text-background transition-colors hover:bg-copper/90"
+          className="mt-4 inline-block rounded-md bg-pink px-4 py-2 text-sm font-semibold text-background transition-colors hover:bg-pink/90"
         >
           View your profile
         </Link>
@@ -123,7 +123,7 @@ export function ClaimWizard({ initialId }: { initialId?: string }) {
             value={bhId}
             onChange={(e) => setBhId(e.target.value)}
             placeholder="Brawlhalla ID"
-            className="mt-4 w-full rounded-md border border-border/60 bg-background px-3 py-2 font-mono text-sm tabular-nums outline-none focus:border-copper"
+            className="mt-4 w-full rounded-md border border-border/60 bg-background px-3 py-2 font-mono text-sm tabular-nums outline-none focus:border-pink"
           />
           {error && <ErrorLine>{error}</ErrorLine>}
           <SubmitButton pending={pending}>Continue</SubmitButton>
@@ -147,7 +147,7 @@ export function ClaimWizard({ initialId }: { initialId?: string }) {
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
             placeholder={`${step.legendName} ranked rating`}
-            className="mt-4 w-full rounded-md border border-border/60 bg-background px-3 py-2 font-mono text-sm tabular-nums outline-none focus:border-copper"
+            className="mt-4 w-full rounded-md border border-border/60 bg-background px-3 py-2 font-mono text-sm tabular-nums outline-none focus:border-pink"
           />
           {error && <ErrorLine>{error}</ErrorLine>}
           <SubmitButton pending={pending}>Verify</SubmitButton>
@@ -178,7 +178,7 @@ function SubmitButton({
     <button
       type="submit"
       disabled={pending}
-      className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-copper px-3 py-2 text-sm font-semibold text-background transition-colors hover:bg-copper/90 disabled:opacity-60"
+      className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-pink px-3 py-2 text-sm font-semibold text-background transition-colors hover:bg-pink/90 disabled:opacity-60"
     >
       {pending && <Loader2 className="size-4 animate-spin" />}
       {children}

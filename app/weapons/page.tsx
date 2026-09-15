@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { LegendChip, WeaponIcon } from "@/components/site/primitives"
+import { LegendChip, PatchTag, WeaponIcon } from "@/components/site/primitives"
 import {
   PopularityLabel,
   type PopularityTier,
@@ -64,7 +64,7 @@ const columns: ColDef<WeaponStat>[] = [
     align: "right",
     width: "100px",
     render: (w) => (
-      <span className="font-mono text-sm font-medium tabular-nums text-copper">
+      <span className="font-mono text-sm font-medium tabular-nums text-pink">
         {w.pick_rate.toFixed(2)}%
       </span>
     ),
@@ -171,9 +171,7 @@ export default async function WeaponsPage({
               <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
                 {sampleSize} players
               </span>
-              <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
-                Patch {CURRENT_PATCH}
-              </span>
+              <PatchTag version={CURRENT_PATCH} />
             </div>
           </div>
 

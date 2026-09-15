@@ -28,7 +28,7 @@ export default async function AdminLoginPage({
           required
           autoFocus
           placeholder="Password"
-          className="mt-4 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm outline-none focus:border-copper"
+          className="mt-4 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm outline-none focus:border-pink"
         />
         {error && (
           <p className="mt-2 font-mono text-[11px] uppercase tracking-wider text-negative">
@@ -37,7 +37,7 @@ export default async function AdminLoginPage({
         )}
         <button
           type="submit"
-          className="mt-4 w-full rounded-md bg-copper px-3 py-2 text-sm font-semibold text-background transition-colors hover:bg-copper/90"
+          className="mt-4 w-full rounded-md bg-pink px-3 py-2 text-sm font-semibold text-background transition-colors hover:bg-pink/90"
         >
           Sign in
         </button>

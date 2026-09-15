@@ -33,7 +33,7 @@ export default async function ClaimPage({
           </p>
           <Link
             href={`/player/${owned}`}
-            className="mt-4 inline-block rounded-md bg-copper px-4 py-2 text-sm font-semibold text-background transition-colors hover:bg-copper/90"
+            className="mt-4 inline-block rounded-md bg-pink px-4 py-2 text-sm font-semibold text-background transition-colors hover:bg-pink/90"
           >
             View your profile
           </Link>

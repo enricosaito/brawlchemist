@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { ArrowUpRight, Newspaper } from "lucide-react"
 import { PatchCardImage } from "@/components/site/patch-card-image"
+import { PatchTag } from "@/components/site/primitives"
 import { getPatchNotes, type PatchNote } from "@/lib/brawlhalla-news"
 
 export const metadata: Metadata = {
@@ -33,9 +34,7 @@ function PatchCard({ note, priority }: { note: PatchNote; priority: boolean }) {
       <div className="flex flex-col gap-2 p-4 sm:p-5">
         <div className="flex items-center gap-2">
           {note.version && (
-            <span className="inline-flex items-center rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-copper">
-              Patch {note.version}
-            </span>
+            <PatchTag version={note.version} />
           )}
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             {fmtDate(note.date)}

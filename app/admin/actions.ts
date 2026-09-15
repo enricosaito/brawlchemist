@@ -25,6 +25,14 @@ import {
   VALHALLAN_STATS_TAG,
 } from "@/lib/sync/valhallan"
 
+/**
+ * Ceiling for an uploaded favorite skin.
+ *
+ * Generous enough for a short animated GIF, tight enough that one can't become
+ * the heaviest thing on a profile. Stills sit around 100-400 KB.
+ */
+const MAX_SKIN_BYTES = 3 * 1024 * 1024
+
 export async function loginAction(formData: FormData) {
   const password = String(formData.get("password") ?? "")
   const ok = await createAdminSession(password)
@@ -47,6 +55,14 @@ export async function saveProfileAction(formData: FormData) {
   let skinSrc = String(formData.get("skinSrc") ?? "").trim()
   const file = formData.get("skinFile")
   if (file instanceof File && file.size > 0) {
+    // Nothing enforced the size guidance before, which mattered less when every
+    // skin was a ~100 KB still. An animated GIF is served whole and uncompressed
+    // — Next's optimizer detects animation and passes the file through
+    // untouched, which is what keeps it moving — so its full weight lands on
+    // every profile view, the leaderboard podium included.
+    if (file.size > MAX_SKIN_BYTES) {
+      redirect("/admin?error=skin-too-large")
+    }
     try {
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
       const blob = await put(`skins/${id}-${Date.now()}-${safe}`, file, {

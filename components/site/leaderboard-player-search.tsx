@@ -211,7 +211,7 @@ export function LeaderboardPlayerSearch({ className }: { className?: string }) {
   return (
     <div ref={boxRef} className={cn("relative", className)}>
       <form action="/search" method="get" onSubmit={onSubmit}>
-        <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-1.5 transition-colors focus-within:border-copper">
+        <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-1.5 transition-colors focus-within:border-pink">
           {loading ? (
             <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
           ) : (
@@ -322,7 +322,7 @@ export function LeaderboardPlayerSearch({ className }: { className?: string }) {
                         </>
                       ) : (
                         <>
-                          <Search className="size-4 shrink-0 text-copper" />
+                          <Search className="size-4 shrink-0 text-pink" />
                           <span className="flex-1 truncate text-sm">
                             {opt.label}
                           </span>

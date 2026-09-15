@@ -188,7 +188,7 @@ export async function SystemTab() {
                           f.source === "page-view"
                             ? "border-mystic/40 text-mystic"
                             : f.source === "og-image"
-                              ? "border-copper/40 text-copper"
+                              ? "border-pink/40 text-pink"
                               : "border-positive/40 text-positive",
                         )}
                       >
@@ -279,7 +279,7 @@ export async function SystemTab() {
                 className={cn(
                   "rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider",
                   c.paused
-                    ? "border-copper/50 bg-copper/15 text-copper"
+                    ? "border-pink/50 bg-pink/15 text-pink"
                     : "border-positive/50 bg-positive/15 text-positive",
                 )}
               >
@@ -298,7 +298,7 @@ export async function SystemTab() {
                     "rounded-md px-3 py-1.5 text-sm font-semibold text-background transition-colors",
                     c.paused
                       ? "bg-positive hover:bg-positive/90"
-                      : "bg-copper hover:bg-copper/90",
+                      : "bg-pink hover:bg-pink/90",
                   )}
                 >
                   {c.paused ? "Resume" : "Pause"}

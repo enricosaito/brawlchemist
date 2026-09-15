@@ -13,7 +13,7 @@ import { AdminPeopleSearch } from "./people-search"
 const labelCls =
   "font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
 const inputCls =
-  "mt-1 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm outline-none focus:border-copper"
+  "mt-1 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm outline-none focus:border-pink"
 
 const tagCls =
   "rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider"
@@ -132,7 +132,7 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
                   <div className="ml-auto flex flex-wrap items-center gap-3">
                     <Link
                       href={`/admin?edit=${p.brawlhallaId}#editor`}
-                      className={`${actionCls} text-copper hover:text-foreground`}
+                      className={`${actionCls} text-pink hover:text-foreground`}
                     >
                       Edit
                     </Link>
@@ -189,7 +189,7 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
         <p className="mt-1 text-sm text-muted-foreground">
           Register a verified pro by Brawlhalla ID — saving pulls their ranked
           standing onto the pro leaderboard. Find an ID via{" "}
-          <Link href="/search" className="text-copper hover:underline">
+          <Link href="/search" className="text-pink hover:underline">
             search
           </Link>
           .
@@ -276,12 +276,14 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
               id="skinFile"
               name="skinFile"
               type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="mt-1 block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-copper file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-background hover:file:bg-copper/90"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="mt-1 block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-pink file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-background hover:file:bg-pink/90"
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              On save, an uploaded image replaces the path above. Keep it under
-              ~1&nbsp;MB.
+              On save, an uploaded image replaces the path above. Animated GIFs
+              work — they render frame-for-frame, so keep them short and small.
+              Hard limit 3&nbsp;MB; a static skin should be well under
+              ~500&nbsp;KB.
             </p>
           </div>
 
@@ -302,7 +304,7 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
           <div className="flex items-center gap-3 sm:col-span-2">
             <button
               type="submit"
-              className="rounded-md bg-copper px-4 py-2 text-sm font-semibold text-background transition-colors hover:bg-copper/90"
+              className="rounded-md bg-pink px-4 py-2 text-sm font-semibold text-background transition-colors hover:bg-pink/90"
             >
               {editing ? "Save changes" : "Add pro"}
             </button>

@@ -77,7 +77,7 @@ export default async function FavoritesPage() {
           </p>
           <Link
             href="/leaderboards/1v1"
-            className="mt-4 inline-block rounded-md bg-copper px-4 py-2 text-sm font-semibold text-background transition-colors hover:bg-copper/90"
+            className="mt-4 inline-block rounded-md bg-pink px-4 py-2 text-sm font-semibold text-background transition-colors hover:bg-pink/90"
           >
             Browse the leaderboard
           </Link>

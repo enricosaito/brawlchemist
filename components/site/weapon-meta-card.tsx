@@ -3,7 +3,7 @@ import { CURRENT_PATCH, WEAPON_NAMES } from "@/lib/mock-data"
 import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import { getValhallanWeaponStats } from "@/lib/sync/valhallan"
 import { PreviewCard } from "./preview-card"
-import { LegendChip, WeaponIcon } from "./primitives"
+import { LegendChip, PatchTag, WeaponIcon } from "./primitives"
 
 export async function WeaponMetaCard({
   className,
@@ -25,9 +25,7 @@ export async function WeaponMetaCard({
           <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
             Valhallan+
           </span>
-          <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
-            Patch {CURRENT_PATCH}
-          </span>
+          <PatchTag version={CURRENT_PATCH} />
         </>
       }
     >
