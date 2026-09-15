@@ -2,6 +2,7 @@ import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PlayerSearchForm } from "@/components/site/player-search-form"
+import { PatchTag } from "@/components/site/primitives"
 import { HeroWordmark } from "./hero-wordmark"
 
 /**
@@ -64,13 +65,11 @@ export function LauncherHero({
         className="animate-rise group mt-5 inline-flex items-center gap-3 rounded-full bg-card/40 px-5 py-2 backdrop-blur-md transition-colors hover:bg-card/70"
         style={{ ["--rise-delay" as string]: "420ms" }}
       >
-        <span className="rounded-full bg-copper/15 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
-          {featuredPatch ? `Patch ${featuredPatch}` : "Latest"}
-        </span>
+        <PatchTag version={featuredPatch} pill className="px-2" />
         <span className="text-sm font-medium text-foreground/90">
           What changed this patch
         </span>
-        <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-copper" />
+        <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-pink" />
       </Link>
     </section>
   )

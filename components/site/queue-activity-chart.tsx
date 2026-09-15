@@ -109,7 +109,7 @@ export function QueueActivityChart({
               {isNow && (
                 <span
                   aria-hidden
-                  className="absolute -bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-copper"
+                  className="absolute -bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-pink"
                 />
               )}
             </div>

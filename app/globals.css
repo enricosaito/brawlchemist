@@ -101,8 +101,8 @@
     --card-foreground: oklch(0.18 0.008 250);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.18 0.008 250);
-    --primary: oklch(0.66 0.13 75);
-    --primary-foreground: oklch(0.16 0.02 75);
+    --primary: oklch(0.7 0.2 350);                 /* pink — project accent */
+    --primary-foreground: oklch(0.16 0.02 350);    /* dark on pink */
     --secondary: oklch(0.95 0.005 250);
     --secondary-foreground: oklch(0.22 0.012 250);
     --muted: oklch(0.95 0.005 250);
@@ -112,10 +112,12 @@
     --destructive: oklch(0.6 0.2 22);
     --border: oklch(0.18 0.008 250 / 8%);
     --input: oklch(0.18 0.008 250 / 8%);
-    --ring: oklch(0.66 0.13 75 / 50%);
+    --ring: oklch(0.7 0.2 350 / 50%);              /* pink focus halo */
 
     --positive: oklch(0.74 0.13 175);
     --negative: oklch(0.6 0.2 22);
+    /* No longer the accent — see --primary. Kept for the "copper" profile
+       banner preset, which is a name players have chosen and stored. */
     --copper: oklch(0.66 0.13 75);
     --mystic: oklch(0.74 0.13 175);
     --pink: oklch(0.7 0.2 350);
@@ -140,12 +142,12 @@
 
     --sidebar: oklch(0.98 0.003 80);
     --sidebar-foreground: oklch(0.18 0.008 250);
-    --sidebar-primary: oklch(0.66 0.13 75);
-    --sidebar-primary-foreground: oklch(0.16 0.02 75);
+    --sidebar-primary: oklch(0.7 0.2 350);
+    --sidebar-primary-foreground: oklch(0.16 0.02 350);
     --sidebar-accent: oklch(0.95 0.005 250);
     --sidebar-accent-foreground: oklch(0.22 0.012 250);
     --sidebar-border: oklch(0.18 0.008 250 / 8%);
-    --sidebar-ring: oklch(0.66 0.13 75 / 50%);
+    --sidebar-ring: oklch(0.7 0.2 350 / 50%);
 }
 
 /* The alchemy lab — dark first. */
@@ -156,8 +158,8 @@
     --card-foreground: oklch(0.91 0.005 75);
     --popover: oklch(0.18 0.014 250);
     --popover-foreground: oklch(0.91 0.005 75);
-    --primary: oklch(0.74 0.115 75);               /* copper #D4A24C */
-    --primary-foreground: oklch(0.16 0.02 75);     /* dark on copper */
+    --primary: oklch(0.74 0.23 350);               /* pink — project accent */
+    --primary-foreground: oklch(0.16 0.02 350);    /* dark on pink */
     --secondary: oklch(0.21 0.012 250);
     --secondary-foreground: oklch(0.91 0.005 75);
     --muted: oklch(0.21 0.012 250);
@@ -167,11 +169,11 @@
     --destructive: oklch(0.66 0.18 22);            /* garnet #E25A5A */
     --border: oklch(1 0 0 / 8%);
     --input: oklch(1 0 0 / 10%);
-    --ring: oklch(0.74 0.115 75 / 60%);            /* copper focus halo */
+    --ring: oklch(0.74 0.23 350 / 60%);            /* pink focus halo */
 
     --positive: oklch(0.85 0.105 175);             /* mystic cyan for ↑ */
     --negative: oklch(0.66 0.18 22);
-    --copper: oklch(0.74 0.115 75);
+    --copper: oklch(0.74 0.115 75);          /* banner preset only, not the accent */
     --mystic: oklch(0.85 0.105 175);
     --pink: oklch(0.74 0.23 350);            /* nav accent glow */
     --royal: oklch(0.64 0.17 262);           /* earned legend titles */
@@ -194,12 +196,12 @@
 
     --sidebar: oklch(0.165 0.014 250);
     --sidebar-foreground: oklch(0.91 0.005 75);
-    --sidebar-primary: oklch(0.74 0.115 75);
-    --sidebar-primary-foreground: oklch(0.16 0.02 75);
+    --sidebar-primary: oklch(0.74 0.23 350);
+    --sidebar-primary-foreground: oklch(0.16 0.02 350);
     --sidebar-accent: oklch(0.21 0.012 250);
     --sidebar-accent-foreground: oklch(0.91 0.005 75);
     --sidebar-border: oklch(1 0 0 / 8%);
-    --sidebar-ring: oklch(0.74 0.115 75 / 60%);
+    --sidebar-ring: oklch(0.74 0.23 350 / 60%);
 }
 
 @layer base {

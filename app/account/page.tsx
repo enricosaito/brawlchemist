@@ -25,7 +25,7 @@ export default async function AccountPage() {
           </p>
           <Link
             href="/claim"
-            className="mt-4 inline-block rounded-md bg-copper px-4 py-2 text-sm font-semibold text-background transition-colors hover:bg-copper/90"
+            className="mt-4 inline-block rounded-md bg-pink px-4 py-2 text-sm font-semibold text-background transition-colors hover:bg-pink/90"
           >
             Claim your profile
           </Link>
@@ -50,7 +50,7 @@ export default async function AccountPage() {
             Verified owner of{" "}
             <Link
               href={`/player/${brawlhallaId}`}
-              className="font-semibold text-foreground hover:text-copper"
+              className="font-semibold text-foreground hover:text-pink"
             >
               {username}
             </Link>

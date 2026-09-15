@@ -101,7 +101,7 @@ export async function ProfileCustomization({
                   href={l.url}
                   target="_blank"
                   rel="noopener noreferrer nofollow"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/40 px-2.5 py-1.5 text-xs font-medium transition-colors hover:border-copper/60 hover:text-copper"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/40 px-2.5 py-1.5 text-xs font-medium transition-colors hover:border-pink/60 hover:text-pink"
                 >
                   {SOCIAL_META[l.kind].label}
                   <ExternalLink className="size-3" />

@@ -109,7 +109,7 @@ function TournamentCard({ t, cm }: { t: Tournament; cm?: CmTournament }) {
             {t.isTwos ? "2v2" : "1v1"}
           </Chip>
           {t.isOfficial ? (
-            <Chip className="border-copper/40 bg-copper/10 text-copper">
+            <Chip className="border-pink/40 bg-pink/10 text-pink">
               <Trophy className="size-2.5" />
               Official
             </Chip>
@@ -364,8 +364,8 @@ export default async function TournamentsPage({
             // is narrowing the list.
             <div className="grid grid-cols-1 gap-x-8 gap-y-10 lg:grid-cols-2">
               <div>
-                <div className="mb-4 flex items-center gap-2 border-b border-copper/30 pb-2">
-                  <Trophy className="size-4 text-copper" />
+                <div className="mb-4 flex items-center gap-2 border-b border-pink/30 pb-2">
+                  <Trophy className="size-4 text-pink" />
                   <h2 className="font-display text-base font-semibold">
                     Official
                   </h2>

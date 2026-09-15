@@ -394,7 +394,7 @@ export function PlayerSearchForm({
                         </>
                       ) : (
                         <>
-                          <Search className="size-4 shrink-0 text-copper" />
+                          <Search className="size-4 shrink-0 text-pink" />
                           <span className="flex-1 truncate text-sm">
                             {opt.label}
                           </span>

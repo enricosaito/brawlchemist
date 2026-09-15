@@ -4,7 +4,7 @@ import { formatPercent } from "@/lib/format"
 import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import { getValhallanLegendStats } from "@/lib/sync/valhallan"
 import { PreviewCard } from "./preview-card"
-import { LegendChip } from "./primitives"
+import { LegendChip, PatchTag } from "./primitives"
 
 /** Rows on the card. Six matches the Live Rankings card beside it. */
 const TOP_N = 6
@@ -76,9 +76,7 @@ export async function TopLegendsCard({
           <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
             Valhallan+
           </span>
-          <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
-            Patch {CURRENT_PATCH}
-          </span>
+          <PatchTag version={CURRENT_PATCH} />
         </>
       }
     >

@@ -470,3 +470,41 @@ export function RegionPill({
     </span>
   )
 }
+
+/**
+ * PatchTag — "Patch 10.10", wherever a surface says which patch it describes.
+ *
+ * Neutral on purpose. It appeared in six places in the accent colour, which
+ * put a coloured chip on almost every data card for a fact that is the same
+ * on all of them and that nobody is looking for: the patch number is context,
+ * not a finding. In accent it competed with the Valhallan+ tag sitting
+ * directly beside it on two of those cards, where the tier filter is the thing
+ * that actually changes what you're reading. Muted, it still reads as a tag
+ * and stops pulling rank on the data.
+ *
+ * Same micro-label treatment as RegionPill's fallback, so the two sit together
+ * without arguing.
+ */
+export function PatchTag({
+  version,
+  pill = false,
+  className,
+}: {
+  /** Patch number alone, e.g. "10.10" — the component adds the word. */
+  version: string | null | undefined
+  /** Fully rounded, for the launcher hero where it sits inside a pill. */
+  pill?: boolean
+  className?: string
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground",
+        pill ? "rounded-full" : "rounded",
+        className,
+      )}
+    >
+      {version ? `Patch ${version}` : "Latest"}
+    </span>
+  )
+}

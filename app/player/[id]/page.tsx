@@ -422,7 +422,7 @@ function NoticeCard({ title, children }: { title: string; children: React.ReactN
         <p className="mt-2 text-sm text-muted-foreground">{children}</p>
         <Link
           href="/"
-          className="mt-4 inline-block font-mono text-[11px] uppercase tracking-wider text-copper transition-colors hover:text-foreground"
+          className="mt-4 inline-block font-mono text-[11px] uppercase tracking-wider text-pink transition-colors hover:text-foreground"
         >
           ← Search another player
         </Link>
@@ -912,10 +912,10 @@ function MostPlayedCluster({
             <span aria-hidden className="text-muted-foreground/40">
               ·
             </span>
-            <span className="text-copper transition-colors group-hover/most:text-foreground">
+            <span className="text-pink transition-colors group-hover/most:text-foreground">
               All legends
             </span>
-            <ChevronRight className="size-3 text-copper transition-transform group-hover/most:translate-x-0.5 group-hover/most:text-foreground" />
+            <ChevronRight className="size-3 text-pink transition-transform group-hover/most:translate-x-0.5 group-hover/most:text-foreground" />
           </>
         )}
       </span>

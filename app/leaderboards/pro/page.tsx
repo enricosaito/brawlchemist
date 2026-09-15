@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { DataTable } from "@/components/site/data-table"
+import { PatchTag } from "@/components/site/primitives"
 import { buildLeaderboardColumns } from "@/components/site/leaderboard-columns"
 import { CURRENT_PATCH } from "@/lib/mock-data"
 import { isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
@@ -81,9 +82,7 @@ export default async function ProLeaderboardPage({
               ))}
             </div>
 
-            <span className="ml-auto rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-copper">
-              Patch {CURRENT_PATCH}
-            </span>
+            <PatchTag version={CURRENT_PATCH} className="ml-auto" />
           </div>
 
           {rows.length === 0 ? (

@@ -28,7 +28,7 @@ export function LeaderboardSearch({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-1.5 transition-colors focus-within:border-copper",
+        "flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-1.5 transition-colors focus-within:border-pink",
         className,
       )}
     >

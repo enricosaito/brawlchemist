@@ -56,7 +56,7 @@ export async function QueueActivityCard({
             When the queue is busiest
           </h2>
           {preview ? (
-            <span className="rounded border border-copper/40 bg-copper/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-copper">
+            <span className="rounded border border-pink/40 bg-pink/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-pink">
               Preview · collecting
             </span>
           ) : (
