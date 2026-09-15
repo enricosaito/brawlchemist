@@ -88,18 +88,16 @@ export async function TopLegendsCard({
             No legend stats yet.
           </li>
         ) : (
-          rows.map((row, i) => (
+          rows.map((row) => (
             <li key={row.slug}>
               <Link
                 href={`/leaderboards/1v1?legend=${row.slug}`}
                 className="group/row relative flex h-full min-h-14 items-center gap-3 px-4 py-2 transition-colors hover:bg-muted/40"
               >
-                {/* The ordinal replaces the old tier letter. Same treatment as
-                    Live Rankings: an index into a list that is already in
-                    order only needs to be findable, not loud. */}
-                <span className="w-4 shrink-0 text-right font-mono text-xs leading-none tabular-nums text-muted-foreground">
-                  {i + 1}
-                </span>
+                {/* No ordinal, matching Popular Weapons beside it: the list is
+                    already ordered top-down and the games column says by how
+                    much, so the index was a third way of stating the same
+                    thing. The portrait leads instead. */}
                 <LegendChip legendId={row.slug} size="md" showName={false} />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm font-medium">
