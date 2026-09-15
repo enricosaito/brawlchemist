@@ -24,6 +24,17 @@ type ModeTab = (typeof MODE_TABS)[number]
 const TYPE_TABS = ["All", "Official", "Community"] as const
 type TypeTab = (typeof TYPE_TABS)[number]
 
+/**
+ * Upcoming leads, because the page's job is "what can I watch or enter".
+ *
+ * Both used to be stacked on one screen, which put a long tail of finished
+ * events under the handful that have not happened yet — and in the current
+ * year that tail is most of the list, so the thing you came for sat above a
+ * wall of results you had to scroll past to be sure you had seen it all.
+ */
+const WHEN_TABS = ["Upcoming", "Past"] as const
+type WhenTab = (typeof WHEN_TABS)[number]
+
 function fmtMonth(unixSeconds: number): string {
   return new Date(unixSeconds * 1000)
     .toLocaleDateString("en-US", { month: "short", timeZone: "UTC" })
@@ -152,24 +163,12 @@ function TournamentCard({ t, cm }: { t: Tournament; cm?: CmTournament }) {
   )
 }
 
-function SectionHeading({
-  children,
-  count,
-}: {
-  children: React.ReactNode
-  count?: number
-}) {
+/** The count that used to ride the section heading, now on the column head. */
+function SectionCount({ n }: { n: number }) {
   return (
-    <div className="mb-3 flex items-center gap-2">
-      <h2 className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-foreground/90">
-        {children}
-      </h2>
-      {count != null && (
-        <span className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          {count}
-        </span>
-      )}
-    </div>
+    <span className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      {n}
+    </span>
   )
 }
 
@@ -218,61 +217,61 @@ function FilterTabs<T extends string>({
   )
 }
 
-/** Upcoming + Recent/Results sections for one list of events. `wide` lays the
- * cards out two-up (the single-type views have the page width to spare). */
-function EventSections({
-  upcoming,
-  recent,
-  year,
-  currentYear,
+/**
+ * One list of events. `wide` lays the cards out two-up (the single-type views
+ * have the page width to spare).
+ *
+ * No section heading: the When tab above already names the period, and in the
+ * two-column layout a per-column "Upcoming" would have put the same word on
+ * screen three times. The count rides the column heading instead.
+ */
+function EventList({
+  events,
   cmMap,
   wide,
+  emptyLabel,
 }: {
-  upcoming: Tournament[]
-  recent: Tournament[]
-  year: number
-  currentYear: number
+  events: Tournament[]
   cmMap: Map<string, CmTournament>
   wide: boolean
+  emptyLabel: string
 }) {
-  const listClass = wide
-    ? "grid grid-cols-1 gap-2 lg:grid-cols-2"
-    : "flex flex-col gap-2"
+  if (events.length === 0) {
+    return (
+      <p className="rounded-xl border border-border/60 bg-card/40 p-4 text-sm text-muted-foreground">
+        {emptyLabel}
+      </p>
+    )
+  }
   return (
-    <>
-      {upcoming.length > 0 && (
-        <section className="mb-8">
-          <SectionHeading count={upcoming.length}>Upcoming</SectionHeading>
-          <div className={listClass}>
-            {upcoming.map((t) => (
-              <TournamentCard key={t.id} t={t} cm={cmMap.get(t.id)} />
-            ))}
-          </div>
-        </section>
-      )}
-      {recent.length > 0 && (
-        <section>
-          <SectionHeading count={recent.length}>
-            {year === currentYear ? "Recent" : `${year} Results`}
-          </SectionHeading>
-          <div className={listClass}>
-            {recent.map((t) => (
-              <TournamentCard key={t.id} t={t} cm={cmMap.get(t.id)} />
-            ))}
-          </div>
-        </section>
-      )}
-    </>
+    <div
+      className={
+        wide ? "grid grid-cols-1 gap-2 lg:grid-cols-2" : "flex flex-col gap-2"
+      }
+    >
+      {events.map((t) => (
+        <TournamentCard key={t.id} t={t} cm={cmMap.get(t.id)} />
+      ))}
+    </div>
   )
 }
 
 export default async function TournamentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; type?: string; year?: string }>
+  searchParams: Promise<{
+    mode?: string
+    type?: string
+    year?: string
+    when?: string
+  }>
 }) {
   const sp = await searchParams
   const currentYear = new Date().getUTCFullYear()
+
+  const when: WhenTab = (WHEN_TABS as readonly string[]).includes(sp.when ?? "")
+    ? (sp.when as WhenTab)
+    : "Upcoming"
 
   const mode: ModeTab = (MODE_TABS as readonly string[]).includes(sp.mode ?? "")
     ? (sp.mode as ModeTab)
@@ -293,7 +292,14 @@ export default async function TournamentsPage({
     (_, i) => currentYear - i,
   )
 
-  const { tournaments, upcoming, recent } = await getTournamentsSplit(year)
+  // Upcoming is always "from now on", so it reads the current year whatever
+  // the Year filter says — and that filter is hidden on the Upcoming tab, since
+  // browsing past years is the only thing it is for. Nothing is lost by not
+  // also fetching next year: the upstream returns an empty list for it (checked
+  // against 2027), so events appear there only once the year rolls over.
+  const { tournaments, upcoming, recent } = await getTournamentsSplit(
+    when === "Upcoming" ? currentYear : year,
+  )
 
   // Mode narrowing is client-side: the upstream API has no community-only
   // param (isOfficial=false returns everything) and the year list is small.
@@ -301,46 +307,60 @@ export default async function TournamentsPage({
     mode === "All" || (mode === "2v2") === t.isTwos
   const matchesType = (t: Tournament) =>
     type === "All" || (type === "Official") === t.isOfficial
-  const upcomingFiltered = upcoming.filter(
+  // One list per tab. `upcoming` arrives soonest-first and `recent`
+  // newest-first from getTournamentsSplit — both already read down the page in
+  // the direction people scan for them.
+  const events = (when === "Upcoming" ? upcoming : recent).filter(
     (t) => matchesMode(t) && matchesType(t),
   )
-  const recentFiltered = recent.filter((t) => matchesMode(t) && matchesType(t))
 
   // Challengermode enrichment (bracket link, thumbnail, attendance) for every
   // CM-hosted event on the page. Cached 6h per id; fails open to plain cards.
-  const cmIds = [...upcomingFiltered, ...recentFiltered]
-    .filter((t) => t.host === "CM")
-    .map((t) => t.id)
+  const cmIds = events.filter((t) => t.host === "CM").map((t) => t.id)
   const cmMap = await getCmTournaments(cmIds)
 
-  const hrefFor = (m: ModeTab, ty: TypeTab, y: number) =>
-    `/tournaments?mode=${m}&type=${ty}&year=${y}`
+  const hrefFor = (m: ModeTab, ty: TypeTab, y: number, w: WhenTab) =>
+    `/tournaments?when=${w}&mode=${m}&type=${ty}&year=${y}`
 
-  const empty =
-    upcomingFiltered.length === 0 && recentFiltered.length === 0
+  const official = events.filter((t) => t.isOfficial)
+  const community = events.filter((t) => !t.isOfficial)
+  const period = when === "Upcoming" ? "upcoming" : `${year}`
+  const noneLabel = (what: string) => `No ${what} events ${
+    when === "Upcoming" ? "scheduled" : `in ${year}`
+  }.`
 
   return (
     <main className="pb-16">
       <div className="px-4 pt-8 sm:px-6 sm:pt-10">
         <div className="mx-auto mb-6 flex max-w-[1280px] flex-wrap items-center gap-x-3 gap-y-3">
           <FilterTabs
+            label="When"
+            tabs={WHEN_TABS}
+            active={when}
+            hrefFor={(w) => hrefFor(mode, type, year, w)}
+          />
+          <FilterTabs
             label="Mode"
             tabs={MODE_TABS}
             active={mode}
-            hrefFor={(m) => hrefFor(m, type, year)}
+            hrefFor={(m) => hrefFor(m, type, year, when)}
           />
           <FilterTabs
             label="Type"
             tabs={TYPE_TABS}
             active={type}
-            hrefFor={(ty) => hrefFor(mode, ty, year)}
+            hrefFor={(ty) => hrefFor(mode, ty, year, when)}
           />
-          <FilterTabs
-            label="Year"
-            tabs={years.map(String)}
-            active={String(year)}
-            hrefFor={(y) => hrefFor(mode, type, Number(y))}
-          />
+          {/* Year browses history, so it belongs to the Past tab only — on
+              Upcoming there is nothing for it to select. */}
+          {when === "Past" && (
+            <FilterTabs
+              label="Year"
+              tabs={years.map(String)}
+              active={String(year)}
+              hrefFor={(y) => hrefFor(mode, type, Number(y), when)}
+            />
+          )}
           <span className="ml-auto inline-flex items-center rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wide text-muted-foreground">
             Via Brawltools
           </span>
@@ -354,10 +374,24 @@ export default async function TournamentsPage({
               </div>
               <p>Couldn&apos;t reach the esports API. Please try again shortly.</p>
             </div>
-          ) : empty ? (
+          ) : events.length === 0 ? (
             <div className="rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">
               No {type === "All" ? "" : `${type.toLowerCase()} `}
-              {mode === "All" ? "" : `${mode} `}tournaments found for {year}.
+              {mode === "All" ? "" : `${mode} `}tournaments{" "}
+              {when === "Upcoming" ? (
+                <>
+                  scheduled right now. Past events are under the{" "}
+                  <Link
+                    href={hrefFor(mode, type, currentYear, "Past")}
+                    className="text-pink underline-offset-2 hover:underline"
+                  >
+                    Past
+                  </Link>{" "}
+                  tab.
+                </>
+              ) : (
+                `in ${year}.`
+              )}
             </div>
           ) : type === "All" ? (
             // Side-by-side official / community columns when no type filter
@@ -369,14 +403,13 @@ export default async function TournamentsPage({
                   <h2 className="font-display text-base font-semibold">
                     Official
                   </h2>
+                  <SectionCount n={official.length} />
                 </div>
-                <EventSections
-                  upcoming={upcomingFiltered.filter((t) => t.isOfficial)}
-                  recent={recentFiltered.filter((t) => t.isOfficial)}
-                  year={year}
-                  currentYear={currentYear}
+                <EventList
+                  events={official}
                   cmMap={cmMap}
                   wide={false}
+                  emptyLabel={noneLabel("official")}
                 />
               </div>
               <div>
@@ -385,26 +418,28 @@ export default async function TournamentsPage({
                   <h2 className="font-display text-base font-semibold">
                     Community
                   </h2>
+                  <SectionCount n={community.length} />
                 </div>
-                <EventSections
-                  upcoming={upcomingFiltered.filter((t) => !t.isOfficial)}
-                  recent={recentFiltered.filter((t) => !t.isOfficial)}
-                  year={year}
-                  currentYear={currentYear}
+                <EventList
+                  events={community}
                   cmMap={cmMap}
                   wide={false}
+                  emptyLabel={noneLabel("community")}
                 />
               </div>
             </div>
           ) : (
-            <EventSections
-              upcoming={upcomingFiltered}
-              recent={recentFiltered}
-              year={year}
-              currentYear={currentYear}
-              cmMap={cmMap}
-              wide
-            />
+            <>
+              <div className="mb-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                {events.length} {period} {events.length === 1 ? "event" : "events"}
+              </div>
+              <EventList
+                events={events}
+                cmMap={cmMap}
+                wide
+                emptyLabel={noneLabel(type.toLowerCase())}
+              />
+            </>
           )}
         </div>
       </div>
