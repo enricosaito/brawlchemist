@@ -1,6 +1,7 @@
 import { getSessionUser } from "@/lib/auth/session"
 import { getClaimState } from "@/lib/sync/claims"
 import { getCustomization } from "@/lib/sync/customizations"
+import { getProfile } from "@/lib/sync/profiles"
 import { earnedFlairIds, type FlairContext } from "@/lib/profile/flair"
 import { ProfileCustomizer } from "./profile-customizer"
 
@@ -26,11 +27,13 @@ export async function ProfileCustomizerSlot({
   // Lookups inside the try, the element outside it: constructing JSX in a try
   // block swallows render-time errors that belong to an error boundary.
   let custom: Awaited<ReturnType<typeof getCustomization>>
+  let isPro = false
   try {
     const user = await getSessionUser()
     if (!user) return null
     if ((await getClaimState(brawlhallaId, user.id)) !== "mine") return null
     custom = await getCustomization(brawlhallaId)
+    isPro = !!(await getProfile(brawlhallaId))?.verified
   } catch {
     return null
   }
@@ -44,6 +47,7 @@ export async function ProfileCustomizerSlot({
       initialBio={custom.bio}
       initialSocialLinks={custom.socialLinks}
       initialFavoriteLegendIds={custom.favoriteLegendIds}
+      isPro={isPro}
     />
   )
 }

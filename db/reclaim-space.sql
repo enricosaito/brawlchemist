@@ -136,3 +136,23 @@ ANALYZE fetch_log;
 SELECT
   pg_size_pretty(pg_total_relation_size('fetch_log')) AS fetch_log,
   pg_size_pretty(pg_database_size(current_database())) AS database_total;
+
+-- ===========================================================================
+-- 2026-09-15 — bio/legends/links become verified-pro only
+-- ===========================================================================
+-- Those three fields put free text and outbound links on a public page, so
+-- they now stay with the accounts we've actually vetted. The gate is enforced
+-- on read and on write, so nothing here is required for correctness — stored
+-- rows simply stop rendering. This clears the bios anyway: free text we will
+-- never display again is not worth keeping.
+--
+-- Favourite legends and social links are deliberately left in place. They're
+-- constrained values (roster ids, https URLs against an allow-list) rather
+-- than free text, so they carry no moderation risk while hidden, and they come
+-- straight back if a player is later verified.
+
+UPDATE user_customizations c
+   SET bio = NULL, updated_at = now()
+  FROM (SELECT brawlhalla_id FROM profiles WHERE is_pro) p
+ WHERE c.bio IS NOT NULL
+   AND c.brawlhalla_id <> p.brawlhalla_id;

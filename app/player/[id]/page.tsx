@@ -1992,11 +1992,7 @@ export default async function PlayerPage({
               pending the advanced-stats component that will own them.
               computeAccountStats still runs — the header reads its weapon
               shares — so bringing them back is a render, not a refetch. */}
-          <div className="mt-6 px-4 sm:px-6">
-            <div className="mx-auto max-w-[1280px]">
-              <ProfileCustomization brawlhallaId={numId} />
-            </div>
-          </div>
+          <ProfileCustomization brawlhallaId={numId} />
 
           {hasOneVOne && (
             <section className="mt-8 px-4 sm:px-6">

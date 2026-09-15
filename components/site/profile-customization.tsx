@@ -5,6 +5,7 @@ import {
   slugForLegendId,
 } from "@/lib/legends-roster"
 import { getCustomization, SOCIAL_META } from "@/lib/sync/customizations"
+import { getProfile } from "@/lib/sync/profiles"
 
 /**
  * Owner-set profile customization (bio, favorite legends, social links) as it
@@ -13,20 +14,31 @@ import { getCustomization, SOCIAL_META } from "@/lib/sync/customizations"
  * card used to carry its own inline bio editor, which meant a bio could be
  * changed in two places with two different save paths.
  *
+ * Verified pros only, for now. The three fields here are the ones that put
+ * free text and outbound links on a public page, so they stay with the
+ * accounts we have actually vetted — everyone else keeps the banner and the
+ * flair, which can only ever say something true about them. Gated on read as
+ * well as on write, so a row written before the gate existed stops showing
+ * without needing to be deleted.
+ *
  * Renders nothing when the player has set nothing, owner or not: an empty card
  * offering no affordance is just a hole in the layout.
  *
- * Renders the bare card, no outer spacing: the Overview lays this and the
- * account stats out as one two-column row, and it relies on this returning
- * either exactly one element or nothing so its `:only-child` rule can widen
- * whichever card is left when the other doesn't render.
+ * Owns its own outer spacing. It used to render bare inside a wrapper the
+ * Overview always emitted, which left that wrapper's top margin behind as a
+ * gap whenever this returned null — rare when the only empty case was a
+ * player who had set nothing, routine now that every non-pro takes it.
  */
 export async function ProfileCustomization({
   brawlhallaId,
 }: {
   brawlhallaId: number
 }) {
-  const custom = await getCustomization(brawlhallaId)
+  const [custom, preview] = await Promise.all([
+    getCustomization(brawlhallaId),
+    getProfile(brawlhallaId),
+  ])
+  if (!preview?.verified) return null
 
   const favorites = custom.favoriteLegendIds
     .map((id) => {
@@ -43,8 +55,8 @@ export async function ProfileCustomization({
   const bioShown = !!custom.bio
 
   return (
-    <>
-      <section className="h-full rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-sm">
+    <div className="mt-6 px-4 sm:px-6">
+      <section className="mx-auto max-w-[1280px] rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-sm">
         {custom.bio && (
           <p className="text-sm leading-relaxed text-foreground/90">
             {custom.bio}
@@ -99,6 +111,6 @@ export async function ProfileCustomization({
           </div>
         )}
       </section>
-    </>
+    </div>
   )
 }
