@@ -117,7 +117,23 @@ const PROFILE_REVALIDATE = 300
  * mid-session climbs in minutes and deserves a short window; someone who hasn't
  * queued in days has identical data whether we ask now or in six hours.
  */
-const PROFILE_FRESH_ACTIVE_MS = 15 * 60 * 1000
+/*
+ * Raised from 15 minutes after measuring where the budget actually goes.
+ *
+ * "Active" means the live ladder saw this player within LIVE_SESSION_MS, which
+ * is true of every top-500 regular all day long — so the short window applied
+ * permanently to exactly the most-viewed profiles on the site, not to a burst
+ * around a session. Measured over 24h: 1,119 of 4,283 upstream calls (26%) went
+ * to ladder players, and the worst single case was re-fetched 126 times in a
+ * day, one every eleven minutes.
+ *
+ * Aligned with LIVE_SESSION_MS on purpose: asking upstream more often than the
+ * signal that classified the player as active is asking faster than we can
+ * learn anything. And the number these players are watched for is not stale
+ * meanwhile — /live reads live_ranked, which the 5-minute cron refreshes at
+ * zero API cost.
+ */
+const PROFILE_FRESH_ACTIVE_MS = 45 * 60 * 1000
 const PROFILE_FRESH_IDLE_MS = 6 * 60 * 60 * 1000
 /** Treat a player as mid-session if the live ladder saw them this recently. */
 const LIVE_SESSION_MS = 45 * 60 * 1000
