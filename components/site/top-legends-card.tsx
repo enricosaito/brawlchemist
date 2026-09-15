@@ -1,68 +1,69 @@
 import Link from "next/link"
-import { CURRENT_PATCH, getLegend } from "@/lib/mock-data"
+import { CURRENT_PATCH } from "@/lib/mock-data"
 import { formatPercent } from "@/lib/format"
-import { legendIdForSlug } from "@/lib/legends-roster"
+import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import { getValhallanLegendStats } from "@/lib/sync/valhallan"
 import { PreviewCard } from "./preview-card"
-import { LegendChip, StanceLabel, TierLetter } from "./primitives"
+import { LegendChip } from "./primitives"
+
+/** Rows on the card. Six matches the Live Rankings card beside it. */
+const TOP_N = 6
 
 /**
- * Featured legends on the homepage Top Legends card. Order is the user's
- * curated "Valhallan+ popular meta" ranking. Tier and best-stance stay
- * hardcoded via the mock-data DETAILED_LEGENDS entries; WR and game count
- * come from the live Valhallan-tier Popular aggregation.
+ * Top Legends — the six most-played legends in the Valhallan+ pool, measured.
+ *
+ * This used to be six hardcoded slugs carrying hardcoded tier grades and best
+ * stances from mock-data, with only the win rate and game count coming from
+ * the live aggregation. So the card could tell you Cassidy was S+ on a patch
+ * where nobody had said otherwise in months, next to a game count that was
+ * genuinely current — the worst kind of stale, because the live numbers lent
+ * it credibility.
+ *
+ * Everything shown is now derived from the same query the /legends page uses:
+ * `method: "popular"` already orders by games desc, so the top six are the top
+ * six. Nothing here can go stale without the data going stale with it, and a
+ * legend rising into the top six needs no code change to appear.
  */
-const FEATURED_SLUGS = [
-  "cassidy",
-  "mordex",
-  "teros",
-  "bodvar",
-  "diana",
-  "asuri",
-] as const
-
 export async function TopLegendsCard({
   className,
 }: {
   className?: string
 } = {}) {
-  // Live popular-method stats across the competitive Valhallan pool. Falls
-  // back gracefully if the DB lookup fails (e.g. DATABASE_URL not set).
-  let liveStats = new Map<number, { winRate: number; games: number }>()
+  // Fails open to an empty card rather than taking down the homepage
+  // (cardinal constraint #5). minGames filters out the long tail of legends
+  // with a handful of games, which would otherwise dominate nothing but noise.
+  let rows: {
+    slug: string
+    name: string
+    winRate: number
+    games: number
+    pickRate: number
+  }[] = []
   try {
     const { legends } = await getValhallanLegendStats({
       method: "popular",
       region: null,
       minGames: 100,
     })
-    liveStats = new Map(
-      legends.map((l) => [
-        l.legend_id,
-        { winRate: l.win_rate, games: l.games },
-      ]),
-    )
+    rows = legends
+      .map((l) => {
+        const entry = rosterEntryByLegendId(l.legend_id)
+        const slug = slugForLegendId(l.legend_id)
+        return entry && slug
+          ? {
+              slug,
+              name: entry.name,
+              winRate: l.win_rate,
+              games: l.games,
+              pickRate: l.pick_rate,
+            }
+          : null
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+      .slice(0, TOP_N)
   } catch (err) {
     console.error("[top-legends-card] stats lookup failed:", err)
   }
-
-  // Ordering is total games desc (most-played → least). WR is shown as
-  // illustration only; the popular meta is what we want to surface at the
-  // top of the page.
-  const rows = FEATURED_SLUGS.map((slug) => {
-    const legend = getLegend(slug)
-    const legendId = legendIdForSlug(slug)
-    const live = legendId != null ? liveStats.get(legendId) : undefined
-    return { slug, legend, live }
-  })
-    .filter((r) => r.legend)
-    .sort((a, b) => {
-      const aGames = a.live?.games ?? 0
-      const bGames = b.live?.games ?? 0
-      if (bGames !== aGames) return bGames - aGames
-      const aWr = a.live?.winRate ?? a.legend!.winRate
-      const bWr = b.live?.winRate ?? b.legend!.winRate
-      return bWr - aWr
-    })
 
   return (
     <PreviewCard
@@ -82,40 +83,48 @@ export async function TopLegendsCard({
       }
     >
       <ol className="grid auto-rows-fr divide-y divide-border/60">
-        {rows.map(({ legend, live }) => {
-          if (!legend) return null
-          // Prefer the live aggregation when available; fall back to mock
-          // numbers if the row hasn't been synced yet (cron still seeding).
-          const winRate = live?.winRate ?? legend.winRate
-          const games = live?.games ?? null
-          return (
-            <li key={legend.id}>
+        {rows.length === 0 ? (
+          <li className="flex items-center justify-center px-4 py-8 text-center text-xs text-muted-foreground">
+            No legend stats yet.
+          </li>
+        ) : (
+          rows.map((row, i) => (
+            <li key={row.slug}>
               <Link
-                href={`/leaderboards/1v1?legend=${legend.id}`}
+                href={`/leaderboards/1v1?legend=${row.slug}`}
                 className="group/row relative flex h-full min-h-14 items-center gap-3 px-4 py-2 transition-colors hover:bg-muted/40"
               >
-                <TierLetter tier={legend.tier} />
-                <LegendChip legendId={legend.id} size="md" showName={false} />
+                {/* The ordinal replaces the old tier letter. Same treatment as
+                    Live Rankings: an index into a list that is already in
+                    order only needs to be findable, not loud. */}
+                <span className="w-4 shrink-0 text-right font-mono text-xs leading-none tabular-nums text-muted-foreground">
+                  {i + 1}
+                </span>
+                <LegendChip legendId={row.slug} size="md" showName={false} />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm font-medium">
-                    {legend.name}
+                    {row.name}
                   </span>
-                  {legend.bestStance && (
-                    <StanceLabel stance={legend.bestStance} />
-                  )}
+                  {/* Pick rate is why the legend is on this list, so it says so
+                      where the hardcoded "best stance" used to sit. Nowrap:
+                      the label wrapping to a second line made these rows
+                      taller than the two cards either side of it. */}
+                  <span className="whitespace-nowrap font-mono text-[10px] tabular-nums text-muted-foreground">
+                    {formatPercent(row.pickRate)} pick
+                  </span>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-0.5">
                   <span className="font-mono text-sm tabular-nums">
-                    {formatPercent(winRate)}
+                    {formatPercent(row.winRate)}
                   </span>
                   <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                    {games != null ? `${games.toLocaleString()} games` : "—"}
+                    {row.games.toLocaleString()} games
                   </span>
                 </div>
               </Link>
             </li>
-          )
-        })}
+          ))
+        )}
       </ol>
     </PreviewCard>
   )

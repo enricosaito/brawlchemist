@@ -1,7 +1,7 @@
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { getLegend } from "@/lib/mock-data"
-import type { LegendTier, Stance, Tier, WeaponId } from "@/lib/types"
+import type { Stance, Tier, WeaponId } from "@/lib/types"
 import { InfoTip } from "./info-tip"
 
 // PlayerLink lives in its own client-component file (it carries an interactive
@@ -183,44 +183,6 @@ export function RankIcon({
       unoptimized
       className={cn("shrink-0 select-none object-contain", className)}
     />
-  )
-}
-
-const LEGEND_TIER_TEXT: Record<LegendTier, string> = {
-  "S+": "text-tier-gold",
-  S: "text-tier-s",
-  A: "text-mystic",
-  B: "text-foreground/80",
-  C: "text-muted-foreground",
-}
-
-/**
- * TierLetter — plain colored grade. No frame, no background. The "+" on S+
- * renders slightly smaller so the grade reads as a single unit.
- */
-export function TierLetter({
-  tier,
-  className,
-}: {
-  tier: LegendTier
-  className?: string
-}) {
-  return (
-    <span
-      className={cn(
-        "glow-text inline-flex w-8 shrink-0 items-baseline justify-center font-tier-grade text-xl font-bold leading-none tracking-tight",
-        LEGEND_TIER_TEXT[tier],
-        className,
-      )}
-    >
-      {tier === "S+" ? (
-        <>
-          S<span className="text-[0.65em] font-semibold leading-none">+</span>
-        </>
-      ) : (
-        tier
-      )}
-    </span>
   )
 }
 
