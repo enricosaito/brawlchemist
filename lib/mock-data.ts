@@ -261,7 +261,7 @@ export const META_SNAPSHOT: MetaSnapshot = {
 
 export const TRENDING_LEGEND_IDS = ["caspian", "bodvar", "orion", "mirage"]
 
-export const CURRENT_PATCH = "10.10"
+export const CURRENT_PATCH = "10.11"
 
 /** Ranked season the live numbers belong to. Bump alongside CURRENT_PATCH when
  * Brawlhalla rolls the ladder — every rating, rank and win rate we show is

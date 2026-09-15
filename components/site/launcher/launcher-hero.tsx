@@ -59,9 +59,15 @@ export function LauncherHero({
         <PlayerSearchForm showHint autoFocus />
       </div>
 
-      {/* Featured banner — links to the latest patch read. */}
+      {/* Straight to the newest patch article, not the index — the label
+          promises one specific read. /patch-notes/latest resolves it on click,
+          so this href stays static and the hero keeps painting on the first
+          frame instead of waiting on the CMS. prefetch is off for the same
+          reason: it is a redirect, and prefetching one would run the lookup
+          for every visitor who merely scrolled past. */}
       <Link
-        href="/patch-notes"
+        href="/patch-notes/latest"
+        prefetch={false}
         className="animate-rise group mt-5 inline-flex items-center gap-3 rounded-full bg-card/40 px-5 py-2 backdrop-blur-md transition-colors hover:bg-card/70"
         style={{ ["--rise-delay" as string]: "420ms" }}
       >
