@@ -106,3 +106,53 @@ SELECT
 -- crawler changes are working), so this is a perfectly reasonable choice.
 --
 --   TRUNCATE fetch_log;
+
+-- ===========================================================================
+-- 2026-09-15 — drop the dead user_agent column
+-- ===========================================================================
+-- `client` replaced the raw User-Agent on 2026-09-11 and nothing has written
+-- user_agent since. But 311,658 of 368,364 rows still carried one, averaging
+-- 124 bytes — ~47 MB of a 110 MB table, on a database sitting at 455 MB of a
+-- 500 MB quota.
+--
+-- Those rows would have aged out of the 14-day window around 2026-09-24 on
+-- their own. Waiting wouldn't have reclaimed the space though: DELETE only
+-- marks tuples dead, and a dropped column is only truly gone once the table is
+-- rewritten. So: drop, then rewrite.
+--
+-- Run on the SESSION pooler (:5432 / DATABASE_URL_UNPOOLED) or the dashboard
+-- SQL editor. The transaction pooler caps statements at 2 minutes.
+
+-- DROP COLUMN is instant — it only flips attisdropped; the bytes stay in the
+-- heap until the rewrite below.
+ALTER TABLE fetch_log DROP COLUMN IF EXISTS user_agent;
+
+-- The rewrite is what actually frees the ~47 MB. ACCESS EXCLUSIVE for the
+-- duration; fetch_log writes are deferred telemetry in a try/catch, so the
+-- worst case is a few dropped log rows.
+VACUUM FULL fetch_log;
+ANALYZE fetch_log;
+
+SELECT
+  pg_size_pretty(pg_total_relation_size('fetch_log')) AS fetch_log,
+  pg_size_pretty(pg_database_size(current_database())) AS database_total;
+
+-- ===========================================================================
+-- 2026-09-15 — bio/legends/links become verified-pro only
+-- ===========================================================================
+-- Those three fields put free text and outbound links on a public page, so
+-- they now stay with the accounts we've actually vetted. The gate is enforced
+-- on read and on write, so nothing here is required for correctness — stored
+-- rows simply stop rendering. This clears the bios anyway: free text we will
+-- never display again is not worth keeping.
+--
+-- Favourite legends and social links are deliberately left in place. They're
+-- constrained values (roster ids, https URLs against an allow-list) rather
+-- than free text, so they carry no moderation risk while hidden, and they come
+-- straight back if a player is later verified.
+
+UPDATE user_customizations c
+   SET bio = NULL, updated_at = now()
+  FROM (SELECT brawlhalla_id FROM profiles WHERE is_pro) p
+ WHERE c.bio IS NOT NULL
+   AND c.brawlhalla_id <> p.brawlhalla_id;

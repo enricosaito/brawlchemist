@@ -326,14 +326,17 @@ export const fetchLog = pgTable("fetch_log", {
   /**
    * Short client label from clientLabel() — "bingbot", "googlebot", "human", …
    *
-   * Replaces storing the raw User-Agent. At ~125 bytes the UA string was 79%
-   * of every row and drove this table to 362 MB (59% of the 500 MB quota) for
-   * data only ever read as "which crawler is this". `userAgent` is kept
-   * nullable so existing rows stay readable, but nothing writes it any more —
-   * it can be dropped once the retention window has rolled over.
+   * Replaced storing the raw User-Agent, which at ~125 bytes was 79% of every
+   * row and drove this table to 362 MB (59% of the 500 MB quota) for data only
+   * ever read as "which crawler is this".
+   *
+   * The `user_agent` column is gone. It stopped being written on 2026-09-11,
+   * but the rows already holding one kept ~47 MB alive until the retention
+   * window rolled over — a dead column is only free once the table is
+   * rewritten, so it was dropped and the table VACUUM FULL'd rather than left
+   * to age out (see db/reclaim-space.sql).
    */
   client: text("client"),
-  userAgent: text("user_agent"),
   referer: text("referer"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

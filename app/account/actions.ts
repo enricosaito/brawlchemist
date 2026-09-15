@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { getClaimedBrawlhallaId } from "@/lib/sync/claims"
+import { getProfile } from "@/lib/sync/profiles"
 import {
   setBanner,
   setFlair,
@@ -88,6 +89,13 @@ export async function saveProfileFieldsAction(
 
   const owned = await getClaimedBrawlhallaId(userId)
   if (!owned || owned !== brawlhallaId) return { ok: false, error: "forbidden" }
+
+  // Verified pros only, for now. These three fields put free text and outbound
+  // links on a public page, so they stay with the accounts we have vetted. The
+  // panel hides them for everyone else; this is the half that actually decides,
+  // since the panel is only the UI.
+  const preview = await getProfile(brawlhallaId)
+  if (!preview?.verified) return { ok: false, error: "forbidden" }
 
   try {
     await upsertCustomization(brawlhallaId, input)

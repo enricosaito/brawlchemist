@@ -15,6 +15,10 @@ import {
 } from "@/lib/brawltools-api"
 import { PlayerLink } from "@/components/site/player-link"
 import { InfoTip } from "@/components/site/info-tip"
+import { FlairMark } from "@/components/site/flair-mark"
+import { getProfilesMap } from "@/lib/sync/profiles"
+import { getFlairMap } from "@/lib/sync/customizations"
+import type { PlayerPreview } from "@/lib/player-previews"
 
 export const metadata: Metadata = {
   title: "Brawlchemist | Power Rankings",
@@ -246,10 +250,20 @@ export default async function PowerRankingsPage({
 
   // esports playerId → brawlhalla_id, so rows can link to player profiles.
   // Unresolvable ids (no linked account) just render as plain text.
-  const bhIds =
+  // Esports id -> brawlhalla id, which is what lets an esports board show
+  // anything from our own side (flair, here).
+  const [bhIds, previews, flairs] =
     rows.length > 0
-      ? await resolveBrawlhallaIds(rows.map((p) => p.playerId))
-      : new Map<number, number>()
+      ? await Promise.all([
+          resolveBrawlhallaIds(rows.map((p) => p.playerId)),
+          getProfilesMap(),
+          getFlairMap(),
+        ])
+      : [
+          new Map<number, number>(),
+          new Map<number, PlayerPreview>(),
+          new Map<number, string>(),
+        ]
 
   const columns: ColDef<PrPlayer>[] = [
     {
@@ -266,11 +280,22 @@ export default async function PowerRankingsPage({
       id: "player",
       label: "Player",
       // PlayerLink degrades to plain text for unresolved ids.
-      render: (p) => (
-        <PlayerLink id={bhIds.get(p.playerId)}>
-          <PlayerName raw={p.playerName} />
-        </PlayerLink>
-      ),
+      render: (p) => {
+        const bhId = bhIds.get(p.playerId)
+        return (
+          <PlayerLink id={bhId}>
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <PlayerName raw={p.playerName} />
+              {bhId != null && (
+                <FlairMark
+                  selectedId={flairs.get(bhId)}
+                  context={{ achievements: previews.get(bhId)?.achievements }}
+                />
+              )}
+            </span>
+          </PlayerLink>
+        )
+      },
     },
     // Earnings lead the metric columns; points close them out.
     {

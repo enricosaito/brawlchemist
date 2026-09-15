@@ -4,7 +4,7 @@ import Image from "next/image"
 import { useEffect, useRef, useState, useTransition } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
-import { Check, Loader2, Lock, Sparkles, X } from "lucide-react"
+import { BadgeCheck, Check, Loader2, Lock, Sparkles, X } from "lucide-react"
 import {
   saveBannerAction,
   saveFlairAction,
@@ -65,6 +65,7 @@ export function ProfileCustomizer({
   initialBio,
   initialSocialLinks,
   initialFavoriteLegendIds,
+  isPro,
 }: {
   brawlhallaId: number
   initialBannerId: string | null
@@ -74,6 +75,8 @@ export function ProfileCustomizer({
   initialBio: string | null
   initialSocialLinks: SocialLink[]
   initialFavoriteLegendIds: number[]
+  /** Verified pro. Gates the free-text and outbound-link fields. */
+  isPro: boolean
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -297,60 +300,77 @@ export function ProfileCustomizer({
               </div>
             </Section>
 
-            <Section label="Quote" hint={`${bioLeft} left`}>
-              <textarea
-                value={bio}
-                onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX))}
-                rows={3}
-                placeholder="Say something about yourself."
-                className="w-full resize-none rounded-md border border-border/60 bg-background/60 px-2.5 py-2 text-sm transition-colors outline-none focus:border-pink/60"
-              />
-            </Section>
+            {/* Verified pros only, for now: free text and outbound links on a
+            public page stay with the accounts we have vetted. The server
+            action refuses these for everyone else regardless of what the
+            panel shows — this is the UI half. */}
+            {isPro ? (
+              <>
+                <Section label="Quote" hint={`${bioLeft} left`}>
+                  <textarea
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX))}
+                    rows={3}
+                    placeholder="Say something about yourself."
+                    className="w-full resize-none rounded-md border border-border/60 bg-background/60 px-2.5 py-2 text-sm transition-colors outline-none focus:border-pink/60"
+                  />
+                </Section>
 
-            <Section label="Favorite legends">
-              <div className="grid grid-cols-3 gap-2">
-                {favorites.map((value, i) => (
-                  <select
-                    key={i}
-                    value={value}
-                    onChange={(e) => {
-                      const next = [...favorites]
-                      next[i] = e.target.value
-                      setFavorites(next)
-                    }}
-                    className="min-w-0 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs transition-colors outline-none focus:border-pink/60"
-                  >
-                    <option value="">—</option>
-                    {LEGEND_OPTIONS.map((o) => (
-                      <option key={o.legendId} value={o.legendId}>
-                        {o.name}
-                      </option>
+                <Section label="Favorite legends">
+                  <div className="grid grid-cols-3 gap-2">
+                    {favorites.map((value, i) => (
+                      <select
+                        key={i}
+                        value={value}
+                        onChange={(e) => {
+                          const next = [...favorites]
+                          next[i] = e.target.value
+                          setFavorites(next)
+                        }}
+                        className="min-w-0 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs transition-colors outline-none focus:border-pink/60"
+                      >
+                        <option value="">—</option>
+                        {LEGEND_OPTIONS.map((o) => (
+                          <option key={o.legendId} value={o.legendId}>
+                            {o.name}
+                          </option>
+                        ))}
+                      </select>
                     ))}
-                  </select>
-                ))}
-              </div>
-            </Section>
-
-            <Section label="Links" hint="https only">
-              <div className="space-y-1.5">
-                {SOCIAL_KINDS.map((kind) => (
-                  <div key={kind} className="flex items-center gap-2">
-                    <span className="w-20 shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-                      {SOCIAL_META[kind].label}
-                    </span>
-                    <input
-                      type="url"
-                      value={links[kind]}
-                      onChange={(e) =>
-                        setLinks({ ...links, [kind]: e.target.value })
-                      }
-                      placeholder={SOCIAL_META[kind].placeholder}
-                      className="min-w-0 flex-1 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs transition-colors outline-none focus:border-pink/60"
-                    />
                   </div>
-                ))}
-              </div>
-            </Section>
+                </Section>
+
+                <Section label="Links" hint="https only">
+                  <div className="space-y-1.5">
+                    {SOCIAL_KINDS.map((kind) => (
+                      <div key={kind} className="flex items-center gap-2">
+                        <span className="w-20 shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+                          {SOCIAL_META[kind].label}
+                        </span>
+                        <input
+                          type="url"
+                          value={links[kind]}
+                          onChange={(e) =>
+                            setLinks({ ...links, [kind]: e.target.value })
+                          }
+                          placeholder={SOCIAL_META[kind].placeholder}
+                          className="min-w-0 flex-1 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs transition-colors outline-none focus:border-pink/60"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              </>
+            ) : (
+              <Section label="Quote, legends and links">
+                <Soon
+                  label="Pro only"
+                  icon={<BadgeCheck className="size-3 shrink-0 text-mystic" />}
+                >
+                  Available to verified pro players for now.
+                </Soon>
+              </Section>
+            )}
 
             <Section label="Favorite skin">
               <Soon>Needs a skin catalogue before you can pick one.</Soon>
@@ -471,12 +491,25 @@ function FlairRow({
   )
 }
 
-function Soon({ children }: { children: React.ReactNode }) {
+/**
+ * A section that exists but is closed to you, and says which kind of closed:
+ * not built yet, or not yours. Both read better as a stated reason than as an
+ * absent section, which just looks like something failed to load.
+ */
+function Soon({
+  label = "Soon",
+  icon,
+  children,
+}: {
+  label?: string
+  icon?: React.ReactNode
+  children: React.ReactNode
+}) {
   return (
     <div className="flex items-center gap-2 rounded-md border border-dashed border-border/60 px-2.5 py-2">
-      <Lock className="size-3 shrink-0 text-muted-foreground" />
+      {icon ?? <Lock className="size-3 shrink-0 text-muted-foreground" />}
       <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-        Soon
+        {label}
       </span>
       <span className="min-w-0 truncate text-xs text-muted-foreground">
         {children}

@@ -7,6 +7,7 @@ import { ShimmerText } from "@/components/shimmer-text"
 import { ShineBorder } from "@/components/ui/shine-border"
 import { LiveAutoRefresh } from "@/components/site/live-auto-refresh"
 import { VerifiedMark } from "@/components/site/pro-badge"
+import { FlairMark } from "@/components/site/flair-mark"
 import { LiveClimbers } from "@/components/site/live-climbers"
 import { QueueActivityCard } from "@/components/site/queue-activity-card"
 import { RememberLiveView } from "@/components/site/remember-live-view"
@@ -17,8 +18,11 @@ import {
   Delta,
   LegendChip,
   PlayerLink,
+  RankHelm,
   RegionPill,
 } from "@/components/site/primitives"
+import { TIER_FLOOR } from "@/lib/tier"
+import type { Tier } from "@/lib/types"
 import { API_REGIONS, isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import { slugForLegendId } from "@/lib/legends-roster"
 import {
@@ -31,6 +35,8 @@ import {
 } from "@/lib/sync/live"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
+import { getFlairMap } from "@/lib/sync/customizations"
+import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 
@@ -74,17 +80,31 @@ function LiveCard({
   row,
   playersMap,
   previews,
+  flairs,
+  valhallanIds,
   fresh,
 }: {
   row: LiveRow
   playersMap: Map<number, PlayerRow>
   previews: Map<number, PlayerPreview>
+  flairs: Map<number, string>
+  /** Ids this queue's ladder calls Valhallan. */
+  valhallanIds: Set<number>
   /** Played within the last 5 minutes — i.e. almost certainly still queueing. */
   fresh: boolean
 }) {
   const solo = row.players.length === 1
   const player = row.players[0]
   const href = solo && player ? `/player/${player.id}` : null
+
+  // A 2v2 entry is Valhallan when the team is on that ladder, which is true of
+  // either member — the ids come from the 2v2 walk, where both teammates are
+  // collected per entry.
+  const tier: Tier | null = row.players.some((p) => valhallanIds.has(p.id))
+    ? "Valhallan"
+    : row.rating >= TIER_FLOOR.Diamond
+      ? "Diamond"
+      : null
 
   const slugFor = (id: number) => {
     const lid = playersMap.get(id)?.topLegendId
@@ -175,8 +195,12 @@ function LiveCard({
             <span className="min-w-0 truncate text-sm font-semibold leading-tight">
               {previews.get(player!.id)?.verified?.handle ?? player?.name ?? "—"}
             </span>
-            {previews.get(player!.id)?.verified?.handle && (
-              <VerifiedMark />
+            {previews.get(player!.id)?.verified?.handle && <VerifiedMark />}
+            {player && (
+              <FlairMark
+                selectedId={flairs.get(player.id)}
+                context={{ achievements: previews.get(player.id)?.achievements }}
+              />
             )}
           </span>
         ) : (
@@ -193,9 +217,11 @@ function LiveCard({
                 >
                   {handle ?? p.name}
                 </PlayerLink>
-                {handle && (
-                  <VerifiedMark />
-                )}
+                {handle && <VerifiedMark />}
+                <FlairMark
+                  selectedId={flairs.get(p.id)}
+                  context={{ achievements: previews.get(p.id)?.achievements }}
+                />
               </span>
             )
           })
@@ -203,8 +229,17 @@ function LiveCard({
       </div>
 
       {/* Rating + session movement, with the age tucked on the same line so the
-          card stays four rows tall instead of five. */}
+          card stays four rows tall instead of five.
+
+          The helm rides with the rating as it does on the profile, the home
+          card and the leaderboard: it says where that number sits, so the two
+          read as one figure. live_ranked carries no tier, so it is derived —
+          Valhallan from the ladder ids (which is what the ladder itself says,
+          and needs no per-region cutoff or win count, neither of which this
+          feed has), Diamond from the tier floor. Below Diamond there is no
+          helm anyway, and the top-500 feed rarely goes there. */}
       <div className="flex items-baseline gap-1.5">
+        {tier && <RankHelm tier={tier} className="h-5 self-center" />}
         <span className="font-mono text-xl font-bold tabular-nums text-foreground">
           {row.rating.toLocaleString()}
         </span>
@@ -304,9 +339,22 @@ export default async function LivePage({
   const inQueue = (r: LiveRow) =>
     requestNow() - r.lastActiveAt.getTime() < IN_QUEUE_MS
 
+  let valhallan1v1 = new Set<number>()
+  let valhallan2v2 = new Set<number>()
+  try {
+    const [ids1, ids2] = await Promise.all([
+      getValhallanIds("1v1"),
+      getValhallanIds("2v2"),
+    ])
+    valhallan1v1 = new Set(ids1)
+    valhallan2v2 = new Set(ids2)
+  } catch (err) {
+    console.error("[live] valhallan ids lookup failed:", err)
+  }
+
   const sections = [
-    { queue: "1v1" as LiveQueue, rows: rows1v1 },
-    { queue: "2v2" as LiveQueue, rows: rows2v2 },
+    { queue: "1v1" as LiveQueue, rows: rows1v1, valhallanIds: valhallan1v1 },
+    { queue: "2v2" as LiveQueue, rows: rows2v2, valhallanIds: valhallan2v2 },
   ]
   const inQueueCount = [...rows1v1, ...rows2v2].filter(inQueue).length
 
@@ -315,17 +363,21 @@ export default async function LivePage({
   // fail open to plain names.
   let playersMap = new Map<number, PlayerRow>()
   let previews = new Map<number, PlayerPreview>()
+  let flairs = new Map<number, string>()
   const allRows = [...rows1v1, ...rows2v2, ...gainers]
   if (allRows.length > 0) {
     const ids = allRows.flatMap((r) => r.players.map((p) => p.id))
-    const [players, profiles] = await Promise.allSettled([
+    const [players, profiles, flairMap] = await Promise.allSettled([
       getPlayersByIds(ids, { includeRankedJson: false }),
       getProfilesMap(),
+      getFlairMap(),
     ])
     if (players.status === "fulfilled") playersMap = players.value
     else console.error("[live] player cache lookup failed:", players.reason)
     if (profiles.status === "fulfilled") previews = profiles.value
     else console.error("[live] profiles lookup failed:", profiles.reason)
+    if (flairMap.status === "fulfilled") flairs = flairMap.value
+    else console.error("[live] flair lookup failed:", flairMap.reason)
   }
 
   return (
@@ -380,7 +432,7 @@ export default async function LivePage({
             queue reads as "2 playing" rather than as a grid that failed to
             load, and each section stands alone — cards, then the hours that
             ladder is actually busy. */}
-        {sections.map(({ queue, rows }) => (
+        {sections.map(({ queue, rows, valhallanIds }) => (
           <section key={queue} className="mx-auto mt-8 max-w-[1280px] first:mt-0">
             <div className="mb-3 flex items-center gap-2">
               <h2 className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-foreground/90">
@@ -409,6 +461,8 @@ export default async function LivePage({
                     key={row.id}
                     row={row}
                     playersMap={playersMap}
+                    flairs={flairs}
+                    valhallanIds={valhallanIds}
                     previews={previews}
                     fresh={inQueue(row)}
                   />
