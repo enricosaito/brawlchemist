@@ -106,3 +106,33 @@ SELECT
 -- crawler changes are working), so this is a perfectly reasonable choice.
 --
 --   TRUNCATE fetch_log;
+
+-- ===========================================================================
+-- 2026-09-15 — drop the dead user_agent column
+-- ===========================================================================
+-- `client` replaced the raw User-Agent on 2026-09-11 and nothing has written
+-- user_agent since. But 311,658 of 368,364 rows still carried one, averaging
+-- 124 bytes — ~47 MB of a 110 MB table, on a database sitting at 455 MB of a
+-- 500 MB quota.
+--
+-- Those rows would have aged out of the 14-day window around 2026-09-24 on
+-- their own. Waiting wouldn't have reclaimed the space though: DELETE only
+-- marks tuples dead, and a dropped column is only truly gone once the table is
+-- rewritten. So: drop, then rewrite.
+--
+-- Run on the SESSION pooler (:5432 / DATABASE_URL_UNPOOLED) or the dashboard
+-- SQL editor. The transaction pooler caps statements at 2 minutes.
+
+-- DROP COLUMN is instant — it only flips attisdropped; the bytes stay in the
+-- heap until the rewrite below.
+ALTER TABLE fetch_log DROP COLUMN IF EXISTS user_agent;
+
+-- The rewrite is what actually frees the ~47 MB. ACCESS EXCLUSIVE for the
+-- duration; fetch_log writes are deferred telemetry in a try/catch, so the
+-- worst case is a few dropped log rows.
+VACUUM FULL fetch_log;
+ANALYZE fetch_log;
+
+SELECT
+  pg_size_pretty(pg_total_relation_size('fetch_log')) AS fetch_log,
+  pg_size_pretty(pg_database_size(current_database())) AS database_total;

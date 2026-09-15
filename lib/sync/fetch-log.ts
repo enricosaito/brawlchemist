@@ -1,7 +1,7 @@
 import "server-only"
 
 import { headers } from "next/headers"
-import { desc, sql } from "drizzle-orm"
+import { desc } from "drizzle-orm"
 import { clientLabel } from "@/lib/bots"
 import { db } from "@/lib/db"
 import { fetchLog, type FetchLogRow } from "@/lib/db/schema"
@@ -92,10 +92,7 @@ export async function getRecentFetches(limit = 50): Promise<FetchLogRow[]> {
         source: fetchLog.source,
         result: fetchLog.result,
         apiStatus: fetchLog.apiStatus,
-        // Old rows predate `client` and carry a raw UA; fall back so the admin
-        // view stays readable until the retention window rolls over.
-        client: sql<string | null>`coalesce(${fetchLog.client}, ${fetchLog.userAgent})`,
-        userAgent: fetchLog.userAgent,
+        client: fetchLog.client,
         referer: fetchLog.referer,
         createdAt: fetchLog.createdAt,
       })
