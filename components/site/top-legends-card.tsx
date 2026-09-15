@@ -69,7 +69,7 @@ export async function TopLegendsCard({
     <PreviewCard
       title="Top legends"
       href="/legends"
-      viewAllLabel="view full tier list"
+      viewAllLabel="view legend meta"
       className={className}
       meta={
         <>
