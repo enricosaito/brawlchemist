@@ -48,10 +48,7 @@ export function LifetimeStatsSection({ stats }: { stats: PlayerStats | null }) {
   return (
     <Wrap>
       <div className="grid gap-10 xl:grid-cols-2 xl:gap-6">
-      <Section
-        title="Legends"
-        note={`${lifetime.legends.length} played · exact, as reported per legend`}
-      >
+      <Section title="Legends">
         <Table
           head={["Legend", "Matches", "Win rate", "Level"]}
           rows={lifetime.legends.map((l) => (
@@ -60,10 +57,7 @@ export function LifetimeStatsSection({ stats }: { stats: PlayerStats | null }) {
         />
       </Section>
 
-      <Section
-        title="Weapons"
-        note="* attributed — see below"
-      >
+      <Section title="Weapons">
         {/* The caveat sits above the numbers rather than in a footnote, because
             it changes how they should be read and a footnote is where a caveat
             goes to be ignored. */}
@@ -102,21 +96,14 @@ function Wrap({ children }: { children: React.ReactNode }) {
 
 function Section({
   title,
-  note,
   children,
 }: {
   title: string
-  note: string
   children: React.ReactNode
 }) {
   return (
     <section>
-      <div className="mb-3 flex flex-wrap items-baseline gap-x-2">
-        <h2 className="font-display text-lg font-semibold">{title}</h2>
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          {note}
-        </span>
-      </div>
+      <h2 className="mb-3 font-display text-lg font-semibold">{title}</h2>
       {children}
     </section>
   )
@@ -157,6 +144,9 @@ function Table({
 
 const CELL = "px-4 py-2.5 text-right font-mono tabular-nums"
 
+/** Brawlhalla's per-legend cap. Maxed reads as an achievement, not a number. */
+const MAX_LEGEND_LEVEL = 100
+
 function WinRate({ value }: { value: number | null }) {
   if (value == null) return <span className="text-muted-foreground">—</span>
   return (
@@ -183,7 +173,9 @@ function LegendRow({ row }: { row: LifetimeLegendRow }) {
       <td className={CELL}>
         <WinRate value={row.winRate} />
       </td>
-      <td className={CELL}>{row.level}</td>
+      <td className={cn(CELL, row.level >= MAX_LEGEND_LEVEL && "text-tier-gold")}>
+        {row.level}
+      </td>
     </tr>
   )
 }
@@ -195,9 +187,6 @@ function WeaponRow({ row }: { row: LifetimeWeaponRow }) {
         <span className="flex min-w-0 items-center gap-2.5">
           <WeaponIcon weaponId={row.weaponId} size={24} className="shrink-0" />
           <span className="truncate font-medium">{row.label}</span>
-          <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-            {row.legendCount} legend{row.legendCount === 1 ? "" : "s"}
-          </span>
         </span>
       </td>
       <td className={CELL}>{row.games.toLocaleString()}</td>
