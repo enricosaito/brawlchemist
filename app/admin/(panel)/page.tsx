@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { FlairsTab } from "./flairs-tab"
 import { PeopleTab } from "./people-tab"
 import { SystemTab } from "./system-tab"
 import { UsersTab } from "./users-tab"
@@ -7,11 +8,11 @@ import { UsersTab } from "./users-tab"
 /**
  * Admin panel.
  *
- * Two tabs, because the page answers two unrelated questions: "who is this
- * person to us" and "is the machine keeping up". It used to be one column of
- * six stacked sections, which meant scrolling past the cron table to reach the
- * pro you came to edit — and put a destructive Delete a few hundred pixels
- * from a Clear fetch log.
+ * One tab per question the panel answers: who is this person to us, what is
+ * this account allowed to do, what badges exist, and is the machine keeping up.
+ * It used to be one column of stacked sections, which meant scrolling past the
+ * cron table to reach the pro you came to edit — and put a destructive Delete a
+ * few hundred pixels from a Clear fetch log.
  *
  * Tab state is a searchParam and the tabs are Links, so the whole thing stays
  * server-rendered and each tab loads only its own data (the People tab never
@@ -21,6 +22,7 @@ import { UsersTab } from "./users-tab"
 const TABS = [
   { id: "people", label: "People" },
   { id: "users", label: "Users" },
+  { id: "flairs", label: "Flairs" },
   { id: "system", label: "System" },
 ] as const
 
@@ -36,6 +38,12 @@ export default async function AdminPage({
   searchParams: Promise<{
     tab?: string
     edit?: string
+    editflair?: string
+    flairsaved?: string
+    flairdeleted?: string
+    flairimported?: string
+    flairgranted?: string
+    flairrevoked?: string
     saved?: string
     deleted?: string
     unlinked?: string
@@ -94,6 +102,8 @@ export default async function AdminPage({
         <PeopleTab editId={editId} />
       ) : tab === "users" ? (
         <UsersTab />
+      ) : tab === "flairs" ? (
+        <FlairsTab editId={sp.editflair ?? null} />
       ) : (
         <SystemTab />
       )}
@@ -104,6 +114,11 @@ export default async function AdminPage({
 /** One place to decide what the last action said, instead of a nested ternary. */
 function noticeFor(sp: {
   saved?: string
+  flairsaved?: string
+  flairdeleted?: string
+  flairimported?: string
+  flairgranted?: string
+  flairrevoked?: string
   deleted?: string
   unlinked?: string
   flaircleared?: string
@@ -119,7 +134,21 @@ function noticeFor(sp: {
       tone: "error",
       text:
         sp.error === "upload"
-          ? "Skin upload failed — is Vercel Blob set up (BLOB_READ_WRITE_TOKEN)?"
+          ? "Upload failed — is Vercel Blob set up (BLOB_READ_WRITE_TOKEN)?"
+          : sp.error === "flair-too-large"
+            ? "That art is over 128 KB. Flair renders on every leaderboard row, so the file size lands fifty times on one screen — export it around 192px."
+          : sp.error === "flair-not-png"
+            ? "That file isn’t a PNG. Dimensions are read out of the PNG header, so the format is the check."
+          : sp.error === "flair-image"
+            ? "A flair needs art — upload a PNG."
+          : sp.error === "flair-id"
+            ? "That isn’t a usable id. Lowercase letters, digits and dashes."
+          : sp.error === "flair-label"
+            ? "A flair needs a label — it’s the tooltip players see."
+          : sp.error === "flair-exists"
+            ? "A flair with that id already exists. Edit it instead, or pick another id."
+          : sp.error === "flair-not-found"
+            ? "No such flair — it may have been deleted since this page loaded."
           : sp.error === "skin-too-large"
             ? "That skin is over 3 MB. An animated GIF is served whole on every profile view — trim the frames or the dimensions and try again."
             : sp.error === "account-self"
@@ -140,6 +169,31 @@ function noticeFor(sp: {
           : "Role updated.",
     }
   }
+  if (sp.flairsaved) {
+    return { tone: "ok", text: `Saved ${sp.flairsaved}. Live everywhere now.` }
+  }
+  if (sp.flairdeleted) {
+    return {
+      tone: "ok",
+      text: "Flair deleted, along with its grants. Players who had selected it fall back to their best earned one.",
+    }
+  }
+  if (sp.flairimported) {
+    return {
+      tone: "ok",
+      text:
+        sp.flairimported === "0"
+          ? "Built-ins already imported — nothing to add."
+          : `Imported ${sp.flairimported} built-in flair${sp.flairimported === "1" ? "" : "s"}. They’re editable now.`,
+    }
+  }
+  if (sp.flairgranted) {
+    return {
+      tone: "ok",
+      text: `Granted to #${sp.flairgranted}. They still choose whether to fly it.`,
+    }
+  }
+  if (sp.flairrevoked) return { tone: "ok", text: "Grant revoked." }
   if (sp.deleted) return { tone: "ok", text: "Profile removed." }
   if (sp.unlinked) {
     return {

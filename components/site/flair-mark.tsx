@@ -1,3 +1,5 @@
+"use client"
+
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import {
@@ -6,6 +8,7 @@ import {
   resolveFlair,
   type FlairContext,
 } from "@/lib/profile/flair"
+import { useFlairCatalogue } from "./flair-catalogue"
 import { InfoTip } from "./info-tip"
 
 /**
@@ -16,6 +19,11 @@ import { InfoTip } from "./info-tip"
  * can drift into showing a badge the profile wouldn't. Renders nothing when
  * there's nothing earned, which is the common case — no placeholder, no
  * reserved width.
+ *
+ * A client component since the catalogue moved to the database and reaches the
+ * browser through context. That boundary was already here: `InfoTip` is a
+ * client component, so every one of these was crossing it anyway, and this only
+ * moves the crossing up one element.
  *
  * Bare art with the name in a tooltip: the badge is already a bounded object,
  * and a chip around it makes it read as one more tag in a row of tags.
@@ -30,7 +38,8 @@ export function FlairMark({
   /** Height utility; width follows the art. */
   className?: string
 }) {
-  const flair = resolveFlair(selectedId, context)
+  const catalogue = useFlairCatalogue()
+  const flair = resolveFlair(selectedId, context, catalogue)
   if (!flair) return null
   return (
     <InfoTip label={flair.label}>
@@ -66,12 +75,13 @@ export function FlairMarks({
   context: FlairContext
   className?: string
 }) {
-  const earned = earnedFlairIds(context)
+  const catalogue = useFlairCatalogue()
+  const earned = earnedFlairIds(context, catalogue)
   if (earned.length === 0) return null
   return (
     <span className="inline-flex shrink-0 items-center gap-1">
       {earned.map((id) => {
-        const flair = flairById(id)
+        const flair = flairById(id, catalogue)
         if (!flair) return null
         return (
           <InfoTip key={id} label={flair.label}>

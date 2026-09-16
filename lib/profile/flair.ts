@@ -2,16 +2,56 @@
  * Flair — the badge a player flies next to their name.
  *
  * Two halves that must not be confused. *Entitlement* is what a player has
- * earned and is derived from data we already hold — it can never be set. The
- * *selection* is which of those they choose to show, stored on their
- * customization row. Locked flair still renders in the picker, greyed with the
- * unlock line, because a badge nobody can see isn't worth chasing.
+ * earned and is derived on every render from data we already hold — it can
+ * never be set. The *selection* is which of those they choose to show, stored
+ * on their customization row. Locked flair still renders in the picker, greyed
+ * with the unlock line, because a badge nobody can see isn't worth chasing.
+ *
+ * The *catalogue* — what exists, what it's called, what it looks like, how rare
+ * it is — is curated from /admin and lives in the `flairs` table. Every
+ * function here takes it as an argument rather than importing it, because this
+ * module is shared by client and server: the server reads it from Postgres
+ * (lib/sync/flairs), the client gets it through FlairCatalogueProvider, and
+ * both fall back to BUILTIN_FLAIRS so a missing table or a failed read costs a
+ * badge's *editability*, never the badge (cardinal constraint #5).
  *
  * No "server-only" import: the picker is a client component and needs the
- * catalogue's labels and art. Entitlement is computed server-side and passed in.
+ * catalogue's labels and art. Entitlement is computed from a context the server
+ * assembles and passes in.
  */
 
-export type FlairId = "developer" | "world-champion"
+/** A catalogue id. Free-form since operators mint these — see isFlairIdShape. */
+export type FlairId = string
+
+/**
+ * How a flair is earned. Deliberately a closed, code-backed list: an operator
+ * picks which rule a badge uses, but cannot author a new one, because "has this
+ * player earned it" is a question only code can ask of the player record.
+ *
+ * - `developer` — the account behind the profile has the Developer role.
+ * - `achievement` — `ruleValue` appears (case-insensitively) in their accolades.
+ * - `manual` — awarded per player from /admin, recorded in `flair_grants`. The
+ *   only rule available to a badge invented after the fact, and therefore the
+ *   thing that makes "create a flair" mean anything.
+ */
+export const FLAIR_RULES = ["developer", "achievement", "manual"] as const
+export type FlairRule = (typeof FLAIR_RULES)[number]
+
+export const FLAIR_RULE_LABELS: Record<FlairRule, string> = {
+  developer: "Developer role",
+  achievement: "Accolade matches",
+  manual: "Granted by hand",
+}
+
+export function isFlairRule(value: unknown): value is FlairRule {
+  return (
+    typeof value === "string" && (FLAIR_RULES as readonly string[]).includes(value)
+  )
+}
+
+export function parseFlairRule(value: unknown): FlairRule {
+  return isFlairRule(value) ? value : "manual"
+}
 
 export interface FlairDef {
   id: FlairId
@@ -22,24 +62,69 @@ export interface FlairDef {
   src: string
   width: number
   height: number
+  rule: FlairRule
+  /** The accolade substring, for rule `achievement`. Ignored otherwise. */
+  ruleValue?: string | null
+  /** Rarity rank, ascending — the lowest a player holds is the one they fly. */
+  sort: number
+  /**
+   * Off hides the badge everywhere without deleting the row, so an operator can
+   * retire a flair without destroying anyone's selection of it. Optional
+   * because the public catalogue is already filtered; the guard in
+   * earnedFlairIds is what makes a disabled row safe to pass anywhere.
+   */
+  enabled?: boolean
 }
 
 /**
- * Deliberately small and closed. Every entry must be decidable from data the
- * profile already loads: a flair that needs its own query would put a cost on
- * every profile render for a 20px image.
+ * An id is a slug, not a catalogue lookup.
+ *
+ * Validating a *selection* against the catalogue used to be the check, and it
+ * was subtly wrong the moment the catalogue became editable: a player choosing
+ * a newly created flair would have had their choice silently dropped by
+ * whichever server hadn't seen the new row yet. Entitlement is re-derived on
+ * every render anyway, so an id that means nothing simply falls back — the only
+ * thing worth rejecting here is a value that isn't shaped like an id at all.
  */
-export const FLAIRS: FlairDef[] = [
+export function isFlairIdShape(value: unknown): value is FlairId {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 64 &&
+    /^[a-z0-9][a-z0-9-]*$/.test(value)
+  )
+}
+
+/** Force arbitrary text into a usable id, for the admin create form. */
+export function toFlairId(raw: string): string {
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64)
+}
+
+/**
+ * The catalogue the site ships with, and the floor every read falls back to.
+ *
+ * These two predate the `flairs` table and are seeded into it from the admin
+ * panel; until that happens — and any time the read fails — they are what
+ * renders, so a badge never disappears because a query did.
+ */
+export const BUILTIN_FLAIRS: FlairDef[] = [
   {
-    // First, so it wins autoFlairId: catalogue order is the rarity ranking,
-    // and there are a handful of these against every world champion the game
-    // has produced.
+    // Lowest sort, so it wins autoFlairId: catalogue order is the rarity
+    // ranking, and there are a handful of these against every world champion
+    // the game has produced.
     id: "developer",
     label: "Brawlchemist Developer",
     requirement: "Build Brawlchemist",
     src: "/assets/Brawlchemist.png",
     width: 192,
     height: 192,
+    rule: "developer",
+    sort: 10,
   },
   {
     id: "world-champion",
@@ -48,28 +133,27 @@ export const FLAIRS: FlairDef[] = [
     src: "/assets/Legendary_moment_trophy.png",
     width: 616,
     height: 1212,
+    rule: "achievement",
+    ruleValue: "world champion",
+    sort: 20,
   },
 ]
 
-const BY_ID = new Map(FLAIRS.map((f) => [f.id, f]))
-
-export function flairById(id: string | null | undefined): FlairDef | null {
-  return (id ? BY_ID.get(id as FlairId) : undefined) ?? null
-}
-
-export function isValidFlairId(id: string): id is FlairId {
-  return BY_ID.has(id as FlairId)
+export function flairById(
+  id: string | null | undefined,
+  catalogue: FlairDef[] = BUILTIN_FLAIRS,
+): FlairDef | null {
+  if (!id) return null
+  return catalogue.find((f) => f.id === id) ?? null
 }
 
 /**
- * Everything the entitlement rules read, all of it already on the profile.
+ * Everything the entitlement rules read.
  *
- * One field today because there is one flair. Tier-, ladder- and games-based
- * flair were tried and pulled: they fire for so many players at once that a
- * leaderboard column fills with the same badge, which is the opposite of what
- * a badge is for. Anything added back has to stay rare, and has to be
- * decidable from data the page already holds — a flair that needs its own
- * query puts a cost on every render for a 20px image.
+ * All of it already loaded for the profile: accolades and the owner's role come
+ * off the cached profiles map, and manual grants ride along with them. A rule
+ * that needed its own query would put a cost on every render for a 20px image,
+ * which is why the rule list is closed rather than open-ended.
  */
 export interface FlairContext {
   /** Admin-curated esports accolades, the same strings the title tags use. */
@@ -77,13 +161,15 @@ export interface FlairContext {
   /**
    * The account behind this profile has the Developer role.
    *
-   * The one entitlement that comes from the account rather than the player.
-   * Derived, never selected — like every other flair, it is computed on each
-   * render from `app_users.account_role`, so revoking the role takes the badge
-   * with it and there is nothing to clean up.
+   * Derived, never selected — computed on each render from
+   * `app_users.account_role`, so revoking the role takes the badge with it and
+   * there is nothing to clean up.
    */
   developer?: boolean
+  /** Flair ids awarded by hand from /admin (see `flair_grants`). */
+  grants?: string[]
 }
+
 /**
  * Build the context from a player's preview.
  *
@@ -93,18 +179,47 @@ export interface FlairContext {
  * forgotten is a flair that silently doesn't show on one page.
  */
 export function flairContextFrom(
-  preview: { achievements?: string[]; developer?: boolean } | null | undefined,
+  preview:
+    | { achievements?: string[]; developer?: boolean; flairGrants?: string[] }
+    | null
+    | undefined,
 ): FlairContext {
-  return { achievements: preview?.achievements, developer: preview?.developer }
+  return {
+    achievements: preview?.achievements,
+    developer: preview?.developer,
+    grants: preview?.flairGrants,
+  }
 }
 
-export function earnedFlairIds(ctx: FlairContext): FlairId[] {
-  const earned: FlairId[] = []
-  if (ctx.developer) earned.push("developer")
-  if (ctx.achievements?.some((a) => /world champion/i.test(a))) {
-    earned.push("world-champion")
+/** Does this one flair's rule fire for this player? */
+function holds(flair: FlairDef, ctx: FlairContext): boolean {
+  switch (flair.rule) {
+    case "developer":
+      return !!ctx.developer
+    case "achievement": {
+      const needle = (flair.ruleValue ?? "").trim().toLowerCase()
+      // An empty needle would match every accolade, handing the badge to every
+      // pro on the site. A rule with nothing to match fires for nobody.
+      if (!needle) return false
+      return !!ctx.achievements?.some((a) => a.toLowerCase().includes(needle))
+    }
+    case "manual":
+      return !!ctx.grants?.includes(flair.id)
   }
-  return earned
+}
+
+/** Rarest first, which is the order every "best held" question is answered in. */
+function byRarity(catalogue: FlairDef[]): FlairDef[] {
+  return [...catalogue].sort((a, b) => a.sort - b.sort)
+}
+
+export function earnedFlairIds(
+  ctx: FlairContext,
+  catalogue: FlairDef[] = BUILTIN_FLAIRS,
+): FlairId[] {
+  return byRarity(catalogue)
+    .filter((f) => f.enabled !== false && holds(f, ctx))
+    .map((f) => f.id)
 }
 
 /**
@@ -117,15 +232,17 @@ export const FLAIR_NONE = "none"
 
 /**
  * The flair a player flies when they haven't picked one: the rarest they hold.
- * Catalogue order is the ranking, so the rarest comes first.
  *
  * Shared with the picker so the panel can show the automatic choice as the
  * selected row. Without it the panel would say "None" while the profile behind
  * it displayed a badge, which is the kind of disagreement that makes a settings
  * screen untrustworthy.
  */
-export function autoFlairId(earned: FlairId[]): FlairId | null {
-  return FLAIRS.find((f) => earned.includes(f.id))?.id ?? null
+export function autoFlairId(
+  earned: FlairId[],
+  catalogue: FlairDef[] = BUILTIN_FLAIRS,
+): FlairId | null {
+  return byRarity(catalogue).find((f) => earned.includes(f.id))?.id ?? null
 }
 
 /**
@@ -138,13 +255,14 @@ export function autoFlairId(earned: FlairId[]): FlairId | null {
  */
 export function resolveFlair(
   selectedId: string | null | undefined,
-  ctx: FlairContext
+  ctx: FlairContext,
+  catalogue: FlairDef[] = BUILTIN_FLAIRS,
 ): FlairDef | null {
   if (selectedId === FLAIR_NONE) return null
-  const earned = earnedFlairIds(ctx)
+  const earned = earnedFlairIds(ctx, catalogue)
   if (earned.length === 0) return null
-  if (selectedId && isValidFlairId(selectedId) && earned.includes(selectedId)) {
-    return flairById(selectedId)
+  if (selectedId && earned.includes(selectedId)) {
+    return flairById(selectedId, catalogue)
   }
-  return flairById(autoFlairId(earned))
+  return flairById(autoFlairId(earned, catalogue), catalogue)
 }

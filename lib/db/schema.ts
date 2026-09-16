@@ -265,6 +265,89 @@ export type UserCustomizationRow = typeof userCustomizations.$inferSelect
 export type UserCustomizationInsert = typeof userCustomizations.$inferInsert
 
 /**
+ * flairs — the badge catalogue, curated from /admin.
+ *
+ * Only the *catalogue* lives here: what a flair is called, what it looks like,
+ * and which of a small set of code-backed rules decides who holds it. The rules
+ * themselves cannot be data — `rule` is an allow-list read through `parseRule`,
+ * because "who has earned this" is a question only code can answer against the
+ * player record. What an operator can change without a deploy is the art, the
+ * wording, the rarity order, and which rule a badge uses.
+ *
+ * A *selection* (user_customizations.flair_id) still stores only a preference:
+ * entitlement is re-derived on every render, so a row here appearing or
+ * vanishing can add or remove a badge but can never strand a bad one.
+ *
+ * Tiny by construction — a handful of rows of short text — and read once per
+ * request behind a cache tag, so it costs nothing against the egress budget.
+ */
+export const flairs = pgTable("flairs", {
+  /** Slug, and the value stored as a selection. Stable: renaming breaks choices. */
+  id: text("id").primaryKey(),
+  label: text("label").notNull(),
+  /** How to earn it, shown on the locked row in the picker. */
+  requirement: text("requirement").notNull().default(""),
+  /** Public URL — a Vercel Blob upload, or a path under /public for built-ins. */
+  src: text("src").notNull(),
+  /** Intrinsic pixels, parsed out of the PNG on upload so next/image can size it. */
+  width: integer("width").notNull(),
+  height: integer("height").notNull(),
+  /**
+   * Which code rule decides entitlement: 'manual' | 'developer' | 'achievement'.
+   *
+   * Text with a code-side allow-list rather than a Postgres enum, for the same
+   * reason as account_role: schema ships through `drizzle-kit push` with no
+   * migration files, and altering an enum type is what push handles worst.
+   */
+  rule: text("rule").notNull().default("manual"),
+  /** Case-insensitive substring matched against achievements, for rule='achievement'. */
+  ruleValue: text("rule_value"),
+  /**
+   * Rarity rank, ascending. The lowest-numbered flair a player holds is the one
+   * they fly when they haven't chosen — catalogue order IS the ranking, which
+   * is why an operator can set it.
+   */
+  sort: integer("sort").notNull().default(100),
+  /** Off keeps the row (and everyone's selection of it) while hiding the badge. */
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export type FlairRow = typeof flairs.$inferSelect
+export type FlairInsert = typeof flairs.$inferInsert
+
+/**
+ * flair_grants — who holds a `rule='manual'` flair.
+ *
+ * The other two rules read facts we already have (an account's role, a curated
+ * accolade). A badge invented in the admin panel has no such fact behind it, so
+ * something has to record the award — otherwise "create a flair" produces a row
+ * nobody can ever earn.
+ *
+ * Keyed by brawlhalla_id like every other presentation table, and read as one
+ * cached map rather than a lookup per row (the shape that has blown the egress
+ * budget before).
+ */
+export const flairGrants = pgTable(
+  "flair_grants",
+  {
+    brawlhallaId: integer("brawlhalla_id").notNull(),
+    flairId: text("flair_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.brawlhallaId, t.flairId] })],
+)
+
+export type FlairGrantRow = typeof flairGrants.$inferSelect
+
+/**
  * guilds — one row per guild we've discovered (via the player pool / profile
  * views). The Brawlhalla API has no "list guilds" endpoint, so this table *is*
  * our guild leaderboard: rows are ordered by the API's official `rank`.

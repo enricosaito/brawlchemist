@@ -6,7 +6,7 @@ import { db } from "@/lib/db"
 import { userCustomizations, type UserCustomizationRow } from "@/lib/db/schema"
 import { rosterEntryByLegendId } from "@/lib/legends-roster"
 import { DEFAULT_BANNER_ID, isValidBannerId } from "@/lib/profile/banners"
-import { FLAIR_NONE, isValidFlairId } from "@/lib/profile/flair"
+import { FLAIR_NONE, isFlairIdShape } from "@/lib/profile/flair"
 import {
   SOCIAL_KINDS,
   type SocialKind,
@@ -104,10 +104,23 @@ function parseBannerId(value: unknown): string | null {
   return typeof value === "string" && isValidBannerId(value) ? value : null
 }
 
+/**
+ * A stored selection is checked for *shape*, not for membership of the
+ * catalogue.
+ *
+ * It used to be validated against the code catalogue, which stopped being
+ * correct the moment the catalogue became editable from /admin: a player
+ * choosing a newly created flair would have had their choice dropped on write
+ * by whichever server hadn't seen the row yet, and a flair briefly disabled
+ * would have erased every selection of it on the next save. Entitlement is
+ * re-derived on every render anyway (see resolveFlair), so an id naming nothing
+ * simply falls back to the player's best earned badge — there is nothing to
+ * cheat and nothing to correct.
+ */
 function parseFlairId(value: unknown): string | null {
   if (typeof value !== "string") return null
   if (value === FLAIR_NONE) return FLAIR_NONE
-  return isValidFlairId(value) ? value : null
+  return isFlairIdShape(value) ? value : null
 }
 
 function toCustomization(row: UserCustomizationRow): Customization {

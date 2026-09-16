@@ -11,6 +11,19 @@ import {
   type ProfileInput,
 } from "@/lib/sync/profiles"
 import { setAccountPlan, setAccountRole } from "@/lib/sync/admin-users"
+import {
+  createFlair,
+  deleteFlair,
+  grantFlair,
+  importBuiltinFlairs,
+  revokeFlair,
+  updateFlair,
+} from "@/lib/sync/flairs"
+import {
+  isFlairIdShape,
+  parseFlairRule,
+  toFlairId,
+} from "@/lib/profile/flair"
 import { setCronPaused } from "@/lib/sync/cron-controls"
 import { unlinkProfile } from "@/lib/sync/claims"
 import { clearFlair, FLAIR_MAP_TAG } from "@/lib/sync/customizations"
@@ -246,4 +259,164 @@ export async function clearFlairAction(formData: FormData) {
   const id = Number(formData.get("brawlhallaId"))
   if (Number.isInteger(id) && id > 0) await clearFlair(id)
   redirect("/admin?flaircleared=1")
+}
+
+// ---- Flair catalogue -------------------------------------------------------
+
+/**
+ * Ceiling for uploaded flair art.
+ *
+ * Much tighter than the skin ceiling, and for a different reason: a skin
+ * appears once on one profile, while a flair renders on every row of a
+ * leaderboard — fifty copies of the same file on one screen. Flair is drawn at
+ * 16-32px and served `unoptimized` like the rest of the codebase, so the raw
+ * file is what ships. Both built-ins are ~12 KB at 192px; this leaves room to
+ * be careless without letting a 1000px export onto a list view.
+ */
+const MAX_FLAIR_BYTES = 128 * 1024
+
+/**
+ * Intrinsic size straight out of the PNG header.
+ *
+ * `next/image` needs real dimensions to reserve the right box, and asking an
+ * operator to type them is asking for the badge to render at the wrong aspect
+ * ratio. A PNG states them in the IHDR chunk, which is always first and always
+ * at a fixed offset — eight signature bytes, a four-byte length, the type tag,
+ * then two big-endian uint32s. Twenty-four bytes of parsing beats a dependency.
+ *
+ * Doubles as the format check: anything this can't read isn't a PNG.
+ */
+function pngSize(bytes: Uint8Array): { width: number; height: number } | null {
+  if (bytes.length < 24) return null
+  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+  for (let i = 0; i < sig.length; i++) if (bytes[i] !== sig[i]) return null
+  if (String.fromCharCode(...bytes.slice(12, 16)) !== "IHDR") return null
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const width = view.getUint32(16)
+  const height = view.getUint32(20)
+  return width > 0 && height > 0 ? { width, height } : null
+}
+
+/**
+ * Create or update a catalogue entry.
+ *
+ * One action for both because the form is the same form; `id` decides which,
+ * and on an edit it is read-only in the UI and ignored here — the id is the
+ * value stored in every selection and every grant, so renaming it would orphan
+ * both.
+ */
+export async function saveFlairAction(formData: FormData) {
+  await requireAdmin()
+
+  const mode = String(formData.get("mode") ?? "create")
+  const editing = mode === "edit"
+  const id = editing
+    ? String(formData.get("id") ?? "")
+    : toFlairId(String(formData.get("id") ?? ""))
+  if (!isFlairIdShape(id)) redirect("/admin?tab=flairs&error=flair-id")
+
+  const label = String(formData.get("label") ?? "").trim()
+  if (!label) redirect("/admin?tab=flairs&error=flair-label")
+
+  // A picked file wins over the pasted path, same as the skin form.
+  let src = String(formData.get("src") ?? "").trim()
+  let width = Number(formData.get("width") ?? 0)
+  let height = Number(formData.get("height") ?? 0)
+
+  const file = formData.get("image")
+  if (file instanceof File && file.size > 0) {
+    if (file.size > MAX_FLAIR_BYTES) {
+      redirect("/admin?tab=flairs&error=flair-too-large")
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    const size = pngSize(bytes)
+    if (!size) redirect("/admin?tab=flairs&error=flair-not-png")
+    try {
+      // The File, not the bytes we parsed: @vercel/blob takes a stream-ish
+      // body and re-reading it here would mean holding the art twice.
+      const blob = await put(`flair/${id}-${Date.now()}.png`, file, {
+        access: "public",
+        addRandomSuffix: false,
+        contentType: "image/png",
+      })
+      src = blob.url
+      width = size!.width
+      height = size!.height
+    } catch (err) {
+      console.error("[admin] flair upload failed:", err)
+      redirect("/admin?tab=flairs&error=upload")
+    }
+  }
+
+  if (!src || !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+    redirect("/admin?tab=flairs&error=flair-image")
+  }
+
+  const rule = parseFlairRule(formData.get("rule"))
+  const sortRaw = Number(formData.get("sort"))
+  const input = {
+    label,
+    requirement: String(formData.get("requirement") ?? "").trim(),
+    src,
+    width,
+    height,
+    rule,
+    // Only meaningful for the accolade rule; stored as null otherwise so a rule
+    // change can't leave a stale needle behind to surprise whoever reads it.
+    ruleValue:
+      rule === "achievement"
+        ? String(formData.get("ruleValue") ?? "").trim() || null
+        : null,
+    sort: Number.isFinite(sortRaw) ? Math.trunc(sortRaw) : 100,
+    enabled: formData.get("enabled") === "on",
+  }
+
+  const result = editing
+    ? await updateFlair(id, input)
+    : await createFlair({ id, ...input })
+  redirect(
+    result.ok
+      ? `/admin?tab=flairs&flairsaved=${encodeURIComponent(id)}`
+      : `/admin?tab=flairs&error=flair-${result.reason}`,
+  )
+}
+
+export async function deleteFlairAction(formData: FormData) {
+  await requireAdmin()
+  const id = String(formData.get("id") ?? "")
+  if (isFlairIdShape(id)) await deleteFlair(id)
+  redirect("/admin?tab=flairs&flairdeleted=1")
+}
+
+/** Seed the two flairs that shipped in code so they become editable. */
+export async function importBuiltinFlairsAction() {
+  await requireAdmin()
+  const added = await importBuiltinFlairs()
+  redirect(`/admin?tab=flairs&flairimported=${added}`)
+}
+
+/** Award a hand-granted flair to a player. */
+export async function grantFlairAction(formData: FormData) {
+  await requireAdmin()
+  const brawlhallaId = Number(formData.get("brawlhallaId"))
+  const flairId = String(formData.get("flairId") ?? "")
+  if (!Number.isInteger(brawlhallaId) || brawlhallaId <= 0) {
+    redirect("/admin?tab=flairs&error=bad-id")
+  }
+  const result = await grantFlair(brawlhallaId, flairId)
+  redirect(
+    result.ok
+      ? `/admin?tab=flairs&flairgranted=${brawlhallaId}`
+      : `/admin?tab=flairs&error=flair-${result.reason}`,
+  )
+}
+
+export async function revokeFlairAction(formData: FormData) {
+  await requireAdmin()
+  const brawlhallaId = Number(formData.get("brawlhallaId"))
+  const flairId = String(formData.get("flairId") ?? "")
+  if (Number.isInteger(brawlhallaId) && brawlhallaId > 0 && flairId) {
+    await revokeFlair(brawlhallaId, flairId)
+  }
+  redirect("/admin?tab=flairs&flairrevoked=1")
 }

@@ -27,4 +27,13 @@ export interface PlayerPreview {
    * object stays small.
    */
   developer?: boolean
+  /**
+   * Flair ids awarded by hand from /admin (`flair_grants`).
+   *
+   * Rides the preview for the same reason `developer` does: entitlement has to
+   * be answerable from data the page already loaded, and this map is the one
+   * per-player read every surface already makes. Undefined for everyone without
+   * a grant, which is almost everyone, so the cached object stays small.
+   */
+  flairGrants?: string[]
 }

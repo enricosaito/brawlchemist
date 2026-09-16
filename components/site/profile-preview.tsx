@@ -10,6 +10,7 @@ import {
   type FlairId,
 } from "@/lib/profile/flair"
 import { cn } from "@/lib/utils"
+import { useFlairCatalogue } from "./flair-catalogue"
 import { InfoTip } from "./info-tip"
 
 /**
@@ -113,13 +114,14 @@ export function PreviewFlair({
   className?: string
 }) {
   const preview = useProfilePreview()
+  const catalogue = useFlairCatalogue()
   const selected = preview?.flairId ?? savedId
   if (selected === FLAIR_NONE) return null
   const id =
     selected && earned.includes(selected as FlairId)
       ? (selected as FlairId)
-      : autoFlairId(earned)
-  const flair = id ? flairById(id) : null
+      : autoFlairId(earned, catalogue)
+  const flair = id ? flairById(id, catalogue) : null
   if (!flair) return null
   return (
     <InfoTip label={flair.label}>

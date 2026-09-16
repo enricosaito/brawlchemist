@@ -6,7 +6,13 @@ import "./globals.css"
 import { AppShell } from "@/components/site/launcher/app-shell"
 import type { ClaimedProfile } from "@/components/site/launcher/account-control"
 import { getAccountRole } from "@/lib/sync/admin-users"
-import { flairContextFrom, type FlairContext } from "@/lib/profile/flair"
+import {
+  BUILTIN_FLAIRS,
+  flairContextFrom,
+  type FlairContext,
+} from "@/lib/profile/flair"
+import { FlairCatalogueProvider } from "@/components/site/flair-catalogue"
+import { getFlairCatalogue } from "@/lib/sync/flairs"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { getSessionUser } from "@/lib/auth/session"
@@ -54,6 +60,15 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   const user = await getSessionUser()
+  // The badge catalogue, handed to the client once for the whole tree. Flair
+  // renders on both sides of the boundary, so the two search dropdowns and the
+  // account button need it as much as the server-rendered leaderboards do.
+  // Cached and tag-busted, and it falls back to the built-in pair rather than
+  // throwing, so a bad read costs editability and never a badge.
+  const flairCatalogue = await getFlairCatalogue().catch((err) => {
+    console.error("[layout] flair catalogue read failed:", err)
+    return undefined
+  })
   // The account control shows the user's claimed Brawlhalla identity (pro
   // handle / username) and links to their profile. Fails open: a DB hiccup
   // must never take down the whole shell.
@@ -128,14 +143,16 @@ export default async function RootLayout({
               component's 0 default — instant tooltips fire on every glancing
               pass of the cursor across a dense stat row. */}
           <TooltipProvider delayDuration={200}>
-            <AppShell
-              user={user}
-              claimed={claimed}
-              favoriteIds={favoriteIds}
-              flair={flair}
-            >
-              {children}
-            </AppShell>
+            <FlairCatalogueProvider catalogue={flairCatalogue ?? BUILTIN_FLAIRS}>
+              <AppShell
+                user={user}
+                claimed={claimed}
+                favoriteIds={favoriteIds}
+                flair={flair}
+              >
+                {children}
+              </AppShell>
+            </FlairCatalogueProvider>
           </TooltipProvider>
         </ThemeProvider>
       </body>
