@@ -4,7 +4,7 @@ import { headers } from "next/headers"
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
-import { ChevronRight, Users } from "lucide-react"
+import { ChevronRight, Users, Sparkles } from "lucide-react"
 import {
   LegendChip,
   RankHelm,
@@ -29,6 +29,8 @@ import { InfoTip } from "@/components/site/info-tip"
 import { RankedStatsCard } from "@/components/player/ranked-stats-card"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { getProfile, getProfilesMap } from "@/lib/sync/profiles"
+import { getSessionUser } from "@/lib/auth/session"
+import { getClaimState } from "@/lib/sync/claims"
 import {
   getPlayerGuild,
   getPlayerRanked,
@@ -847,6 +849,49 @@ function TeamCard({
   )
 }
 
+/**
+ * Turns the whole header card into the edit affordance, for its owner only.
+ *
+ * A corner button used to do this. It was a 90px target on a 1280px card that
+ * is entirely made of the things it edits — the banner, the badge, the name —
+ * so the card was already the obvious thing to click and the button was a
+ * smaller, arbitrary substitute for it.
+ *
+ * An absolutely-positioned link rather than wrapping the card: the header holds
+ * its own anchors (esports tags, the claim control) and an <a> inside an <a> is
+ * invalid and gets re-parented by the browser. The overlay sits above them,
+ * which is the intent — for the owner, the whole card means edit.
+ *
+ * Hidden until hover or focus, so a profile at rest is not covered in chrome
+ * that only one person can use.
+ */
+function EditOverlay({
+  href,
+  editing = false,
+}: {
+  href: string
+  /** Already in the editor — the card becomes the way back out. */
+  editing?: boolean
+}) {
+  return (
+    <Link
+      href={href}
+      scroll={false}
+      aria-label={editing ? "Done editing" : "Edit your profile"}
+      className="absolute inset-0 z-30 flex items-center justify-center rounded-2xl"
+    >
+      {/* A scrim under the chip. Without it the chip lands on whichever tag
+          happens to be mid-card and reads as overlapping the content rather
+          than floating over a card that has entered an edit state. */}
+      <span className="absolute inset-0 rounded-2xl bg-background/50 opacity-0 transition-opacity group-hover/edit:opacity-100 group-focus-within/edit:opacity-100 motion-reduce:transition-none" />
+      <span className="pointer-events-none relative flex items-center gap-2 rounded-full border border-pink/50 bg-card/90 px-4 py-2 font-mono text-[11px] font-medium tracking-wider text-pink uppercase opacity-0 shadow-lg backdrop-blur-md transition-opacity group-hover/edit:opacity-100 group-focus-within/edit:opacity-100 motion-reduce:transition-none">
+        <Sparkles className="size-3.5" />
+        {editing ? "Done editing" : "Customize profile"}
+      </span>
+    </Link>
+  )
+}
+
 /** A level-100 legend title, plus the legend that earned it. */
 export interface EarnedTitle {
   text: string
@@ -1293,7 +1338,8 @@ function ProfileHeader({
   flair,
   claimSlot,
   bannerId,
-  customizeSlot,
+  editHref,
+  editing,
 }: {
   data: PlayerRanked
   titles: EarnedTitle[]
@@ -1311,7 +1357,14 @@ function ProfileHeader({
   flair: FlairDef | null
   claimSlot?: React.ReactNode
   bannerId?: string | null
-  customizeSlot?: React.ReactNode
+  /**
+   * When set, the whole card is the edit affordance for its owner. A URL, not
+   * a node: the editor renders further down the page as ?tab=customize, so the
+   * header only has to link to it.
+   */
+  editHref?: string
+  /** The editor is open, so the card leads back out of it. */
+  editing?: boolean
 }) {
   const tier = deriveTier(data.tier, valhallan)
   // Meta line under the name: earned legend titles. (Tier + ladder rank now live
@@ -1344,7 +1397,13 @@ function ProfileHeader({
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
       <div className="mx-auto max-w-[1280px]">
-        <div className="relative rounded-2xl border border-border/60 bg-card/50 p-6 shadow-lg backdrop-blur-sm">
+        <div
+          className={cn(
+            "group/edit relative rounded-2xl border border-border/60 bg-card/50 p-6 shadow-lg backdrop-blur-sm",
+            editHref &&
+              "transition-colors hover:border-pink/50 motion-reduce:transition-none",
+          )}
+        >
           {/* On-brand ambient wash — the owner's chosen banner preset (default
               copper→mystic), kept off the data surfaces. Rounded to match the
               card; the card itself isn't clipped so the Most Played hover
@@ -1386,9 +1445,7 @@ function ProfileHeader({
               />
             </div>
           )}
-          {customizeSlot && (
-            <div className="absolute right-4 top-4 z-20">{customizeSlot}</div>
-          )}
+          {editHref && <EditOverlay href={editHref} editing={editing} />}
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-stretch">
             {tier && (
               <div className="flex shrink-0 items-center justify-center sm:justify-start">
@@ -1536,7 +1593,8 @@ function FallbackHeader({
   account,
   claimSlot,
   bannerId,
-  customizeSlot,
+  editHref,
+  editing,
 }: {
   name: string
   region: string | null
@@ -1547,7 +1605,14 @@ function FallbackHeader({
   account: { level: number; games: number } | null
   claimSlot?: React.ReactNode
   bannerId?: string | null
-  customizeSlot?: React.ReactNode
+  /**
+   * When set, the whole card is the edit affordance for its owner. A URL, not
+   * a node: the editor renders further down the page as ?tab=customize, so the
+   * header only has to link to it.
+   */
+  editHref?: string
+  /** The editor is open, so the card leads back out of it. */
+  editing?: boolean
 }) {
   const tier = team ? deriveTier(team.data.tier, team.valhallan) : null
   const losses = team ? Math.max(0, team.data.games - team.data.wins) : 0
@@ -1557,14 +1622,18 @@ function FallbackHeader({
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
       <div className="mx-auto max-w-[1280px]">
-        <div className="relative rounded-2xl border border-border/60 bg-card/50 p-6 shadow-lg backdrop-blur-sm">
+        <div
+          className={cn(
+            "group/edit relative rounded-2xl border border-border/60 bg-card/50 p-6 shadow-lg backdrop-blur-sm",
+            editHref &&
+              "transition-colors hover:border-pink/50 motion-reduce:transition-none",
+          )}
+        >
           <div
             aria-hidden
             className={`pointer-events-none absolute inset-0 rounded-2xl ${resolveBanner(bannerId).wash}`}
           />
-          {customizeSlot && (
-            <div className="absolute right-4 top-4 z-20">{customizeSlot}</div>
-          )}
+          {editHref && <EditOverlay href={editHref} editing={editing} />}
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-stretch">
             {(tier || preview?.favoriteSkin) && (
               <div className="flex shrink-0 items-center justify-center gap-3 sm:justify-start">
@@ -2022,9 +2091,31 @@ export default async function PlayerPage({
   // that describe them (Most Played -> legends, Top 2v2 Teams -> teams). The
   // list is now only a guard on ?tab=, so an unreachable value falls back to
   // the profile rather than rendering an empty view.
+  // Is the viewer looking at their own profile? Decides whether the header is
+  // an edit affordance and whether ?tab=customize is reachable at all. Fails
+  // open to "not the owner" — a hiccup here costs an edit button, never the
+  // page (cardinal constraint #5).
+  const isOwner = await (async () => {
+    try {
+      const viewer = await getSessionUser()
+      if (!viewer) return false
+      return (await getClaimState(numId, viewer.id)) === "mine"
+    } catch {
+      return false
+    }
+  })()
+  // The editor lives at ?tab=customize on this same page, so the header just
+  // links to it. scroll={false} on the link keeps the viewport where it is —
+  // the card you clicked stays put and the body beneath it swaps.
+  const customizeHref = `/player/${numId}?tab=customize`
+  const profileHref = `/player/${numId}`
   const reachableTabs = [
     ...(playedLegends.length > 0 ? ["legends"] : []),
     ...(teamViews.length > 0 ? ["teams"] : []),
+    // Owner only, and guarded here rather than in the view: a non-owner who
+    // types ?tab=customize falls back to the profile, and the editor is never
+    // constructed for them.
+    ...(isOwner ? ["customize"] : []),
   ]
   const tab = reachableTabs.includes(sp.tab as string)
     ? (sp.tab as string)
@@ -2055,9 +2146,6 @@ export default async function PlayerPage({
   const trackName = preview?.verified?.handle || displayName
   // One panel for every owner-settable axis, gated to the owner inside the
   // slot. It supersedes the standalone banner popover.
-  const customizeSlot = (
-    <ProfileCustomizerSlot brawlhallaId={numId} flairContext={flairContext} />
-  )
   // Track/untrack star — reads shared favorites state; signed-out viewers get a
   // sign-in nudge from inside the control.
 
@@ -2099,7 +2187,14 @@ export default async function PlayerPage({
           flair={flair}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           bannerId={bannerId}
-          customizeSlot={customizeSlot}
+          editHref={
+            isOwner
+              ? tab === "customize"
+                ? profileHref
+                : customizeHref
+              : undefined
+          }
+          editing={tab === "customize"}
         />
       ) : topTeam ? (
         <FallbackHeader
@@ -2115,7 +2210,14 @@ export default async function PlayerPage({
           account={null}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           bannerId={bannerId}
-          customizeSlot={customizeSlot}
+          editHref={
+            isOwner
+              ? tab === "customize"
+                ? profileHref
+                : customizeHref
+              : undefined
+          }
+          editing={tab === "customize"}
         />
       ) : (
         <FallbackHeader
@@ -2132,7 +2234,14 @@ export default async function PlayerPage({
           }
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           bannerId={bannerId}
-          customizeSlot={customizeSlot}
+          editHref={
+            isOwner
+              ? tab === "customize"
+                ? profileHref
+                : customizeHref
+              : undefined
+          }
+          editing={tab === "customize"}
         />
       )}
 
@@ -2254,6 +2363,20 @@ export default async function PlayerPage({
             </>
           )}
         </>
+      )}
+
+      {/* Customize takes the place of Ranked Season and 2v2 Teams rather than
+          sitting alongside them: the editor is what you came for, and leaving
+          the stats up would have you scrolling past your own numbers to reach
+          the thing you clicked. The header above stays, so every change lands
+          in view of the card it changes. */}
+      {tab === "customize" && (
+        <ProfileCustomizerSlot
+          brawlhallaId={numId}
+          flairContext={flairContext}
+          inline
+          doneHref={`/player/${numId}`}
+        />
       )}
 
       {tab === "legends" && (

@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import Link from "next/link"
 import { useEffect, useRef, useState, useTransition } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
@@ -66,6 +67,8 @@ export function ProfileCustomizer({
   initialSocialLinks,
   initialFavoriteLegendIds,
   isPro,
+  inline = false,
+  doneHref,
 }: {
   brawlhallaId: number
   initialBannerId: string | null
@@ -77,6 +80,16 @@ export function ProfileCustomizer({
   initialFavoriteLegendIds: number[]
   /** Verified pro. Gates the free-text and outbound-link fields. */
   isPro: boolean
+  /**
+   * Render as a page section instead of a floating panel.
+   *
+   * Inline is how this is reached now: the profile header is the trigger, and
+   * clicking it swaps the page body for this. The floating mode is kept — it
+   * costs one branch, and the sections are identical either way.
+   */
+  inline?: boolean
+  /** Where "Done" goes — the profile this edits. */
+  doneHref?: string
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -200,39 +213,17 @@ export function ProfileCustomizer({
     </button>
   )
 
-  // No mounted-guard needed for the portal: the panel only opens on a click,
-  // so this branch is never reached during SSR.
-  if (!open || typeof document === "undefined") return trigger
-
-  // Portalled to the body. The slot that holds the trigger is itself a
-  // positioned, z-indexed corner of the header card, so anything rendered in
-  // place is trapped in that stacking context and later sections paint over it
-  // — no z-index on the panel can win an argument it is not part of. Fixed
-  // rather than anchored, and floated right, so the name, tags and banner stay
-  // visible on the left while you change them.
-  return (
-    <>
-      {trigger}
-      {createPortal(
-        <div
-          ref={panelRef}
-          className="fixed top-20 right-3 z-50 w-[min(92vw,26rem)] rounded-2xl border border-border/60 bg-card p-4 text-left shadow-2xl sm:right-6"
-          role="dialog"
-          aria-label="Customize profile"
-        >
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-display text-sm font-semibold">Customize</h2>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label="Close"
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-
-          <div className="max-h-[min(70vh,34rem)] space-y-5 overflow-y-auto pr-1">
+  // The sections, shared by both modes. Inline gets columns and no scroll cap —
+  // the point of leaving the 26rem popover is that there is room now — while the
+  // floating panel keeps its height limit.
+  const sections = (
+    <div
+      className={
+        inline
+          ? "grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3"
+          : "max-h-[min(70vh,34rem)] space-y-5 overflow-y-auto pr-1"
+      }
+    >
             <Section label="Background">
               <div className="grid grid-cols-5 gap-2">
                 {BANNER_PRESETS.map((p) => (
@@ -379,29 +370,91 @@ export function ProfileCustomizer({
             <Section label="Name color">
               <Soon>Coming soon.</Soon>
             </Section>
-          </div>
+    </div>
+  )
 
-          <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/60 pt-3">
-            <span
-              className={cn(
-                "min-w-0 truncate text-xs",
-                error ? "text-negative" : "text-positive"
-              )}
-            >
-              {error ?? (saved ? "Saved." : "")}
+  const saveBar = (
+    <div className="mt-6 flex items-center justify-between gap-3 border-t border-border/60 pt-4">
+      <span
+        className={cn(
+          "min-w-0 truncate text-xs",
+          error ? "text-negative" : "text-positive",
+        )}
+      >
+        {error ?? (saved ? "Saved." : "")}
+      </span>
+      <div className="flex items-center gap-2">
+        {inline && doneHref && (
+          <Link
+            href={doneHref}
+            scroll={false}
+            className="inline-flex shrink-0 items-center rounded-md border border-border/60 bg-muted/40 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Done
+          </Link>
+        )}
+        <button
+          type="button"
+          onClick={saveFields}
+          disabled={pending}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-pink/50 bg-pink/10 px-3 py-1.5 text-xs font-semibold text-pink transition-colors hover:bg-pink/20 disabled:opacity-60"
+        >
+          {pending && <Loader2 className="size-3 animate-spin" />}
+          Save
+        </button>
+      </div>
+    </div>
+  )
+
+  // Inline: a page section, not a dialog. No trigger and no portal — the header
+  // above is the trigger, and there is no stacking context to escape.
+  if (inline) {
+    return (
+      <section className="mt-8 px-4 sm:px-6">
+        <div className="mx-auto max-w-[1280px] rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-sm sm:p-6">
+          <div className="mb-5 flex flex-wrap items-center gap-2">
+            <Sparkles className="size-4 text-pink" />
+            <h2 className="font-display text-lg font-semibold">Edit profile</h2>
+            <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+              Only you can see this
             </span>
+          </div>
+          {sections}
+          {saveBar}
+        </div>
+      </section>
+    )
+  }
+
+  // No mounted-guard needed for the portal: the panel only opens on a click,
+  // so this branch is never reached during SSR.
+  if (!open || typeof document === "undefined") return trigger
+
+  return (
+    <>
+      {trigger}
+      {createPortal(
+        <div
+          ref={panelRef}
+          className="fixed top-20 right-3 z-50 w-[min(92vw,26rem)] rounded-2xl border border-border/60 bg-card p-4 text-left shadow-2xl sm:right-6"
+          role="dialog"
+          aria-label="Customize profile"
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-display text-sm font-semibold">Customize</h2>
             <button
               type="button"
-              onClick={saveFields}
-              disabled={pending}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-pink/50 bg-pink/10 px-3 py-1.5 text-xs font-semibold text-pink transition-colors hover:bg-pink/20 disabled:opacity-60"
+              onClick={() => setOpen(false)}
+              aria-label="Close"
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
             >
-              {pending && <Loader2 className="size-3 animate-spin" />}
-              Save
+              <X className="size-4" />
             </button>
           </div>
+          {sections}
+          {saveBar}
         </div>,
-        document.body
+        document.body,
       )}
     </>
   )
