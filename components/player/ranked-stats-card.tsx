@@ -20,11 +20,12 @@ export interface RankedStats {
   /**
    * Global 1v1 ladder position, when the live snapshot holds them.
    *
-   * Shown beside the tier for Valhallans only, and not as decoration: every
+   * Joined onto the tier for Valhallans only, and not as decoration: every
    * other tier is a rating band, so "2,925" and "Valhallan" say different
    * things and the band explains the number. Valhallan is not a band — it is
    * the top of the ladder, with no fixed floor — so the rank is the only thing
-   * that says what the rating actually bought.
+   * that says what the rating actually bought, which is why it reads as part
+   * of the tier name rather than a separate note beside it.
    */
   globalRank?: number | null
   /** 1v1 + every 2v2 team, matching what the profile counts elsewhere. */
@@ -85,22 +86,18 @@ export async function RankedStatsCard({
         label="1v1 Rating"
         sub={
           stats.tier ? (
-            <span className="inline-flex items-baseline gap-1.5">
-              <span
-                className="font-semibold uppercase"
-                style={{ color: TIER_COLOR_VAR[stats.tier] }}
-              >
-                {stats.tierName}
-              </span>
-              {/* Valhallan only — see globalRank. Muted and separated the same
-                  way the Win Rate sub separates its W and L, so it reads as a
-                  second fact about the same figure rather than part of the
-                  tier name. */}
-              {stats.tier === "Valhallan" && stats.globalRank != null && (
-                <span className="tabular-nums text-muted-foreground">
-                  · #{stats.globalRank.toLocaleString()}
-                </span>
-              )}
+            // One string, one colour. For a Valhallan the rank is not a second
+            // fact alongside the tier — it is what the tier means, so
+            // "VALHALLAN #1" reads as the full name of where they sit rather
+            // than a label with a footnote. See globalRank.
+            <span
+              className="font-semibold uppercase tabular-nums"
+              style={{ color: TIER_COLOR_VAR[stats.tier] }}
+            >
+              {stats.tierName}
+              {stats.tier === "Valhallan" &&
+                stats.globalRank != null &&
+                ` #${stats.globalRank.toLocaleString()}`}
             </span>
           ) : undefined
         }

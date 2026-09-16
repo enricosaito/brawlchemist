@@ -25,15 +25,22 @@ const TYPE_TABS = ["All", "Official", "Community"] as const
 type TypeTab = (typeof TYPE_TABS)[number]
 
 /**
- * Upcoming leads, because the page's job is "what can I watch or enter".
+ * Splitting the two was the point — stacked on one screen, the handful of
+ * unplayed events sat on top of every result from the year.
  *
- * Both used to be stacked on one screen, which put a long tail of finished
- * events under the handful that have not happened yet — and in the current
- * year that tail is most of the list, so the thing you came for sat above a
- * wall of results you had to scroll past to be sure you had seen it all.
+ * Past is the landing tab because Upcoming is empty and has been for a while:
+ * the newest event brawltools lists for 2026 started 2026-07-26. Leading with
+ * a tab that shows nothing makes the page look broken when the real story is
+ * that the calendar is quiet, so the default goes where the events are.
+ *
+ * Deliberately a fixed default rather than "Past when Upcoming is empty" —
+ * a landing tab that moves with the data is harder to explain than one that
+ * doesn't, and the Upcoming tab is one click away with an empty state that
+ * says what happened. Worth flipping back when the calendar fills up.
  */
 const WHEN_TABS = ["Upcoming", "Past"] as const
 type WhenTab = (typeof WHEN_TABS)[number]
+const DEFAULT_WHEN: WhenTab = "Past"
 
 function fmtMonth(unixSeconds: number): string {
   return new Date(unixSeconds * 1000)
@@ -271,7 +278,7 @@ export default async function TournamentsPage({
 
   const when: WhenTab = (WHEN_TABS as readonly string[]).includes(sp.when ?? "")
     ? (sp.when as WhenTab)
-    : "Upcoming"
+    : DEFAULT_WHEN
 
   const mode: ModeTab = (MODE_TABS as readonly string[]).includes(sp.mode ?? "")
     ? (sp.mode as ModeTab)
