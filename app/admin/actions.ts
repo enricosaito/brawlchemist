@@ -14,6 +14,8 @@ import { setAccountPlan, setAccountRole } from "@/lib/sync/admin-users"
 import {
   createFlair,
   deleteFlair,
+  FLAIR_CATALOGUE_TAG,
+  FLAIR_GRANTS_TAG,
   grantFlair,
   importBuiltinFlairs,
   revokeFlair,
@@ -195,12 +197,24 @@ export async function clearFetchLogAction() {
  *
  * Cheap and safe to press: it discards cached values, it does not delete
  * anything, and the next request repopulates from Postgres.
+ *
+ * **Every new cached read belongs in this list.** One left out is a value the
+ * panel cannot fix, and nothing will tell you it is missing.
  */
 export async function refreshCachesAction() {
   await requireAdmin()
   revalidateTag(PROFILES_TAG, "max")
   revalidateTag(FLAIR_MAP_TAG, "max")
   revalidateTag(VALHALLAN_STATS_TAG, "max")
+  // The flair catalogue and its grants. Added after both shipped, which is the
+  // bug this button exists to fix happening to the button itself: a new cached
+  // read is only covered here if somebody remembers to list it, and the one
+  // that got forgotten is invisible until a row is edited outside the app.
+  // Editing the catalogue in /admin busts these already — this is for the SQL
+  // editor, which is how the Brawlchemist User flair went live and then sat
+  // unseen behind an hour-old cache.
+  revalidateTag(FLAIR_CATALOGUE_TAG, "max")
+  revalidateTag(FLAIR_GRANTS_TAG, "max")
   redirect("/admin?tab=system&refreshed=caches")
 }
 
