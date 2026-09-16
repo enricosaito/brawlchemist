@@ -1,7 +1,6 @@
 "use client"
 
 import Image from "next/image"
-import Link from "next/link"
 import { useEffect, useRef, useState, useTransition } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
@@ -26,6 +25,7 @@ import {
 } from "@/lib/profile/social"
 import { LEGEND_ROSTER } from "@/lib/legends-roster"
 import { cn } from "@/lib/utils"
+import { useProfilePreview } from "./profile-preview"
 
 // Alphabetical, because a picker is a lookup: roster order is release order,
 // which tells you nothing when you are hunting for one name.
@@ -92,6 +92,9 @@ export function ProfileCustomizer({
   doneHref?: string
 }) {
   const router = useRouter()
+  // Null when this renders outside a profile page (the floating mode on a
+  // surface that has no header to preview onto).
+  const preview = useProfilePreview()
   const [open, setOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -137,6 +140,9 @@ export function ProfileCustomizer({
     setError(null)
     setSaved(false)
     setBannerId(id)
+    // Show it on the card above immediately. Local only — see
+    // ProfilePreviewProvider.
+    preview?.setBannerId(id)
   }
 
   function pickFlair(id: string) {
@@ -144,6 +150,7 @@ export function ProfileCustomizer({
     setError(null)
     setSaved(false)
     setFlairId(id)
+    preview?.setFlairId(id)
   }
 
   /** The form as the server wants it. */
@@ -185,7 +192,11 @@ export function ProfileCustomizer({
    * rather than race.
    */
   function saveAll() {
-    if (pending || !dirty) return
+    if (pending) return
+    if (!dirty) {
+      if (inline && doneHref) router.push(doneHref)
+      return
+    }
     setError(null)
     setSaved(false)
     startTransition(async () => {
@@ -202,9 +213,12 @@ export function ProfileCustomizer({
         if (!res.ok) return setError(errorText(res.error))
       }
       setSaved(true)
-      // The header sits above this, in view, so a refresh shows the change
-      // landing on the card it was made for.
+      // The preview and the saved value now agree, so stop overriding.
+      preview?.reset()
       router.refresh()
+      // Back to the profile: you have been watching the result the whole time,
+      // so there is nothing left to stay for.
+      if (inline && doneHref) router.push(doneHref)
     })
   }
 
@@ -214,6 +228,8 @@ export function ProfileCustomizer({
     if (pending) return
     setError(null)
     setSaved(false)
+    // The card above snaps back to what everyone else sees.
+    preview?.reset()
     setBannerId(initialBannerId ?? DEFAULT_BANNER_ID)
     setFlairId(initialFlairId)
     setBio(initialBio ?? "")
@@ -436,19 +452,10 @@ export function ProfileCustomizer({
             Cancel changes
           </button>
         )}
-        {inline && doneHref && (
-          <Link
-            href={doneHref}
-            scroll={false}
-            className="inline-flex shrink-0 items-center rounded-md border border-border/60 bg-muted/40 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Done
-          </Link>
-        )}
         <button
           type="button"
           onClick={saveAll}
-          disabled={pending || !dirty}
+          disabled={pending}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-pink/50 bg-pink/10 px-3 py-1.5 text-xs font-semibold text-pink transition-colors hover:bg-pink/20 disabled:opacity-40"
         >
           {pending && <Loader2 className="size-3 animate-spin" />}
