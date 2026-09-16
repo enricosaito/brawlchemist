@@ -1,11 +1,15 @@
 import Link from "next/link"
 import type { Metadata } from "next"
 import { cn } from "@/lib/utils"
-import { MetaTable, type MetaRow } from "@/components/site/meta-table"
+import {
+  MetaTable,
+  type MetaRow,
+} from "@/components/site/meta-table"
+import { META_COL } from "@/lib/meta-columns"
 import {
   LegendChip,
-  PatchTag,
   RankHelm,
+  PatchTag,
   RegionPill,
   WeaponIcon,
 } from "@/components/site/primitives"
@@ -121,7 +125,7 @@ export default async function MetaPicksPage({
       getTopValhallanMainers({ region: regionFilter, perLegend: 5 }),
       getProfilesMap().catch(() => new Map<number, PlayerPreview>()),
       // Valhallan is ladder membership, not a rating band (see CLAUDE.md), so
-      // the helm is derived rather than assumed from the pool's own threshold —
+      // the helm is derived rather than assumed from the pool’s own threshold —
       // a player in the pool by rating but off the roster draws Diamond.
       getValhallanIds("1v1")
         .then((v) => new Set(v))
@@ -266,15 +270,24 @@ export default async function MetaPicksPage({
 /**
  * One Valhallan who mains this legend.
  *
- * Their identity renders the same way it does everywhere else on the site — pro
- * handle over in-game name, verified check, region, helm and elo — because a
- * player is a player whether they turn up on a leaderboard or inside a
- * dropdown, and a second treatment here would be the twelfth surface to drift.
+ * Their identity renders the way it does everywhere else on the site — legend
+ * portrait, pro handle over in-game name, verified check, region, helm, elo —
+ * because a player is a player whether they turn up on a leaderboard or inside
+ * a dropdown, and a second treatment here would be the twelfth surface to
+ * drift.
+ *
+ * The identity takes the rank gutter as well as the name column, starting where
+ * the panel's own label starts. It needs the width: the name is the only item
+ * in the row that can shrink, so it absorbs whatever the chrome doesn't use,
+ * and inside the name column alone it was being crushed to zero.
  *
  * The three numbers on the right are all *about this legend*: what share of
  * their games they spend on it, how they do on it, and how many. Their ladder
  * standing is already the elo to the left; repeating their overall record would
  * say nothing about the legend whose row this is.
+ *
+ * Laid out on the parent table's column widths (META_COL) so Pick, Win and
+ * Games sit directly under the headings they belong to.
  */
 function MainerRow({
   mainer,
@@ -293,34 +306,32 @@ function MainerRow({
       <Link
         href={`/player/${mainer.brawlhallaId}`}
         prefetch={false}
-        className="flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-card/60"
+        className="flex items-center transition-colors hover:bg-card/60"
       >
-        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+        <span className="flex min-w-0 flex-1 items-center gap-1 px-3 py-1.5">
           {legendSlug && (
             <LegendChip legendId={legendSlug} size="sm" showName={false} />
           )}
-          <span className="truncate text-xs font-medium">
+          <span className="min-w-0 truncate text-xs font-medium">
             {handle ?? mainer.username}
           </span>
           {handle && <VerifiedMark />}
           <RegionPill region={mainer.region} />
+          <span className="ml-auto flex shrink-0 items-center gap-1 pl-1 font-mono text-[11px] tabular-nums">
+            {tier && <RankHelm tier={tier} className="h-4" />}
+            <span>{formatElo(mainer.rating)}</span>
+          </span>
         </span>
 
-        <span className="flex shrink-0 items-center gap-1 font-mono text-[11px] tabular-nums">
-          {tier && <RankHelm tier={tier} className="h-4" />}
-          <span>{formatElo(mainer.rating)}</span>
-        </span>
-
-        {/* Fixed widths so five rows read as a column of three numbers rather
-            than five differently-ragged lines. */}
-        <Stat value={mainer.legendPickRate} suffix="%" tone="text-pink" />
-        <Stat value={mainer.legendWinRate} suffix="%" tone="text-positive" />
+        <Stat className={META_COL.stat} value={mainer.legendPickRate} suffix="%" tone="text-pink" />
+        <Stat className={META_COL.stat} value={mainer.legendWinRate} suffix="%" tone="text-positive" />
         <Stat
+          className={META_COL.games}
           value={mainer.legendGames}
-          suffix="g"
           tone="text-muted-foreground"
           decimals={0}
         />
+        <span className={cn(META_COL.chevron, "shrink-0")} />
       </Link>
     </li>
   )
@@ -336,40 +347,51 @@ function WielderRow({
 }) {
   const slug = slugForLegendId(legendId)
   return (
-    <li className="flex items-center gap-2 px-2 py-1.5">
-      <span className="flex min-w-0 flex-1 items-center gap-1.5">
+    <li className="flex items-center">
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 px-3 py-1.5">
         {slug && <LegendChip legendId={slug} size="sm" showName={false} />}
-        <span className="truncate text-xs font-medium">
+        <span className="min-w-0 truncate text-xs font-medium">
           {rosterEntryByLegendId(legendId)?.name ?? `#${legendId}`}
         </span>
       </span>
-      <Stat value={stat.pick_rate} suffix="%" tone="text-pink" />
-      <Stat value={stat.win_rate} suffix="%" tone="text-positive" />
+      <Stat className={META_COL.stat} value={stat.pick_rate} suffix="%" tone="text-pink" />
+      <Stat className={META_COL.stat} value={stat.win_rate} suffix="%" tone="text-positive" />
       <Stat
+        className={META_COL.games}
         value={stat.games}
-        suffix="g"
         tone="text-muted-foreground"
         decimals={0}
       />
+      <span className={cn(META_COL.chevron, "shrink-0")} />
     </li>
   )
 }
 
+/**
+ * A number in one of the parent's columns.
+ *
+ * Same `px-3 text-right` the table cells use, so the digits end on the same
+ * pixel. Games carries no unit: the column above it is headed Games, and a "g"
+ * on every row restates the heading seventy times.
+ */
 function Stat({
+  className,
   value,
-  suffix,
+  suffix = "",
   tone,
   decimals = 1,
 }: {
+  className: string
   value: number | null
-  suffix: string
+  suffix?: string
   tone: string
   decimals?: number
 }) {
   return (
     <span
       className={cn(
-        "w-[58px] shrink-0 text-right font-mono text-[11px] tabular-nums",
+        "shrink-0 px-3 text-right font-mono text-[11px] tabular-nums",
+        className,
         value == null ? "text-muted-foreground/50" : tone,
       )}
     >

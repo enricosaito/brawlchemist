@@ -2,6 +2,7 @@
 
 import { Fragment, useState } from "react"
 import { ChevronDown } from "lucide-react"
+import { META_COL } from "@/lib/meta-columns"
 import { cn } from "@/lib/utils"
 
 /**
@@ -47,15 +48,20 @@ export function MetaTable({
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/60 bg-card/40">
-      <table className="w-full border-collapse">
+      {/* table-fixed, so the declared widths are the rendered widths. With auto
+          layout the browser treats them as hints and redistributes — measured
+          40px against a declared 36 — and an expanded panel laid out in flex on
+          the same constants would then miss its headings by a few pixels each,
+          compounding left. */}
+      <table className="w-full table-fixed border-collapse">
         <thead className="bg-card">
           <tr>
-            <Th className="w-[44px] text-right">#</Th>
+            <Th className={cn(META_COL.rank, "text-right")}>#</Th>
             <Th>Name</Th>
-            <Th className="w-[76px] text-right">Pick</Th>
-            <Th className="w-[76px] text-right">Win</Th>
-            <Th className="w-[84px] text-right">Games</Th>
-            <Th className="w-[36px]" />
+            <Th className={cn(META_COL.stat, "text-right")}>Pick</Th>
+            <Th className={cn(META_COL.stat, "text-right")}>Win</Th>
+            <Th className={cn(META_COL.games, "text-right")}>Games</Th>
+            <Th className={META_COL.chevron} />
           </tr>
         </thead>
         <tbody>
@@ -141,11 +147,11 @@ export function MetaTable({
                         <div className="overflow-hidden">
                           <div
                             className={cn(
-                              "border-t border-border/40 bg-muted/20 px-3 pb-3 pt-2 transition-opacity duration-200 motion-reduce:transition-none",
+                              "border-t border-border/40 bg-muted/20 pb-2 pt-2 transition-opacity duration-200 motion-reduce:transition-none",
                               expanded ? "opacity-100" : "opacity-0",
                             )}
                           >
-                            <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                            <div className="mb-1 px-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                               {detailLabel}
                             </div>
                             {row.detail}
