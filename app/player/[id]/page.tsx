@@ -19,7 +19,6 @@ import { TrackPlayerCard } from "@/components/site/track-player-card"
 import { VerifiedMark } from "@/components/site/pro-badge"
 import { FlairMark } from "@/components/site/flair-mark"
 import { RecentVisitRecorder } from "@/components/site/recent-visit-recorder"
-import { resolveBanner } from "@/lib/profile/banners"
 import { getCustomization, getFlairMap } from "@/lib/sync/customizations"
 import { getLadderPosition } from "@/lib/sync/live"
 import { ProfileCustomization } from "@/components/site/profile-customization"
@@ -29,6 +28,11 @@ import { InfoTip } from "@/components/site/info-tip"
 import { RankedStatsCard } from "@/components/player/ranked-stats-card"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { getProfile, getProfilesMap } from "@/lib/sync/profiles"
+import {
+  PreviewBannerWash,
+  PreviewFlair,
+  ProfilePreviewProvider,
+} from "@/components/site/profile-preview"
 import { getSessionUser } from "@/lib/auth/session"
 import { getClaimState } from "@/lib/sync/claims"
 import {
@@ -66,10 +70,10 @@ import {
 import type { PlayerRow } from "@/lib/db/schema"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 import {
+  earnedFlairIds,
   flairContextFrom,
-  resolveFlair,
   type FlairContext,
-  type FlairDef,
+  type FlairId,
 } from "@/lib/profile/flair"
 import type { Tier } from "@/lib/types"
 import { formatElo, formatPercent } from "@/lib/format"
@@ -1328,7 +1332,8 @@ function ProfileHeader({
   ladderRank,
   preview,
   esports,
-  flair,
+  savedFlairId,
+  earnedFlair,
   claimSlot,
   bannerId,
   editHref,
@@ -1346,8 +1351,10 @@ function ProfileHeader({
   } | null
   preview: PlayerPreview | undefined
   esports: EsportsProfile | null
-  /** The one flair this player flies, already resolved against what they own. */
-  flair: FlairDef | null
+  /** Raw selection + what they hold, so the live preview can re-derive the
+   * same answer the server did rather than trust the editor. */
+  savedFlairId: string | null
+  earnedFlair: FlairId[]
   claimSlot?: React.ReactNode
   bannerId?: string | null
   /**
@@ -1402,10 +1409,7 @@ function ProfileHeader({
               copper→mystic), kept off the data surfaces. Rounded to match the
               card; the card itself isn't clipped so the Most Played hover
               tooltips can extend past its edges. */}
-          <div
-            aria-hidden
-            className={`pointer-events-none absolute inset-0 rounded-2xl ${resolveBanner(bannerId).wash}`}
-          />
+          <PreviewBannerWash savedId={bannerId ?? null} />
           {/* Favourite skin as the banner's backdrop rather than a figure
               standing beside it. Anchored to the right half, clear of the name
               and tags, faded out below its midpoint
@@ -1485,23 +1489,11 @@ function ProfileHeader({
                         so a row of its own left it stranded under a wall of
                         text; up here it reads as insignia on the name, which
                         is what it is. */}
-                    {flair && (
-                      <InfoTip label={flair.label}>
-                        {/* No chip around it: the art is already a bounded
-                            object, and a frame only made it read as one more
-                            tag in a row of tags. */}
-                        <span className="inline-flex shrink-0 items-center">
-                          <Image
-                            src={flair.src}
-                            alt={flair.label}
-                            width={flair.width}
-                            height={flair.height}
-                            unoptimized
-                            className="h-8 w-auto select-none object-contain"
-                          />
-                        </span>
-                      </InfoTip>
-                    )}
+                    <PreviewFlair
+                      savedId={savedFlairId}
+                      earned={earnedFlair}
+                      className="h-8"
+                    />
                     {claimSlot}
                   </div>
                   {hasMeta && (
@@ -1627,10 +1619,7 @@ function FallbackHeader({
               "transition-colors hover:border-pink/50 motion-reduce:transition-none",
           )}
         >
-          <div
-            aria-hidden
-            className={`pointer-events-none absolute inset-0 rounded-2xl ${resolveBanner(bannerId).wash}`}
-          />
+          <PreviewBannerWash savedId={bannerId ?? null} />
           {/* Not while editing. The editor below changes this card, so covering
               it with a scrim and a chip hides the one thing you need to see —
               and leaving means Done or Cancel, which the editor owns. */}
@@ -2130,7 +2119,7 @@ export default async function PlayerPage({
   // Everything the flair rules read is already loaded for the header, so this
   // costs nothing beyond the derivation itself.
   const flairContext: FlairContext = flairContextFrom(preview)
-  const flair = resolveFlair(customization.flairId, flairContext)
+  const earnedFlair = earnedFlairIds(flairContext)
   // This player as a team member. Same shape as the teammate opposite them, so
   // a card can't render one side richer than the other.
   const teamOwner: TeamMember = {
@@ -2162,6 +2151,10 @@ export default async function PlayerPage({
 
   return (
     <Shell>
+      {/* Header and editor are siblings; this is the only thing they share.
+          It carries unsaved banner/flair choices so the card above previews
+          them without anything being written. */}
+      <ProfilePreviewProvider>
       <RecentVisitRecorder
         id={numId}
         username={displayName}
@@ -2185,7 +2178,8 @@ export default async function PlayerPage({
           ladderRank={ladderRank}
           preview={preview}
           esports={esports}
-          flair={flair}
+          savedFlairId={customization.flairId}
+          earnedFlair={earnedFlair}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           bannerId={bannerId}
           editHref={isOwner ? customizeHref : undefined}
@@ -2397,6 +2391,7 @@ export default async function PlayerPage({
         </div>
       )}
 
+      </ProfilePreviewProvider>
     </Shell>
   )
 }
