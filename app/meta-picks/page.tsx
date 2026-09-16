@@ -2,7 +2,19 @@ import Link from "next/link"
 import type { Metadata } from "next"
 import { cn } from "@/lib/utils"
 import { MetaTable, type MetaRow } from "@/components/site/meta-table"
-import { LegendChip, PatchTag, WeaponIcon } from "@/components/site/primitives"
+import {
+  LegendChip,
+  PatchTag,
+  RankHelm,
+  RegionPill,
+  WeaponIcon,
+} from "@/components/site/primitives"
+import { VerifiedMark } from "@/components/site/pro-badge"
+import { getProfilesMap } from "@/lib/sync/profiles"
+import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
+import { tierFromRating } from "@/lib/tier"
+import type { PlayerPreview } from "@/lib/player-previews"
+import type { Tier } from "@/lib/types"
 import {
   PopularityLabel,
   type PopularityTier,
@@ -17,6 +29,7 @@ import {
   getValhallanLegendStats,
   getValhallanWeaponStats,
   type LegendStat,
+  type TopMainer,
 } from "@/lib/sync/valhallan"
 
 export const metadata: Metadata = {
@@ -101,11 +114,19 @@ export default async function MetaPicksPage({
   // The mainers ride the same cached Valhallan scan the stats do (constraint
   // #6's sanctioned exception), so the expandable detail costs no query of its
   // own — it is projected out of a pass the page was already making.
-  const [legendStats, weaponStats, mainers] = await Promise.all([
-    getValhallanLegendStats({ region: regionFilter, method, minGames }),
-    getValhallanWeaponStats({ region: regionFilter }),
-    getTopValhallanMainers({ region: regionFilter, perLegend: 5 }),
-  ])
+  const [legendStats, weaponStats, mainers, profiles, valhallan] =
+    await Promise.all([
+      getValhallanLegendStats({ region: regionFilter, method, minGames }),
+      getValhallanWeaponStats({ region: regionFilter }),
+      getTopValhallanMainers({ region: regionFilter, perLegend: 5 }),
+      getProfilesMap().catch(() => new Map<number, PlayerPreview>()),
+      // Valhallan is ladder membership, not a rating band (see CLAUDE.md), so
+      // the helm is derived rather than assumed from the pool's own threshold —
+      // a player in the pool by rating but off the roster draws Diamond.
+      getValhallanIds("1v1")
+        .then((v) => new Set(v))
+        .catch(() => new Set<number>()),
+    ])
 
   // Weapon detail is free: its top wielders are legend ids, and this page has
   // already loaded every legend's record. No second query to say "gauntlets is
@@ -128,20 +149,14 @@ export default async function MetaPicksPage({
       games: l.games.toLocaleString(),
       detail:
         tops.length > 0 ? (
-          <ul className="flex flex-col gap-1">
+          <ul className="flex flex-col gap-0.5">
             {tops.map((m) => (
-              <DetailRow
+              <MainerRow
                 key={m.brawlhallaId}
-                href={`/player/${m.brawlhallaId}`}
-                art={
-                  slug ? (
-                    <LegendChip legendId={slug} size="sm" showName={false} />
-                  ) : null
-                }
-                name={m.username}
-                meta={`${m.region} · ${formatElo(m.rating)} elo`}
-                games={m.legendGames}
-                winRate={m.legendWinRate}
+                mainer={m}
+                legendSlug={slug}
+                preview={profiles.get(m.brawlhallaId)}
+                tier={tierFromRating(m.rating, valhallan.has(m.brawlhallaId))}
               />
             ))}
           </ul>
@@ -163,25 +178,10 @@ export default async function MetaPicksPage({
       games: w.games.toLocaleString(),
       detail:
         wielders.length > 0 ? (
-          <ul className="flex flex-col gap-1">
-            {wielders.map(({ id, stat }) => {
-              const slug = slugForLegendId(id)
-              return (
-                <DetailRow
-                  key={id}
-                  href={null}
-                  art={
-                    slug ? (
-                      <LegendChip legendId={slug} size="sm" showName={false} />
-                    ) : null
-                  }
-                  name={rosterEntryByLegendId(id)?.name ?? `#${id}`}
-                  meta={`${stat.pick_rate.toFixed(2)}% pick`}
-                  games={stat.games}
-                  winRate={stat.win_rate}
-                />
-              )
-            })}
+          <ul className="flex flex-col gap-0.5">
+            {wielders.map(({ id, stat }) => (
+              <WielderRow key={id} legendId={id} stat={stat} />
+            ))}
           </ul>
         ) : null,
     }
@@ -263,57 +263,122 @@ export default async function MetaPicksPage({
   )
 }
 
-/** One line of an expanded panel — the same shape on both sides. */
-function DetailRow({
-  href,
-  art,
-  name,
-  meta,
-  games,
-  winRate,
+/**
+ * One Valhallan who mains this legend.
+ *
+ * Their identity renders the same way it does everywhere else on the site — pro
+ * handle over in-game name, verified check, region, helm and elo — because a
+ * player is a player whether they turn up on a leaderboard or inside a
+ * dropdown, and a second treatment here would be the twelfth surface to drift.
+ *
+ * The three numbers on the right are all *about this legend*: what share of
+ * their games they spend on it, how they do on it, and how many. Their ladder
+ * standing is already the elo to the left; repeating their overall record would
+ * say nothing about the legend whose row this is.
+ */
+function MainerRow({
+  mainer,
+  legendSlug,
+  preview,
+  tier,
 }: {
-  href: string | null
-  art: React.ReactNode
-  name: string
-  meta: string
-  games: number | null
-  winRate: number | null
+  mainer: TopMainer
+  legendSlug: string | null
+  preview?: PlayerPreview
+  tier: Tier | null
 }) {
-  const body = (
-    <>
-      <span className="flex min-w-0 items-center gap-2">
-        {art}
-        <span className="truncate text-xs font-medium">{name}</span>
-        <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          {meta}
-        </span>
-      </span>
-      <span className="ml-auto flex shrink-0 items-center gap-3 font-mono text-[11px] tabular-nums">
-        <span className="text-muted-foreground">
-          {games != null ? `${games.toLocaleString()}g` : "—"}
-        </span>
-        <span
-          className={winRate != null ? "text-positive" : "text-muted-foreground"}
-        >
-          {winRate != null ? `${winRate.toFixed(1)}%` : "—"}
-        </span>
-      </span>
-    </>
-  )
+  const handle = preview?.verified?.handle?.trim() || null
   return (
     <li>
-      {href ? (
-        <Link
-          href={href}
-          prefetch={false}
-          className="flex items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-card/60"
-        >
-          {body}
-        </Link>
-      ) : (
-        <span className="flex items-center gap-2 px-2 py-1">{body}</span>
-      )}
+      <Link
+        href={`/player/${mainer.brawlhallaId}`}
+        prefetch={false}
+        className="flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-card/60"
+      >
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          {legendSlug && (
+            <LegendChip legendId={legendSlug} size="sm" showName={false} />
+          )}
+          <span className="truncate text-xs font-medium">
+            {handle ?? mainer.username}
+          </span>
+          {handle && <VerifiedMark />}
+          <RegionPill region={mainer.region} />
+        </span>
+
+        <span className="flex shrink-0 items-center gap-1 font-mono text-[11px] tabular-nums">
+          {tier && <RankHelm tier={tier} className="h-4" />}
+          <span>{formatElo(mainer.rating)}</span>
+        </span>
+
+        {/* Fixed widths so five rows read as a column of three numbers rather
+            than five differently-ragged lines. */}
+        <Stat value={mainer.legendPickRate} suffix="%" tone="text-pink" />
+        <Stat value={mainer.legendWinRate} suffix="%" tone="text-positive" />
+        <Stat
+          value={mainer.legendGames}
+          suffix="g"
+          tone="text-muted-foreground"
+          decimals={0}
+        />
+      </Link>
     </li>
+  )
+}
+
+/** One legend that wields this weapon, with its pool record. */
+function WielderRow({
+  legendId,
+  stat,
+}: {
+  legendId: number
+  stat: LegendStat
+}) {
+  const slug = slugForLegendId(legendId)
+  return (
+    <li className="flex items-center gap-2 px-2 py-1.5">
+      <span className="flex min-w-0 flex-1 items-center gap-1.5">
+        {slug && <LegendChip legendId={slug} size="sm" showName={false} />}
+        <span className="truncate text-xs font-medium">
+          {rosterEntryByLegendId(legendId)?.name ?? `#${legendId}`}
+        </span>
+      </span>
+      <Stat value={stat.pick_rate} suffix="%" tone="text-pink" />
+      <Stat value={stat.win_rate} suffix="%" tone="text-positive" />
+      <Stat
+        value={stat.games}
+        suffix="g"
+        tone="text-muted-foreground"
+        decimals={0}
+      />
+    </li>
+  )
+}
+
+function Stat({
+  value,
+  suffix,
+  tone,
+  decimals = 1,
+}: {
+  value: number | null
+  suffix: string
+  tone: string
+  decimals?: number
+}) {
+  return (
+    <span
+      className={cn(
+        "w-[58px] shrink-0 text-right font-mono text-[11px] tabular-nums",
+        value == null ? "text-muted-foreground/50" : tone,
+      )}
+    >
+      {value == null
+        ? "—"
+        : decimals === 0
+          ? `${value.toLocaleString()}${suffix}`
+          : `${value.toFixed(decimals)}${suffix}`}
+    </span>
   )
 }
 

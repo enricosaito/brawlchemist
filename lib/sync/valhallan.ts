@@ -300,6 +300,13 @@ export interface TopMainer {
   legendWins: number | null
   /** 0-100, or null without a record to derive it from. */
   legendWinRate: number | null
+  /**
+   * Their own pick rate for this legend: what share of their ranked games they
+   * spent on it. The pool's pick rate says how popular a legend is; this says
+   * how committed *this* player is to it, which is the difference between a
+   * one-trick and someone with it in a rotation.
+   */
+  legendPickRate: number | null
 }
 
 /**
@@ -319,6 +326,7 @@ interface MainerRow {
   region_rank: number
   legend_games: number | null
   legend_wins: number | null
+  total_games: number | null
 }
 
 async function computeTopValhallanMainers(
@@ -340,7 +348,8 @@ async function computeTopValhallanMainers(
           ORDER BY (ranked_json->>'rating')::int DESC
         ) AS region_rank,
         lg.games AS legend_games,
-        lg.wins AS legend_wins
+        lg.wins AS legend_wins,
+        (ranked_json->>'games')::int AS total_games
       FROM players
       LEFT JOIN LATERAL (
         SELECT (l->>'games')::int AS games, (l->>'wins')::int AS wins
@@ -361,7 +370,7 @@ async function computeTopValhallanMainers(
       FROM valhallans
     )
     SELECT top_legend_id, brawlhalla_id, username, rating, region, region_rank,
-           legend_games, legend_wins
+           legend_games, legend_wins, total_games
     FROM legend_ranked
     WHERE rn <= ${perLegend}
     ORDER BY top_legend_id, rn
@@ -762,6 +771,10 @@ export async function getTopValhallanMainers(
         row.legend_games && row.legend_games > 0
           ? Math.round((100 * (row.legend_wins ?? 0) * 100) / row.legend_games) /
             100
+          : null,
+      legendPickRate:
+        row.legend_games != null && row.total_games && row.total_games > 0
+          ? Math.round((100 * row.legend_games * 100) / row.total_games) / 100
           : null,
     })
     map.set(row.top_legend_id, list)

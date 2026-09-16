@@ -15,8 +15,10 @@ import { cn } from "@/lib/utils"
  * Rows arrive fully rendered: the parent is a server component and builds both
  * the summary cells and the detail panel, and hands them over as props. Opening
  * a row is a `useState` toggle over markup that already crossed the wire — no
- * fetch, no spinner, no loading state to design. The panel itself is mounted
- * only while open, so a row that is never opened costs nothing to lay out.
+ * fetch, no spinner, no loading state to design. The panel is mounted the whole
+ * time and collapsed to zero height, which is what lets it animate shut as well
+ * as open — a conditionally rendered panel can only ever animate in, because by
+ * the time it would animate out React has already removed it.
  */
 
 export interface MetaRow {
@@ -122,13 +124,34 @@ export function MetaTable({
                     )}
                   </td>
                 </tr>
-                {expanded && row.detail && (
-                  <tr className="border-t border-border/40 bg-muted/20">
-                    <td colSpan={6} className="px-3 pb-3 pt-2">
-                      <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                        {detailLabel}
+                {row.detail && (
+                  <tr>
+                    <td colSpan={6} className="p-0">
+                      <div
+                        className={cn(
+                          "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
+                          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                        )}
+                      >
+                        {/* The clipper. Its child is measured at its natural
+                            height while the row above animates between 0fr and
+                            1fr — which is why the border and padding live
+                            inside it rather than on the <tr>, where they would
+                            show as a stray line through a collapsed row. */}
+                        <div className="overflow-hidden">
+                          <div
+                            className={cn(
+                              "border-t border-border/40 bg-muted/20 px-3 pb-3 pt-2 transition-opacity duration-200 motion-reduce:transition-none",
+                              expanded ? "opacity-100" : "opacity-0",
+                            )}
+                          >
+                            <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                              {detailLabel}
+                            </div>
+                            {row.detail}
+                          </div>
+                        </div>
                       </div>
-                      {row.detail}
                     </td>
                   </tr>
                 )}
