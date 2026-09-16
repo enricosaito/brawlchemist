@@ -5,21 +5,19 @@ import { computeLifetimeStats } from "@/lib/profile/lifetime-stats"
 import { resolveGems, type GemContext, type GemLevelDef } from "@/lib/profile/gems"
 import { cn } from "@/lib/utils"
 import { LifetimeStatsSection } from "@/components/player/lifetime-stats-section"
-import { LegendChip, WeaponIcon } from "./primitives"
 
 /**
- * The Gems section: six cards, then the records they are cut from.
+ * The Gems section: three gems, then the records they are cut from.
  *
- * One grid rather than a row of gems above a grid of stat tiles. The two were
- * saying the same things in two shapes — Total Wins sat in a gem and again in a
- * tile two inches below — and the tiles that weren't duplicating a gem (Losses,
- * Legends played) were restated a few hundred pixels lower by the tables
- * themselves. Six cards, every one of them a different question.
+ * It grew to six cards and came back down. The three that went — a reserved
+ * slot and the two "most played" readings — were all answerable by glancing at
+ * the first row of the tables directly underneath, which is a scroll away and
+ * sortable in a way a card is not. What is left is the three things a table
+ * can't say: a graded standing, with the numbers behind it on its own card.
  *
- * Three are graded gems and three are plain readings, and they share a shape on
- * purpose: a card here answers "how am I doing at this", and whether the answer
- * happens to have a colour attached is a property of the metric, not a reason
- * to look different.
+ * Earlier this section also carried a grid of eight stat tiles above the
+ * tables. Those went for the same reason, and their numbers live on the gems:
+ * matches and win rate on Total Wins, XP and playtime on Account Level.
  */
 export function GemSection({
   context,
@@ -31,12 +29,6 @@ export function GemSection({
 }) {
   const gems = resolveGems(context)
   const lifetime = stats ? computeLifetimeStats(stats) : null
-
-  // Both ranked by matches, which is also what both cards print. Ranking on one
-  // metric and showing another is how a "most played" card ends up disagreeing
-  // with the table underneath it. Both arrays already arrive games-sorted.
-  const topLegend = lifetime?.legends[0] ?? null
-  const topWeapon = lifetime?.weapons[0] ?? null
 
   return (
     <>
@@ -56,45 +48,6 @@ export function GemSection({
             />
           ))}
 
-          {/* Reserved. The win rate moved onto Total Wins, where it belongs —
-              a win count and the rate it came at are one fact — and the slot
-              stays so the grid keeps its two rows of three rather than
-              reflowing the moment something fills it. */}
-          <div className="min-h-[104px] rounded-2xl border border-dashed border-border/60 bg-card/25" />
-
-          <Card
-            lit={!!topLegend}
-            art={
-              topLegend?.slug ? (
-                <LegendChip legendId={topLegend.slug} size="lg" showName={false} />
-              ) : undefined
-            }
-            title="Most played legend"
-            value={topLegend?.name ?? "—"}
-            valueSize="text-base"
-            sub={
-              topLegend
-                ? `${topLegend.games.toLocaleString()} matches · Level ${topLegend.level}`
-                : "No data yet"
-            }
-          />
-
-          <Card
-            lit={!!topWeapon}
-            art={
-              topWeapon ? (
-                <WeaponIcon weaponId={topWeapon.weaponId} size={40} />
-              ) : undefined
-            }
-            title="Most played weapon"
-            value={topWeapon?.label ?? "—"}
-            valueSize="text-base"
-            sub={
-              topWeapon
-                ? `${topWeapon.games.toLocaleString()} matches`
-                : "No data yet"
-            }
-          />
         </div>
       </div>
 

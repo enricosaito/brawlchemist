@@ -99,7 +99,7 @@ function legendRows(stats: PlayerStats): LifetimeLegendRow[] {
         sharePct: totalGames > 0 ? (games / totalGames) * 100 : 0,
       }
     })
-    .sort((a, b) => b.games - a.games)
+    .sort((a, b) => b.xp - a.xp)
 }
 
 /**
