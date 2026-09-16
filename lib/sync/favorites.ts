@@ -82,6 +82,8 @@ export interface ToggleResult {
   favorited: boolean
   /** True when an add was refused because the list is full (state unchanged). */
   atCap: boolean
+  /** This add was their first favourite ever — unlocks Talent Scout. */
+  firstEver?: boolean
 }
 
 /**
@@ -96,9 +98,14 @@ export async function toggleFavorite(
   const prefs = await readPrefs(userId)
   const current = parseIds(prefs)
   const has = current.includes(brawlhallaId)
+  // Their very first favourite ever — which is the moment the Talent Scout
+  // achievement unlocks, and the only moment worth interrupting them for.
+  // Known here and nowhere else: by the time the write lands, "did they have
+  // none before" is gone.
+  const firstEver = !has && current.length === 0
 
   if (!has && current.length >= MAX_FAVORITES) {
-    return { favorited: false, atCap: true }
+    return { favorited: false, atCap: true, firstEver: false }
   }
 
   const next = has
@@ -115,6 +122,14 @@ export async function toggleFavorite(
       set: { prefs: nextPrefs, updatedAt: now },
     })
   revalidateTag(favoritesTag(userId), "max")
+  // The profiles map projects "has favourited anyone" into every preview, for
+  // the achievement shelf. Without this the badge would stay locked until that
+  // cache happened to expire — the same staleness that has already cost this
+  // project two visible features. The write that changes the answer busts the
+  // cache the answer is read from.
+  const { revalidateTag: bust } = await import("next/cache")
+  const { PROFILES_TAG } = await import("@/lib/sync/profiles")
+  bust(PROFILES_TAG, "max")
 
-  return { favorited: !has, atCap: false }
+  return { favorited: !has, atCap: false, firstEver }
 }

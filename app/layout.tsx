@@ -12,6 +12,7 @@ import {
   type FlairContext,
 } from "@/lib/profile/flair"
 import { FlairCatalogueProvider } from "@/components/site/flair-catalogue"
+import { UnlockToaster } from "@/components/site/unlock-toast"
 import { getFlairCatalogue } from "@/lib/sync/flairs"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -152,6 +153,10 @@ export default async function RootLayout({
               >
                 {children}
               </AppShell>
+              {/* Inside ThemeProvider so it can follow the theme switch, and
+                  outside AppShell so a toast is never clipped by a page's own
+                  overflow. */}
+              <UnlockToaster />
             </FlairCatalogueProvider>
           </TooltipProvider>
         </ThemeProvider>

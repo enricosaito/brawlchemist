@@ -25,6 +25,8 @@ export async function toggleFavoriteAction(brawlhallaId: number): Promise<{
   ok: boolean
   favorited?: boolean
   atCap?: boolean
+  /** Their first favourite ever — the client turns this into an unlock toast. */
+  firstEver?: boolean
   error?: "auth" | "save"
 }> {
   const userId = await authedUserId()
@@ -33,7 +35,12 @@ export async function toggleFavoriteAction(brawlhallaId: number): Promise<{
   try {
     const res = await toggleFavorite(userId, brawlhallaId)
     revalidatePath("/favorites")
-    return { ok: true, favorited: res.favorited, atCap: res.atCap }
+    return {
+      ok: true,
+      favorited: res.favorited,
+      atCap: res.atCap,
+      firstEver: res.firstEver,
+    }
   } catch (err) {
     console.error("[toggleFavoriteAction] failed:", err)
     return { ok: false, error: "save" }
