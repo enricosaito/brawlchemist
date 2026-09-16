@@ -17,7 +17,7 @@ export async function WeaponMetaCard({
   return (
     <PreviewCard
       title="Popular weapons"
-      href="/weapons"
+      href="/meta-picks"
       viewAllLabel="view weapon meta"
       className={className}
       meta={
@@ -46,7 +46,7 @@ export async function WeaponMetaCard({
               {/* Invisible full-row link — see Live Rankings. pointer-events
                   gated so touch keeps the inline legend links. */}
               <Link
-                href="/weapons"
+                href="/meta-picks"
                 aria-label={`View ${WEAPON_NAMES[weapon.weapon_id]} weapon meta`}
                 tabIndex={-1}
                 className="pointer-events-none absolute inset-0 z-10 group-hover/row:pointer-events-auto"

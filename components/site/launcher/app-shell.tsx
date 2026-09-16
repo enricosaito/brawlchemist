@@ -25,6 +25,7 @@ export function AppShell({
   claimed,
   favoriteIds,
   flair,
+  flairId,
 }: {
   children: React.ReactNode
   user: SessionUser | null
@@ -32,6 +33,7 @@ export function AppShell({
   favoriteIds: number[]
   /** Badges for the account control — see AccountControl. */
   flair?: FlairContext
+  flairId?: string | null
 }) {
   const pathname = usePathname()
   const loggedIn = !!user
@@ -57,7 +59,12 @@ export function AppShell({
       <VideoBackground />
       <BackgroundMusic />
       <div className="relative min-h-svh md:grid md:grid-cols-[clamp(280px,30%,420px)_minmax(0,1fr)]">
-        <SidebarNav user={user} claimed={claimed} flair={flair} />
+        <SidebarNav
+          user={user}
+          claimed={claimed}
+          flair={flair}
+          flairId={flairId}
+        />
         <div className="min-w-0">{children}</div>
       </div>
     </FavoritesProvider>

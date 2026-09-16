@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import { Check } from "lucide-react"
 import { Toaster, toast } from "sonner"
 import { useTheme } from "next-themes"
 
@@ -36,6 +37,19 @@ export function UnlockToaster() {
       // this reason, so the toast follows the same switch as everything else.
       theme={resolvedTheme === "light" ? "light" : "dark"}
     />
+  )
+}
+
+/** A plain confirmation — no badge, no link. Same card, so toasts match. */
+export function toastSaved(message: string) {
+  toast.custom(
+    () => (
+      <div className="flex w-full items-center gap-2.5 rounded-2xl border border-border/60 bg-card/95 px-4 py-3 shadow-lg backdrop-blur-sm">
+        <Check className="size-4 shrink-0 text-positive" />
+        <span className="text-sm font-medium">{message}</span>
+      </div>
+    ),
+    { duration: 3000 },
   )
 }
 

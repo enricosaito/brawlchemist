@@ -23,13 +23,23 @@ const TRACKING_MS = 2400
  *
  * `size="md"` shows labels (profile header); `size="sm"` is the compact list
  * star (icon-only at rest, expands for the remove flow).
+ *
+ * `card` is the third skin and the reason this file grew a variant rather than
+ * gaining a sibling: on the profile the whole card is the button, and a second
+ * component would have meant a second copy of the add/arm/confirm machine —
+ * which is the part that is easy to get subtly wrong and impossible to notice.
+ * Every state below renders through the same `shell`, so the card cannot drift
+ * from the chip.
  */
 export function FavoriteToggleControl({
   brawlhallaId,
   size = "md",
+  card,
 }: {
   brawlhallaId: number
   size?: "sm" | "md"
+  /** Full-bleed card mode. Needs the name, since the card says it aloud. */
+  card?: { name: string; className?: string }
 }) {
   const { loggedIn, selfId, isFavorite, toggle } = useFavorites()
   const pathname = usePathname() ?? "/"
@@ -44,6 +54,35 @@ export function FavoriteToggleControl({
   const [pending, setPending] = useState(false)
   const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  /**
+   * The card frame, wrapped around whatever the state wants to say.
+   *
+   * A column with the label pinned to the top and the star row to the bottom,
+   * so the card can be stretched to a neighbour's height without its contents
+   * drifting into the middle of the empty space.
+   */
+  const shell = (
+    interactive: string,
+    heading: string,
+    body: string,
+    chip: React.ReactNode,
+  ) => (
+    <>
+      <span className="flex min-w-0 flex-col gap-0.5 text-left">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          {heading}
+        </span>
+        <span className="truncate text-xs text-foreground/80">{body}</span>
+      </span>
+      <span className="mt-3 flex items-center">{chip}</span>
+      <span className="sr-only">{interactive}</span>
+    </>
+  )
+  const cardCls = cn(
+    "flex w-full flex-col justify-between rounded-2xl border bg-card/50 p-4 text-left backdrop-blur-sm transition-colors",
+    card?.className,
+  )
+
   useEffect(
     () => () => {
       if (addedTimer.current) clearTimeout(addedTimer.current)
@@ -54,6 +93,24 @@ export function FavoriteToggleControl({
   // Your own profile — you can't track yourself (it's always pinned in
   // /favorites). Show a disabled star so the affordance reads as intentional.
   if (isSelf) {
+    if (card) {
+      return (
+        <div
+          aria-disabled
+          className={cn(cardCls, "cursor-default border-border/40 opacity-70")}
+        >
+          {shell(
+            "This is your profile",
+            "Track",
+            "This is your profile — it's always in your favorites.",
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/60">
+              <Star className="size-3.5 shrink-0" />
+              Your profile
+            </span>,
+          )}
+        </div>
+      )
+    }
     return (
       <InfoTip label="This is your profile">
         <span
@@ -69,6 +126,27 @@ export function FavoriteToggleControl({
 
   // Signed-out: a nudge to sign in, returning to wherever the star lives.
   if (!loggedIn) {
+    if (card) {
+      return (
+        <Link
+          href={`/login?next=${encodeURIComponent(pathname)}`}
+          className={cn(
+            cardCls,
+            "border-border/60 hover:border-tier-gold/50 hover:bg-card/70",
+          )}
+        >
+          {shell(
+            "Sign in to track this player",
+            "Track",
+            `Sign in to keep ${card.name} in your favorites.`,
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+              <Star className="size-3.5 shrink-0" />
+              Sign in to track
+            </span>,
+          )}
+        </Link>
+      )
+    }
     return (
       <InfoTip label="Sign in to track this player">
         <Link
@@ -130,6 +208,80 @@ export function FavoriteToggleControl({
   else if (showRemoveHint) label = "Remove?"
 
   const danger = showConfirm || showRemoveHint
+
+  // Shared by both skins, so the chip inside the card says exactly what the
+  // standalone chip would say in the same state.
+  const chipCls = cn(
+    "inline-flex items-center gap-1.5 rounded-md border font-medium transition-all duration-200",
+    showConfirm
+      ? "border-negative/60 bg-negative/15 text-negative"
+      : danger
+        ? "border-negative/40 bg-card/60 text-negative"
+        : fav
+          ? "border-tier-gold/50 bg-tier-gold/10 text-tier-gold"
+          : "border-border/60 bg-card/60 text-muted-foreground",
+  )
+  const star = (
+    <Star
+      className={cn(
+        "size-3.5 shrink-0 transition-transform duration-300",
+        fav && !danger && "fill-current",
+        pop && "scale-125",
+      )}
+    />
+  )
+
+  if (card) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={pending}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => {
+          setHovered(false)
+          setArmed(false)
+        }}
+        aria-pressed={fav}
+        aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+        className={cn(
+          cardCls,
+          "disabled:opacity-60",
+          showConfirm
+            ? "border-negative/60 bg-negative/10"
+            : danger
+              ? "border-negative/40"
+              : fav
+                ? "border-tier-gold/50 bg-tier-gold/5 hover:border-tier-gold/70"
+                : "border-border/60 hover:border-tier-gold/50 hover:bg-card/70",
+        )}
+      >
+        {shell(
+          fav ? "Tracking — click to remove" : "Track this player",
+          "Track",
+          note ??
+            (fav
+              ? `${card.name} is in your favorites.`
+              : `Keep ${card.name} in your favorites.`),
+          <span className={cn(chipCls, "px-2.5 py-1 text-[11px]")}>
+            {star}
+            {/* The card always carries a word. A bare star was fine on a chip
+                the size of a star; on something this big it would be a large
+                target with no idea what it does. */}
+            {showTracking
+              ? "Tracking"
+              : showConfirm
+                ? "Remove"
+                : showRemoveHint
+                  ? "Remove?"
+                  : fav
+                    ? "Tracking"
+                    : "Track"}
+          </span>,
+        )}
+      </button>
+    )
+  }
 
   return (
     <button

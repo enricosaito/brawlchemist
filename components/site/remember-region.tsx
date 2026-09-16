@@ -2,10 +2,16 @@
 
 import { useEffect } from "react"
 
-import { LIVE_VIEW_COOKIE, LIVE_VIEW_MAX_AGE } from "@/lib/live-view"
+import { REGION_COOKIE, REGION_COOKIE_MAX_AGE } from "@/lib/region-preference"
 
 /**
- * Remembers the live-queue view the viewer last had open.
+ * Remembers the ladder region the viewer last had open.
+ *
+ * Mounted on /queue and on /leaderboards, sharing one cookie on purpose: "my
+ * region" is one idea, and a viewer who picks EU on one of them meant it for
+ * both. A signed-in viewer's own region outranks this — see
+ * resolvePreferredRegion — so for them it is a fallback that only matters if
+ * they ever unlink.
  *
  * A cookie rather than localStorage, deliberately. Both are equally "local",
  * but the server can read a cookie while rendering — so a returning visitor
@@ -20,17 +26,17 @@ import { LIVE_VIEW_COOKIE, LIVE_VIEW_MAX_AGE } from "@/lib/live-view"
  * Purely a convenience: it carries no identity, and a viewer with cookies
  * disabled just always lands on the default view.
  */
-export function RememberLiveView({ region }: { region: string }) {
+export function RememberRegion({ region }: { region: string }) {
   useEffect(() => {
     try {
-      // Still written as "queue:region" with the queue half empty. Both ladders
-      // render together now, so there is no queue to remember — keeping the
-      // shape means cookies written by the old two-tab page still parse to the
-      // right region instead of being discarded.
+      // Still written as "queue:region" with the queue half empty. There is no
+      // queue to remember any more, and the leaderboards never had one — keeping
+      // the shape means cookies written by the old two-tab page still parse to
+      // the right region instead of being discarded.
       const value = `:${region}`
-      document.cookie = `${LIVE_VIEW_COOKIE}=${encodeURIComponent(
+      document.cookie = `${REGION_COOKIE}=${encodeURIComponent(
         value,
-      )}; path=/; max-age=${LIVE_VIEW_MAX_AGE}; SameSite=Lax`
+      )}; path=/; max-age=${REGION_COOKIE_MAX_AGE}; SameSite=Lax`
     } catch {
       // Cookies disabled — the default view is a fine outcome.
     }

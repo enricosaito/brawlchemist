@@ -68,7 +68,7 @@ export async function TopLegendsCard({
   return (
     <PreviewCard
       title="Top legends"
-      href="/legends"
+      href="/meta-picks"
       viewAllLabel="view legend meta"
       className={className}
       meta={

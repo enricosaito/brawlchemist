@@ -454,3 +454,47 @@
         }
     }
 }
+/**
+ * Quiet scrollbar — for panes that scroll inside the page rather than the page
+ * itself (the legend list on /meta-picks).
+ *
+ * Invisible at rest and revealed on hover or keyboard focus, because a
+ * permanent track down the side of a table reads as chrome the table didn't ask
+ * for. The gutter is reserved either way (`scrollbar-gutter: stable`), so the
+ * rows don't shift sideways the moment the thumb appears.
+ *
+ * Both syntaxes: Firefox honours `scrollbar-width`/`scrollbar-color` and
+ * ignores the pseudo-elements, WebKit the reverse. `thin` is as far as Firefox
+ * lets us go, which is close enough to the 8px below.
+ */
+.scroll-quiet {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 150ms ease;
+}
+.scroll-quiet:hover,
+.scroll-quiet:focus-within {
+  scrollbar-color: var(--color-border) transparent;
+}
+.scroll-quiet::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-quiet::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-quiet::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+  transition: background-color 150ms ease;
+}
+.scroll-quiet:hover::-webkit-scrollbar-thumb,
+.scroll-quiet:focus-within::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, var(--color-foreground) 22%, transparent);
+}
+.scroll-quiet::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklab, var(--color-foreground) 38%, transparent);
+}

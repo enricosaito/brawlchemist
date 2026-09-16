@@ -291,6 +291,22 @@ export interface TopMainer {
    * for region_rank universally. Converges to the real leaderboard rank
    * as the cron finishes seeding. */
   regionRank: number
+  /**
+   * Their record *on this legend*, not overall — which is the only record that
+   * belongs next to a legend's name. Null when the stored payload has no entry
+   * for it, which happens for a row synced before they played it.
+   */
+  legendGames: number | null
+  legendWins: number | null
+  /** 0-100, or null without a record to derive it from. */
+  legendWinRate: number | null
+  /**
+   * Their own pick rate for this legend: what share of their ranked games they
+   * spent on it. The pool's pick rate says how popular a legend is; this says
+   * how committed *this* player is to it, which is the difference between a
+   * one-trick and someone with it in a rotation.
+   */
+  legendPickRate: number | null
 }
 
 /**
@@ -308,6 +324,9 @@ interface MainerRow {
   rating: number
   region: string
   region_rank: number
+  legend_games: number | null
+  legend_wins: number | null
+  total_games: number | null
 }
 
 async function computeTopValhallanMainers(
@@ -327,8 +346,17 @@ async function computeTopValhallanMainers(
         ROW_NUMBER() OVER (
           PARTITION BY ranked_json->>'region'
           ORDER BY (ranked_json->>'rating')::int DESC
-        ) AS region_rank
+        ) AS region_rank,
+        lg.games AS legend_games,
+        lg.wins AS legend_wins,
+        (ranked_json->>'games')::int AS total_games
       FROM players
+      LEFT JOIN LATERAL (
+        SELECT (l->>'games')::int AS games, (l->>'wins')::int AS wins
+        FROM jsonb_array_elements(ranked_json->'legends') l
+        WHERE (l->>'legend_id')::int = top_legend_id
+        LIMIT 1
+      ) lg ON true
       WHERE top_legend_id IS NOT NULL
         AND (ranked_json->>'rating')::int >= ${VALHALLAN_MIN_RATING}
         AND ${regionClause(region)}
@@ -341,7 +369,8 @@ async function computeTopValhallanMainers(
         ) AS rn
       FROM valhallans
     )
-    SELECT top_legend_id, brawlhalla_id, username, rating, region, region_rank
+    SELECT top_legend_id, brawlhalla_id, username, rating, region, region_rank,
+           legend_games, legend_wins, total_games
     FROM legend_ranked
     WHERE rn <= ${perLegend}
     ORDER BY top_legend_id, rn
@@ -542,7 +571,7 @@ export interface WeaponStat {
   top_legend_ids: number[]
 }
 
-const TOP_LEGENDS_PER_WEAPON = 3
+const TOP_LEGENDS_PER_WEAPON = 5
 
 /**
  * Aggregate per-weapon Valhallan-tier stats by composing the per-legend
@@ -736,6 +765,17 @@ export async function getTopValhallanMainers(
       rating: row.rating,
       region: row.region,
       regionRank: row.region_rank,
+      legendGames: row.legend_games,
+      legendWins: row.legend_wins,
+      legendWinRate:
+        row.legend_games && row.legend_games > 0
+          ? Math.round((100 * (row.legend_wins ?? 0) * 100) / row.legend_games) /
+            100
+          : null,
+      legendPickRate:
+        row.legend_games != null && row.total_games && row.total_games > 0
+          ? Math.round((100 * row.legend_games * 100) / row.total_games) / 100
+          : null,
     })
     map.set(row.top_legend_id, list)
   }

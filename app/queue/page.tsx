@@ -10,8 +10,12 @@ import { VerifiedMark } from "@/components/site/pro-badge"
 import { FlairMark } from "@/components/site/flair-mark"
 import { LiveClimbers } from "@/components/site/live-climbers"
 import { QueueActivityCard } from "@/components/site/queue-activity-card"
-import { RememberLiveView } from "@/components/site/remember-live-view"
-import { LIVE_VIEW_COOKIE, parseLiveView } from "@/lib/live-view"
+import { RememberRegion } from "@/components/site/remember-region"
+import {
+  parseRememberedRegion,
+  REGION_COOKIE,
+  resolvePreferredRegion,
+} from "@/lib/region-preference"
 import { getSessionUser } from "@/lib/auth/session"
 import { getViewerDefaultRegion } from "@/lib/sync/viewer-prefs"
 import {
@@ -291,19 +295,19 @@ export default async function LivePage({
   // first paint. The localStorage equivalent would render the default and then
   // correct itself, which flashes the wrong ladder on every visit.
   const [cookieStore, user] = await Promise.all([cookies(), getSessionUser()])
-  const { region: lastRegion } = parseLiveView(
-    cookieStore.get(LIVE_VIEW_COOKIE)?.value,
+  const remembered = parseRememberedRegion(
+    cookieStore.get(REGION_COOKIE)?.value,
   )
   const viewerRegion = user ? await getViewerDefaultRegion(user.id) : null
 
-  const region: ApiRegion =
-    sp.region && isApiRegion(sp.region)
-      ? sp.region
-      : viewerRegion && isApiRegion(viewerRegion)
-        ? viewerRegion
-        : lastRegion && isApiRegion(lastRegion)
-          ? lastRegion
-          : "ALL"
+  // Shared with /leaderboards, so the two can't drift on what "my region" means.
+  const region = resolvePreferredRegion<ApiRegion>({
+    requested: sp.region,
+    viewer: viewerRegion,
+    remembered,
+    fallback: "ALL",
+    isValid: isApiRegion,
+  })
 
   // Both ladders, together. Splitting them across a tab meant each view showed
   // whatever was active in its own 10-minute window — measured at 8 cards for
@@ -390,7 +394,7 @@ export default async function LivePage({
   return (
     <main className="pb-16">
       <LiveAutoRefresh intervalMs={45_000} />
-      <RememberLiveView region={region} />
+      <RememberRegion region={region} />
 
       <div className="px-4 pt-8 sm:px-6 sm:pt-10">
         <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-3 gap-y-3">

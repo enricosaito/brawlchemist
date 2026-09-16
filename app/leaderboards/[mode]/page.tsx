@@ -1,3 +1,4 @@
+import { cookies } from "next/headers"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import Image from "next/image"
@@ -20,6 +21,14 @@ import {
   isApiRegion,
   type RankedEntry,
 } from "@/lib/brawlhalla-api"
+import { RememberRegion } from "@/components/site/remember-region"
+import { getSessionUser } from "@/lib/auth/session"
+import {
+  parseRememberedRegion,
+  REGION_COOKIE,
+  resolvePreferredRegion,
+} from "@/lib/region-preference"
+import { getViewerDefaultRegion } from "@/lib/sync/viewer-prefs"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
@@ -144,8 +153,23 @@ export default async function LeaderboardPage({
   if (!gameMode) notFound()
 
   const sp = await searchParams
-  const region: ApiRegion =
-    sp.region && isApiRegion(sp.region) ? sp.region : "ALL"
+
+  // Which ladder to open on. Same rule /queue uses, from the same module, so
+  // the two can't drift on what "my region" means: an explicit ?region wins,
+  // then the signed-in viewer's own region, then the one they last had open,
+  // then the global board.
+  //
+  // Both lookups are cheap and both fail open — the cookie is a string already
+  // on the request, and getViewerDefaultRegion is one primary-key round trip
+  // behind a five-minute cache. A signed-out visitor pays only the cookie read.
+  const [cookieStore, user] = await Promise.all([cookies(), getSessionUser()])
+  const region = resolvePreferredRegion<ApiRegion>({
+    requested: sp.region,
+    viewer: user ? await getViewerDefaultRegion(user.id) : null,
+    remembered: parseRememberedRegion(cookieStore.get(REGION_COOKIE)?.value),
+    fallback: "ALL",
+    isValid: isApiRegion,
+  })
   const requestedPage = Math.max(1, Number(sp.page ?? "1") || 1)
   const modePath = `/leaderboards/${gameMode}`
 
@@ -252,6 +276,9 @@ export default async function LeaderboardPage({
 
   return (
     <main className="pb-16">
+        {/* Records whatever ladder is actually on screen, however they got
+            there — a region click, a shared link, or the back button. */}
+        <RememberRegion region={region} />
         <div className="px-4 pt-8 sm:px-6 sm:pt-10">
           {/* One compact control row: Search · Mode · Pro toggle · Region,
               with the Valhallan cutoff chips closing it out on the right.

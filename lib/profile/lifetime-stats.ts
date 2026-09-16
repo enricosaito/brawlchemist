@@ -33,17 +33,22 @@ export interface LifetimeLegendRow {
 export interface LifetimeWeaponRow {
   weaponId: WeaponId
   label: string
-  /** Exact: summed seconds held across every legend that wields it. */
+  /**
+   * Exact: summed seconds held across every legend that wields it, and its
+   * share of the total.
+   *
+   * Nothing renders these today — the table shows matches and win rate, which
+   * are both the attribution below. They stay because they are the only weapon
+   * numbers that are certainly true, and the seconds are already summed to
+   * perform the split, so keeping them costs one division.
+   */
   timeHeldHours: number
-  /** Share of total weapon time, 0-100. Exact. */
   sharePct: number
   /** Attributed, not reported — see the note on `weaponRows`. */
   games: number
   wins: number
   losses: number
   winRate: number | null
-  /** How many legends in their pool wield this weapon. */
-  legendCount: number
 }
 
 export interface LifetimeStats {
@@ -94,7 +99,7 @@ function legendRows(stats: PlayerStats): LifetimeLegendRow[] {
         sharePct: totalGames > 0 ? (games / totalGames) * 100 : 0,
       }
     })
-    .sort((a, b) => b.games - a.games)
+    .sort((a, b) => b.xp - a.xp)
 }
 
 /**
@@ -113,22 +118,12 @@ function legendRows(stats: PlayerStats): LifetimeLegendRow[] {
  * estimate into a number is worse than one that admits the gap.
  */
 function weaponRows(stats: PlayerStats): LifetimeWeaponRow[] {
-  const acc = new Map<
-    WeaponId,
-    { seconds: number; games: number; wins: number; legends: number }
-  >()
-  const bump = (
-    id: WeaponId,
-    seconds: number,
-    games: number,
-    wins: number,
-    counted: boolean,
-  ) => {
-    const cur = acc.get(id) ?? { seconds: 0, games: 0, wins: 0, legends: 0 }
+  const acc = new Map<WeaponId, { seconds: number; games: number; wins: number }>()
+  const bump = (id: WeaponId, seconds: number, games: number, wins: number) => {
+    const cur = acc.get(id) ?? { seconds: 0, games: 0, wins: 0 }
     cur.seconds += seconds
     cur.games += games
     cur.wins += wins
-    if (counted) cur.legends += 1
     acc.set(id, cur)
   }
 
@@ -145,8 +140,8 @@ function weaponRows(stats: PlayerStats): LifetimeWeaponRow[] {
     // least wrong answer; dropping the legend would quietly lose their games.
     const share1 = total > 0 ? t1 / total : 0.5
     const [w1, w2] = entry.weapons
-    bump(w1, t1, games * share1, wins * share1, games > 0)
-    bump(w2, t2, games * (1 - share1), wins * (1 - share1), games > 0)
+    bump(w1, t1, games * share1, wins * share1)
+    bump(w2, t2, games * (1 - share1), wins * (1 - share1))
   }
 
   const totalSeconds = [...acc.values()].reduce((a, v) => a + v.seconds, 0)
@@ -164,7 +159,6 @@ function weaponRows(stats: PlayerStats): LifetimeWeaponRow[] {
         wins,
         losses: Math.max(games - wins, 0),
         winRate: rate(wins, games),
-        legendCount: v.legends,
       }
     })
     .sort((a, b) => b.games - a.games)

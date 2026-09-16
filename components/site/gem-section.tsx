@@ -1,18 +1,23 @@
 import Image from "next/image"
 import type { PlayerStats } from "@/lib/brawlhalla-api"
+import { formatCompact } from "@/lib/format"
+import { computeLifetimeStats } from "@/lib/profile/lifetime-stats"
 import { resolveGems, type GemContext, type GemLevelDef } from "@/lib/profile/gems"
 import { cn } from "@/lib/utils"
 import { LifetimeStatsSection } from "@/components/player/lifetime-stats-section"
 
 /**
- * The Gems section: the three gems, then the lifetime records they are cut
- * from.
+ * The Gems section: three gems, then the records they are cut from.
  *
- * They share a section rather than linking to each other because they are the
- * same answer at two resolutions. A gem is the headline — one object whose
- * colour *is* the number — and the tables underneath are the working. Sending
- * someone to a different page to see where their gem came from would be a
- * navigation step in the middle of a single thought.
+ * It grew to six cards and came back down. The three that went — a reserved
+ * slot and the two "most played" readings — were all answerable by glancing at
+ * the first row of the tables directly underneath, which is a scroll away and
+ * sortable in a way a card is not. What is left is the three things a table
+ * can't say: a graded standing, with the numbers behind it on its own card.
+ *
+ * Earlier this section also carried a grid of eight stat tiles above the
+ * tables. Those went for the same reason, and their numbers live on the gems:
+ * matches and win rate on Total Wins, XP and playtime on Account Level.
  */
 export function GemSection({
   context,
@@ -23,54 +28,115 @@ export function GemSection({
   stats: PlayerStats | null
 }) {
   const gems = resolveGems(context)
+  const lifetime = stats ? computeLifetimeStats(stats) : null
 
   return (
     <>
       <div className="mt-6 px-4 sm:px-6">
-        <div className="mx-auto grid max-w-[1280px] gap-3 sm:grid-cols-3">
+        <div className="mx-auto grid max-w-[1280px] gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {gems.map(({ def, value, level, next }) => (
-            <div
+            <Card
               key={def.id}
-              className={cn(
-                "flex items-center gap-4 rounded-2xl border p-4 backdrop-blur-sm",
-                level
-                  ? "border-border/60 bg-card/50"
-                  : "border-border/40 bg-card/25",
-              )}
-            >
-              <Gem level={level} />
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-medium">{def.name}</span>
-                  <span
-                    className={cn(
-                      "font-mono text-[10px] uppercase tracking-wider",
-                      level ? "text-foreground/70" : "text-muted-foreground/60",
-                    )}
-                  >
-                    {level ? level.label : "Uncut"}
-                  </span>
-                </span>
-                <span className="font-mono text-xl font-bold tabular-nums">
-                  {value == null ? "—" : value.toLocaleString()}
-                </span>
-                {/* The distance to the next level, which is the only thing a
-                    graded badge can say that a binary one can't. */}
-                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
-                  {value == null
-                    ? "No data yet"
-                    : next
-                      ? `${(next.min - value).toLocaleString()} to ${next.label}`
-                      : "Maxed"}
-                </span>
-              </div>
-            </div>
+              lit={!!level}
+              art={<Gem level={level} />}
+              title={def.name}
+              tag={level ? level.label : "Uncut"}
+              value={value == null ? "—" : value.toLocaleString()}
+              // Account Level and Total XP were two tiles saying one thing:
+              // the level is the XP, rounded off. XP rides its own gem's card.
+              sub={gemSub(def.id, value, next, lifetime)}
+            />
           ))}
+
         </div>
       </div>
 
       <LifetimeStatsSection stats={stats} />
     </>
+  )
+}
+
+/**
+ * A gem's second line.
+ *
+ * Two of the three carry numbers that used to have tiles of their own — the
+ * level *is* the XP rounded off, and a win count without the rate it came at is
+ * half a fact. The third falls back to the distance to the next level, which is
+ * the only thing a graded badge can say that a binary one can't.
+ */
+function gemSub(
+  id: string,
+  value: number | null,
+  next: { min: number; label: string } | null,
+  lifetime: ReturnType<typeof computeLifetimeStats> | null,
+): string {
+  if (lifetime) {
+    if (id === "account-level") {
+      return `${formatCompact(lifetime.xp)} XP · ${lifetime.playtimeHours.toLocaleString()}h`
+    }
+    if (id === "total-wins" && lifetime.games > 0) {
+      return `${lifetime.games.toLocaleString()} matches · ${lifetime.winRate?.toFixed(1) ?? "—"}%`
+    }
+  }
+  if (value == null) return "No data yet"
+  if (next) return `${(next.min - value).toLocaleString()} to ${next.label}`
+  return "Maxed"
+}
+
+/** One shape for all six, so a gem and a reading sit level with each other. */
+function Card({
+  lit,
+  art,
+  title,
+  tag,
+  value,
+  valueSize = "text-xl",
+  tone,
+  sub,
+}: {
+  /** Has a value worth showing — drives the card's weight, like an uncut gem. */
+  lit: boolean
+  art?: React.ReactNode
+  title: string
+  /** The gem's level name, where there is one. */
+  tag?: string
+  value: string
+  valueSize?: string
+  tone?: string
+  sub: string
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-4 rounded-2xl border p-4 backdrop-blur-sm",
+        lit ? "border-border/60 bg-card/50" : "border-border/40 bg-card/25",
+      )}
+    >
+      {art && <span className="flex shrink-0 items-center">{art}</span>}
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-medium">{title}</span>
+          {tag && (
+            <span
+              className={cn(
+                "font-mono text-[10px] uppercase tracking-wider",
+                lit ? "text-foreground/70" : "text-muted-foreground/60",
+              )}
+            >
+              {tag}
+            </span>
+          )}
+        </span>
+        <span
+          className={cn("truncate font-mono font-bold tabular-nums", valueSize, tone)}
+        >
+          {value}
+        </span>
+        <span className="truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
+          {sub}
+        </span>
+      </div>
+    </div>
   )
 }
 

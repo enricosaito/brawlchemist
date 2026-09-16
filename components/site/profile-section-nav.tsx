@@ -22,8 +22,13 @@ export interface ProfileSection {
   id: string
   label: string
   href: string
-  /** "1/3" — shown beside the label when the section has a tally. */
-  count?: string
+  /**
+   * The line under the label: "1/3" for a set you can complete, "Season 41"
+   * for one that is scoped rather than counted. Optional, and the slot is held
+   * with a non-breaking space when it is missing so the three panels stay the
+   * same height.
+   */
+  sub?: string
 }
 
 export function ProfileSectionNav({
@@ -36,9 +41,14 @@ export function ProfileSectionNav({
   if (sections.length < 2) return null
   return (
     <div className="mt-6 px-4 sm:px-6">
+      {/* The card the accolade shelf used to be, and the same width, because it
+          stands in the same place. Three equal panels rather than three words
+          in a corner: this is the profile's primary navigation, and a row of
+          small text chips reads as a filter on the thing below it instead of
+          the thing that chooses it. */}
       <nav
         aria-label="Profile sections"
-        className="mx-auto flex w-full max-w-[1280px] items-center gap-1 overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-1"
+        className="mx-auto grid max-w-[1280px] grid-cols-3 gap-2 rounded-2xl border border-border/60 bg-card/50 p-2 backdrop-blur-sm"
       >
         {sections.map((s) => {
           const current = s.id === active
@@ -50,23 +60,26 @@ export function ProfileSectionNav({
               prefetch={false}
               aria-current={current ? "page" : undefined}
               className={cn(
-                "flex shrink-0 items-center gap-1.5 rounded px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors",
+                "flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-3 py-3 text-center transition-colors",
                 current
-                  ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "border-pink/50 bg-pink/10 text-foreground"
+                  : "border-transparent text-muted-foreground hover:border-border/60 hover:bg-card/60 hover:text-foreground",
               )}
             >
-              {s.label}
-              {s.count && (
-                <span
-                  className={cn(
-                    "tabular-nums",
-                    current ? "text-muted-foreground" : "text-muted-foreground/60",
-                  )}
-                >
-                  {s.count}
-                </span>
-              )}
+              <span className="truncate font-mono text-[11px] font-medium uppercase tracking-wider">
+                {s.label}
+              </span>
+              {/* The second line is the reason to click: "Achievements 1/3" is
+                  an invitation and "Achievements" is a label, and "Season 41"
+                  says which numbers Ranked is about before you open it. */}
+              <span
+                className={cn(
+                  "font-mono text-[10px] tabular-nums",
+                  current ? "text-muted-foreground" : "text-muted-foreground/60",
+                )}
+              >
+                {s.sub ?? " "}
+              </span>
             </Link>
           )
         })}

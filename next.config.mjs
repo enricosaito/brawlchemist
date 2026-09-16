@@ -37,6 +37,16 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/legends",
+        destination: "/meta-picks",
+        permanent: true,
+      },
+      {
+        source: "/weapons",
+        destination: "/meta-picks",
+        permanent: true,
+      },
+      {
         source: "/github",
         destination: "https://github.com/enricosaito/brawlchemist",
         permanent: false,

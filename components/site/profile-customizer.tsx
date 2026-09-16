@@ -13,8 +13,9 @@ import {
 import { BANNER_PRESETS, DEFAULT_BANNER_ID } from "@/lib/profile/banners"
 import { autoFlairId, FLAIR_NONE, type FlairId } from "@/lib/profile/flair"
 import { ACHIEVEMENTS } from "@/lib/profile/achievements"
-import { toastAchievement } from "./unlock-toast"
+import { toastAchievement, toastSaved } from "./unlock-toast"
 import { useFlairCatalogue } from "./flair-catalogue"
+import { InfoTip } from "./info-tip"
 import {
   SOCIAL_KINDS,
   SOCIAL_META,
@@ -232,14 +233,20 @@ export function ProfileCustomizer({
         if (!res.ok) return setError(errorText(res.error))
       }
       setSaved(true)
+      toastSaved("Profile saved")
       // First time this profile has been customized at all — the moment the
       // achievement is earned, announced from the click that earned it.
       if (!wasCustomized) {
         const def = ACHIEVEMENTS.find((a) => a.id === "customize-profile")
         if (def) toastAchievement(def, brawlhallaId)
       }
-      // The preview and the saved value now agree, so stop overriding.
-      preview?.reset()
+      // Deliberately NOT preview.reset() here. The preview holds exactly what
+      // was just written, and the server hasn't re-rendered yet — dropping it
+      // now flashes the header back to the old banner for the length of a
+      // refresh before it snaps to the new one. Leaving it means the two agree
+      // the whole way through, and once the refresh lands the preview and the
+      // saved value are the same value. Cancel still resets, because there the
+      // preview and the server genuinely disagree.
       router.refresh()
       // Back to the profile: you have been watching the result the whole time,
       // so there is nothing left to stay for.
@@ -333,8 +340,8 @@ export function ProfileCustomizer({
               label="Flair"
               hint="Earned, not chosen — pick which one you fly."
             >
-              <div className="space-y-1.5">
-                <FlairRow
+              <div className="grid grid-cols-3 gap-1.5">
+                <FlairTile
                   selected={shownFlairId === FLAIR_NONE}
                   onSelect={() => pickFlair(FLAIR_NONE)}
                   label="None"
@@ -342,7 +349,7 @@ export function ProfileCustomizer({
                 {catalogue.map((f) => {
                   const earned = earnedFlairIds.includes(f.id)
                   return (
-                    <FlairRow
+                    <FlairTile
                       key={f.id}
                       selected={shownFlairId === f.id}
                       locked={!earned}
@@ -357,7 +364,7 @@ export function ProfileCustomizer({
                           height={f.height}
                           unoptimized
                           className={cn(
-                            "h-5 w-auto object-contain select-none",
+                            "h-9 w-auto object-contain select-none",
                             !earned && "opacity-30 grayscale"
                           )}
                         />
@@ -572,11 +579,23 @@ function Section({
 }
 
 /**
- * A locked row stays visible and says what would unlock it. A badge nobody can
- * see isn't worth chasing, and hiding the section entirely would mean most
- * players never learn flair exists.
+ * One flair, as a square.
+ *
+ * A grid rather than a list because a flair is chosen by its art, and a row
+ * puts a 20px thumbnail beside a line of text — which makes the label the thing
+ * you read and the badge the thing you skim. Square tiles put the art at the
+ * size you will actually wear it and let the eye compare a set at a glance.
+ *
+ * The name moves to the tooltip with it. At three tiles across a third of the
+ * panel there is room for about five characters, and "Braw…" twice over is
+ * worse than no label at all — it cannot tell Brawlchemist Developer from
+ * Brawlchemist User, which are exactly the two a developer has to choose
+ * between. The art is the thing being picked; the accessible name still carries
+ * the full text.
+ *
+ * "None" is the exception and keeps its label, because it has no art to be.
  */
-function FlairRow({
+function FlairTile({
   selected,
   locked = false,
   onSelect,
@@ -592,36 +611,33 @@ function FlairRow({
   art?: React.ReactNode
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={locked}
-      aria-pressed={selected}
-      className={cn(
-        "flex w-full items-center gap-2.5 rounded-md border px-2.5 py-1.5 text-left transition-colors",
-        selected
-          ? "border-pink/50 bg-pink/10"
-          : "border-border/60 bg-card/40 hover:border-foreground/30",
-        locked && "cursor-not-allowed opacity-70 hover:border-border/60"
-      )}
-    >
-      <span className="flex size-5 shrink-0 items-center justify-center">
-        {art ?? null}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-xs font-semibold">{label}</span>
-        {sub && (
-          <span className="block truncate font-mono text-[10px] text-muted-foreground">
-            {sub}
-          </span>
+    <InfoTip label={sub ? `${label} — ${sub}` : label}>
+      <button
+        type="button"
+        onClick={onSelect}
+        disabled={locked}
+        aria-pressed={selected}
+        aria-label={sub ? `${label}. ${sub}` : label}
+        className={cn(
+          "relative flex aspect-square w-full items-center justify-center rounded-lg border p-1.5 transition-colors",
+          selected
+            ? "border-pink/60 bg-pink/10"
+            : "border-border/60 bg-card/40 hover:border-foreground/30",
+          locked && "cursor-not-allowed opacity-70 hover:border-border/60",
         )}
-      </span>
-      {locked ? (
-        <Lock className="size-3 shrink-0 text-muted-foreground" />
-      ) : selected ? (
-        <Check className="size-3.5 shrink-0 text-pink" />
-      ) : null}
-    </button>
+      >
+        {art ? (
+          <span className="flex h-9 items-center justify-center">{art}</span>
+        ) : (
+          <span className="text-[11px] font-semibold">{label}</span>
+        )}
+        {locked ? (
+          <Lock className="absolute top-1 right-1 size-3 text-muted-foreground" />
+        ) : selected ? (
+          <Check className="absolute top-1 right-1 size-3.5 text-pink" />
+        ) : null}
+      </button>
+    </InfoTip>
   )
 }
 

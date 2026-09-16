@@ -17,7 +17,7 @@ import {
 import type { SessionUser } from "@/lib/auth/session"
 import { cn } from "@/lib/utils"
 import { InfoTip } from "../info-tip"
-import { FlairMarks } from "../flair-mark"
+import { FlairMark } from "../flair-mark"
 import type { FlairContext } from "@/lib/profile/flair"
 
 /** The Brawlhalla identity linked to the account, if claimed. */
@@ -44,6 +44,7 @@ export function AccountControl({
   user,
   claimed,
   flair,
+  flairId,
 }: {
   user: SessionUser | null
   claimed: ClaimedProfile | null
@@ -53,6 +54,12 @@ export function AccountControl({
    * read, and this is a client component.
    */
   flair?: FlairContext
+  /**
+   * Their stored flair choice, so this runs the same resolution as every other
+   * surface. Without it the account button would pick the rarest earned badge
+   * while the profile flew the one they actually chose.
+   */
+  flairId?: string | null
 }) {
   const pathname = usePathname() ?? "/"
 
@@ -103,11 +110,12 @@ export function AccountControl({
         )}
         <span className="min-w-0 flex-1 truncate normal-case">{label}</span>
         {claimed?.isPro && <BadgeCheck className="size-4 shrink-0 text-mystic" />}
-        {/* Every flair, not the one they fly. This is their own account, so
-            the question is what they hold rather than who they are — and with
-            one of these on screen a row of badges can't become a column of the
-            same badge repeated, which is why the public surfaces show one. */}
-        {flair && <FlairMarks context={flair} className="h-4" />}
+        {/* The one they fly, same as everywhere else. This used to show the
+            whole earned set on the theory that your own account is a "what have
+            I got" question — but a developer with a linked profile then wore two
+            badges here and one everywhere else, and a flair that means "the
+            badge you chose" cannot also sometimes mean "all of them". */}
+        {flair && <FlairMark selectedId={flairId} context={flair} className="h-4" />}
       </Link>
       <InfoTip label="Favorites">
       <Link

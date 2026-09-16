@@ -26,6 +26,7 @@ import { DataTable, type ColDef } from "@/components/site/data-table"
 import { BrawlchemistUserBadge } from "@/components/site/brawlchemist-user-badge"
 import { InfoTip } from "@/components/site/info-tip"
 import { RankedStatsCard } from "@/components/player/ranked-stats-card"
+import { CURRENT_SEASON } from "@/lib/mock-data"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { getProfile, getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairCatalogue } from "@/lib/sync/flairs"
@@ -2186,18 +2187,25 @@ export default async function PlayerPage({
   const achievementStates = resolveAchievements(achievementContext)
   const gemStates = resolveGems(achievementContext)
   const sections: ProfileSection[] = [
-    { id: "overview", label: "Ranked", href: profileHref },
+    {
+      id: "overview",
+      label: "Ranked",
+      href: profileHref,
+      // The season the numbers behind this tab are scoped to — the same one
+      // RankedStatsCard prints, from the same constant, so they cannot drift.
+      sub: `Season ${CURRENT_SEASON}`,
+    },
     {
       id: "achievements",
       label: "Achievements",
       href: `${profileHref}?tab=achievements`,
-      count: `${achievementStates.filter((a) => a.unlocked).length}/${achievementStates.length}`,
+      sub: `${achievementStates.filter((a) => a.unlocked).length}/${achievementStates.length}`,
     },
     {
       id: "gems",
       label: "Gems",
       href: `${profileHref}?tab=gems`,
-      count: `${gemStates.filter((g) => g.level).length}/${gemStates.length}`,
+      sub: `${gemStates.filter((g) => g.level).length}/${gemStates.length}`,
     },
   ]
 
@@ -2338,9 +2346,20 @@ export default async function PlayerPage({
                   overviewTeams.length > 0 && "lg:grid-cols-3",
                 )}
               >
-                <div className={overviewTeams.length > 0 ? "lg:col-span-2" : ""}>
+                {/* A column, so the card below the heading can be told to
+                    take the slack. The grid stretches this cell to the taller
+                    of the two, and whichever side that is, both now end level
+                    with each other — which for the common case means the side
+                    column's last card lines up with the bottom of the chart. */}
+                <div
+                  className={cn(
+                    "flex flex-col",
+                    overviewTeams.length > 0 && "lg:col-span-2",
+                  )}
+                >
                   <RankedStatsCard
                     embedded
+                    cardClassName="lg:flex-1"
                     brawlhallaId={numId}
                     valhallanCutoff={cutoff1v1}
                     stats={{
@@ -2420,7 +2439,16 @@ export default async function PlayerPage({
                       </div>
                     </div>
                   )}
-                  <TrackPlayerCard brawlhallaId={numId} name={trackName} />
+                  {/* lg:flex-1 so the card eats the slack the teams leave and
+                      its bottom edge lands level with the rating chart beside
+                      it. The grid already stretches this column to the taller
+                      cell; without it the card sits at its natural height and
+                      the column ends short. */}
+                  <TrackPlayerCard
+                    brawlhallaId={numId}
+                    name={trackName}
+                    className="lg:flex-1"
+                  />
                 </div>
               </div>
             </section>

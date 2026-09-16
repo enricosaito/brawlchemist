@@ -20,6 +20,7 @@ import { getSessionUser } from "@/lib/auth/session"
 import { getClaimedBrawlhallaId } from "@/lib/sync/claims"
 import { getFavoriteIds } from "@/lib/sync/favorites"
 import { getPlayersByIds } from "@/lib/sync/players"
+import { getFlairMap } from "@/lib/sync/customizations"
 import { getProfile } from "@/lib/sync/profiles"
 import { cn } from "@/lib/utils"
 
@@ -79,6 +80,9 @@ export default async function RootLayout({
   // What the account control shows as badges. Developer comes from the account
   // role, the rest from the claimed profile.
   let flair: FlairContext | undefined
+  // Their stored flair choice, so the account button resolves the same badge
+  // the rest of the site does rather than picking the rarest one they hold.
+  let flairId: string | null = null
   let isDeveloper = false
   if (user) {
     // These two are independent, and this block gates the entire shell on
@@ -112,6 +116,11 @@ export default async function RootLayout({
           getProfile(claimedId),
         ])
         const handle = profile?.verified?.handle?.trim() || null
+        // Off the shared flair map, which is already cached app-wide for the
+        // leaderboards — so this is a lookup, not a read.
+        flairId = await getFlairMap()
+          .then((m) => m.get(claimedId) ?? null)
+          .catch(() => null)
         // Accolade-based flair rides on the claimed profile; the role-based one
         // is already set above and survives having no profile at all.
         flair = { ...flairContextFrom(profile), developer: isDeveloper }
@@ -150,6 +159,7 @@ export default async function RootLayout({
                 claimed={claimed}
                 favoriteIds={favoriteIds}
                 flair={flair}
+                flairId={flairId}
               >
                 {children}
               </AppShell>

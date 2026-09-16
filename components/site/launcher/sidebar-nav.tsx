@@ -56,14 +56,9 @@ const NAV: NavEntry[] = [
     avatar: "/assets/AniAvatar_Potion_Shelf.webp",
   },
   {
-    label: "Weapons",
-    href: "/weapons",
+    label: "Meta Picks",
+    href: "/meta-picks",
     avatar: "/assets/AniAvatar_Cursed_Kunai.webp",
-  },
-  {
-    label: "Legends",
-    href: "/legends",
-    avatar: "/assets/AniAvatar_Metamorphosis.webp",
   },
   {
     label: "Guilds",
@@ -230,10 +225,12 @@ export function SidebarNav({
   user,
   claimed,
   flair,
+  flairId,
 }: {
   user: SessionUser | null
   claimed: ClaimedProfile | null
   flair?: FlairContext
+  flairId?: string | null
 }) {
   const [open, setOpen] = useState(false)
 
@@ -305,7 +302,12 @@ export function SidebarNav({
           <div className="flex-1 overflow-y-auto">
             <NavList onNavigate={() => setOpen(false)} />
           </div>
-          <AccountControl user={user} claimed={claimed} flair={flair} />
+          <AccountControl
+            user={user}
+            claimed={claimed}
+            flair={flair}
+            flairId={flairId}
+          />
           <SocialFooter />
         </div>
       </div>
