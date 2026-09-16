@@ -5,6 +5,8 @@ import { GoogleAnalytics } from "@next/third-parties/google"
 import "./globals.css"
 import { AppShell } from "@/components/site/launcher/app-shell"
 import type { ClaimedProfile } from "@/components/site/launcher/account-control"
+import { getAccountRole } from "@/lib/sync/admin-users"
+import { flairContextFrom, type FlairContext } from "@/lib/profile/flair"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { getSessionUser } from "@/lib/auth/session"
@@ -58,11 +60,15 @@ export default async function RootLayout({
   let claimed: ClaimedProfile | null = null
   // Seed the client favorites store once (signed-in only); fails open to [].
   let favoriteIds: number[] = []
+  // What the account control shows as badges. Developer comes from the account
+  // role, the rest from the claimed profile.
+  let flair: FlairContext | undefined
+  let isDeveloper = false
   if (user) {
     // These two are independent, and this block gates the entire shell on
     // every navigation — so they go out together rather than one after the
     // other. Each still fails open on its own.
-    const [claimedId, favorites] = await Promise.all([
+    const [claimedId, favorites, role] = await Promise.all([
       getClaimedBrawlhallaId(user.id).catch((err) => {
         console.error("[layout] claim lookup failed:", err)
         return null
@@ -71,7 +77,17 @@ export default async function RootLayout({
         console.error("[layout] favorites lookup failed:", err)
         return [] as number[]
       }),
+      // A primary-key lookup, issued alongside the other two rather than after
+      // them, so the shell pays no extra latency for it.
+      getAccountRole(user.id).catch((err) => {
+        console.error("[layout] account role lookup failed:", err)
+        return null
+      }),
     ])
+    isDeveloper = role === "developer"
+    // Set before the claim lookup so a Developer who has claimed nothing still
+    // gets their badge — the role-based flair doesn't need a profile.
+    flair = { developer: isDeveloper }
     favoriteIds = favorites
     if (claimedId != null) {
       try {
@@ -80,6 +96,9 @@ export default async function RootLayout({
           getProfile(claimedId),
         ])
         const handle = profile?.verified?.handle?.trim() || null
+        // Accolade-based flair rides on the claimed profile; the role-based one
+        // is already set above and survives having no profile at all.
+        flair = { ...flairContextFrom(profile), developer: isDeveloper }
         claimed = {
           id: claimedId,
           name: handle ?? players.get(claimedId)?.username ?? null,
@@ -109,7 +128,12 @@ export default async function RootLayout({
               component's 0 default — instant tooltips fire on every glancing
               pass of the cursor across a dense stat row. */}
           <TooltipProvider delayDuration={200}>
-            <AppShell user={user} claimed={claimed} favoriteIds={favoriteIds}>
+            <AppShell
+              user={user}
+              claimed={claimed}
+              favoriteIds={favoriteIds}
+              flair={flair}
+            >
               {children}
             </AppShell>
           </TooltipProvider>

@@ -40,6 +40,8 @@ export interface RecentVisit {
    */
   flairId?: string | null
   achievements?: string[]
+  /** Owning account has the Developer role — drives the Brawlchemist flair. */
+  developer?: boolean
 }
 
 const KEY = "bc-recent-visits"

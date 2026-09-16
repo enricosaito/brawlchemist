@@ -23,6 +23,7 @@ import type {
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 import type { Tier, WeaponId } from "@/lib/types"
+import { flairContextFrom } from "@/lib/profile/flair"
 
 const TOP_LEGENDS_LIMIT = 3
 const TOP_WEAPONS_LIMIT = 2
@@ -124,7 +125,7 @@ export function buildLeaderboardColumns(
   const flairFor = (id: number) => (
     <FlairMark
       selectedId={flairs.get(id)}
-      context={{ achievements: previews.get(id)?.achievements }}
+      context={flairContextFrom(previews.get(id))}
     />
   )
   const regionColumn: ColDef<RankedEntry> = {

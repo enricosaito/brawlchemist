@@ -132,7 +132,18 @@ export async function setAccountRole(
     .set({ accountRole: role, updatedAt: new Date() })
     .where(eq(appUsers.id, userId))
     .returning({ id: appUsers.id })
-  return res.length > 0 ? { ok: true } : { ok: false, reason: "not-found" }
+  if (res.length === 0) return { ok: false, reason: "not-found" }
+
+  // The Developer role grants a flair, and the public side reads that off the
+  // cached profiles map (an hour, tag "profiles"). Without this, granting the
+  // role wouldn't show the badge and revoking it wouldn't take it away until
+  // the tag happened to expire — the same staleness that has already cost this
+  // project two visible features. The role write owns the flair, so it busts
+  // the cache the flair is read from.
+  const { revalidateTag } = await import("next/cache")
+  const { PROFILES_TAG } = await import("@/lib/sync/profiles")
+  revalidateTag(PROFILES_TAG, "max")
+  return { ok: true }
 }
 
 /**

@@ -14,6 +14,7 @@ import type { PlayerRow } from "@/lib/db/schema"
 import type { Tier } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
 import { LegendChip, PlayerLink, RankHelm } from "./primitives"
+import { flairContextFrom } from "@/lib/profile/flair"
 
 // All API regions (ALL first), shown in the home region dropdown.
 export const HOME_REGIONS = API_REGIONS
@@ -183,9 +184,7 @@ export async function TopPlayersCard({
                       <VerifiedMark />
                       <FlairMark
                         selectedId={flairs.get(player.id)}
-                        context={{
-                          achievements: overrides.get(player.id)?.achievements,
-                        }}
+                        context={flairContextFrom(overrides.get(player.id))}
                         className="h-4"
                       />
                     </span>

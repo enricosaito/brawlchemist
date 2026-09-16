@@ -3,7 +3,7 @@ import "server-only"
 import { revalidateTag, unstable_cache } from "next/cache"
 import { desc, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { profiles, type ProfileRow } from "@/lib/db/schema"
+import { appUsers, profiles, type ProfileRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 
 /**
@@ -106,7 +106,7 @@ function toRecord(row: ProfileRow): ProfileRecord {
 }
 
 /** Read-side projection consumed across the public UI. */
-function toPreview(row: ProfileRow): PlayerPreview {
+function toPreview(row: ProfileRow, developer = false): PlayerPreview {
   const skin = parseSkin(row.favoriteSkin)
   const achievements = parseAchievements(row.achievements)
   return {
@@ -116,6 +116,7 @@ function toPreview(row: ProfileRow): PlayerPreview {
     // undefined rather than false so unclaimed players add no key to the
     // cached object — this map holds every profile row.
     claimed: row.userId ? true : undefined,
+    developer: developer ? true : undefined,
   }
 }
 
@@ -124,15 +125,34 @@ function toPreview(row: ProfileRow): PlayerPreview {
 const getProfilesObject = unstable_cache(
   async (): Promise<Record<string, PlayerPreview>> => {
     let rows: ProfileRow[]
+    // Which owning accounts are Developers, for the Brawlchemist flair. A
+    // second narrow read rather than a join: `profiles` is selected whole here
+    // (every column feeds the preview) and app_users is tiny, so two small
+    // queries beat widening every row of the bigger one. Fails open to "nobody
+    // is a developer" — a missing badge, never a missing profile.
+    let devIds = new Set<string>()
     try {
-      rows = await db().select().from(profiles)
+      const [profileRows, devRows] = await Promise.all([
+        db().select().from(profiles),
+        db()
+          .select({ id: appUsers.id })
+          .from(appUsers)
+          .where(eq(appUsers.accountRole, "developer")),
+      ])
+      rows = profileRows
+      devIds = new Set(devRows.map((r) => r.id))
     } catch (err) {
       // Fail open — the UI renders fine without profiles.
       console.error("[profiles] read failed:", err)
       return {}
     }
     const obj: Record<string, PlayerPreview> = {}
-    for (const r of rows) obj[String(r.brawlhallaId)] = toPreview(r)
+    for (const r of rows) {
+      obj[String(r.brawlhallaId)] = toPreview(
+        r,
+        !!r.userId && devIds.has(r.userId),
+      )
+    }
     return obj
   },
   ["profiles-map"],

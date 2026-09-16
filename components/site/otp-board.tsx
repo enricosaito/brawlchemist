@@ -27,6 +27,7 @@ import type { PlayerPreview } from "@/lib/player-previews"
 import { VerifiedMark } from "@/components/site/pro-badge"
 import { FlairMark } from "@/components/site/flair-mark"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
+import { flairContextFrom } from "@/lib/profile/flair"
 
 const PAGE_SIZE = 50
 // Upper bound on the OTP board depth. The DB only holds Valhallan-discovered
@@ -105,9 +106,7 @@ function buildColumns(
                     <VerifiedMark className="size-3.5 group-hover/pro:hidden" />
                     <FlairMark
                       selectedId={flairs.get(p.brawlhalla_id)}
-                      context={{
-                        achievements: previews.get(p.brawlhalla_id)?.achievements,
-                      }}
+                      context={flairContextFrom(previews.get(p.brawlhalla_id))}
                       className="h-3.5"
                     />
                   </span>
@@ -116,9 +115,7 @@ function buildColumns(
                     <span className="truncate">{p.username}</span>
                     <FlairMark
                       selectedId={flairs.get(p.brawlhalla_id)}
-                      context={{
-                        achievements: previews.get(p.brawlhalla_id)?.achievements,
-                      }}
+                      context={flairContextFrom(previews.get(p.brawlhalla_id))}
                       className="h-3.5"
                     />
                   </span>

@@ -8,6 +8,7 @@ import { Loader2, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { VerifiedMark } from "./pro-badge"
 import { FlairMark } from "./flair-mark"
+import { flairContextFrom } from "@/lib/profile/flair"
 import { RankHelm, RegionPill } from "./primitives"
 import type { Tier } from "@/lib/types"
 
@@ -28,6 +29,7 @@ interface PlayerHit {
    * entitlement rule as the profile rather than trusting a resolved flair. */
   flairId?: string | null
   achievements?: string[]
+  developer?: boolean
 }
 
 type Kind = "empty" | "name" | "id" | "steam"
@@ -296,7 +298,7 @@ export function LeaderboardPlayerSearch({ className }: { className?: string }) {
                             {opt.hit.pro && <VerifiedMark />}
                             <FlairMark
                               selectedId={opt.hit.flairId}
-                              context={{ achievements: opt.hit.achievements }}
+                              context={flairContextFrom(opt.hit)}
                               className="h-3.5"
                             />
                           </span>

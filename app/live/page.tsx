@@ -40,6 +40,7 @@ import { getFlairMap } from "@/lib/sync/customizations"
 import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
+import { flairContextFrom } from "@/lib/profile/flair"
 
 // Time-sensitive + reads "now − 20 min" — never cache the render.
 export const dynamic = "force-dynamic"
@@ -201,7 +202,7 @@ function LiveCard({
             {player && (
               <FlairMark
                 selectedId={flairs.get(player.id)}
-                context={{ achievements: previews.get(player.id)?.achievements }}
+                context={flairContextFrom(previews.get(player.id))}
               />
             )}
           </span>
@@ -222,7 +223,7 @@ function LiveCard({
                 {handle && <VerifiedMark />}
                 <FlairMark
                   selectedId={flairs.get(p.id)}
-                  context={{ achievements: previews.get(p.id)?.achievements }}
+                  context={flairContextFrom(previews.get(p.id))}
                 />
               </span>
             )

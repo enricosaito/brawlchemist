@@ -7,6 +7,8 @@ import { signOutAction } from "@/app/auth/actions"
 import type { SessionUser } from "@/lib/auth/session"
 import { cn } from "@/lib/utils"
 import { InfoTip } from "../info-tip"
+import { FlairMarks } from "../flair-mark"
+import type { FlairContext } from "@/lib/profile/flair"
 
 /** The Brawlhalla identity linked to the account, if claimed. */
 export interface ClaimedProfile {
@@ -31,9 +33,16 @@ const NAV_LOOK =
 export function AccountControl({
   user,
   claimed,
+  flair,
 }: {
   user: SessionUser | null
   claimed: ClaimedProfile | null
+  /**
+   * What this account has earned. Passed in rather than derived here: the
+   * Developer flair comes from the account role, which only the server can
+   * read, and this is a client component.
+   */
+  flair?: FlairContext
 }) {
   const pathname = usePathname() ?? "/"
 
@@ -84,6 +93,11 @@ export function AccountControl({
         )}
         <span className="min-w-0 flex-1 truncate normal-case">{label}</span>
         {claimed?.isPro && <BadgeCheck className="size-4 shrink-0 text-mystic" />}
+        {/* Every flair, not the one they fly. This is their own account, so
+            the question is what they hold rather than who they are — and with
+            one of these on screen a row of badges can't become a column of the
+            same badge repeated, which is why the public surfaces show one. */}
+        {flair && <FlairMarks context={flair} className="h-4" />}
       </Link>
       <InfoTip label="Favorites">
       <Link
