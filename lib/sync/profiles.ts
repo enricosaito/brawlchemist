@@ -41,7 +41,7 @@ export interface ProfileRecord {
   isPro: boolean
   handle: string | null
   favoriteSkin: FavoriteSkin | null
-  achievements: string[]
+  esportsTitles: string[]
   updatedAt: Date
 }
 
@@ -51,7 +51,7 @@ export interface ProfileInput {
   isPro: boolean
   handle: string | null
   favoriteSkin: FavoriteSkin | null
-  achievements: string[]
+  esportsTitles: string[]
 }
 
 /**
@@ -64,7 +64,7 @@ export interface ProfileInput {
  * invisible until something reads it: `Array.isArray` says no, the parser
  * returns empty, and the player silently loses their accolades — and with
  * them their favorite skin *and* their flair, since flair entitlement is
- * derived from `achievements`. It read as "the Live Rankings card drops some
+ * derived from the esports titles. It read as "the Live Rankings card drops some
  * flair" because that card is where a missing badge is most visible, but the
  * row was blank on every surface.
  *
@@ -92,7 +92,7 @@ export function parseSkin(value: unknown): FavoriteSkin | null {
   return null
 }
 
-export function parseAchievements(value: unknown): string[] {
+export function parseEsportsTitles(value: unknown): string[] {
   const raw = unwrapJson(value)
   return Array.isArray(raw)
     ? raw.filter((a): a is string => typeof a === "string")
@@ -105,7 +105,7 @@ function toRecord(row: ProfileRow): ProfileRecord {
     isPro: row.isPro,
     handle: row.handle,
     favoriteSkin: parseSkin(row.favoriteSkin),
-    achievements: parseAchievements(row.achievements),
+    esportsTitles: parseEsportsTitles(row.esportsTitles),
     updatedAt: row.updatedAt,
   }
 }
@@ -124,11 +124,11 @@ function toPreview(
   grants?: string[],
 ): PlayerPreview {
   const skin = parseSkin(row.favoriteSkin)
-  const achievements = parseAchievements(row.achievements)
+  const esportsTitles = parseEsportsTitles(row.esportsTitles)
   return {
     favoriteSkin: skin ?? undefined,
     verified: row.isPro ? { handle: row.handle ?? "" } : undefined,
-    achievements: achievements.length ? achievements : undefined,
+    esportsTitles: esportsTitles.length ? esportsTitles : undefined,
     // undefined rather than false so unclaimed players add no key to the
     // cached object — this map holds every profile row.
     claimed: row.userId ? true : undefined,
@@ -281,7 +281,7 @@ export async function upsertProfile(input: ProfileInput): Promise<void> {
     isPro: input.isPro,
     handle: input.handle,
     favoriteSkin: input.favoriteSkin,
-    achievements: input.achievements,
+    esportsTitles: input.esportsTitles,
     updatedAt: new Date(),
   }
   await db()
@@ -293,7 +293,7 @@ export async function upsertProfile(input: ProfileInput): Promise<void> {
         isPro: values.isPro,
         handle: values.handle,
         favoriteSkin: values.favoriteSkin,
-        achievements: values.achievements,
+        esportsTitles: values.esportsTitles,
         updatedAt: values.updatedAt,
       },
     })

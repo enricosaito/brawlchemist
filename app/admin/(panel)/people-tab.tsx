@@ -102,13 +102,13 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
                       not pro
                     </span>
                   )}
-                  {p.achievements.length > 0 && (
+                  {p.esportsTitles.length > 0 && (
                     <span
                       className={`${tagCls} border-tier-gold/40 bg-tier-gold/10 text-tier-gold`}
-                      title={p.achievements.join("\n")}
+                      title={p.esportsTitles.join("\n")}
                     >
-                      {p.achievements.length} title
-                      {p.achievements.length === 1 ? "" : "s"}
+                      {p.esportsTitles.length} title
+                      {p.esportsTitles.length === 1 ? "" : "s"}
                     </span>
                   )}
 
@@ -292,14 +292,14 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
           </div>
 
           <div className="sm:col-span-2">
-            <label className={labelCls} htmlFor="achievements">
-              Championship titles (one per line)
+            <label className={labelCls} htmlFor="esportsTitles">
+              Esports titles (one per line)
             </label>
             <textarea
-              id="achievements"
-              name="achievements"
+              id="esportsTitles"
+              name="esportsTitles"
               rows={3}
-              defaultValue={editing?.achievements.join("\n") ?? ""}
+              defaultValue={editing?.esportsTitles.join("\n") ?? ""}
               placeholder={"2v2 World Champion '24\n1v1 Midseason Champion '24"}
               className={inputCls}
             />

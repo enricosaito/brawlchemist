@@ -18,6 +18,7 @@ import { LegendChip, RankHelm, RegionPill } from "@/components/site/primitives"
 import { VerifiedMark } from "@/components/site/pro-badge"
 import { FlairMark } from "@/components/site/flair-mark"
 import { FavoriteToggleControl } from "@/components/site/favorite-toggle-control"
+import { SuggestedFavorites } from "@/components/site/suggested-favorites"
 import { flairContextFrom } from "@/lib/profile/flair"
 
 export const metadata = { title: "Brawlchemist | Favorites" }
@@ -42,8 +43,10 @@ export default async function FavoritesPage() {
   // /live and the leaderboards, and both fail open — a favorites list that
   // loads without a helm beats one that doesn't load.
   const [playersMap, profiles, valhallan, flairs] = await Promise.all([
+    // withRegion because the bare ladder_region column is empty for every row
+    // in the table — the region pill on this page had silently never rendered.
     ids.length
-      ? getPlayersByIds(ids, { includeRankedJson: false })
+      ? getPlayersByIds(ids, { includeRankedJson: false, withRegion: true })
       : Promise.resolve(new Map<number, PlayerRow>()),
     getProfilesMap(),
     getValhallanIds("1v1")
@@ -100,6 +103,14 @@ export default async function FavoritesPage() {
             />
           ))}
         </ul>
+      )}
+
+      {/* Suggestions are derived entirely from the viewer's own profile, so an
+          unclaimed account has nothing to derive from and gets nothing rather
+          than a generic "popular players" list — which would be the same nine
+          strangers for everyone, and the opposite of a suggestion. */}
+      {claimedId != null && (
+        <SuggestedFavorites selfId={claimedId} exclude={ids} />
       )}
     </div>
   )

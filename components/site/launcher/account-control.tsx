@@ -4,6 +4,16 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { BadgeCheck, LogOut, Star, UserRound } from "lucide-react"
 import { signOutAction } from "@/app/auth/actions"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import type { SessionUser } from "@/lib/auth/session"
 import { cn } from "@/lib/utils"
 import { InfoTip } from "../info-tip"
@@ -109,18 +119,40 @@ export function AccountControl({
         <Star className="size-4" />
       </Link>
       </InfoTip>
-      <form action={signOutAction} className="flex">
-        <input type="hidden" name="next" value={pathname} />
+{/* Confirm before signing out. The button is a 40px icon wedged between
+          two other 40px icons — one of which is the link to your own profile —
+          so the cost of a misfire is high and the cost of a click is nothing.
+          Signing back in is a round trip through email or Discord, which is a
+          long way back from a slip of the cursor.
+
+          The dialog wraps the form rather than the form wrapping the dialog:
+          Radix portals the content to the end of the body, and a <form> that
+          has been portalled away no longer submits with the button inside it. */}
+      <AlertDialog>
         <InfoTip label="Sign out">
-        <button
-          type="submit"
-          aria-label="Sign out"
-          className="flex w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-card/30 text-muted-foreground backdrop-blur-md transition-colors hover:border-pink/50 hover:bg-card/55 hover:text-foreground"
-        >
-          <LogOut className="size-4" />
-        </button>
+          <AlertDialogTrigger
+            aria-label="Sign out"
+            className="flex w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-card/30 text-muted-foreground backdrop-blur-md transition-colors hover:border-pink/50 hover:bg-card/55 hover:text-foreground"
+          >
+            <LogOut className="size-4" />
+          </AlertDialogTrigger>
         </InfoTip>
-      </form>
+        <AlertDialogContent>
+          <AlertDialogTitle>Sign out?</AlertDialogTitle>
+          <AlertDialogDescription>
+            You&apos;ll need to sign in again to reach your profile, favorites
+            and customization. Nothing is deleted.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay signed in</AlertDialogCancel>
+            <form action={signOutAction}>
+              {/* Back where they were, which is what the old form did too. */}
+              <input type="hidden" name="next" value={pathname} />
+              <AlertDialogAction type="submit">Sign out</AlertDialogAction>
+            </form>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -9,8 +9,12 @@ export interface PlayerPreview {
   favoriteSkin?: { src: string; name: string }
   /** Verified pro — `handle` is shown in blue next to the PRO tag. */
   verified?: { handle: string }
-  /** Esports accolades, shown in gold with a trophy in the header. */
-  achievements?: string[]
+  /**
+   * Esports titles — world championships and the like, shown in gold with a
+   * trophy in the header. Admin-curated, and nothing to do with the
+   * achievement shelf, which is derived and belongs to the player.
+   */
+  esportsTitles?: string[]
   /**
    * This player has been claimed by a Brawlchemist account — shown publicly as
    * the "Brawlchemist User" badge. Deliberately a boolean and not the owner's

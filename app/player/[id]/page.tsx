@@ -29,8 +29,17 @@ import { RankedStatsCard } from "@/components/player/ranked-stats-card"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { getProfile, getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairCatalogue } from "@/lib/sync/flairs"
-import { AchievementShelf } from "@/components/site/achievement-shelf"
-import type { AchievementContext } from "@/lib/profile/achievements"
+import { AchievementSection } from "@/components/site/achievement-section"
+import { GemSection } from "@/components/site/gem-section"
+import {
+  ProfileSectionNav,
+  type ProfileSection,
+} from "@/components/site/profile-section-nav"
+import {
+  resolveAchievements,
+  type AchievementContext,
+} from "@/lib/profile/achievements"
+import { resolveGems } from "@/lib/profile/gems"
 import {
   PreviewBannerWash,
   PreviewFlair,
@@ -550,6 +559,8 @@ interface AccountStats {
   level: number
   xp: number
   games: number
+  /** Lifetime, all modes — what the Total Wins gem grades. */
+  wins: number
   playtimeHours: number
   weapons: WeaponShare[]
 }
@@ -582,6 +593,7 @@ function computeAccountStats(stats: PlayerStats): AccountStats {
     level: stats.level ?? 0,
     xp: stats.xp ?? 0,
     games: stats.games ?? 0,
+    wins: stats.wins ?? 0,
     playtimeHours: Math.round(playtimeSeconds / 3600),
     weapons,
   }
@@ -744,7 +756,7 @@ interface TeamMember {
   slug: string | null
   pro: boolean
   flairId?: string
-  achievements?: string[]
+  esportsTitles?: string[]
   /** Owning account has the Developer role. */
   developer?: boolean
 }
@@ -1395,7 +1407,7 @@ function ProfileHeader({
     !!preview?.claimed ||
     !!ladderRank ||
     metaNodes.length > 0
-  const hasAccolades = (preview?.achievements?.length ?? 0) > 0
+  const hasAccolades = (preview?.esportsTitles?.length ?? 0) > 0
 
   return (
     <section className="px-4 pt-10 sm:px-6 sm:pt-14">
@@ -1548,7 +1560,7 @@ function ProfileHeader({
                       you've won". */}
                   {hasAccolades && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] tracking-wider">
-                      {preview?.achievements?.map((a) => (
+                      {preview?.esportsTitles?.map((a: string) => (
                         <span
                           key={a}
                           className="inline-flex items-center rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 text-tier-gold"
@@ -1994,7 +2006,7 @@ export default async function PlayerPage({
         slug: row?.topLegendId ? slugForLegendId(row.topLegendId) : null,
         pro: !!mate?.verified,
         flairId: teamFlairs.get(teammateId),
-        achievements: mate?.achievements,
+        esportsTitles: mate?.esportsTitles,
         developer: mate?.developer,
       },
     }
@@ -2105,6 +2117,11 @@ export default async function PlayerPage({
   const reachableTabs = [
     ...(playedLegends.length > 0 ? ["legends"] : []),
     ...(teamViews.length > 0 ? ["teams"] : []),
+    "achievements",
+    // Gems are always reachable; the lifetime tables under them are what needs
+    // the payload, and LifetimeStatsSection says so itself when it is missing.
+    // A crawler gets API_SKIPPED for /stats, so this must not 404 for them.
+    "gems",
     // Owner only, and guarded here rather than in the view: a non-owner who
     // types ?tab=customize falls back to the profile, and the editor is never
     // constructed for them.
@@ -2115,6 +2132,11 @@ export default async function PlayerPage({
     : "overview"
   // Best three teams (already rating-sorted) for the Overview side column.
   const overviewTeams = teamViews.slice(0, 3)
+  // Which of the three section tabs is lit. Everything that is not one of them
+  // — legends, teams, customize — is reached from inside Ranked, so it keeps
+  // Ranked lit rather than lighting nothing.
+  const navSection =
+    tab === "achievements" || tab === "gems" ? tab : "overview"
 
   // Owner-chosen header banner (cached, fails open to the default wash). The
   // panel that sets it is gated to the owner inside ProfileCustomizerSlot.
@@ -2141,8 +2163,10 @@ export default async function PlayerPage({
     games: combinedRecord.games,
     wins: combinedRecord.wins,
     accountLevel: accountStats?.level ?? null,
+    lifetimeWins: accountStats?.wins,
+    lifetimeGames: accountStats?.games,
     valhallan: headerValhallan,
-    accolades: preview?.achievements,
+    accolades: preview?.esportsTitles,
     memberSince: preview?.memberSince,
     hasFavorites: preview?.hasFavorites,
     // Any of the five things the customizer can set. The banner and flair are
@@ -2156,6 +2180,27 @@ export default async function PlayerPage({
       customization.bannerId !== null ||
       customization.flairId !== null,
   }
+  // The three sections, with their tallies. Both resolvers are pure passes over
+  // a short array of facts the header already computed, so counting here costs
+  // nothing and a tab gets to say what is behind it before you open it.
+  const achievementStates = resolveAchievements(achievementContext)
+  const gemStates = resolveGems(achievementContext)
+  const sections: ProfileSection[] = [
+    { id: "overview", label: "Ranked", href: profileHref },
+    {
+      id: "achievements",
+      label: "Achievements",
+      href: `${profileHref}?tab=achievements`,
+      count: `${achievementStates.filter((a) => a.unlocked).length}/${achievementStates.length}`,
+    },
+    {
+      id: "gems",
+      label: "Gems",
+      href: `${profileHref}?tab=gems`,
+      count: `${gemStates.filter((g) => g.level).length}/${gemStates.length}`,
+    },
+  ]
+
   // This player as a team member. Same shape as the teammate opposite them, so
   // a card can't render one side richer than the other.
   const teamOwner: TeamMember = {
@@ -2164,7 +2209,7 @@ export default async function PlayerPage({
     slug: ownerSlug,
     pro: !!preview?.verified,
     flairId: customization.flairId ?? undefined,
-    achievements: preview?.achievements,
+    esportsTitles: preview?.esportsTitles,
     developer: preview?.developer,
   }
   // The name the page titles with — a pro is known by their handle, so the
@@ -2204,7 +2249,7 @@ export default async function PlayerPage({
         handle={preview?.verified?.handle || null}
         tier={headerTier}
         flairId={customization.flairId}
-        achievements={preview?.achievements}
+        esportsTitles={preview?.esportsTitles}
       />
       {hasOneVOne ? (
         <ProfileHeader
@@ -2262,7 +2307,20 @@ export default async function PlayerPage({
           shelf describes the player, not one view of them, so it stays put
           while the body below switches — including while the owner is editing,
           where it is the one part of the profile the editor can't change. */}
-      <AchievementShelf context={achievementContext} />
+      {/* Three sections of one page, not three pages — so nothing below needs a
+          way "back". The header above never moves; only the body swaps. */}
+      <ProfileSectionNav sections={sections} active={navSection} />
+
+      {tab === "achievements" && (
+        <AchievementSection context={achievementContext} />
+      )}
+
+      {tab === "gems" && (
+        <GemSection
+          context={achievementContext}
+          stats={statsRes.ok ? statsRes.data : null}
+        />
+      )}
 
       {tab === "overview" && (
         <>

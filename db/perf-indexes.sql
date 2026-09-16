@@ -42,6 +42,16 @@ CREATE INDEX IF NOT EXISTS guilds_rank_xp_idx
 CREATE INDEX IF NOT EXISTS fetch_log_created_at_idx
   ON fetch_log (created_at DESC);
 
+-- 5. Best players on a given main ------------------------------------------
+-- Serves Suggested Favorites on /favorites: "highest rated players who main
+-- the same legend as you". Without it that is a sequential scan of the whole
+-- players table (measured: 25k buffers, 3.3s) for three rows, which is
+-- cardinal constraint #6 on a render path. players_rating_idx cannot help --
+-- filtering on top_legend_id while ordering by rating walks the entire rating
+-- index for a rare main.
+CREATE INDEX IF NOT EXISTS players_top_legend_rating_idx
+  ON players (top_legend_id, rating DESC NULLS LAST);
+
 ANALYZE players;
 ANALYZE guilds;
 ANALYZE fetch_log;
