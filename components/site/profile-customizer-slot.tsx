@@ -20,9 +20,14 @@ import { ProfileCustomizer } from "./profile-customizer"
 export async function ProfileCustomizerSlot({
   brawlhallaId,
   flairContext,
+  inline = false,
+  doneHref,
 }: {
   brawlhallaId: number
   flairContext: FlairContext
+  /** Render as a page section rather than the floating panel. */
+  inline?: boolean
+  doneHref?: string
 }) {
   // Lookups inside the try, the element outside it: constructing JSX in a try
   // block swallows render-time errors that belong to an error boundary.
@@ -48,6 +53,8 @@ export async function ProfileCustomizerSlot({
       initialSocialLinks={custom.socialLinks}
       initialFavoriteLegendIds={custom.favoriteLegendIds}
       isPro={isPro}
+      inline={inline}
+      doneHref={doneHref}
     />
   )
 }
