@@ -56,14 +56,9 @@ const NAV: NavEntry[] = [
     avatar: "/assets/AniAvatar_Potion_Shelf.webp",
   },
   {
-    label: "Weapons",
-    href: "/weapons",
+    label: "Meta Picks",
+    href: "/meta-picks",
     avatar: "/assets/AniAvatar_Cursed_Kunai.webp",
-  },
-  {
-    label: "Legends",
-    href: "/legends",
-    avatar: "/assets/AniAvatar_Metamorphosis.webp",
   },
   {
     label: "Guilds",
