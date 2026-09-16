@@ -1,21 +1,22 @@
 import Link from "next/link"
 import type { Metadata } from "next"
 import { cn } from "@/lib/utils"
-import { DataTable, type ColDef } from "@/components/site/data-table"
+import { MetaTable, type MetaRow } from "@/components/site/meta-table"
 import { LegendChip, PatchTag, WeaponIcon } from "@/components/site/primitives"
 import {
   PopularityLabel,
   type PopularityTier,
 } from "@/components/site/popularity-label"
 import { CURRENT_PATCH, WEAPON_NAMES } from "@/lib/mock-data"
+import { formatElo } from "@/lib/format"
 import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import { API_REGIONS, isApiRegion, type ApiRegion } from "@/lib/brawlhalla-api"
 import {
   type AggregationMethod,
+  getTopValhallanMainers,
   getValhallanLegendStats,
   getValhallanWeaponStats,
   type LegendStat,
-  type WeaponStat,
 } from "@/lib/sync/valhallan"
 
 export const metadata: Metadata = {
@@ -80,126 +81,6 @@ function weaponTier(pickRate: number): PopularityTier {
   return "popular"
 }
 
-const RANK_COL = {
-  id: "rank",
-  label: "#",
-  width: "44px",
-  align: "right" as const,
-  render: (_: unknown, i: number) => (
-    <span className="font-mono text-xs tabular-nums text-muted-foreground">
-      {i + 1}
-    </span>
-  ),
-}
-
-const legendColumns: ColDef<LegendStat>[] = [
-  RANK_COL,
-  {
-    id: "legend",
-    label: "Legend",
-    render: (l) => {
-      const slug = slugForLegendId(l.legend_id)
-      const name = rosterEntryByLegendId(l.legend_id)?.name ?? `#${l.legend_id}`
-      return (
-        <div className="flex min-w-0 items-center gap-2.5">
-          {slug && <LegendChip legendId={slug} size="sm" showName={false} />}
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="truncate text-sm font-medium leading-tight">
-              {name}
-            </span>
-            <PopularityLabel tier={legendTier(l.pick_rate)} />
-          </div>
-        </div>
-      )
-    },
-  },
-  {
-    id: "pickRate",
-    label: "Pick",
-    align: "right",
-    width: "76px",
-    render: (l) => (
-      <span className="font-mono text-sm font-medium tabular-nums text-pink">
-        {l.pick_rate.toFixed(2)}%
-      </span>
-    ),
-  },
-  {
-    id: "winRate",
-    label: "Win",
-    align: "right",
-    width: "76px",
-    render: (l) => (
-      <span className="font-mono text-sm font-medium tabular-nums text-positive">
-        {l.win_rate.toFixed(2)}%
-      </span>
-    ),
-  },
-  {
-    id: "games",
-    label: "Games",
-    align: "right",
-    width: "84px",
-    render: (l) => (
-      <span className="font-mono text-sm tabular-nums text-muted-foreground">
-        {l.games.toLocaleString()}
-      </span>
-    ),
-  },
-]
-
-const weaponColumns: ColDef<WeaponStat>[] = [
-  RANK_COL,
-  {
-    id: "weapon",
-    label: "Weapon",
-    render: (w) => (
-      <div className="flex min-w-0 items-center gap-2.5">
-        <WeaponIcon weaponId={w.weapon_id} size={26} />
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-sm font-medium leading-tight">
-            {WEAPON_NAMES[w.weapon_id]}
-          </span>
-          <PopularityLabel tier={weaponTier(w.pick_rate)} />
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "pickRate",
-    label: "Pick",
-    align: "right",
-    width: "76px",
-    render: (w) => (
-      <span className="font-mono text-sm font-medium tabular-nums text-pink">
-        {w.pick_rate.toFixed(2)}%
-      </span>
-    ),
-  },
-  {
-    id: "winRate",
-    label: "Win",
-    align: "right",
-    width: "76px",
-    render: (w) => (
-      <span className="font-mono text-sm font-medium tabular-nums text-positive">
-        {w.win_rate.toFixed(2)}%
-      </span>
-    ),
-  },
-  {
-    id: "games",
-    label: "Games",
-    align: "right",
-    width: "84px",
-    render: (w) => (
-      <span className="font-mono text-sm tabular-nums text-muted-foreground">
-        {w.games.toLocaleString()}
-      </span>
-    ),
-  },
-]
-
 export default async function MetaPicksPage({
   searchParams,
 }: {
@@ -217,10 +98,94 @@ export default async function MetaPicksPage({
   const minGames =
     method === "avg" ? (regionFilter ? 20 : 30) : regionFilter ? 20 : 100
 
-  const [legendStats, weaponStats] = await Promise.all([
+  // The mainers ride the same cached Valhallan scan the stats do (constraint
+  // #6's sanctioned exception), so the expandable detail costs no query of its
+  // own — it is projected out of a pass the page was already making.
+  const [legendStats, weaponStats, mainers] = await Promise.all([
     getValhallanLegendStats({ region: regionFilter, method, minGames }),
     getValhallanWeaponStats({ region: regionFilter }),
+    getTopValhallanMainers({ region: regionFilter, perLegend: 5 }),
   ])
+
+  // Weapon detail is free: its top wielders are legend ids, and this page has
+  // already loaded every legend's record. No second query to say "gauntlets is
+  // up because Teros is".
+  const legendById = new Map(legendStats.legends.map((l) => [l.legend_id, l]))
+
+  const legendRows: MetaRow[] = legendStats.legends.map((l) => {
+    const slug = slugForLegendId(l.legend_id)
+    const name = rosterEntryByLegendId(l.legend_id)?.name ?? `#${l.legend_id}`
+    const tops = mainers.get(l.legend_id) ?? []
+    return {
+      key: String(l.legend_id),
+      art: slug ? (
+        <LegendChip legendId={slug} size="sm" showName={false} />
+      ) : null,
+      name,
+      band: <PopularityLabel tier={legendTier(l.pick_rate)} />,
+      pick: `${l.pick_rate.toFixed(2)}%`,
+      win: `${l.win_rate.toFixed(2)}%`,
+      games: l.games.toLocaleString(),
+      detail:
+        tops.length > 0 ? (
+          <ul className="flex flex-col gap-1">
+            {tops.map((m) => (
+              <DetailRow
+                key={m.brawlhallaId}
+                href={`/player/${m.brawlhallaId}`}
+                art={
+                  slug ? (
+                    <LegendChip legendId={slug} size="sm" showName={false} />
+                  ) : null
+                }
+                name={m.username}
+                meta={`${m.region} · ${formatElo(m.rating)} elo`}
+                games={m.legendGames}
+                winRate={m.legendWinRate}
+              />
+            ))}
+          </ul>
+        ) : null,
+    }
+  })
+
+  const weaponRows: MetaRow[] = weaponStats.weapons.map((w) => {
+    const wielders = w.top_legend_ids
+      .map((id) => ({ id, stat: legendById.get(id) }))
+      .filter((x): x is { id: number; stat: LegendStat } => !!x.stat)
+    return {
+      key: w.weapon_id,
+      art: <WeaponIcon weaponId={w.weapon_id} size={26} />,
+      name: WEAPON_NAMES[w.weapon_id],
+      band: <PopularityLabel tier={weaponTier(w.pick_rate)} />,
+      pick: `${w.pick_rate.toFixed(2)}%`,
+      win: `${w.win_rate.toFixed(2)}%`,
+      games: w.games.toLocaleString(),
+      detail:
+        wielders.length > 0 ? (
+          <ul className="flex flex-col gap-1">
+            {wielders.map(({ id, stat }) => {
+              const slug = slugForLegendId(id)
+              return (
+                <DetailRow
+                  key={id}
+                  href={null}
+                  art={
+                    slug ? (
+                      <LegendChip legendId={slug} size="sm" showName={false} />
+                    ) : null
+                  }
+                  name={rosterEntryByLegendId(id)?.name ?? `#${id}`}
+                  meta={`${stat.pick_rate.toFixed(2)}% pick`}
+                  games={stat.games}
+                  winRate={stat.win_rate}
+                />
+              )
+            })}
+          </ul>
+        ) : null,
+    }
+  })
 
   const href = (r: ApiRegion, m: AggregationMethod) =>
     `/meta-picks?region=${r}&method=${m}`
@@ -243,7 +208,11 @@ export default async function MetaPicksPage({
               column, which would read as a filter on half a page. */}
           <Filter label="Legend WR">
             {METHOD_OPTIONS.map((m) => (
-              <Chip key={m.id} href={href(region, m.id)} active={method === m.id}>
+              <Chip
+                key={m.id}
+                href={href(region, m.id)}
+                active={method === m.id}
+              >
                 {m.label}
               </Chip>
             ))}
@@ -257,47 +226,102 @@ export default async function MetaPicksPage({
           </div>
         </div>
 
+        {/* No headings. The art in the first column says which table is which
+            before a word does, and two titles over two tables of identical
+            shape were labelling the obvious. */}
         <div className="mx-auto grid max-w-[1280px] gap-6 xl:grid-cols-2">
-          <Column
-            title="Legend Meta"
-            empty={
-              legendStats.legends.length === 0
-                ? `No legends meet the sample threshold for ${region}. The cron is still seeding — check back in a few hours.`
-                : null
-            }
-          >
-            {/* Capped at the fifteen rows the weapon table has, and scrolled
-                past that. Seventy legends beside fifteen weapons made the page
-                a column of names with a stub next to it; at the same height the
-                two read as one comparison. The cap is a pixel height rather
-                than a slice because the rows below it are still the answer —
-                they just aren't the headline. */}
-            <div className="max-h-[774px] overflow-y-auto overscroll-contain rounded-xl">
-              <DataTable
-                columns={legendColumns}
-                rows={legendStats.legends}
-                rowKey={(l) => String(l.legend_id)}
-              />
+          {legendRows.length === 0 ? (
+            <Empty>
+              No legends meet the sample threshold for {region}. The cron is
+              still seeding — check back in a few hours.
+            </Empty>
+          ) : (
+            // Capped at the fifteen rows the weapon table has, and scrolled
+            // past that. Seventy legends beside fifteen weapons made the page a
+            // column of names with a stub next to it; at the same height the
+            // two read as one comparison. A height rather than a slice, because
+            // the rows below are still the answer — they just are not the
+            // headline.
+            <div className="scroll-quiet max-h-[774px] overflow-y-auto overscroll-contain rounded-xl">
+              <MetaTable rows={legendRows} detailLabel="Top mains" />
             </div>
-          </Column>
+          )}
 
-          <Column
-            title="Weapon Meta"
-            empty={
-              weaponStats.weapons.length === 0
-                ? `No weapon data for ${region} yet. The Valhallan pool only seeds the competitive regions (US-E, EU, BRZ) — try ALL, or one of those.`
-                : null
-            }
-          >
-            <DataTable
-              columns={weaponColumns}
-              rows={weaponStats.weapons}
-              rowKey={(w) => w.weapon_id}
-            />
-          </Column>
+          {weaponRows.length === 0 ? (
+            <Empty>
+              No weapon data for {region} yet. The Valhallan pool only seeds the
+              competitive regions (US-E, EU, BRZ) — try ALL, or one of those.
+            </Empty>
+          ) : (
+            <div>
+              <MetaTable rows={weaponRows} detailLabel="Top legends" />
+            </div>
+          )}
         </div>
       </div>
     </main>
+  )
+}
+
+/** One line of an expanded panel — the same shape on both sides. */
+function DetailRow({
+  href,
+  art,
+  name,
+  meta,
+  games,
+  winRate,
+}: {
+  href: string | null
+  art: React.ReactNode
+  name: string
+  meta: string
+  games: number | null
+  winRate: number | null
+}) {
+  const body = (
+    <>
+      <span className="flex min-w-0 items-center gap-2">
+        {art}
+        <span className="truncate text-xs font-medium">{name}</span>
+        <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          {meta}
+        </span>
+      </span>
+      <span className="ml-auto flex shrink-0 items-center gap-3 font-mono text-[11px] tabular-nums">
+        <span className="text-muted-foreground">
+          {games != null ? `${games.toLocaleString()}g` : "—"}
+        </span>
+        <span
+          className={winRate != null ? "text-positive" : "text-muted-foreground"}
+        >
+          {winRate != null ? `${winRate.toFixed(1)}%` : "—"}
+        </span>
+      </span>
+    </>
+  )
+  return (
+    <li>
+      {href ? (
+        <Link
+          href={href}
+          prefetch={false}
+          className="flex items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-card/60"
+        >
+          {body}
+        </Link>
+      ) : (
+        <span className="flex items-center gap-2 px-2 py-1">{body}</span>
+      )}
+    </li>
+  )
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">
+      {children}
+    </p>
   )
 }
 
@@ -342,28 +366,5 @@ function Chip({
     >
       {children}
     </Link>
-  )
-}
-
-function Column({
-  title,
-  empty,
-  children,
-}: {
-  title: string
-  empty: string | null
-  children: React.ReactNode
-}) {
-  return (
-    <section>
-      <h2 className="mb-3 font-display text-lg font-semibold">{title}</h2>
-      {empty ? (
-        <p className="rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">
-          {empty}
-        </p>
-      ) : (
-        children
-      )}
-    </section>
   )
 }

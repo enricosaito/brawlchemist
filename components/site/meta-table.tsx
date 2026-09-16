@@ -1,0 +1,161 @@
+"use client"
+
+import { Fragment, useState } from "react"
+import { ChevronDown } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+/**
+ * The expandable table behind /meta-picks.
+ *
+ * Deliberately not a flag on `DataTable`. That one is a server component shared
+ * by the leaderboards, favorites and the pro board, and expansion is client
+ * state — bolting it on would make six pages pay a boundary so one page could
+ * open a row. This is the one caller that needs it, so it owns it.
+ *
+ * Rows arrive fully rendered: the parent is a server component and builds both
+ * the summary cells and the detail panel, and hands them over as props. Opening
+ * a row is a `useState` toggle over markup that already crossed the wire — no
+ * fetch, no spinner, no loading state to design. The panel itself is mounted
+ * only while open, so a row that is never opened costs nothing to lay out.
+ */
+
+export interface MetaRow {
+  key: string
+  /** The leading art — a legend portrait or a weapon icon. */
+  art: React.ReactNode
+  name: string
+  /** The popularity band under the name. */
+  band: React.ReactNode
+  pick: string
+  win: string
+  games: string
+  /** What the chevron opens. Null leaves the row un-expandable. */
+  detail: React.ReactNode | null
+}
+
+export function MetaTable({
+  rows,
+  detailLabel,
+}: {
+  rows: MetaRow[]
+  /** "Top mains" / "Top legends" — says what the panel is before it opens. */
+  detailLabel: string
+}) {
+  const [open, setOpen] = useState<string | null>(null)
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border/60 bg-card/40">
+      <table className="w-full border-collapse">
+        <thead className="bg-card">
+          <tr>
+            <Th className="w-[44px] text-right">#</Th>
+            <Th>Name</Th>
+            <Th className="w-[76px] text-right">Pick</Th>
+            <Th className="w-[76px] text-right">Win</Th>
+            <Th className="w-[84px] text-right">Games</Th>
+            <Th className="w-[36px]" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => {
+            const expanded = open === row.key
+            return (
+              <Fragment key={row.key}>
+                <tr
+                  onClick={() =>
+                    row.detail && setOpen(expanded ? null : row.key)
+                  }
+                  className={cn(
+                    "border-t border-border/40 transition-colors",
+                    row.detail && "cursor-pointer hover:bg-muted/40",
+                    expanded && "bg-muted/30",
+                  )}
+                >
+                  <td className="px-3 py-2 text-right align-middle">
+                    <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                      {i + 1}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      {row.art}
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <span className="truncate text-sm font-medium leading-tight">
+                          {row.name}
+                        </span>
+                        {row.band}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-right align-middle font-mono text-sm font-medium tabular-nums text-pink">
+                    {row.pick}
+                  </td>
+                  <td className="px-3 py-2 text-right align-middle font-mono text-sm font-medium tabular-nums text-positive">
+                    {row.win}
+                  </td>
+                  <td className="px-3 py-2 text-right align-middle font-mono text-sm tabular-nums text-muted-foreground">
+                    {row.games}
+                  </td>
+                  <td className="px-2 py-2 align-middle">
+                    {row.detail && (
+                      // A button inside the row rather than the row being one:
+                      // a <tr> can't be a button, and the whole row is already
+                      // clickable — this is the affordance that says so, and
+                      // the thing a keyboard can reach.
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setOpen(expanded ? null : row.key)
+                        }}
+                        aria-expanded={expanded}
+                        aria-label={`${expanded ? "Hide" : "Show"} ${detailLabel.toLowerCase()} for ${row.name}`}
+                        className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                      >
+                        <ChevronDown
+                          className={cn(
+                            "size-4 transition-transform duration-200 motion-reduce:transition-none",
+                            expanded && "rotate-180",
+                          )}
+                        />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+                {expanded && row.detail && (
+                  <tr className="border-t border-border/40 bg-muted/20">
+                    <td colSpan={6} className="px-3 pb-3 pt-2">
+                      <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {detailLabel}
+                      </div>
+                      {row.detail}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function Th({
+  className,
+  children,
+}: {
+  className?: string
+  children?: React.ReactNode
+}) {
+  return (
+    <th
+      className={cn(
+        "border-b border-border/60 px-3 py-2.5 text-left font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground",
+        className,
+      )}
+    >
+      {children}
+    </th>
+  )
+}
