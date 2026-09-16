@@ -29,6 +29,8 @@ import { RankedStatsCard } from "@/components/player/ranked-stats-card"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { getProfile, getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairCatalogue } from "@/lib/sync/flairs"
+import { AchievementShelf } from "@/components/site/achievement-shelf"
+import type { AchievementContext } from "@/lib/profile/achievements"
 import {
   PreviewBannerWash,
   PreviewFlair,
@@ -2128,6 +2130,20 @@ export default async function PlayerPage({
     return undefined
   })
   const earnedFlair = earnedFlairIds(flairContext, flairCatalogue)
+  // The achievement shelf reads the same way: everything here was already
+  // computed for the header, so the row costs one pass over a short array.
+  // `games`/`wins` are the combined 1v1 + 2v2 totals the header shows, so a
+  // volume badge can never disagree with the number printed above it.
+  const achievementContext: AchievementContext = {
+    claimed: preview?.claimed,
+    rating: data.rating,
+    peakRating: data.peak_rating,
+    games: combinedRecord.games,
+    wins: combinedRecord.wins,
+    accountLevel: accountStats?.level ?? null,
+    valhallan: headerValhallan,
+    accolades: preview?.achievements,
+  }
   // This player as a team member. Same shape as the teammate opposite them, so
   // a card can't render one side richer than the other.
   const teamOwner: TeamMember = {
@@ -2229,6 +2245,12 @@ export default async function PlayerPage({
           editing={tab === "customize"}
         />
       )}
+
+      {/* Between the header and the season stats, and outside every tab: the
+          shelf describes the player, not one view of them, so it stays put
+          while the body below switches — including while the owner is editing,
+          where it is the one part of the profile the editor can't change. */}
+      <AchievementShelf context={achievementContext} />
 
       {tab === "overview" && (
         <>
