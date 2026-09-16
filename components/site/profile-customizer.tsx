@@ -97,7 +97,6 @@ export function ProfileCustomizer({
 
   const [bannerId, setBannerId] = useState(initialBannerId ?? DEFAULT_BANNER_ID)
   const [flairId, setFlairId] = useState(initialFlairId)
-  const [savingId, setSavingId] = useState<string | null>(null)
 
   const [bio, setBio] = useState(initialBio ?? "")
   const [links, setLinks] = useState<Record<SocialKind, string>>(() => {
@@ -128,65 +127,105 @@ export function ProfileCustomizer({
     return () => document.removeEventListener("keydown", onKey)
   }, [open])
 
+  // Every control below is local state. Nothing reaches the database until
+  // Save, which is the whole point of the change: banner and flair used to
+  // persist on click, so trying three backgrounds wrote three rows and there
+  // was no way to back out of a choice you had already made. One commit, one
+  // undo.
   function pickBanner(id: string) {
-    if (pending || id === bannerId) return
+    if (pending) return
     setError(null)
-    setSavingId(`banner:${id}`)
-    const previous = bannerId
+    setSaved(false)
     setBannerId(id)
-    startTransition(async () => {
-      const res = await saveBannerAction(brawlhallaId, id)
-      setSavingId(null)
-      if (!res.ok) {
-        setBannerId(previous)
-        setError(errorText(res.error))
-        return
-      }
-      router.refresh()
-    })
   }
 
   function pickFlair(id: string) {
-    if (pending || id === shownFlairId) return
+    if (pending) return
     setError(null)
-    setSavingId(`flair:${id}`)
-    const previous = flairId
+    setSaved(false)
     setFlairId(id)
+  }
+
+  /** The form as the server wants it. */
+  function currentFields() {
+    return {
+      bio,
+      socialLinks: SOCIAL_KINDS.map((kind) => ({
+        kind,
+        url: links[kind].trim(),
+      })).filter((l) => l.url.length > 0),
+      favoriteLegendIds: favorites
+        .map((v) => Number.parseInt(v, 10))
+        .filter((n) => Number.isInteger(n) && n > 0),
+    }
+  }
+
+  const bannerDirty = bannerId !== (initialBannerId ?? DEFAULT_BANNER_ID)
+  const flairDirty = flairId !== initialFlairId
+  const fieldsDirty =
+    JSON.stringify(currentFields()) !==
+    JSON.stringify({
+      bio: initialBio ?? "",
+      socialLinks: initialSocialLinks
+        .map((l) => ({ kind: l.kind, url: l.url.trim() }))
+        .filter((l) => l.url.length > 0),
+      favoriteLegendIds: initialFavoriteLegendIds.filter(
+        (n) => Number.isInteger(n) && n > 0,
+      ),
+    })
+  const dirty = bannerDirty || flairDirty || fieldsDirty
+
+  /**
+   * Persist everything that actually changed, in one go.
+   *
+   * Three actions rather than one because they are three different writes with
+   * three different validations on the server, and collapsing them into a new
+   * combined action would duplicate rules that already exist. Sequential, not
+   * parallel: they all touch the same row, and a partial failure should stop
+   * rather than race.
+   */
+  function saveAll() {
+    if (pending || !dirty) return
+    setError(null)
+    setSaved(false)
     startTransition(async () => {
-      const res = await saveFlairAction(brawlhallaId, id)
-      setSavingId(null)
-      if (!res.ok) {
-        setFlairId(previous)
-        setError(errorText(res.error))
-        return
+      if (bannerDirty) {
+        const res = await saveBannerAction(brawlhallaId, bannerId)
+        if (!res.ok) return setError(errorText(res.error))
       }
+      if (flairDirty) {
+        const res = await saveFlairAction(brawlhallaId, flairId ?? FLAIR_NONE)
+        if (!res.ok) return setError(errorText(res.error))
+      }
+      if (fieldsDirty) {
+        const res = await saveProfileFieldsAction(brawlhallaId, currentFields())
+        if (!res.ok) return setError(errorText(res.error))
+      }
+      setSaved(true)
+      // The header sits above this, in view, so a refresh shows the change
+      // landing on the card it was made for.
       router.refresh()
     })
   }
 
-  function saveFields() {
+  /** Put every control back to what was loaded. Purely local — nothing to undo
+   * on the server, because nothing was written. */
+  function cancelChanges() {
+    if (pending) return
     setError(null)
     setSaved(false)
-    startTransition(async () => {
-      const socialLinks: SocialLink[] = SOCIAL_KINDS.map((kind) => ({
-        kind,
-        url: links[kind].trim(),
-      })).filter((l) => l.url.length > 0)
-      const favoriteLegendIds = favorites
-        .map((v) => Number.parseInt(v, 10))
-        .filter((n) => Number.isInteger(n) && n > 0)
-      const res = await saveProfileFieldsAction(brawlhallaId, {
-        bio,
-        socialLinks,
-        favoriteLegendIds,
-      })
-      if (!res.ok) {
-        setError(errorText(res.error))
-        return
-      }
-      setSaved(true)
-      router.refresh()
-    })
+    setBannerId(initialBannerId ?? DEFAULT_BANNER_ID)
+    setFlairId(initialFlairId)
+    setBio(initialBio ?? "")
+    const seed = {} as Record<SocialKind, string>
+    for (const kind of SOCIAL_KINDS) seed[kind] = ""
+    for (const l of initialSocialLinks) seed[l.kind] = l.url
+    setLinks(seed)
+    setFavorites(
+      Array.from({ length: FAVORITE_SLOTS }, (_, i) =>
+        String(initialFavoriteLegendIds[i] ?? ""),
+      ),
+    )
   }
 
   // What the profile is actually showing right now. A null choice means "show
@@ -240,9 +279,7 @@ export function ProfileCustomizer({
                         : "border-border/60 hover:border-foreground/40"
                     )}
                   >
-                    {savingId === `banner:${p.id}` ? (
-                      <Loader2 className="absolute inset-0 m-auto size-3.5 animate-spin text-foreground" />
-                    ) : bannerId === p.id ? (
+                    {bannerId === p.id ? (
                       <Check className="absolute inset-0 m-auto size-3.5 text-foreground drop-shadow" />
                     ) : null}
                   </button>
@@ -257,7 +294,6 @@ export function ProfileCustomizer({
               <div className="space-y-1.5">
                 <FlairRow
                   selected={shownFlairId === FLAIR_NONE}
-                  saving={savingId === `flair:${FLAIR_NONE}`}
                   onSelect={() => pickFlair(FLAIR_NONE)}
                   label="None"
                 />
@@ -267,7 +303,6 @@ export function ProfileCustomizer({
                     <FlairRow
                       key={f.id}
                       selected={shownFlairId === f.id}
-                      saving={savingId === `flair:${f.id}`}
                       locked={!earned}
                       onSelect={() => earned && pickFlair(f.id)}
                       label={f.label}
@@ -374,16 +409,33 @@ export function ProfileCustomizer({
   )
 
   const saveBar = (
-    <div className="mt-6 flex items-center justify-between gap-3 border-t border-border/60 pt-4">
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
       <span
         className={cn(
           "min-w-0 truncate text-xs",
-          error ? "text-negative" : "text-positive",
+          error
+            ? "text-negative"
+            : saved
+              ? "text-positive"
+              : "text-muted-foreground",
         )}
       >
-        {error ?? (saved ? "Saved." : "")}
+        {error ?? (saved ? "Saved." : dirty ? "Unsaved changes." : "")}
       </span>
       <div className="flex items-center gap-2">
+        {/* Only offered when there is something to undo — an always-present
+            Cancel on a clean form reads as a way out of the editor, which is
+            what Done is for. */}
+        {dirty && (
+          <button
+            type="button"
+            onClick={cancelChanges}
+            disabled={pending}
+            className="inline-flex shrink-0 items-center rounded-md border border-border/60 bg-muted/40 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
+          >
+            Cancel changes
+          </button>
+        )}
         {inline && doneHref && (
           <Link
             href={doneHref}
@@ -395,12 +447,12 @@ export function ProfileCustomizer({
         )}
         <button
           type="button"
-          onClick={saveFields}
-          disabled={pending}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-pink/50 bg-pink/10 px-3 py-1.5 text-xs font-semibold text-pink transition-colors hover:bg-pink/20 disabled:opacity-60"
+          onClick={saveAll}
+          disabled={pending || !dirty}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-pink/50 bg-pink/10 px-3 py-1.5 text-xs font-semibold text-pink transition-colors hover:bg-pink/20 disabled:opacity-40"
         >
           {pending && <Loader2 className="size-3 animate-spin" />}
-          Save
+          Save changes
         </button>
       </div>
     </div>
@@ -493,7 +545,6 @@ function Section({
  */
 function FlairRow({
   selected,
-  saving,
   locked = false,
   onSelect,
   label,
@@ -501,7 +552,6 @@ function FlairRow({
   art,
 }: {
   selected: boolean
-  saving: boolean
   locked?: boolean
   onSelect: () => void
   label: string
@@ -533,9 +583,7 @@ function FlairRow({
           </span>
         )}
       </span>
-      {saving ? (
-        <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-      ) : locked ? (
+      {locked ? (
         <Lock className="size-3 shrink-0 text-muted-foreground" />
       ) : selected ? (
         <Check className="size-3.5 shrink-0 text-pink" />

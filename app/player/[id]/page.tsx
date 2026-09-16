@@ -865,19 +865,12 @@ function TeamCard({
  * Hidden until hover or focus, so a profile at rest is not covered in chrome
  * that only one person can use.
  */
-function EditOverlay({
-  href,
-  editing = false,
-}: {
-  href: string
-  /** Already in the editor — the card becomes the way back out. */
-  editing?: boolean
-}) {
+function EditOverlay({ href }: { href: string }) {
   return (
     <Link
       href={href}
       scroll={false}
-      aria-label={editing ? "Done editing" : "Edit your profile"}
+      aria-label="Edit your profile"
       className="absolute inset-0 z-30 flex items-center justify-center rounded-2xl"
     >
       {/* A scrim under the chip. Without it the chip lands on whichever tag
@@ -886,7 +879,7 @@ function EditOverlay({
       <span className="absolute inset-0 rounded-2xl bg-background/50 opacity-0 transition-opacity group-hover/edit:opacity-100 group-focus-within/edit:opacity-100 motion-reduce:transition-none" />
       <span className="pointer-events-none relative flex items-center gap-2 rounded-full border border-pink/50 bg-card/90 px-4 py-2 font-mono text-[11px] font-medium tracking-wider text-pink uppercase opacity-0 shadow-lg backdrop-blur-md transition-opacity group-hover/edit:opacity-100 group-focus-within/edit:opacity-100 motion-reduce:transition-none">
         <Sparkles className="size-3.5" />
-        {editing ? "Done editing" : "Customize profile"}
+        Customize profile
       </span>
     </Link>
   )
@@ -1401,6 +1394,7 @@ function ProfileHeader({
           className={cn(
             "group/edit relative rounded-2xl border border-border/60 bg-card/50 p-6 shadow-lg backdrop-blur-sm",
             editHref &&
+              !editing &&
               "transition-colors hover:border-pink/50 motion-reduce:transition-none",
           )}
         >
@@ -1445,7 +1439,10 @@ function ProfileHeader({
               />
             </div>
           )}
-          {editHref && <EditOverlay href={editHref} editing={editing} />}
+          {/* Not while editing. The editor below changes this card, so covering
+              it with a scrim and a chip hides the one thing you need to see —
+              and leaving means Done or Cancel, which the editor owns. */}
+          {editHref && !editing && <EditOverlay href={editHref} />}
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-stretch">
             {tier && (
               <div className="flex shrink-0 items-center justify-center sm:justify-start">
@@ -1626,6 +1623,7 @@ function FallbackHeader({
           className={cn(
             "group/edit relative rounded-2xl border border-border/60 bg-card/50 p-6 shadow-lg backdrop-blur-sm",
             editHref &&
+              !editing &&
               "transition-colors hover:border-pink/50 motion-reduce:transition-none",
           )}
         >
@@ -1633,7 +1631,10 @@ function FallbackHeader({
             aria-hidden
             className={`pointer-events-none absolute inset-0 rounded-2xl ${resolveBanner(bannerId).wash}`}
           />
-          {editHref && <EditOverlay href={editHref} editing={editing} />}
+          {/* Not while editing. The editor below changes this card, so covering
+              it with a scrim and a chip hides the one thing you need to see —
+              and leaving means Done or Cancel, which the editor owns. */}
+          {editHref && !editing && <EditOverlay href={editHref} />}
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-stretch">
             {(tier || preview?.favoriteSkin) && (
               <div className="flex shrink-0 items-center justify-center gap-3 sm:justify-start">
@@ -2107,8 +2108,8 @@ export default async function PlayerPage({
   // The editor lives at ?tab=customize on this same page, so the header just
   // links to it. scroll={false} on the link keeps the viewport where it is —
   // the card you clicked stays put and the body beneath it swaps.
-  const customizeHref = `/player/${numId}?tab=customize`
   const profileHref = `/player/${numId}`
+  const customizeHref = `${profileHref}?tab=customize`
   const reachableTabs = [
     ...(playedLegends.length > 0 ? ["legends"] : []),
     ...(teamViews.length > 0 ? ["teams"] : []),
@@ -2187,13 +2188,7 @@ export default async function PlayerPage({
           flair={flair}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           bannerId={bannerId}
-          editHref={
-            isOwner
-              ? tab === "customize"
-                ? profileHref
-                : customizeHref
-              : undefined
-          }
+          editHref={isOwner ? customizeHref : undefined}
           editing={tab === "customize"}
         />
       ) : topTeam ? (
@@ -2210,13 +2205,7 @@ export default async function PlayerPage({
           account={null}
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           bannerId={bannerId}
-          editHref={
-            isOwner
-              ? tab === "customize"
-                ? profileHref
-                : customizeHref
-              : undefined
-          }
+          editHref={isOwner ? customizeHref : undefined}
           editing={tab === "customize"}
         />
       ) : (
@@ -2234,13 +2223,7 @@ export default async function PlayerPage({
           }
           claimSlot={<ClaimBanner brawlhallaId={numId} />}
           bannerId={bannerId}
-          editHref={
-            isOwner
-              ? tab === "customize"
-                ? profileHref
-                : customizeHref
-              : undefined
-          }
+          editHref={isOwner ? customizeHref : undefined}
           editing={tab === "customize"}
         />
       )}
@@ -2375,7 +2358,7 @@ export default async function PlayerPage({
           brawlhallaId={numId}
           flairContext={flairContext}
           inline
-          doneHref={`/player/${numId}`}
+          doneHref={profileHref}
         />
       )}
 
