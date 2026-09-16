@@ -1,10 +1,7 @@
 import Link from "next/link"
 import type { Metadata } from "next"
 import { cn } from "@/lib/utils"
-import {
-  MetaTable,
-  type MetaRow,
-} from "@/components/site/meta-table"
+import { MetaTable, type MetaRow } from "@/components/site/meta-table"
 import { META_COL } from "@/lib/meta-columns"
 import {
   LegendChip,
@@ -31,6 +28,7 @@ import {
   type AggregationMethod,
   getTopValhallanMainers,
   getValhallanLegendStats,
+  getValhallanMainerCounts,
   getValhallanWeaponStats,
   type LegendStat,
   type TopMainer,
@@ -67,7 +65,7 @@ const REGION_OPTIONS = API_REGIONS
 
 const METHOD_OPTIONS: { id: AggregationMethod; label: string }[] = [
   { id: "popular", label: "Popularity" },
-  { id: "avg", label: "Player WR" },
+  { id: "avg", label: "Win rate" },
   { id: "pooled", label: "Pooled WR" },
 ]
 
@@ -118,11 +116,12 @@ export default async function MetaPicksPage({
   // The mainers ride the same cached Valhallan scan the stats do (constraint
   // #6's sanctioned exception), so the expandable detail costs no query of its
   // own — it is projected out of a pass the page was already making.
-  const [legendStats, weaponStats, mainers, profiles, valhallan] =
+  const [legendStats, weaponStats, mainers, mainerCounts, profiles, valhallan] =
     await Promise.all([
       getValhallanLegendStats({ region: regionFilter, method, minGames }),
       getValhallanWeaponStats({ region: regionFilter }),
       getTopValhallanMainers({ region: regionFilter, perLegend: 5 }),
+      getValhallanMainerCounts({ region: regionFilter }),
       getProfilesMap().catch(() => new Map<number, PlayerPreview>()),
       // Valhallan is ladder membership, not a rating band (see CLAUDE.md), so
       // the helm is derived rather than assumed from the pool’s own threshold —
@@ -141,6 +140,7 @@ export default async function MetaPicksPage({
     const slug = slugForLegendId(l.legend_id)
     const name = rosterEntryByLegendId(l.legend_id)?.name ?? `#${l.legend_id}`
     const tops = mainers.get(l.legend_id) ?? []
+    const mains = mainerCounts.get(l.legend_id) ?? 0
     return {
       key: String(l.legend_id),
       art: slug ? (
@@ -151,6 +151,15 @@ export default async function MetaPicksPage({
       pick: `${l.pick_rate.toFixed(2)}%`,
       win: `${l.win_rate.toFixed(2)}%`,
       games: l.games.toLocaleString(),
+      // "70 Caspian mains" — the count is the pool-wide fact the five rows
+      // below are a sample of, and without it the panel never says how deep
+      // the legend's following runs. Dropped when it is zero, where the empty
+      // state says it better than a leading 0 would.
+      detailLabel:
+        mains > 0 ? `${mains.toLocaleString()} ${name} mains` : `${name} mains`,
+      // A legend can clear the games threshold on off-picks alone and still be
+      // nobody's main. The chevron opens anyway: "nobody at this elo mains
+      // Caspian" is an answer, and a row that refuses to open reads as broken.
       detail:
         tops.length > 0 ? (
           <ul className="flex flex-col gap-0.5">
@@ -164,7 +173,11 @@ export default async function MetaPicksPage({
               />
             ))}
           </ul>
-        ) : null,
+        ) : (
+          <p className="px-3 py-1.5 text-xs text-muted-foreground">
+            No mains in high elo
+          </p>
+        ),
     }
   })
 
@@ -206,11 +219,11 @@ export default async function MetaPicksPage({
             ))}
           </Filter>
 
-          {/* Only the legend half has a method — a weapon's rate is pooled by
+          {/* Governs the legend table only — a weapon's rate is pooled by
               definition, since a weapon has no players of its own to average
               over. Kept in the shared row anyway rather than floated over one
               column, which would read as a filter on half a page. */}
-          <Filter label="Legend WR">
+          <Filter label="Sort by">
             {METHOD_OPTIONS.map((m) => (
               <Chip
                 key={m.id}
@@ -223,8 +236,8 @@ export default async function MetaPicksPage({
           </Filter>
 
           <div className="ml-auto flex flex-wrap items-center gap-1.5">
-            <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
-              {legendStats.sampleSize} players
+            <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/10 px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wider text-tier-valhallan uppercase">
+              Valhallan only
             </span>
             <PatchTag version={CURRENT_PATCH} />
           </div>
@@ -323,8 +336,18 @@ function MainerRow({
           </span>
         </span>
 
-        <Stat className={META_COL.stat} value={mainer.legendPickRate} suffix="%" tone="text-pink" />
-        <Stat className={META_COL.stat} value={mainer.legendWinRate} suffix="%" tone="text-positive" />
+        <Stat
+          className={META_COL.stat}
+          value={mainer.legendPickRate}
+          suffix="%"
+          tone="text-pink"
+        />
+        <Stat
+          className={META_COL.stat}
+          value={mainer.legendWinRate}
+          suffix="%"
+          tone="text-positive"
+        />
         <Stat
           className={META_COL.games}
           value={mainer.legendGames}
@@ -354,8 +377,18 @@ function WielderRow({
           {rosterEntryByLegendId(legendId)?.name ?? `#${legendId}`}
         </span>
       </span>
-      <Stat className={META_COL.stat} value={stat.pick_rate} suffix="%" tone="text-pink" />
-      <Stat className={META_COL.stat} value={stat.win_rate} suffix="%" tone="text-positive" />
+      <Stat
+        className={META_COL.stat}
+        value={stat.pick_rate}
+        suffix="%"
+        tone="text-pink"
+      />
+      <Stat
+        className={META_COL.stat}
+        value={stat.win_rate}
+        suffix="%"
+        tone="text-positive"
+      />
       <Stat
         className={META_COL.games}
         value={stat.games}
@@ -392,7 +425,7 @@ function Stat({
       className={cn(
         "shrink-0 px-3 text-right font-mono text-[11px] tabular-nums",
         className,
-        value == null ? "text-muted-foreground/50" : tone,
+        value == null ? "text-muted-foreground/50" : tone
       )}
     >
       {value == null
@@ -421,7 +454,7 @@ function Filter({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+      <span className="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
         {label}
       </span>
       <div className="flex flex-wrap items-center gap-1 rounded-md border border-border/60 bg-muted/40 p-1">
@@ -445,10 +478,10 @@ function Chip({
       href={href}
       aria-current={active ? "true" : undefined}
       className={cn(
-        "rounded-md px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors",
+        "rounded-md px-3 py-1.5 font-mono text-xs tracking-wider uppercase transition-colors",
         active
           ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
-          : "text-muted-foreground hover:text-foreground",
+          : "text-muted-foreground hover:text-foreground"
       )}
     >
       {children}

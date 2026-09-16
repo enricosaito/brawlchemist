@@ -34,6 +34,14 @@ export interface MetaRow {
   games: string
   /** What the chevron opens. Null leaves the row un-expandable. */
   detail: React.ReactNode | null
+  /**
+   * Overrides the table's heading for this row's panel — "70 Caspian mains"
+   * rather than "Top mains". Per row because the count and the subject are
+   * facts about the row, not the table. The table-level label stays as it is
+   * for the aria-label, which already names the row and would otherwise read
+   * "show 70 caspian mains for Caspian".
+   */
+  detailLabel?: string
 }
 
 export function MetaTable({
@@ -76,11 +84,11 @@ export function MetaTable({
                   className={cn(
                     "border-t border-border/40 transition-colors",
                     row.detail && "cursor-pointer hover:bg-muted/40",
-                    expanded && "bg-muted/30",
+                    expanded && "bg-muted/30"
                   )}
                 >
                   <td className="px-3 py-2 text-right align-middle">
-                    <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                    <span className="font-mono text-xs text-muted-foreground tabular-nums">
                       {i + 1}
                     </span>
                   </td>
@@ -88,20 +96,20 @@ export function MetaTable({
                     <div className="flex min-w-0 items-center gap-2.5">
                       {row.art}
                       <div className="flex min-w-0 flex-col gap-0.5">
-                        <span className="truncate text-sm font-medium leading-tight">
+                        <span className="truncate text-sm leading-tight font-medium">
                           {row.name}
                         </span>
                         {row.band}
                       </div>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-right align-middle font-mono text-sm font-medium tabular-nums text-pink">
+                  <td className="px-3 py-2 text-right align-middle font-mono text-sm font-medium text-pink tabular-nums">
                     {row.pick}
                   </td>
-                  <td className="px-3 py-2 text-right align-middle font-mono text-sm font-medium tabular-nums text-positive">
+                  <td className="px-3 py-2 text-right align-middle font-mono text-sm font-medium text-positive tabular-nums">
                     {row.win}
                   </td>
-                  <td className="px-3 py-2 text-right align-middle font-mono text-sm tabular-nums text-muted-foreground">
+                  <td className="px-3 py-2 text-right align-middle font-mono text-sm text-muted-foreground tabular-nums">
                     {row.games}
                   </td>
                   <td className="px-2 py-2 align-middle">
@@ -123,7 +131,7 @@ export function MetaTable({
                         <ChevronDown
                           className={cn(
                             "size-4 transition-transform duration-200 motion-reduce:transition-none",
-                            expanded && "rotate-180",
+                            expanded && "rotate-180"
                           )}
                         />
                       </button>
@@ -136,7 +144,7 @@ export function MetaTable({
                       <div
                         className={cn(
                           "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
-                          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                         )}
                       >
                         {/* The clipper. Its child is measured at its natural
@@ -147,12 +155,12 @@ export function MetaTable({
                         <div className="overflow-hidden">
                           <div
                             className={cn(
-                              "border-t border-border/40 bg-muted/20 pb-2 pt-2 transition-opacity duration-200 motion-reduce:transition-none",
-                              expanded ? "opacity-100" : "opacity-0",
+                              "border-t border-border/40 bg-muted/20 pt-2 pb-2 transition-opacity duration-200 motion-reduce:transition-none",
+                              expanded ? "opacity-100" : "opacity-0"
                             )}
                           >
-                            <div className="mb-1 px-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                              {detailLabel}
+                            <div className="mb-1 px-3 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+                              {row.detailLabel ?? detailLabel}
                             </div>
                             {row.detail}
                           </div>
@@ -180,8 +188,8 @@ function Th({
   return (
     <th
       className={cn(
-        "border-b border-border/60 px-3 py-2.5 text-left font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground",
-        className,
+        "border-b border-border/60 px-3 py-2.5 text-left font-mono text-[10px] font-medium tracking-wider text-muted-foreground uppercase",
+        className
       )}
     >
       {children}
