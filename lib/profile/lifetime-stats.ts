@@ -33,9 +33,16 @@ export interface LifetimeLegendRow {
 export interface LifetimeWeaponRow {
   weaponId: WeaponId
   label: string
-  /** Exact: summed seconds held across every legend that wields it. */
+  /**
+   * Exact: summed seconds held across every legend that wields it, and its
+   * share of the total.
+   *
+   * Nothing renders these today — the table shows matches and win rate, which
+   * are both the attribution below. They stay because they are the only weapon
+   * numbers that are certainly true, and the seconds are already summed to
+   * perform the split, so keeping them costs one division.
+   */
   timeHeldHours: number
-  /** Share of total weapon time, 0-100. Exact. */
   sharePct: number
   /** Attributed, not reported — see the note on `weaponRows`. */
   games: number

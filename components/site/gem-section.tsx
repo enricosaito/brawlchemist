@@ -32,13 +32,11 @@ export function GemSection({
   const gems = resolveGems(context)
   const lifetime = stats ? computeLifetimeStats(stats) : null
 
-  // Most played, by the metric each one is actually measured in. Legends report
-  // games directly; a weapon's games are an attribution (see lifetime-stats),
-  // so "most played" for a weapon means the time it was held, which is exact.
+  // Both ranked by matches, which is also what both cards print. Ranking on one
+  // metric and showing another is how a "most played" card ends up disagreeing
+  // with the table underneath it. Both arrays already arrive games-sorted.
   const topLegend = lifetime?.legends[0] ?? null
-  const topWeapon = lifetime
-    ? [...lifetime.weapons].sort((a, b) => b.timeHeldHours - a.timeHeldHours)[0]
-    : null
+  const topWeapon = lifetime?.weapons[0] ?? null
 
   return (
     <>
@@ -54,38 +52,15 @@ export function GemSection({
               value={value == null ? "—" : value.toLocaleString()}
               // Account Level and Total XP were two tiles saying one thing:
               // the level is the XP, rounded off. XP rides its own gem's card.
-              sub={
-                def.id === "account-level" && lifetime
-                  ? `${formatCompact(lifetime.xp)} XP`
-                  : value == null
-                    ? "No data yet"
-                    : next
-                      ? `${(next.min - value).toLocaleString()} to ${next.label}`
-                      : "Maxed"
-              }
+              sub={gemSub(def.id, value, next, lifetime)}
             />
           ))}
 
-          <Card
-            lit={!!lifetime && lifetime.games > 0}
-            title="Win rate"
-            value={
-              lifetime?.winRate == null ? "—" : `${lifetime.winRate.toFixed(1)}%`
-            }
-            tone={
-              lifetime?.winRate != null && lifetime.winRate >= 50
-                ? "text-positive"
-                : undefined
-            }
-            // Matches and playtime fold in here rather than taking cards of
-            // their own: on their own they are trivia, and beside a win rate
-            // they are the sample size that makes it mean something.
-            sub={
-              lifetime
-                ? `${lifetime.games.toLocaleString()} matches · ${lifetime.playtimeHours.toLocaleString()}h`
-                : "No data yet"
-            }
-          />
+          {/* Reserved. The win rate moved onto Total Wins, where it belongs —
+              a win count and the rate it came at are one fact — and the slot
+              stays so the grid keeps its two rows of three rather than
+              reflowing the moment something fills it. */}
+          <div className="min-h-[104px] rounded-2xl border border-dashed border-border/60 bg-card/25" />
 
           <Card
             lit={!!topLegend}
@@ -99,7 +74,7 @@ export function GemSection({
             valueSize="text-base"
             sub={
               topLegend
-                ? `${topLegend.games.toLocaleString()} matches · ${topLegend.playtimeHours.toLocaleString()}h`
+                ? `${topLegend.games.toLocaleString()} matches · Level ${topLegend.level}`
                 : "No data yet"
             }
           />
@@ -116,7 +91,7 @@ export function GemSection({
             valueSize="text-base"
             sub={
               topWeapon
-                ? `${topWeapon.timeHeldHours.toLocaleString()}h held · ${topWeapon.sharePct.toFixed(0)}% of playtime`
+                ? `${topWeapon.games.toLocaleString()} matches`
                 : "No data yet"
             }
           />
@@ -126,6 +101,33 @@ export function GemSection({
       <LifetimeStatsSection stats={stats} />
     </>
   )
+}
+
+/**
+ * A gem's second line.
+ *
+ * Two of the three carry numbers that used to have tiles of their own — the
+ * level *is* the XP rounded off, and a win count without the rate it came at is
+ * half a fact. The third falls back to the distance to the next level, which is
+ * the only thing a graded badge can say that a binary one can't.
+ */
+function gemSub(
+  id: string,
+  value: number | null,
+  next: { min: number; label: string } | null,
+  lifetime: ReturnType<typeof computeLifetimeStats> | null,
+): string {
+  if (lifetime) {
+    if (id === "account-level") {
+      return `${formatCompact(lifetime.xp)} XP · ${lifetime.playtimeHours.toLocaleString()}h`
+    }
+    if (id === "total-wins" && lifetime.games > 0) {
+      return `${lifetime.games.toLocaleString()} matches · ${lifetime.winRate?.toFixed(1) ?? "—"}%`
+    }
+  }
+  if (value == null) return "No data yet"
+  if (next) return `${(next.min - value).toLocaleString()} to ${next.label}`
+  return "Maxed"
 }
 
 /** One shape for all six, so a gem and a reading sit level with each other. */

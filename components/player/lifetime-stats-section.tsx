@@ -62,21 +62,11 @@ export function LifetimeStatsSection({ stats }: { stats: PlayerStats | null }) {
             it changes how they should be read and a footnote is where a caveat
             goes to be ignored. */}
         <Table
-          head={["Weapon", "Matches*", "Win rate*", "Time held"]}
+          head={["Weapon", "Matches", "Win rate"]}
           rows={lifetime.weapons.map((w) => (
             <WeaponRow key={w.weaponId} row={w} />
           ))}
         />
-        {/* Under the table rather than above it: it explains the asterisks, and
-            above it delayed the numbers the asterisks are attached to — which
-            also pushed this column out of line with the one beside it. */}
-        <p className="mt-3 text-[11px] text-muted-foreground">
-          * Brawlhalla reports wins per <em>legend</em>, never per weapon, and
-          every legend carries two. A legend&apos;s record is split between their
-          weapons in proportion to the time each was held, so{" "}
-          <span className="text-foreground">time held is exact</span> and the
-          rest is an estimate.
-        </p>
       </Section>
       </div>
     </Wrap>
@@ -193,7 +183,6 @@ function WeaponRow({ row }: { row: LifetimeWeaponRow }) {
       <td className={CELL}>
         <WinRate value={row.winRate} />
       </td>
-      <td className={CELL}>{row.timeHeldHours.toLocaleString()}h</td>
     </tr>
   )
 }
