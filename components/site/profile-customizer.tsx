@@ -12,6 +12,8 @@ import {
 } from "@/app/account/actions"
 import { BANNER_PRESETS, DEFAULT_BANNER_ID } from "@/lib/profile/banners"
 import { autoFlairId, FLAIR_NONE, type FlairId } from "@/lib/profile/flair"
+import { ACHIEVEMENTS } from "@/lib/profile/achievements"
+import { toastAchievement } from "./unlock-toast"
 import { useFlairCatalogue } from "./flair-catalogue"
 import {
   SOCIAL_KINDS,
@@ -183,6 +185,23 @@ export function ProfileCustomizer({
   const dirty = bannerDirty || flairDirty || fieldsDirty
 
   /**
+   * Had they customized anything *before* this session opened the panel?
+   *
+   * Same five things the achievement's rule tests, read off the initial props
+   * rather than asked of the server. The client is the only place that still
+   * knows the "before" state once the save lands — and asking the server would
+   * mean a round trip to learn something already in hand. A null banner and a
+   * null flair are untouched, so opening the panel and changing nothing leaves
+   * this false, which is what makes the unlock fire exactly once.
+   */
+  const wasCustomized =
+    !!initialBio ||
+    initialSocialLinks.length > 0 ||
+    initialFavoriteLegendIds.length > 0 ||
+    initialBannerId !== null ||
+    initialFlairId !== null
+
+  /**
    * Persist everything that actually changed, in one go.
    *
    * Three actions rather than one because they are three different writes with
@@ -213,6 +232,12 @@ export function ProfileCustomizer({
         if (!res.ok) return setError(errorText(res.error))
       }
       setSaved(true)
+      // First time this profile has been customized at all — the moment the
+      // achievement is earned, announced from the click that earned it.
+      if (!wasCustomized) {
+        const def = ACHIEVEMENTS.find((a) => a.id === "customize-profile")
+        if (def) toastAchievement(def, brawlhallaId)
+      }
       // The preview and the saved value now agree, so stop overriding.
       preview?.reset()
       router.refresh()

@@ -4,6 +4,8 @@ import { useState, useTransition } from "react"
 import Link from "next/link"
 import { BadgeCheck, Loader2 } from "lucide-react"
 import { startClaimAction, verifyClaimAction } from "@/app/claim/actions"
+import { BUILTIN_FLAIRS } from "@/lib/profile/flair"
+import { toastFlair } from "./unlock-toast"
 
 const START_ERRORS: Record<string, string> = {
   "bad-id": "Enter a valid Brawlhalla ID (a positive number).",
@@ -67,6 +69,15 @@ export function ClaimWizard({ initialId }: { initialId?: string }) {
       const res = await verifyClaimAction(claimId, answer)
       if (res.ok) {
         setStep({ kind: "done", username })
+        // Linking is what earns the everyone-badge, and this is the instant it
+        // happens. The catalogue is curated in /admin, but the fallback pair is
+        // the right source here: the toast fires from the browser, and shipping
+        // the whole table to every page to name one badge would cost more than
+        // it is worth. Art or label edited in the panel shows everywhere the
+        // badge actually renders; only this one announcement lags.
+        const flair = BUILTIN_FLAIRS.find((f) => f.id === "brawlchemist-user")
+        const id = Number(bhId)
+        if (flair && Number.isInteger(id) && id > 0) toastFlair(flair, id)
       } else if (res.reason === "wrong") {
         setAnswer("")
         setError(

@@ -1,5 +1,3 @@
-import "server-only"
-
 /**
  * Achievements — the shelf of feats on a player's profile.
  *
@@ -17,9 +15,16 @@ import "server-only"
  * profile" have nothing in common to pick between. Adding one is a predicate,
  * which means a deploy either way, so the entry and its rule live together.
  *
- * `server-only` because every entry carries a function: predicates can't cross
- * the RSC boundary, so the shelf evaluates them server-side and ships the
- * answer. The one client boundary is the tooltip, which was already there.
+ * Predicates can't cross the RSC boundary, so `AchievementShelf` evaluates them
+ * server-side and ships the answer — the one client boundary there is the
+ * tooltip, which was already one.
+ *
+ * The module itself is importable from the client, deliberately. The unlock
+ * toast has to name and picture the badge it is announcing, and importing the
+ * catalogue is how it says the same thing the shelf says. Duplicating the three
+ * presentational fields into the toast would mean renaming a badge in two
+ * places, and the second one always gets missed. Nothing here touches the
+ * database or the filesystem, so the bundle cost is the entries themselves.
  *
  * ## Adding one
  *

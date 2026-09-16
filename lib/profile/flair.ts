@@ -29,16 +29,25 @@ export type FlairId = string
  * player earned it" is a question only code can ask of the player record.
  *
  * - `developer` — the account behind the profile has the Developer role.
+ * - `claimed` — the profile is linked to a Brawlchemist account. The one rule
+ *   everybody can satisfy, which is exactly why it exists: a catalogue where
+ *   every badge is unreachable teaches nobody that badges exist at all.
  * - `achievement` — `ruleValue` appears (case-insensitively) in their accolades.
  * - `manual` — awarded per player from /admin, recorded in `flair_grants`. The
  *   only rule available to a badge invented after the fact, and therefore the
  *   thing that makes "create a flair" mean anything.
  */
-export const FLAIR_RULES = ["developer", "achievement", "manual"] as const
+export const FLAIR_RULES = [
+  "developer",
+  "claimed",
+  "achievement",
+  "manual",
+] as const
 export type FlairRule = (typeof FLAIR_RULES)[number]
 
 export const FLAIR_RULE_LABELS: Record<FlairRule, string> = {
   developer: "Developer role",
+  claimed: "Linked account",
   achievement: "Accolade matches",
   manual: "Granted by hand",
 }
@@ -120,8 +129,10 @@ export const BUILTIN_FLAIRS: FlairDef[] = [
     id: "developer",
     label: "Brawlchemist Developer",
     requirement: "Build Brawlchemist",
-    src: "/assets/Brawlchemist.png",
-    width: 192,
+    src: "/assets/flairs/flair-developer.png",
+    // Resampled from 1024px: flair draws at 16px and ships unoptimised on every
+    // leaderboard row, so the source size lands fifty times on one screen.
+    width: 193,
     height: 192,
     rule: "developer",
     sort: 10,
@@ -136,6 +147,20 @@ export const BUILTIN_FLAIRS: FlairDef[] = [
     rule: "achievement",
     ruleValue: "world champion",
     sort: 20,
+  },
+  {
+    // Last, so it never outranks a badge someone had to do something for. It is
+    // the floor of the catalogue rather than a prize: a linked account flies it
+    // until they earn something rarer, at which point autoFlairId moves on
+    // without anyone having to visit a settings panel.
+    id: "brawlchemist-user",
+    label: "Brawlchemist User",
+    requirement: "Link your account and claim your Brawlhalla profile",
+    src: "/assets/Brawlchemist.png",
+    width: 192,
+    height: 192,
+    rule: "claimed",
+    sort: 100,
   },
 ]
 
@@ -168,6 +193,14 @@ export interface FlairContext {
   developer?: boolean
   /** Flair ids awarded by hand from /admin (see `flair_grants`). */
   grants?: string[]
+  /**
+   * This profile is linked to a Brawlchemist account.
+   *
+   * Derived from `profiles.userId` like everything else here, so the badge
+   * appears the moment a claim lands — verifyClaim already busts the profiles
+   * tag this preview is read from — and leaves again if the link is removed.
+   */
+  claimed?: boolean
 }
 
 /**
@@ -180,7 +213,12 @@ export interface FlairContext {
  */
 export function flairContextFrom(
   preview:
-    | { achievements?: string[]; developer?: boolean; flairGrants?: string[] }
+    | {
+        achievements?: string[]
+        developer?: boolean
+        flairGrants?: string[]
+        claimed?: boolean
+      }
     | null
     | undefined,
 ): FlairContext {
@@ -188,6 +226,7 @@ export function flairContextFrom(
     achievements: preview?.achievements,
     developer: preview?.developer,
     grants: preview?.flairGrants,
+    claimed: preview?.claimed,
   }
 }
 
@@ -196,6 +235,8 @@ function holds(flair: FlairDef, ctx: FlairContext): boolean {
   switch (flair.rule) {
     case "developer":
       return !!ctx.developer
+    case "claimed":
+      return !!ctx.claimed
     case "achievement": {
       const needle = (flair.ruleValue ?? "").trim().toLowerCase()
       // An empty needle would match every accolade, handing the badge to every

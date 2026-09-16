@@ -9,6 +9,8 @@ import {
 } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { toggleFavoriteAction } from "@/app/favorites/actions"
+import { ACHIEVEMENTS } from "@/lib/profile/achievements"
+import { toastAchievement } from "./unlock-toast"
 
 /**
  * Client-side favorites state, seeded once from the server at the app shell and
@@ -103,9 +105,16 @@ export function FavoritesProvider({
         return n
       })
       if (pathname?.startsWith("/favorites")) router.refresh()
+      // Their first favourite ever. The server decides this, not the client:
+      // the optimistic set above is this tab's view of the list, and a second
+      // tab could have beaten it to the unlock.
+      if (res.firstEver) {
+        const def = ACHIEVEMENTS.find((a) => a.id === "add-to-favorites")
+        if (def) toastAchievement(def, selfId)
+      }
       return res
     },
-    [ids, loggedIn, pathname, router],
+    [ids, loggedIn, pathname, router, selfId],
   )
 
   const value = useMemo(

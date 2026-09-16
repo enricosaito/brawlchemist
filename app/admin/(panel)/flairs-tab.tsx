@@ -34,10 +34,11 @@ const buttonCls =
 
 /**
  * Manual is the one that needs a human afterwards, so it is the one that reads
- * differently. The other two run themselves.
+ * differently. The rest run themselves.
  */
 const RULE_CLASS: Record<FlairRule, string> = {
   developer: "border-pink/50 bg-pink/15 text-pink",
+  claimed: "border-royal/40 bg-royal/10 text-royal",
   achievement: "border-tier-gold/40 bg-tier-gold/10 text-tier-gold",
   manual: "border-mystic/40 bg-mystic/10 text-mystic",
 }
