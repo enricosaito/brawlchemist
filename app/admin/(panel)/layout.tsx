@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { requireAdmin } from "@/lib/admin-auth"
-import { logoutAction } from "../actions"
 
 export const metadata = { title: "Brawlchemist | Admin" }
 
@@ -27,14 +26,15 @@ export default async function AdminPanelLayout({
             >
               ← Site
             </Link>
-            <form action={logoutAction}>
-              <button
-                type="submit"
-                className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Sign out
-              </button>
-            </form>
+            {/* Admin is no longer its own session to end — access is a
+                property of the signed-in account, so leaving means signing out
+                of the site, which the account page owns. */}
+            <Link
+              href="/account"
+              className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Account
+            </Link>
           </div>
         </div>
       </header>

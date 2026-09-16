@@ -2,6 +2,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { PeopleTab } from "./people-tab"
 import { SystemTab } from "./system-tab"
+import { UsersTab } from "./users-tab"
 
 /**
  * Admin panel.
@@ -19,6 +20,7 @@ import { SystemTab } from "./system-tab"
 
 const TABS = [
   { id: "people", label: "People" },
+  { id: "users", label: "Users" },
   { id: "system", label: "System" },
 ] as const
 
@@ -43,6 +45,7 @@ export default async function AdminPage({
     remaining?: string
     failed?: string
     cleared?: string
+    accountsaved?: string
   }>
 }) {
   const sp = await searchParams
@@ -87,7 +90,13 @@ export default async function AdminPage({
         </div>
       )}
 
-      {tab === "people" ? <PeopleTab editId={editId} /> : <SystemTab />}
+      {tab === "people" ? (
+        <PeopleTab editId={editId} />
+      ) : tab === "users" ? (
+        <UsersTab />
+      ) : (
+        <SystemTab />
+      )}
     </div>
   )
 }
@@ -103,6 +112,7 @@ function noticeFor(sp: {
   remaining?: string
   failed?: string
   cleared?: string
+  accountsaved?: string
 }): { tone: "ok" | "error"; text: string } | null {
   if (sp.error) {
     return {
@@ -112,7 +122,22 @@ function noticeFor(sp: {
           ? "Skin upload failed — is Vercel Blob set up (BLOB_READ_WRITE_TOKEN)?"
           : sp.error === "skin-too-large"
             ? "That skin is over 3 MB. An animated GIF is served whole on every profile view — trim the frames or the dimensions and try again."
-            : "Couldn’t save — check the Brawlhalla ID.",
+            : sp.error === "account-self"
+              ? "You can’t change your own role. Ask another Developer, or use ADMIN_BOOTSTRAP_EMAILS."
+              : sp.error === "account-not-found"
+                ? "No such account — it may have been removed since this page loaded."
+                : sp.error === "account-invalid"
+                  ? "That isn’t a role or plan we recognise."
+                  : "Couldn’t save — check the Brawlhalla ID.",
+    }
+  }
+  if (sp.accountsaved) {
+    return {
+      tone: "ok",
+      text:
+        sp.accountsaved === "plan"
+          ? "Plan updated. Plans carry no permissions."
+          : "Role updated.",
     }
   }
   if (sp.deleted) return { tone: "ok", text: "Profile removed." }

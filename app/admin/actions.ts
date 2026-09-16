@@ -3,17 +3,14 @@
 import { redirect } from "next/navigation"
 import { revalidateTag } from "next/cache"
 import { put } from "@vercel/blob"
-import {
-  createAdminSession,
-  destroyAdminSession,
-  requireAdmin,
-} from "@/lib/admin-auth"
+import { adminActorId, requireAdmin } from "@/lib/admin-auth"
 import {
   deleteProfile,
   upsertProfile,
   PROFILES_TAG,
   type ProfileInput,
 } from "@/lib/sync/profiles"
+import { setAccountPlan, setAccountRole } from "@/lib/sync/admin-users"
 import { setCronPaused } from "@/lib/sync/cron-controls"
 import { unlinkProfile } from "@/lib/sync/claims"
 import { clearFlair, FLAIR_MAP_TAG } from "@/lib/sync/customizations"
@@ -32,17 +29,6 @@ import {
  * the heaviest thing on a profile. Stills sit around 100-400 KB.
  */
 const MAX_SKIN_BYTES = 3 * 1024 * 1024
-
-export async function loginAction(formData: FormData) {
-  const password = String(formData.get("password") ?? "")
-  const ok = await createAdminSession(password)
-  redirect(ok ? "/admin" : "/admin/login?error=1")
-}
-
-export async function logoutAction() {
-  await destroyAdminSession()
-  redirect("/admin/login")
-}
 
 export async function saveProfileAction(formData: FormData) {
   await requireAdmin()
@@ -203,6 +189,47 @@ export async function refreshCachesAction() {
   revalidateTag(FLAIR_MAP_TAG, "max")
   revalidateTag(VALHALLAN_STATS_TAG, "max")
   redirect("/admin?tab=system&refreshed=caches")
+}
+
+/**
+ * Set an account's role — the permission axis (admin).
+ *
+ * Validation and the self-change refusal both live in `setAccountRole`, not
+ * here, so the rules hold for any future caller and not just this form. There
+ * is deliberately no user-facing counterpart: nothing outside this action
+ * writes `account_role`, which is what makes self-elevation impossible rather
+ * than merely unrendered.
+ */
+export async function setAccountRoleAction(formData: FormData) {
+  await requireAdmin()
+  const userId = String(formData.get("userId") ?? "")
+  const role = String(formData.get("role") ?? "")
+  const result = await setAccountRole(userId, role, await adminActorId())
+  redirect(
+    result.ok
+      ? "/admin?tab=users&accountsaved=role"
+      : `/admin?tab=users&error=account-${result.reason}`,
+  )
+}
+
+/**
+ * Set an account's plan — the subscription axis (admin).
+ *
+ * Manual for now; when billing exists this is the seam a webhook writes
+ * through. No self-guard, because a plan carries no permissions and changing
+ * your own is not an escalation — which is precisely why it is a separate
+ * column from the role.
+ */
+export async function setAccountPlanAction(formData: FormData) {
+  await requireAdmin()
+  const userId = String(formData.get("userId") ?? "")
+  const plan = String(formData.get("plan") ?? "")
+  const result = await setAccountPlan(userId, plan)
+  redirect(
+    result.ok
+      ? "/admin?tab=users&accountsaved=plan"
+      : `/admin?tab=users&error=account-${result.reason}`,
+  )
 }
 
 /** Release a profile's ownership (admin). Curation is left intact. */

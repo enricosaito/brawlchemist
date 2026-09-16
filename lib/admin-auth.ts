@@ -1,84 +1,88 @@
 import "server-only"
 
-import { createHmac, timingSafeEqual } from "node:crypto"
-import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
 /**
- * Lightweight single-admin auth: a password (ADMIN_PASSWORD) exchanged for an
- * HMAC-signed, httpOnly session cookie (signed with ADMIN_SESSION_SECRET).
- * There's no user table — it's one operator (the site owner). Guards run
- * server-side on the admin panel layout AND every mutation, so the routes are
- * protected even though the page is reachable.
+ * Admin access, decided by account role.
+ *
+ * This replaced a shared password exchanged for an HMAC cookie. A single secret
+ * could not say *who* did something, could not be revoked for one person, and
+ * had to be handed around to add an operator. Roles fix all three: access is a
+ * property of an account, granted and removed from the panel itself, and every
+ * admin mutation now knows the identity behind it (which is what lets
+ * setAccountRole refuse a self-change).
+ *
+ * Two doors, both by account:
+ *
+ *  1. `account_role = 'developer'` in the database. The normal path.
+ *  2. An email on ADMIN_BOOTSTRAP_EMAILS. The escape hatch.
+ *
+ * The second exists because the first is circular — Developer can only be
+ * granted from inside the panel, so a fresh deployment has no way to appoint
+ * the first one. It also unlocks the door if the last Developer is demoted by
+ * mistake. It is deliberately env-only: nothing in the app can write it, so it
+ * cannot be escalated into, and rotating it is a deploy rather than a database
+ * write.
+ *
+ * Fails CLOSED. A database error, a missing row, an unconfigured Supabase all
+ * resolve to "not an admin". The cost of that choice is real and worth stating:
+ * unlike the old password, admin access now depends on Supabase auth being up.
+ * The bootstrap list narrows the blast radius (it needs no database) but still
+ * needs a session.
  */
-const COOKIE = "bc_admin"
-const MAX_AGE_S = 60 * 60 * 24 * 30 // 30 days
 
-function secret(): string {
-  const s = process.env.ADMIN_SESSION_SECRET
-  if (!s) throw new Error("ADMIN_SESSION_SECRET is not set.")
-  return s
+/** Emails always treated as Developer, whatever the database says. */
+function bootstrapEmails(): string[] {
+  return (process.env.ADMIN_BOOTSTRAP_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
 }
 
-function sign(payload: string): string {
-  return createHmac("sha256", secret()).update(payload).digest("base64url")
+/** The signed-in identity, or null. Fails open to null. */
+async function actor(): Promise<{ id: string; email: string | null } | null> {
+  try {
+    const { getSessionUser } = await import("@/lib/auth/session")
+    const user = await getSessionUser()
+    return user ? { id: user.id, email: user.email } : null
+  } catch {
+    return null
+  }
 }
 
-/** Constant-time compare of two equal-purpose strings (signatures/digests). */
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a)
-  const bb = Buffer.from(b)
-  if (ab.length !== bb.length) return false
-  return timingSafeEqual(ab, bb)
-}
-
-function makeToken(): string {
-  const payload = String(Date.now())
-  return `${payload}.${sign(payload)}`
-}
-
-function verifyToken(token: string | undefined): boolean {
-  if (!token) return false
-  const dot = token.lastIndexOf(".")
-  if (dot <= 0) return false
-  const payload = token.slice(0, dot)
-  const providedSig = token.slice(dot + 1)
-  if (!safeEqual(providedSig, sign(payload))) return false
-  const issued = Number(payload)
-  if (!Number.isFinite(issued)) return false
-  return Date.now() - issued < MAX_AGE_S * 1000
+/**
+ * The signed-in account id behind this request, when there is one.
+ *
+ * Exported for the admin mutations' self-change guard: "am I editing my own
+ * row" is only answerable because admin access now always has an identity.
+ */
+export async function adminActorId(): Promise<string | null> {
+  return (await actor())?.id ?? null
 }
 
 export async function isAdmin(): Promise<boolean> {
   try {
-    const token = (await cookies()).get(COOKIE)?.value
-    return verifyToken(token)
+    const who = await actor()
+    if (!who) return false
+    const email = who.email?.toLowerCase()
+    if (email && bootstrapEmails().includes(email)) return true
+    const { getAccountRole } = await import("@/lib/sync/admin-users")
+    const { roleGrantsAdmin } = await import("@/lib/auth/account")
+    return roleGrantsAdmin(await getAccountRole(who.id))
   } catch {
     return false
   }
 }
 
-/** Redirect to the login page unless a valid admin session is present. */
+/**
+ * Send anyone without admin access away.
+ *
+ * Signed-out visitors go to sign-in and come back; signed-in non-admins go to
+ * the site rather than to a login page that would not help them — they are
+ * already authenticated, they simply are not a Developer, and looping them
+ * through sign-in would imply otherwise.
+ */
 export async function requireAdmin(): Promise<void> {
-  if (!(await isAdmin())) redirect("/admin/login")
-}
-
-/** Validate the password and set the session cookie. True on success. */
-export async function createAdminSession(password: string): Promise<boolean> {
-  const expected = process.env.ADMIN_PASSWORD
-  if (!expected || !password) return false
-  // Compare HMACs (fixed length) so neither timing nor length leaks the secret.
-  if (!safeEqual(sign(password), sign(expected))) return false
-  ;(await cookies()).set(COOKIE, makeToken(), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: MAX_AGE_S,
-  })
-  return true
-}
-
-export async function destroyAdminSession(): Promise<void> {
-  ;(await cookies()).delete(COOKIE)
+  if (await isAdmin()) return
+  redirect((await actor()) ? "/?admin=denied" : "/login?next=/admin")
 }
