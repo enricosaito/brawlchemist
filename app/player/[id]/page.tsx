@@ -2143,6 +2143,18 @@ export default async function PlayerPage({
     accountLevel: accountStats?.level ?? null,
     valhallan: headerValhallan,
     accolades: preview?.achievements,
+    memberSince: preview?.memberSince,
+    hasFavorites: preview?.hasFavorites,
+    // Any of the five things the customizer can set. The banner and flair are
+    // null when untouched (default wash, automatic pick), so "not null" is the
+    // honest test for both — a player who opened the panel and changed nothing
+    // has not customized anything.
+    hasCustomization:
+      !!customization.bio ||
+      customization.socialLinks.length > 0 ||
+      customization.favoriteLegendIds.length > 0 ||
+      customization.bannerId !== null ||
+      customization.flairId !== null,
   }
   // This player as a team member. Same shape as the teammate opposite them, so
   // a card can't render one side richer than the other.

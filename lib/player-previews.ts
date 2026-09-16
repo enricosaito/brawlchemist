@@ -36,4 +36,26 @@ export interface PlayerPreview {
    * a grant, which is almost everyone, so the cached object stays small.
    */
   flairGrants?: string[]
+  /**
+   * When the account behind this profile signed up, ISO date — "Brawlchemist
+   * member since".
+   *
+   * The owner's `app_users.created_at`, not the claim date: the question is how
+   * long they have been a user, and someone can sign up long before they get
+   * round to claiming a player. Undefined for unclaimed profiles, which have no
+   * account to have an age.
+   *
+   * A string rather than a Date because this object is cached, and the cache
+   * round-trips through JSON — a Date goes in and a string comes out, so it may
+   * as well be honest about it.
+   */
+  memberSince?: string
+  /**
+   * The account behind this profile has favourited at least one player.
+   *
+   * A boolean, not the list: who someone follows is theirs, and the badge only
+   * needs to know that they use the feature. Computed in SQL so the prefs blob
+   * never crosses the wire (cardinal constraint #2).
+   */
+  hasFavorites?: boolean
 }

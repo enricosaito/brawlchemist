@@ -1,7 +1,7 @@
 import "server-only"
 
 import { revalidateTag, unstable_cache } from "next/cache"
-import { desc, eq } from "drizzle-orm"
+import { desc, eq, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
   appUsers,
@@ -110,10 +110,17 @@ function toRecord(row: ProfileRow): ProfileRecord {
   }
 }
 
+/** What the owning account contributes to a profile, when there is one. */
+interface OwnerFacts {
+  developer: boolean
+  memberSince: Date
+  hasFavorites: boolean
+}
+
 /** Read-side projection consumed across the public UI. */
 function toPreview(
   row: ProfileRow,
-  developer = false,
+  owner?: OwnerFacts,
   grants?: string[],
 ): PlayerPreview {
   const skin = parseSkin(row.favoriteSkin)
@@ -125,8 +132,12 @@ function toPreview(
     // undefined rather than false so unclaimed players add no key to the
     // cached object — this map holds every profile row.
     claimed: row.userId ? true : undefined,
-    developer: developer ? true : undefined,
+    developer: owner?.developer ? true : undefined,
     flairGrants: grants?.length ? grants : undefined,
+    // Undefined rather than null for the same reason `claimed` is: this map
+    // holds every profile row, and most of them have no account behind them.
+    memberSince: owner ? owner.memberSince.toISOString() : undefined,
+    hasFavorites: owner?.hasFavorites ? true : undefined,
   }
 }
 
@@ -135,12 +146,21 @@ function toPreview(
 const getProfilesObject = unstable_cache(
   async (): Promise<Record<string, PlayerPreview>> => {
     let rows: ProfileRow[]
-    // Which owning accounts are Developers, for the Brawlchemist flair. A
-    // second narrow read rather than a join: `profiles` is selected whole here
-    // (every column feeds the preview) and app_users is tiny, so two small
-    // queries beat widening every row of the bigger one. Fails open to "nobody
-    // is a developer" — a missing badge, never a missing profile.
-    let devIds = new Set<string>()
+    // What each owning account contributes: the Developer flair, the date they
+    // joined, and whether they have favourited anyone. A second narrow read
+    // rather than a join: `profiles` is selected whole here (every column feeds
+    // the preview) and app_users is tiny — 72 rows against 156 profiles — so two
+    // small queries beat widening every row of the bigger one.
+    //
+    // `hasFavorites` is computed in SQL on purpose. The list lives inside the
+    // `prefs` jsonb, and selecting that column to test one key would ship every
+    // viewer's whole preference blob through a cache that holds every profile —
+    // the exact shape that has blown the egress budget three times (cardinal
+    // constraint #2). Same trick as jsonb_array_length in readValhallanMemberCount:
+    // ask Postgres the question instead of fetching the data to answer it.
+    //
+    // Fails open to "no account facts" — a missing badge, never a missing profile.
+    let owners = new Map<string, OwnerFacts>()
     // Hand-awarded flair, read the same way and for the same reason: it is two
     // narrow columns of a tiny table, and folding it in here means every
     // surface that already reads this map gets entitlement for free rather than
@@ -174,15 +194,31 @@ const getProfilesObject = unstable_cache(
         return new Map<number, string[]>()
       })
     try {
-      const [profileRows, devRows] = await Promise.all([
+      const [profileRows, userRows] = await Promise.all([
         db().select().from(profiles),
         db()
-          .select({ id: appUsers.id })
-          .from(appUsers)
-          .where(eq(appUsers.accountRole, "developer")),
+          .select({
+            id: appUsers.id,
+            accountRole: appUsers.accountRole,
+            createdAt: appUsers.createdAt,
+            hasFavorites: sql<boolean>`coalesce(
+              jsonb_typeof(${appUsers.prefs} -> 'favoriteTrackedIds') = 'array'
+              and jsonb_array_length(${appUsers.prefs} -> 'favoriteTrackedIds') > 0,
+              false)`,
+          })
+          .from(appUsers),
       ])
       rows = profileRows
-      devIds = new Set(devRows.map((r) => r.id))
+      owners = new Map(
+        userRows.map((u) => [
+          u.id,
+          {
+            developer: u.accountRole === "developer",
+            memberSince: u.createdAt,
+            hasFavorites: !!u.hasFavorites,
+          },
+        ]),
+      )
     } catch (err) {
       // Fail open — the UI renders fine without profiles.
       console.error("[profiles] read failed:", err)
@@ -193,7 +229,7 @@ const getProfilesObject = unstable_cache(
     for (const r of rows) {
       obj[String(r.brawlhallaId)] = toPreview(
         r,
-        !!r.userId && devIds.has(r.userId),
+        r.userId ? owners.get(r.userId) : undefined,
         grants.get(r.brawlhallaId),
       )
     }
