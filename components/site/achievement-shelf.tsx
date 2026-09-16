@@ -39,7 +39,7 @@ export function AchievementShelf({ context }: { context: AchievementContext }) {
         </div>
 
         <ul className="mt-3 flex flex-wrap items-start gap-3">
-          {shelf.map(({ def, unlocked }) => (
+          {shelf.map(({ def, unlocked, detail }) => (
             <li key={def.id}>
               <InfoTip
                 label={
@@ -48,6 +48,11 @@ export function AchievementShelf({ context }: { context: AchievementContext }) {
                     <span className="text-muted-foreground">
                       {def.description}
                     </span>
+                    {detail && (
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
+                        {detail}
+                      </span>
+                    )}
                   </span>
                 }
               >
@@ -57,7 +62,7 @@ export function AchievementShelf({ context }: { context: AchievementContext }) {
                 <button
                   type="button"
                   aria-label={`${def.name} — ${def.description}${
-                    unlocked ? "" : " (locked)"
+                    unlocked ? (detail ? `. ${detail}` : "") : " (locked)"
                   }`}
                   className={cn(
                     "flex size-16 shrink-0 cursor-help items-center justify-center rounded-xl border transition-colors",

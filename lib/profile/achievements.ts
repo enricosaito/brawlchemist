@@ -48,6 +48,17 @@ export interface AchievementDef {
   sort: number
   /** Earned? Reads only the context — see the note above about queries. */
   holds: (ctx: AchievementContext) => boolean
+  /**
+   * An extra line shown only once the badge is earned — when, or how far past
+   * the bar they are.
+   *
+   * Locked, a badge should say what to do and nothing else; a date or a count
+   * there would either be blank or, worse, leak the viewer's progress into a
+   * requirement. Earned, the interesting part stops being "what is this" and
+   * becomes "when did I do it", which is what every achievement system worth
+   * copying shows.
+   */
+  detail?: (ctx: AchievementContext) => string | null
 }
 
 /**
@@ -73,6 +84,30 @@ export interface AchievementContext {
   valhallan?: boolean
   /** Admin-curated esports accolades, the same strings the title tags use. */
   accolades?: string[]
+  /**
+   * When the account behind this profile joined Brawlchemist, ISO date.
+   *
+   * Sign-up, not claim: how long they have been a *user*. Undefined for an
+   * unclaimed profile, which has no account and therefore no age — so an
+   * age-based rule must return false for it rather than treat missing as zero.
+   *
+   * The Brawlhalla account's own age is deliberately absent: the developer API
+   * exposes no creation date on /player/{id}/stats or anywhere else (level, xp,
+   * games and clan are the whole of it), and the only thing shaped like one —
+   * clan_create_date — belongs to the clan. Inferring it from the ordinal of a
+   * brawlhalla_id would be a guess printed as a fact.
+   */
+  memberSince?: string
+  /** That account has favourited at least one player. */
+  hasFavorites?: boolean
+  /**
+   * The owner has changed something about how this profile looks — a banner, a
+   * flair, a bio, a link, a favourite legend.
+   *
+   * Free to ask: the profile page already reads the customization row to render
+   * the header, so this is a boolean over data in hand rather than a lookup.
+   */
+  hasCustomization?: boolean
 }
 
 /**
@@ -94,12 +129,56 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     height: 223,
     sort: 10,
     holds: (ctx) => !!ctx.claimed,
+    detail: (ctx) =>
+      ctx.memberSince ? `Member since ${monthYear(ctx.memberSince)}` : null,
+  },
+  {
+    id: "add-to-favorites",
+    name: "Talent Scout",
+    // Enrico's own wording. It is the requirement verbatim, which is exactly
+    // what a locked row needs.
+    description: "Added a player profile to the Favorites",
+    src: "/assets/badges/add-to-favorites.webp",
+    width: 256,
+    height: 288,
+    sort: 20,
+    holds: (ctx) => !!ctx.hasFavorites,
+  },
+  {
+    id: "customize-profile",
+    name: "Made It Yours",
+    description: "Customized your profile",
+    src: "/assets/badges/customize-profile.webp",
+    width: 256,
+    height: 196,
+    sort: 30,
+    holds: (ctx) => !!ctx.hasCustomization,
   },
 ]
+
+/**
+ * "Sep 2026" — a month, not a day.
+ *
+ * Fixed en-US like every other date on the site, so the server-rendered string
+ * can't disagree with a client locale. Month granularity because the exact day
+ * someone signed up is nobody's business but theirs, and a badge is not an
+ * audit log.
+ */
+function monthYear(iso: string): string | null {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  })
+}
 
 export interface AchievementState {
   def: AchievementDef
   unlocked: boolean
+  /** The earned-only extra line, already evaluated. Null when there is none. */
+  detail: string | null
 }
 
 /**
@@ -115,17 +194,23 @@ export function resolveAchievements(
 ): AchievementState[] {
   return [...ACHIEVEMENTS]
     .sort((a, b) => a.sort - b.sort)
-    .map((def) => ({
-      def,
+    .map((def) => {
       // Fails open to locked: a rule that throws is a silhouette, never a
       // broken profile (cardinal constraint #5).
-      unlocked: (() => {
+      let unlocked = false
+      try {
+        unlocked = def.holds(ctx)
+      } catch (err) {
+        console.error(`[achievements] rule "${def.id}" threw:`, err)
+      }
+      let detail: string | null = null
+      if (unlocked && def.detail) {
         try {
-          return def.holds(ctx)
+          detail = def.detail(ctx)
         } catch (err) {
-          console.error(`[achievements] rule "${def.id}" threw:`, err)
-          return false
+          console.error(`[achievements] detail "${def.id}" threw:`, err)
         }
-      })(),
-    }))
+      }
+      return { def, unlocked, detail }
+    })
 }
