@@ -54,6 +54,7 @@ export async function RankedStatsCard({
   ratingSlot,
   mostPlayedSlot,
   embedded = false,
+  cardClassName,
 }: {
   brawlhallaId: number
   /** The region's live Valhallan cutoff — drives the "to Valhallan" chip. */
@@ -65,6 +66,12 @@ export async function RankedStatsCard({
   mostPlayedSlot?: React.ReactNode
   /** Drop the outer section/width wrapper so a parent can place the card. */
   embedded?: boolean
+  /**
+   * Applied to the card itself, so the Overview can tell it to fill its grid
+   * cell — which is what makes its bottom edge land level with the side column
+   * beside it instead of ending sixty pixels short.
+   */
+  cardClassName?: string
 }) {
   let history: Awaited<ReturnType<typeof getRatingHistory>> = []
   try {
@@ -132,7 +139,12 @@ export async function RankedStatsCard({
             Ranked Season {CURRENT_SEASON}
           </h2>
         </div>
-        <div className="rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-sm sm:p-6">
+        <div
+          className={cn(
+            "rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-sm sm:p-6",
+            cardClassName,
+          )}
+        >
           {metrics}
           {body}
         </div>

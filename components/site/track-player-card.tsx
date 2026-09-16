@@ -1,7 +1,7 @@
 import { FavoriteToggleControl } from "./favorite-toggle-control"
 
 /**
- * Track-this-player card, in the profile's side column under Top 2v2 Teams.
+ * Track-this-player card, in the profile's side column under 2v2 Teams.
  *
  * The star used to ride the name line, wedged between the claim prompt and the
  * in-game name. That row is identity — who this player is — and tracking is
@@ -9,32 +9,32 @@ import { FavoriteToggleControl } from "./favorite-toggle-control"
  * player rather than an action available to you. Given a card of its own it can
  * say what it does, which a bare star next to a name never could.
  *
- * The control keeps every state it had (signed-out nudge, optimistic add,
- * two-step remove, and the disabled "your profile" case), so this is a frame,
- * not a second implementation.
+ * The card is now the button rather than a frame around one. A card whose only
+ * interactive part is a small chip in its corner spends a hundred and fifty
+ * pixels of width being un-clickable, and every hover teaches you that the card
+ * is decoration — so the click target is the whole thing, and the chip inside it
+ * becomes a label for what the click will do.
+ *
+ * Still not a second implementation: the add/arm/confirm machine and all four
+ * states (signed out, your own profile, tracking, removing) live in
+ * FavoriteToggleControl, and this is its card skin.
  */
 export function TrackPlayerCard({
   brawlhallaId,
   name,
+  className,
 }: {
   brawlhallaId: number
   name: string
+  /**
+   * Passed `lg:flex-1` by the Overview so the card absorbs whatever height is
+   * left in the side column and its bottom edge lands level with the rating
+   * chart beside it. Left off everywhere else, where there is nothing to align
+   * to and a stretched card would just be a tall one.
+   */
+  className?: string
 }) {
   return (
-    <section className="rounded-2xl border border-border/60 bg-card/50 p-4 backdrop-blur-sm">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            Track
-          </h2>
-          <p className="mt-0.5 truncate text-xs text-foreground/80">
-            Keep {name} in your favorites.
-          </p>
-        </div>
-        <div className="shrink-0">
-          <FavoriteToggleControl brawlhallaId={brawlhallaId} />
-        </div>
-      </div>
-    </section>
+    <FavoriteToggleControl brawlhallaId={brawlhallaId} card={{ name, className }} />
   )
 }

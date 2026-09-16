@@ -2346,9 +2346,20 @@ export default async function PlayerPage({
                   overviewTeams.length > 0 && "lg:grid-cols-3",
                 )}
               >
-                <div className={overviewTeams.length > 0 ? "lg:col-span-2" : ""}>
+                {/* A column, so the card below the heading can be told to
+                    take the slack. The grid stretches this cell to the taller
+                    of the two, and whichever side that is, both now end level
+                    with each other — which for the common case means the side
+                    column's last card lines up with the bottom of the chart. */}
+                <div
+                  className={cn(
+                    "flex flex-col",
+                    overviewTeams.length > 0 && "lg:col-span-2",
+                  )}
+                >
                   <RankedStatsCard
                     embedded
+                    cardClassName="lg:flex-1"
                     brawlhallaId={numId}
                     valhallanCutoff={cutoff1v1}
                     stats={{
@@ -2428,7 +2439,16 @@ export default async function PlayerPage({
                       </div>
                     </div>
                   )}
-                  <TrackPlayerCard brawlhallaId={numId} name={trackName} />
+                  {/* lg:flex-1 so the card eats the slack the teams leave and
+                      its bottom edge lands level with the rating chart beside
+                      it. The grid already stretches this column to the taller
+                      cell; without it the card sits at its natural height and
+                      the column ends short. */}
+                  <TrackPlayerCard
+                    brawlhallaId={numId}
+                    name={trackName}
+                    className="lg:flex-1"
+                  />
                 </div>
               </div>
             </section>
