@@ -3,7 +3,12 @@ import "server-only"
 import { revalidateTag, unstable_cache } from "next/cache"
 import { desc, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { appUsers, profiles, type ProfileRow } from "@/lib/db/schema"
+import {
+  appUsers,
+  flairGrants,
+  profiles,
+  type ProfileRow,
+} from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 
 /**
@@ -106,7 +111,11 @@ function toRecord(row: ProfileRow): ProfileRecord {
 }
 
 /** Read-side projection consumed across the public UI. */
-function toPreview(row: ProfileRow, developer = false): PlayerPreview {
+function toPreview(
+  row: ProfileRow,
+  developer = false,
+  grants?: string[],
+): PlayerPreview {
   const skin = parseSkin(row.favoriteSkin)
   const achievements = parseAchievements(row.achievements)
   return {
@@ -117,6 +126,7 @@ function toPreview(row: ProfileRow, developer = false): PlayerPreview {
     // cached object — this map holds every profile row.
     claimed: row.userId ? true : undefined,
     developer: developer ? true : undefined,
+    flairGrants: grants?.length ? grants : undefined,
   }
 }
 
@@ -131,6 +141,38 @@ const getProfilesObject = unstable_cache(
     // queries beat widening every row of the bigger one. Fails open to "nobody
     // is a developer" — a missing badge, never a missing profile.
     let devIds = new Set<string>()
+    // Hand-awarded flair, read the same way and for the same reason: it is two
+    // narrow columns of a tiny table, and folding it in here means every
+    // surface that already reads this map gets entitlement for free rather than
+    // making a second lookup per rendered row.
+    //
+    // Caught on its own rather than inside the try below, deliberately. Sharing
+    // that catch would put every profile on the site behind the newest table in
+    // the schema — one `drizzle-kit push` not yet run, and the whole map returns
+    // empty and every pro loses their handle. A grant that can't be read is a
+    // missing badge; it must not be a missing profile.
+    //
+    // Started here and awaited after, so it still rides alongside the other two
+    // on the wire rather than costing a round trip of its own.
+    const grantsPromise = db()
+      .select({
+        brawlhallaId: flairGrants.brawlhallaId,
+        flairId: flairGrants.flairId,
+      })
+      .from(flairGrants)
+      .then((rows) => {
+        const map = new Map<number, string[]>()
+        for (const g of rows) {
+          const list = map.get(g.brawlhallaId)
+          if (list) list.push(g.flairId)
+          else map.set(g.brawlhallaId, [g.flairId])
+        }
+        return map
+      })
+      .catch((err) => {
+        console.error("[profiles] flair grants read failed:", err)
+        return new Map<number, string[]>()
+      })
     try {
       const [profileRows, devRows] = await Promise.all([
         db().select().from(profiles),
@@ -146,11 +188,13 @@ const getProfilesObject = unstable_cache(
       console.error("[profiles] read failed:", err)
       return {}
     }
+    const grants = await grantsPromise
     const obj: Record<string, PlayerPreview> = {}
     for (const r of rows) {
       obj[String(r.brawlhallaId)] = toPreview(
         r,
         !!r.userId && devIds.has(r.userId),
+        grants.get(r.brawlhallaId),
       )
     }
     return obj

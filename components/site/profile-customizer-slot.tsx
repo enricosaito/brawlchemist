@@ -3,6 +3,7 @@ import { getClaimState } from "@/lib/sync/claims"
 import { getCustomization } from "@/lib/sync/customizations"
 import { getProfile } from "@/lib/sync/profiles"
 import { earnedFlairIds, type FlairContext } from "@/lib/profile/flair"
+import { getFlairCatalogue } from "@/lib/sync/flairs"
 import { ProfileCustomizer } from "./profile-customizer"
 
 /**
@@ -33,12 +34,17 @@ export async function ProfileCustomizerSlot({
   // block swallows render-time errors that belong to an error boundary.
   let custom: Awaited<ReturnType<typeof getCustomization>>
   let isPro = false
+  // Entitlement is resolved against the curated catalogue, not the built-in
+  // pair, or a hand-granted badge would render on the profile and stay locked
+  // in the owner s own picker.
+  let catalogue: Awaited<ReturnType<typeof getFlairCatalogue>>
   try {
     const user = await getSessionUser()
     if (!user) return null
     if ((await getClaimState(brawlhallaId, user.id)) !== "mine") return null
     custom = await getCustomization(brawlhallaId)
     isPro = !!(await getProfile(brawlhallaId))?.verified
+    catalogue = await getFlairCatalogue()
   } catch {
     return null
   }
@@ -48,7 +54,7 @@ export async function ProfileCustomizerSlot({
       brawlhallaId={brawlhallaId}
       initialBannerId={custom.bannerId}
       initialFlairId={custom.flairId}
-      earnedFlairIds={earnedFlairIds(flairContext)}
+      earnedFlairIds={earnedFlairIds(flairContext, catalogue)}
       initialBio={custom.bio}
       initialSocialLinks={custom.socialLinks}
       initialFavoriteLegendIds={custom.favoriteLegendIds}

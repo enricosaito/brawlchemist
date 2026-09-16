@@ -2,6 +2,7 @@ import Link from "next/link"
 import { getProfileRecord } from "@/lib/sync/profiles"
 import { listAdminPeople } from "@/lib/sync/admin-people"
 import { flairById } from "@/lib/profile/flair"
+import { getFlairCatalogue } from "@/lib/sync/flairs"
 import {
   clearFlairAction,
   deleteProfileAction,
@@ -36,6 +37,9 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
       ? await getProfileRecord(editId)
       : null
   const people = await listAdminPeople()
+  // Resolved against the curated catalogue, not the built-in pair, or this list
+  // would show a raw id for every badge minted since the last deploy.
+  const catalogue = await getFlairCatalogue()
   const pros = people.filter((p) => p.isPro).length
   const linked = people.filter((p) => p.userId).length
 
@@ -65,7 +69,7 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
         ) : (
           <ul className="mt-4 flex flex-col gap-2">
             {people.map((p) => {
-              const flair = flairById(p.flairId)
+              const flair = flairById(p.flairId, catalogue)
               const name = p.handle || p.username || `#${p.brawlhallaId}`
               return (
                 <li

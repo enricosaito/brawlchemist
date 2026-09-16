@@ -11,12 +11,8 @@ import {
   saveProfileFieldsAction,
 } from "@/app/account/actions"
 import { BANNER_PRESETS, DEFAULT_BANNER_ID } from "@/lib/profile/banners"
-import {
-  autoFlairId,
-  FLAIRS,
-  FLAIR_NONE,
-  type FlairId,
-} from "@/lib/profile/flair"
+import { autoFlairId, FLAIR_NONE, type FlairId } from "@/lib/profile/flair"
+import { useFlairCatalogue } from "./flair-catalogue"
 import {
   SOCIAL_KINDS,
   SOCIAL_META,
@@ -95,6 +91,10 @@ export function ProfileCustomizer({
   // Null when this renders outside a profile page (the floating mode on a
   // surface that has no header to preview onto).
   const preview = useProfilePreview()
+  // Every badge that exists, including ones this player hasn't earned — the
+  // picker shows those locked on purpose, since a badge nobody can see isn't
+  // worth chasing. Entitlement still arrives separately, computed server-side.
+  const catalogue = useFlairCatalogue()
   const [open, setOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -247,7 +247,8 @@ export function ProfileCustomizer({
   // What the profile is actually showing right now. A null choice means "show
   // my best", so the panel marks that row rather than claiming None and
   // disagreeing with the badge visible behind it.
-  const shownFlairId = flairId ?? autoFlairId(earnedFlairIds) ?? FLAIR_NONE
+  const shownFlairId =
+    flairId ?? autoFlairId(earnedFlairIds, catalogue) ?? FLAIR_NONE
 
   const bioLeft = BIO_MAX - bio.length
 
@@ -313,7 +314,7 @@ export function ProfileCustomizer({
                   onSelect={() => pickFlair(FLAIR_NONE)}
                   label="None"
                 />
-                {FLAIRS.map((f) => {
+                {catalogue.map((f) => {
                   const earned = earnedFlairIds.includes(f.id)
                   return (
                     <FlairRow

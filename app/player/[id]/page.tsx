@@ -28,6 +28,7 @@ import { InfoTip } from "@/components/site/info-tip"
 import { RankedStatsCard } from "@/components/player/ranked-stats-card"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { getProfile, getProfilesMap } from "@/lib/sync/profiles"
+import { getFlairCatalogue } from "@/lib/sync/flairs"
 import {
   PreviewBannerWash,
   PreviewFlair,
@@ -2119,7 +2120,14 @@ export default async function PlayerPage({
   // Everything the flair rules read is already loaded for the header, so this
   // costs nothing beyond the derivation itself.
   const flairContext: FlairContext = flairContextFrom(preview)
-  const earnedFlair = earnedFlairIds(flairContext)
+  // Resolved against the curated catalogue rather than the built-in pair, so a
+  // badge minted in /admin shows up here without a deploy. Cached and tag-
+  // busted; falls back to the built-ins rather than throwing.
+  const flairCatalogue = await getFlairCatalogue().catch((err) => {
+    console.error("[player] flair catalogue read failed:", err)
+    return undefined
+  })
+  const earnedFlair = earnedFlairIds(flairContext, flairCatalogue)
   // This player as a team member. Same shape as the teammate opposite them, so
   // a card can't render one side richer than the other.
   const teamOwner: TeamMember = {
