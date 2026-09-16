@@ -49,6 +49,9 @@ export const BLOCKED_USER_AGENTS = [
  *   are the most SEO-valuable content.
  * - /api endpoints and the per-player opengraph-image route are blocked for
  *   everyone — they burn the Brawlhalla rate limit for zero indexing value.
+ *   Lifetime stats need no entry of their own: they are ?tab=stats on the
+ *   profile, which already hands crawlers stored data and skips every upstream
+ *   call, so a bot following the link costs nothing.
  * - AI training crawlers and aggressive SEO scrapers are disallowed entirely.
  *   They were following leaderboard pagination 140+ pages deep, firing
  *   /ranked for every linked profile.

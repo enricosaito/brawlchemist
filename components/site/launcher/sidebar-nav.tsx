@@ -41,7 +41,7 @@ const NAV: NavEntry[] = [
   },
   {
     label: "Ranked Queue",
-    href: "/live",
+    href: "/queue",
     avatar: "/assets/AniAvatar_Ash_%26_Yarra.webp",
     live: true,
   },

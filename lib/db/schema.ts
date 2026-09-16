@@ -78,6 +78,18 @@ export const players = pgTable("players", {
     index("players_ladder_rating_idx").on(t.ladderRating.desc().nullsLast()),
     // Search orders by this; see the column comment.
     index("players_rating_idx").on(t.rating.desc().nullsLast()),
+    // "Best players who main this legend", for Suggested Favorites.
+    //
+    // Measured without it: a sequential scan of the whole table, 25k buffers
+    // and 3.3s, for three rows — cardinal constraint #6 exactly. The leading
+    // column narrows to the legend and the trailing one is already in rating
+    // order, so the query reads three index entries and stops. `players_rating_idx`
+    // cannot serve it: filtering on top_legend_id while ordering by rating
+    // means walking the whole rating index for a rare main.
+    index("players_top_legend_rating_idx").on(
+      t.topLegendId,
+      t.rating.desc().nullsLast(),
+    ),
   ],
 )
 
@@ -101,8 +113,18 @@ export const profiles = pgTable("profiles", {
   handle: text("handle"),
   /** Favorite skin shape: { src, name } | null. */
   favoriteSkin: jsonb("favorite_skin"),
-  /** Championship titles as a string[] (jsonb), e.g. ["2v2 World Champion '24"]. */
-  achievements: jsonb("achievements"),
+  /**
+   * Esports titles as a string[] (jsonb), e.g. ["2v2 World Champion '24"].
+   *
+   * The column keeps its original name while the property does not, on purpose.
+   * These used to be called achievements, which stopped being usable the moment
+   * the profile grew an actual achievement system — but `drizzle-kit push` has
+   * no rename: it would see one column dropped and another added, and take the
+   * data with it. Mapping the name here is free and reversible; renaming the
+   * column is an ALTER that has to be sequenced against a deploy, and it buys
+   * nothing the mapping doesn't.
+   */
+  esportsTitles: jsonb("achievements"),
   /** Auth owner — the Supabase `auth.users` id of whoever claimed this player
    * via the ELO challenge (or an admin/CM assignment). Null = unclaimed (the
    * original admin-curated state). Unique so one auth user owns at most one
@@ -233,7 +255,7 @@ export type AppUserInsert = typeof appUsers.$inferInsert
 /**
  * user_customizations — the public-facing customization a verified owner sets on
  * their claimed profile, keyed 1:1 by brawlhalla id. Kept separate from
- * `profiles` so admin pro-curation (isPro, achievements, favoriteSkin) and
+ * `profiles` so admin pro-curation (isPro, esports titles, favoriteSkin) and
  * user-set fields never overwrite each other. Ownership is enforced in app code
  * via `profiles.userId` — only the owner can write this row. Read fails open on
  * the public profile (no customization → plain rendering).
@@ -300,7 +322,7 @@ export const flairs = pgTable("flairs", {
    * migration files, and altering an enum type is what push handles worst.
    */
   rule: text("rule").notNull().default("manual"),
-  /** Case-insensitive substring matched against achievements, for rule='achievement'. */
+  /** Case-insensitive substring matched against the esports titles, for rule='achievement'. */
   ruleValue: text("rule_value"),
   /**
    * Rarity rank, ascending. The lowest-numbered flair a player holds is the one

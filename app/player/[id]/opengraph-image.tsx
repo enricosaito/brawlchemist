@@ -128,7 +128,7 @@ export default async function OgImage({
   const wr = games > 0 ? `${((wins / games) * 100).toFixed(1)}%` : "—"
   // One accolade, the first — the header shows all of them, but at card size a
   // row of them turns into a wall and the point is that there is one at all.
-  const accolade = preview?.achievements?.[0] ?? null
+  const accolade = preview?.esportsTitles?.[0] ?? null
 
   const stats = [
     {

@@ -131,7 +131,7 @@ export async function GET(req: Request) {
        * the ~everyone who has neither, which keeps the payload small.
        */
       flairId: flairs.get(p.id) ?? null,
-      achievements: profiles.get(p.id)?.achievements,
+      esportsTitles: profiles.get(p.id)?.esportsTitles,
       developer: profiles.get(p.id)?.developer,
     }))
     return Response.json({ results }, { headers })

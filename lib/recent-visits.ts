@@ -39,7 +39,7 @@ export interface RecentVisit {
    * (see lib/profile/flair.ts) rather than trusting a precomputed answer.
    */
   flairId?: string | null
-  achievements?: string[]
+  esportsTitles?: string[]
   /** Owning account has the Developer role — drives the Brawlchemist flair. */
   developer?: boolean
 }

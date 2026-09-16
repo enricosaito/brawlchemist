@@ -28,7 +28,7 @@ interface PlayerHit {
   /** Raw selection + the accolades it's checked against, so this runs the same
    * entitlement rule as the profile rather than trusting a resolved flair. */
   flairId?: string | null
-  achievements?: string[]
+  esportsTitles?: string[]
   developer?: boolean
 }
 

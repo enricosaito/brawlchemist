@@ -32,7 +32,11 @@ export type FlairId = string
  * - `claimed` — the profile is linked to a Brawlchemist account. The one rule
  *   everybody can satisfy, which is exactly why it exists: a catalogue where
  *   every badge is unreachable teaches nobody that badges exist at all.
- * - `achievement` — `ruleValue` appears (case-insensitively) in their accolades.
+ * - `achievement` — `ruleValue` appears (case-insensitively) in their esports
+ *   titles. The stored token stays "achievement" even though the field it reads
+ *   was renamed: it lives in `flairs.rule`, `parseFlairRule` degrades anything
+ *   unrecognised to `manual`, and renaming it would silently demote the World
+ *   Champion flair between the deploy and the data edit.
  * - `manual` — awarded per player from /admin, recorded in `flair_grants`. The
  *   only rule available to a badge invented after the fact, and therefore the
  *   thing that makes "create a flair" mean anything.
@@ -181,8 +185,8 @@ export function flairById(
  * which is why the rule list is closed rather than open-ended.
  */
 export interface FlairContext {
-  /** Admin-curated esports accolades, the same strings the title tags use. */
-  achievements?: string[]
+  /** Admin-curated esports titles, the same strings the title tags use. */
+  esportsTitles?: string[]
   /**
    * The account behind this profile has the Developer role.
    *
@@ -208,13 +212,13 @@ export interface FlairContext {
  *
  * One place, so adding a rule later is an edit here rather than an audit of
  * every surface that renders a badge. Each call site used to spell out
- * `{ achievements: x?.achievements }` by hand, and the twelfth one to be
+ * `{ esportsTitles: x?.esportsTitles }` by hand, and the twelfth one to be
  * forgotten is a flair that silently doesn't show on one page.
  */
 export function flairContextFrom(
   preview:
     | {
-        achievements?: string[]
+        esportsTitles?: string[]
         developer?: boolean
         flairGrants?: string[]
         claimed?: boolean
@@ -223,7 +227,7 @@ export function flairContextFrom(
     | undefined,
 ): FlairContext {
   return {
-    achievements: preview?.achievements,
+    esportsTitles: preview?.esportsTitles,
     developer: preview?.developer,
     grants: preview?.flairGrants,
     claimed: preview?.claimed,
@@ -242,7 +246,9 @@ function holds(flair: FlairDef, ctx: FlairContext): boolean {
       // An empty needle would match every accolade, handing the badge to every
       // pro on the site. A rule with nothing to match fires for nobody.
       if (!needle) return false
-      return !!ctx.achievements?.some((a) => a.toLowerCase().includes(needle))
+      return !!ctx.esportsTitles?.some((t) =>
+        t.toLowerCase().includes(needle),
+      )
     }
     case "manual":
       return !!ctx.grants?.includes(flair.id)

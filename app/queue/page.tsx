@@ -405,7 +405,7 @@ export default async function LivePage({
               {API_REGIONS.map((r) => (
                 <Link
                   key={r}
-                  href={`/live?region=${r}`}
+                  href={`/queue?region=${r}`}
                   aria-current={region === r ? "true" : undefined}
                   className={cn(
                     FILTER_BTN,

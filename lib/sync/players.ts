@@ -199,6 +199,25 @@ export async function searchPlayersByUsername(
 // alone (rankedJson synthesized as null) serves callers that only need the
 // scalar fields — username, top legend, ladder snapshot — without dragging the
 // full ranked payload over the wire.
+/**
+ * A player's region, actually populated.
+ *
+ * `ladder_region` is dead in the same way `ladder_rating` is (constraint #8):
+ * measured 0 non-null out of 95,635 rows, because only the search-index harvest
+ * ever wrote it and nothing calls that harvest. The real value has always been
+ * in the stored ranked payload — 94,928 of those same rows have one.
+ *
+ * Opt-in rather than folded into PLAYER_SCALAR_COLUMNS, because reading it
+ * detoasts ranked_json per row: harmless for the 120 ids /favorites and the
+ * suggestions pass (measured 106ms, 830 buffers, index scan on the primary
+ * key), and exactly the wrong thing to do to a leaderboard render that asks
+ * for 500. The extracted string is all that crosses the wire either way — the
+ * cost is server-side detoast, not egress.
+ */
+const REGION_COALESCED = sql<
+  string | null
+>`coalesce(${players.ladderRegion}, ${players.rankedJson}->>'region')`
+
 const PLAYER_SCALAR_COLUMNS = {
   brawlhallaId: players.brawlhallaId,
   username: players.username,
@@ -231,7 +250,7 @@ const PLAYER_SCALAR_COLUMNS = {
  */
 export async function getPlayersByIds(
   ids: number[],
-  opts: { includeRankedJson?: boolean } = {},
+  opts: { includeRankedJson?: boolean; withRegion?: boolean } = {},
 ): Promise<Map<number, PlayerRow>> {
   if (ids.length === 0) return new Map()
   const includeRankedJson = opts.includeRankedJson ?? true
@@ -239,7 +258,9 @@ export async function getPlayersByIds(
     .select(
       includeRankedJson
         ? { ...PLAYER_SCALAR_COLUMNS, rankedJson: players.rankedJson }
-        : PLAYER_SCALAR_COLUMNS,
+        : opts.withRegion
+          ? { ...PLAYER_SCALAR_COLUMNS, ladderRegion: REGION_COALESCED }
+          : PLAYER_SCALAR_COLUMNS,
     )
     .from(players)
     .where(inArray(players.brawlhallaId, ids))

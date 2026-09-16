@@ -80,9 +80,20 @@ export interface AchievementContext {
   /** This ranked season's rating, and the best it has been. */
   rating?: number | null
   peakRating?: number | null
-  /** 1v1 plus every 2v2 team, the same total the header shows. */
+  /** 1v1 plus every 2v2 team *this season*, the same total the header shows. */
   games?: number
   wins?: number
+  /**
+   * Lifetime wins across every mode, straight off GetPlayerStats.
+   *
+   * Separate from `wins` because they answer different questions and the gap is
+   * large: a season record resets, a lifetime one is the career. A gem that
+   * grades "how much have you played" has to read the career, or it drops to
+   * nothing every time a season rolls over.
+   */
+  lifetimeWins?: number
+  /** Lifetime games, same source. */
+  lifetimeGames?: number
   /** Brawlhalla account level, when lifetime stats loaded. */
   accountLevel?: number | null
   /** Valhallan this season — ladder membership, not a rating threshold. */

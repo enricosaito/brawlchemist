@@ -83,8 +83,8 @@ export async function saveProfileAction(formData: FormData) {
     isPro: formData.get("isPro") === "on",
     handle: String(formData.get("handle") ?? "").trim() || null,
     favoriteSkin: skinSrc ? { src: skinSrc, name: skinName } : null,
-    // Achievements: one championship title per line.
-    achievements: String(formData.get("achievements") ?? "")
+    // Esports titles: one championship per line.
+    esportsTitles: String(formData.get("esportsTitles") ?? "")
       .split("\n")
       .map((s) => s.trim())
       .filter(Boolean),

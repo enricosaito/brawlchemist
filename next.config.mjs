@@ -22,8 +22,20 @@ const nextConfig = {
   },
   // Vanity short links to our official socials. `permanent: false` (307) keeps
   // them changeable later without browsers caching the destination forever.
+  //
+  // The /live → /queue entry is the exception and is permanent on purpose: it
+  // is a page that moved, not a shortcut that might. A 307 would tell search
+  // engines /live is still the canonical URL and none of its ranking would
+  // follow the page. The cost is that browsers cache a 308 indefinitely, so
+  // moving it back later means serving /live from a real route again rather
+  // than deleting a line.
   async redirects() {
     return [
+      {
+        source: "/live",
+        destination: "/queue",
+        permanent: true,
+      },
       {
         source: "/github",
         destination: "https://github.com/enricosaito/brawlchemist",

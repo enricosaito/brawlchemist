@@ -8,7 +8,7 @@ import { getPlayersByIds } from "@/lib/sync/players"
 // gets noticed and repaired, so it has to see exactly what the site sees —
 // including the double-encoded-jsonb unwrap.
 import {
-  parseAchievements,
+  parseEsportsTitles,
   parseSkin,
   type FavoriteSkin,
 } from "@/lib/sync/profiles"
@@ -34,7 +34,7 @@ export interface AdminPerson {
   /** Curation. */
   isPro: boolean
   handle: string | null
-  achievements: string[]
+  esportsTitles: string[]
   favoriteSkin: FavoriteSkin | null
   /** Ownership — null when nobody has claimed this profile. */
   userId: string | null
@@ -52,7 +52,7 @@ export async function listAdminPeople(): Promise<AdminPerson[]> {
       brawlhallaId: profiles.brawlhallaId,
       isPro: profiles.isPro,
       handle: profiles.handle,
-      achievements: profiles.achievements,
+      esportsTitles: profiles.esportsTitles,
       favoriteSkin: profiles.favoriteSkin,
       userId: profiles.userId,
       claimedAt: profiles.claimedAt,
@@ -84,7 +84,7 @@ export async function listAdminPeople(): Promise<AdminPerson[]> {
         region: p?.ladderRegion ?? null,
         isPro: r.isPro,
         handle: r.handle,
-        achievements: parseAchievements(r.achievements),
+        esportsTitles: parseEsportsTitles(r.esportsTitles),
         favoriteSkin: parseSkin(r.favoriteSkin),
         userId: r.userId,
         email: r.email,
