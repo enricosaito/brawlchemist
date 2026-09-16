@@ -22,8 +22,13 @@ export interface ProfileSection {
   id: string
   label: string
   href: string
-  /** "1/3" — shown beside the label when the section has a tally. */
-  count?: string
+  /**
+   * The line under the label: "1/3" for a set you can complete, "Season 41"
+   * for one that is scoped rather than counted. Optional, and the slot is held
+   * with a non-breaking space when it is missing so the three panels stay the
+   * same height.
+   */
+  sub?: string
 }
 
 export function ProfileSectionNav({
@@ -64,15 +69,16 @@ export function ProfileSectionNav({
               <span className="truncate font-mono text-[11px] font-medium uppercase tracking-wider">
                 {s.label}
               </span>
-              {/* The tally is the reason to click: "Achievements 1/3" is an
-                  invitation, "Achievements" is a label. */}
+              {/* The second line is the reason to click: "Achievements 1/3" is
+                  an invitation and "Achievements" is a label, and "Season 41"
+                  says which numbers Ranked is about before you open it. */}
               <span
                 className={cn(
                   "font-mono text-[10px] tabular-nums",
                   current ? "text-muted-foreground" : "text-muted-foreground/60",
                 )}
               >
-                {s.count ?? " "}
+                {s.sub ?? " "}
               </span>
             </Link>
           )

@@ -26,6 +26,7 @@ import { DataTable, type ColDef } from "@/components/site/data-table"
 import { BrawlchemistUserBadge } from "@/components/site/brawlchemist-user-badge"
 import { InfoTip } from "@/components/site/info-tip"
 import { RankedStatsCard } from "@/components/player/ranked-stats-card"
+import { CURRENT_SEASON } from "@/lib/mock-data"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { getProfile, getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairCatalogue } from "@/lib/sync/flairs"
@@ -2186,18 +2187,25 @@ export default async function PlayerPage({
   const achievementStates = resolveAchievements(achievementContext)
   const gemStates = resolveGems(achievementContext)
   const sections: ProfileSection[] = [
-    { id: "overview", label: "Ranked", href: profileHref },
+    {
+      id: "overview",
+      label: "Ranked",
+      href: profileHref,
+      // The season the numbers behind this tab are scoped to — the same one
+      // RankedStatsCard prints, from the same constant, so they cannot drift.
+      sub: `Season ${CURRENT_SEASON}`,
+    },
     {
       id: "achievements",
       label: "Achievements",
       href: `${profileHref}?tab=achievements`,
-      count: `${achievementStates.filter((a) => a.unlocked).length}/${achievementStates.length}`,
+      sub: `${achievementStates.filter((a) => a.unlocked).length}/${achievementStates.length}`,
     },
     {
       id: "gems",
       label: "Gems",
       href: `${profileHref}?tab=gems`,
-      count: `${gemStates.filter((g) => g.level).length}/${gemStates.length}`,
+      sub: `${gemStates.filter((g) => g.level).length}/${gemStates.length}`,
     },
   ]
 
