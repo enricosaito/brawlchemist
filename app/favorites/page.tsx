@@ -18,6 +18,7 @@ import { LegendChip, RankHelm, RegionPill } from "@/components/site/primitives"
 import { VerifiedMark } from "@/components/site/pro-badge"
 import { FlairMark } from "@/components/site/flair-mark"
 import { FavoriteToggleControl } from "@/components/site/favorite-toggle-control"
+import { flairContextFrom } from "@/lib/profile/flair"
 
 export const metadata = { title: "Brawlchemist | Favorites" }
 
@@ -150,7 +151,7 @@ function FavoriteRow({
               {handle && <VerifiedMark />}
               <FlairMark
                 selectedId={flairId}
-                context={{ achievements: preview?.achievements }}
+                context={flairContextFrom(preview)}
               />
               {self && (
                 <span className="shrink-0 rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-tier-gold">

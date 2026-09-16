@@ -11,7 +11,7 @@
  * catalogue's labels and art. Entitlement is computed server-side and passed in.
  */
 
-export type FlairId = "world-champion"
+export type FlairId = "developer" | "world-champion"
 
 export interface FlairDef {
   id: FlairId
@@ -30,6 +30,17 @@ export interface FlairDef {
  * every profile render for a 20px image.
  */
 export const FLAIRS: FlairDef[] = [
+  {
+    // First, so it wins autoFlairId: catalogue order is the rarity ranking,
+    // and there are a handful of these against every world champion the game
+    // has produced.
+    id: "developer",
+    label: "Brawlchemist Developer",
+    requirement: "Build Brawlchemist",
+    src: "/assets/Brawlchemist.png",
+    width: 192,
+    height: 192,
+  },
   {
     id: "world-champion",
     label: "World Champion",
@@ -63,9 +74,33 @@ export function isValidFlairId(id: string): id is FlairId {
 export interface FlairContext {
   /** Admin-curated esports accolades, the same strings the title tags use. */
   achievements?: string[]
+  /**
+   * The account behind this profile has the Developer role.
+   *
+   * The one entitlement that comes from the account rather than the player.
+   * Derived, never selected — like every other flair, it is computed on each
+   * render from `app_users.account_role`, so revoking the role takes the badge
+   * with it and there is nothing to clean up.
+   */
+  developer?: boolean
 }
+/**
+ * Build the context from a player's preview.
+ *
+ * One place, so adding a rule later is an edit here rather than an audit of
+ * every surface that renders a badge. Each call site used to spell out
+ * `{ achievements: x?.achievements }` by hand, and the twelfth one to be
+ * forgotten is a flair that silently doesn't show on one page.
+ */
+export function flairContextFrom(
+  preview: { achievements?: string[]; developer?: boolean } | null | undefined,
+): FlairContext {
+  return { achievements: preview?.achievements, developer: preview?.developer }
+}
+
 export function earnedFlairIds(ctx: FlairContext): FlairId[] {
   const earned: FlairId[] = []
+  if (ctx.developer) earned.push("developer")
   if (ctx.achievements?.some((a) => /world champion/i.test(a))) {
     earned.push("world-champion")
   }

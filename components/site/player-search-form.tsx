@@ -14,6 +14,7 @@ import {
 } from "@/lib/recent-visits"
 import { VerifiedMark } from "./pro-badge"
 import { FlairMark } from "./flair-mark"
+import { flairContextFrom } from "@/lib/profile/flair"
 import { RankHelm, RegionPill } from "./primitives"
 
 type SearchResult = RecentVisit
@@ -353,9 +354,7 @@ export function PlayerSearchForm({
                             {opt.result.pro && <VerifiedMark />}
                             <FlairMark
                               selectedId={opt.result.flairId}
-                              context={{
-                                achievements: opt.result.achievements,
-                              }}
+                              context={flairContextFrom(opt.result)}
                               className="h-3.5"
                             />
                           </span>

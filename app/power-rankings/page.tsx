@@ -19,6 +19,7 @@ import { FlairMark } from "@/components/site/flair-mark"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
 import type { PlayerPreview } from "@/lib/player-previews"
+import { flairContextFrom } from "@/lib/profile/flair"
 
 export const metadata: Metadata = {
   title: "Brawlchemist | Power Rankings",
@@ -289,7 +290,7 @@ export default async function PowerRankingsPage({
               {bhId != null && (
                 <FlairMark
                   selectedId={flairs.get(bhId)}
-                  context={{ achievements: previews.get(bhId)?.achievements }}
+                  context={flairContextFrom(previews.get(bhId))}
                 />
               )}
             </span>

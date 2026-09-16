@@ -15,6 +15,7 @@ import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
+import { flairContextFrom } from "@/lib/profile/flair"
 
 /**
  * Pull a steamID64 out of either a bare 17-digit ID or a pasted Steam profile
@@ -81,7 +82,7 @@ function PlayerResultRow({
             {handle && <VerifiedMark />}
             <FlairMark
               selectedId={flairId}
-              context={{ achievements: preview?.achievements }}
+              context={flairContextFrom(preview)}
             />
           </span>
           {/* Only the in-game name survives on the meta line. The raw id was

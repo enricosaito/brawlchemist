@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation"
 import type { SessionUser } from "@/lib/auth/session"
 import { FavoritesProvider } from "../favorites-provider"
 import type { ClaimedProfile } from "./account-control"
+import type { FlairContext } from "@/lib/profile/flair"
 import { BackgroundMusic } from "./background-music"
 import { SidebarNav } from "./sidebar-nav"
 import { VideoBackground } from "./video-background"
@@ -23,11 +24,14 @@ export function AppShell({
   user,
   claimed,
   favoriteIds,
+  flair,
 }: {
   children: React.ReactNode
   user: SessionUser | null
   claimed: ClaimedProfile | null
   favoriteIds: number[]
+  /** Badges for the account control — see AccountControl. */
+  flair?: FlairContext
 }) {
   const pathname = usePathname()
   const loggedIn = !!user
@@ -53,7 +57,7 @@ export function AppShell({
       <VideoBackground />
       <BackgroundMusic />
       <div className="relative min-h-svh md:grid md:grid-cols-[clamp(280px,30%,420px)_minmax(0,1fr)]">
-        <SidebarNav user={user} claimed={claimed} />
+        <SidebarNav user={user} claimed={claimed} flair={flair} />
         <div className="min-w-0">{children}</div>
       </div>
     </FavoritesProvider>

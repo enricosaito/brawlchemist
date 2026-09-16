@@ -8,6 +8,7 @@ import { Menu, X } from "lucide-react"
 import type { SessionUser } from "@/lib/auth/session"
 import { cn } from "@/lib/utils"
 import { AccountControl, type ClaimedProfile } from "./account-control"
+import type { FlairContext } from "@/lib/profile/flair"
 import { SoundToggle } from "./sound-toggle"
 
 /* ---------------------------------------------------------------------------
@@ -228,9 +229,11 @@ function SocialFooter() {
 export function SidebarNav({
   user,
   claimed,
+  flair,
 }: {
   user: SessionUser | null
   claimed: ClaimedProfile | null
+  flair?: FlairContext
 }) {
   const [open, setOpen] = useState(false)
 
@@ -302,7 +305,7 @@ export function SidebarNav({
           <div className="flex-1 overflow-y-auto">
             <NavList onNavigate={() => setOpen(false)} />
           </div>
-          <AccountControl user={user} claimed={claimed} />
+          <AccountControl user={user} claimed={claimed} flair={flair} />
           <SocialFooter />
         </div>
       </div>
@@ -318,7 +321,7 @@ export function SidebarNav({
         <div className="min-h-0 flex-1 overflow-hidden">
           <NavList />
         </div>
-        <AccountControl user={user} claimed={claimed} />
+        <AccountControl user={user} claimed={claimed} flair={flair} />
         <SocialFooter />
       </aside>
     </>

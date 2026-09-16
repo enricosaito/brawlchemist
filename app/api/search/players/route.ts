@@ -132,6 +132,7 @@ export async function GET(req: Request) {
        */
       flairId: flairs.get(p.id) ?? null,
       achievements: profiles.get(p.id)?.achievements,
+      developer: profiles.get(p.id)?.developer,
     }))
     return Response.json({ results }, { headers })
   } catch (err) {

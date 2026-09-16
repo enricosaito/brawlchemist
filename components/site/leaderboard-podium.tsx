@@ -14,6 +14,7 @@ import type { Tier } from "@/lib/types"
 import { LegendChip, REGION_COLOR, TIER_TEXT_COLOR } from "./primitives"
 import { VerifiedMark } from "./pro-badge"
 import { FlairMark } from "./flair-mark"
+import { flairContextFrom } from "@/lib/profile/flair"
 
 const KNOWN_TIERS: readonly Tier[] = [
   "Tin",
@@ -150,7 +151,7 @@ function PodiumCard({
             {player && (
               <FlairMark
                 selectedId={flairs.get(player.id)}
-                context={{ achievements: primaryPreview?.achievements }}
+                context={flairContextFrom(primaryPreview)}
                 className="h-4"
               />
             )}

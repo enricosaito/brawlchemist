@@ -22,6 +22,7 @@ import {
   type LegendStat,
   type TopMainer,
 } from "@/lib/sync/valhallan"
+import { flairContextFrom } from "@/lib/profile/flair"
 
 // "ALL" means no region filter (every Valhallan-rated player across the
 // competitive regions — see COMPETITIVE_REGIONS in lib/sync/valhallan.ts).
@@ -192,7 +193,7 @@ function buildColumns(
             {handle && <VerifiedMark className="size-3" />}
             <FlairMark
               selectedId={flairs.get(top.brawlhallaId)}
-              context={{ achievements: previews.get(top.brawlhallaId)?.achievements }}
+              context={flairContextFrom(previews.get(top.brawlhallaId))}
               className="h-3.5"
             />
           </span>

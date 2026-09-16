@@ -190,8 +190,33 @@ export const appUsers = pgTable("app_users", {
   id: uuid("id").primaryKey(),
   /** Mirror of the auth email, for admin lookups (auth.users isn't joinable here). */
   email: text("email"),
-  /** 'free' | 'premium' — entitlement gate for future paid features. */
+  /**
+   * Subscription: 'free' | 'supporter' | 'founder'. See lib/auth/account.ts.
+   *
+   * Predates the role column and shipped with 'premium' as its other value,
+   * which nothing ever read or wrote; `parsePlan` reads anything unrecognised
+   * as free, so those rows need no backfill and can never be mistaken for a
+   * paid entitlement.
+   */
   plan: text("plan").notNull().default("free"),
+  /**
+   * Permission: 'developer' | 'partner' | 'user'. See lib/auth/account.ts.
+   *
+   * Separate from `plan` because permission and subscription are different
+   * questions that move independently — a Partner can also be a Founder, and a
+   * lapsed card must never be able to take away someone's admin access.
+   *
+   * Text with a code-side allow-list rather than a Postgres enum, like every
+   * other categorical column here (plan, profile_claims.status, banner_id,
+   * flair_id): schema changes ship through `drizzle-kit push` straight to prod
+   * with no migration files, and altering an enum type is the one thing push
+   * handles worst. Reads go through `parseRole`, so an unrecognised value
+   * degrades to a regular user rather than to undefined permissions.
+   *
+   * "Linked User" is deliberately NOT a value here — it is derived from
+   * `profiles.userId`, which is the actual link. See resolveRole.
+   */
+  accountRole: text("account_role").notNull().default("user"),
   /** Viewer prefs: { favoriteLegendIds, defaultRegion, defaultMode, ... }. */
   prefs: jsonb("prefs"),
   createdAt: timestamp("created_at", { withTimezone: true })

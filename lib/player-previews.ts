@@ -18,4 +18,13 @@ export interface PlayerPreview {
    * owned is public.
    */
   claimed?: boolean
+  /**
+   * The owning account has the Developer role — drives the Brawlchemist flair.
+   *
+   * Like `claimed`, a boolean rather than the role string: the public side only
+   * needs to know that this profile is run by someone who builds the site, not
+   * the account model behind it. Undefined for everyone else so the cached
+   * object stays small.
+   */
+  developer?: boolean
 }

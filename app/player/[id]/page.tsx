@@ -64,6 +64,7 @@ import {
 import type { PlayerRow } from "@/lib/db/schema"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 import {
+  flairContextFrom,
   resolveFlair,
   type FlairContext,
   type FlairDef,
@@ -735,6 +736,8 @@ interface TeamMember {
   pro: boolean
   flairId?: string
   achievements?: string[]
+  /** Owning account has the Developer role. */
+  developer?: boolean
 }
 
 function TeamMemberName({ member }: { member: TeamMember }) {
@@ -744,7 +747,7 @@ function TeamMemberName({ member }: { member: TeamMember }) {
       {member.pro && <VerifiedMark className="size-3" />}
       <FlairMark
         selectedId={member.flairId}
-        context={{ achievements: member.achievements }}
+        context={flairContextFrom(member)}
         className="h-3.5"
       />
     </span>
@@ -1930,6 +1933,7 @@ export default async function PlayerPage({
         pro: !!mate?.verified,
         flairId: teamFlairs.get(teammateId),
         achievements: mate?.achievements,
+        developer: mate?.developer,
       },
     }
   })
@@ -2033,7 +2037,7 @@ export default async function PlayerPage({
   const { bannerId } = customization
   // Everything the flair rules read is already loaded for the header, so this
   // costs nothing beyond the derivation itself.
-  const flairContext: FlairContext = { achievements: preview?.achievements }
+  const flairContext: FlairContext = flairContextFrom(preview)
   const flair = resolveFlair(customization.flairId, flairContext)
   // This player as a team member. Same shape as the teammate opposite them, so
   // a card can't render one side richer than the other.
@@ -2044,6 +2048,7 @@ export default async function PlayerPage({
     pro: !!preview?.verified,
     flairId: customization.flairId ?? undefined,
     achievements: preview?.achievements,
+    developer: preview?.developer,
   }
   // The name the page titles with — a pro is known by their handle, so the
   // track card shouldn't call them something the heading never did.
