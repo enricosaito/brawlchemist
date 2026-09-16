@@ -2,15 +2,20 @@ import Link from "next/link"
 import { CURRENT_PATCH } from "@/lib/mock-data"
 import { formatPercent } from "@/lib/format"
 import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
+import type { Stance } from "@/lib/types"
 import { getValhallanLegendStats } from "@/lib/sync/valhallan"
+import { bestStanceFor } from "@/lib/legend-stances"
 import { PreviewCard } from "./preview-card"
-import { LegendChip, PatchTag } from "./primitives"
+import { LegendChip, PatchTag, StanceLabel } from "./primitives"
 
 /** Rows on the card. Six matches the Live Rankings card beside it. */
 const TOP_N = 6
 
 /**
- * Top Legends — the six most-played legends in the Valhallan+ pool, measured.
+ * Popular Legends — the six most-played legends in the Valhallan+ pool,
+ * measured. The file and the component keep the old name; only the heading
+ * moved, and renaming a module to track a string is churn with imports
+ * attached.
  *
  * This used to be six hardcoded slugs carrying hardcoded tier grades and best
  * stances from mock-data, with only the win rate and game count coming from
@@ -19,10 +24,17 @@ const TOP_N = 6
  * genuinely current — the worst kind of stale, because the live numbers lent
  * it credibility.
  *
- * Everything shown is now derived from the same query the /legends page uses:
+ * Everything measured is now derived from the same query /meta-picks uses:
  * `method: "popular"` already orders by games desc, so the top six are the top
- * six. Nothing here can go stale without the data going stale with it, and a
- * legend rising into the top six needs no code change to appear.
+ * six, and a legend rising into the top six needs no code change to appear.
+ *
+ * The best stance is back on the subtitle line, and it is the one thing here
+ * that is an opinion rather than a reading — the API reports no stance data at
+ * all. It is kept honest by being partial: `bestStanceFor` returns null for a
+ * legend nobody has written a recommendation for, and that row falls back to
+ * its pick rate, which is why it is on the list in the first place. So the card
+ * can go quiet, but it cannot go confidently wrong the way the old mock-data
+ * version did.
  */
 export async function TopLegendsCard({
   className,
@@ -38,6 +50,7 @@ export async function TopLegendsCard({
     winRate: number
     games: number
     pickRate: number
+    stance: Stance | null
   }[] = []
   try {
     const { legends } = await getValhallanLegendStats({
@@ -56,6 +69,7 @@ export async function TopLegendsCard({
               winRate: l.win_rate,
               games: l.games,
               pickRate: l.pick_rate,
+              stance: bestStanceFor(slug),
             }
           : null
       })
@@ -67,13 +81,13 @@ export async function TopLegendsCard({
 
   return (
     <PreviewCard
-      title="Top legends"
+      title="Popular legends"
       href="/meta-picks"
       viewAllLabel="view legend meta"
       className={className}
       meta={
         <>
-          <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
+          <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/15 px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wider text-tier-valhallan uppercase">
             Valhallan+
           </span>
           <PatchTag version={CURRENT_PATCH} />
@@ -101,19 +115,26 @@ export async function TopLegendsCard({
                   <span className="truncate text-sm font-medium">
                     {row.name}
                   </span>
-                  {/* Pick rate is why the legend is on this list, so it says so
-                      where the hardcoded "best stance" used to sit. Nowrap:
-                      the label wrapping to a second line made these rows
-                      taller than the two cards either side of it. */}
-                  <span className="whitespace-nowrap font-mono text-[10px] tabular-nums text-muted-foreground">
-                    {formatPercent(row.pickRate)} pick
-                  </span>
+                  {/* Nowrap on both: the label wrapping to a second line made
+                      these rows taller than the two cards either side of it. */}
+                  {row.stance ? (
+                    <StanceLabel
+                      stance={row.stance}
+                      size="sm"
+                      showPrefix={false}
+                      className="whitespace-nowrap"
+                    />
+                  ) : (
+                    <span className="font-mono text-[10px] whitespace-nowrap text-muted-foreground tabular-nums">
+                      {formatPercent(row.pickRate)} pick
+                    </span>
+                  )}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-0.5">
                   <span className="font-mono text-sm tabular-nums">
                     {formatPercent(row.winRate)}
                   </span>
-                  <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                  <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
                     {row.games.toLocaleString()} games
                   </span>
                 </div>

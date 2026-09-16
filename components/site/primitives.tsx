@@ -25,7 +25,11 @@ export function Delta({
   showZero?: boolean
 }) {
   if (!showZero && value === 0) {
-    return <span className={cn("text-muted-foreground tabular-nums", className)}>—</span>
+    return (
+      <span className={cn("text-muted-foreground tabular-nums", className)}>
+        —
+      </span>
+    )
   }
   const positive = value > 0
   const negative = value < 0
@@ -34,11 +38,11 @@ export function Delta({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-0.5 tabular-nums font-mono text-xs",
+        "inline-flex items-center gap-0.5 font-mono text-xs tabular-nums",
         positive && "text-positive",
         negative && "text-negative",
         !positive && !negative && "text-muted-foreground",
-        className,
+        className
       )}
     >
       <span className="text-[0.625rem] leading-none">{arrow}</span>
@@ -58,7 +62,8 @@ const TIER_COLOR: Record<Tier, string> = {
   Gold: "text-tier-gold border-tier-gold/40 bg-tier-gold/10",
   Platinum: "text-tier-platinum border-tier-platinum/40 bg-tier-platinum/10",
   Diamond: "text-tier-diamond border-tier-diamond/40 bg-tier-diamond/10",
-  Valhallan: "text-tier-valhallan border-tier-valhallan/50 bg-tier-valhallan/15",
+  Valhallan:
+    "text-tier-valhallan border-tier-valhallan/50 bg-tier-valhallan/15",
 }
 
 export const TIER_TEXT_COLOR: Record<Tier, string> = {
@@ -98,13 +103,15 @@ export function RankPill({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium tracking-wider uppercase",
         TIER_COLOR[tier],
-        className,
+        className
       )}
     >
       <span>{tier}</span>
-      {division ? <span className="font-mono text-[10px] opacity-80">{division}</span> : null}
+      {division ? (
+        <span className="font-mono text-[10px] opacity-80">{division}</span>
+      ) : null}
     </span>
   )
 }
@@ -146,15 +153,16 @@ const RANK_ICON_SRC: Partial<Record<Tier, string>> = {
  * 48×48 hint against 192×122 art reserved a box half again too tall and
  * shifted the row when the image arrived.
  */
-const RANK_HELM: Record<Tier, { src: string; width: number; height: number }> = {
-  Valhallan: { src: "/assets/valhallan-helm.png", width: 192, height: 153 },
-  Diamond: { src: "/assets/diamond-helm.png", width: 192, height: 168 },
-  Platinum: { src: "/assets/platinum-helm.png", width: 192, height: 122 },
-  Gold: { src: "/assets/gold-helm.png", width: 192, height: 169 },
-  Silver: { src: "/assets/silver-helm.png", width: 192, height: 140 },
-  Bronze: { src: "/assets/bronze-helm.png", width: 192, height: 150 },
-  Tin: { src: "/assets/tin-helm.png", width: 192, height: 140 },
-}
+const RANK_HELM: Record<Tier, { src: string; width: number; height: number }> =
+  {
+    Valhallan: { src: "/assets/valhallan-helm.png", width: 192, height: 153 },
+    Diamond: { src: "/assets/diamond-helm.png", width: 192, height: 168 },
+    Platinum: { src: "/assets/platinum-helm.png", width: 192, height: 122 },
+    Gold: { src: "/assets/gold-helm.png", width: 192, height: 169 },
+    Silver: { src: "/assets/silver-helm.png", width: 192, height: 140 },
+    Bronze: { src: "/assets/bronze-helm.png", width: 192, height: 150 },
+    Tin: { src: "/assets/tin-helm.png", width: 192, height: 140 },
+  }
 
 export function RankHelm({
   tier,
@@ -176,8 +184,8 @@ export function RankHelm({
       height={helm.height}
       unoptimized
       className={cn(
-        "w-auto shrink-0 select-none object-contain drop-shadow-sm",
-        className,
+        "w-auto shrink-0 object-contain drop-shadow-sm select-none",
+        className
       )}
     />
   )
@@ -201,7 +209,7 @@ export function RankIcon({
       width={size}
       height={size}
       unoptimized
-      className={cn("shrink-0 select-none object-contain", className)}
+      className={cn("shrink-0 object-contain select-none", className)}
     />
   )
 }
@@ -237,7 +245,7 @@ export function LegendChip({
         aria-hidden
         className={cn(
           "relative shrink-0 overflow-hidden rounded-md border border-border/60 bg-gradient-to-br from-muted to-card",
-          avatarSize,
+          avatarSize
         )}
       >
         {legend?.imageUrl ? (
@@ -298,7 +306,7 @@ export function WeaponIcon({
         width={size}
         height={size}
         unoptimized
-        className={cn("shrink-0 select-none object-contain", className)}
+        className={cn("shrink-0 object-contain select-none", className)}
       />
     )
   }
@@ -307,7 +315,7 @@ export function WeaponIcon({
       aria-hidden
       className={cn(
         "inline-block shrink-0 rounded-md border border-border/60 bg-muted/40",
-        className,
+        className
       )}
       style={{ width: size, height: size }}
     />
@@ -332,35 +340,53 @@ const STANCE_INFO: Record<Stance, { label: string; src: string }> = {
 }
 
 /**
- * StanceLabel — "BEST WITH [icon] Stance Name" inline element. Mirrors the
- * "best on …" treatment used by the weapon-meta card.
+ * StanceLabel — "[icon] Stance Name", optionally prefixed with "BEST WITH".
+ *
+ * The prefix is off on the Popular Legends card: six rows of it is six
+ * repetitions of a phrase that the icon and the stance name already imply, and
+ * the line it sits on is the narrowest thing on the homepage.
+ *
+ * The `sm` skin exists for card rows, where this sits on the subtitle line
+ * under a legend's name: the default icon is 20px, which is taller than the
+ * 10px micro-label it replaces, and six rows each a few pixels taller would
+ * push the card out of line with the two beside it.
  */
 export function StanceLabel({
   stance,
+  size = "md",
+  showPrefix = true,
   className,
 }: {
   stance: Stance
+  size?: "sm" | "md"
+  showPrefix?: boolean
   className?: string
 }) {
   const info = STANCE_INFO[stance]
+  const sm = size === "sm"
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 text-xs text-muted-foreground",
-        className,
+        "inline-flex items-center text-xs text-muted-foreground",
+        sm ? "gap-1" : "gap-1.5",
+        className
       )}
     >
-      <span className="font-mono text-[10px] uppercase tracking-wider">
-        best with
-      </span>
+      {showPrefix && (
+        <span className="font-mono text-[10px] tracking-wider uppercase">
+          best with
+        </span>
+      )}
       <Image
         src={info.src}
         alt=""
-        width={20}
-        height={20}
-        className="shrink-0 select-none object-contain"
+        width={sm ? 14 : 20}
+        height={sm ? 14 : 20}
+        className="shrink-0 object-contain select-none"
       />
-      <span className="text-sm text-muted-foreground">{info.label}</span>
+      <span className={cn("text-muted-foreground", sm ? "text-xs" : "text-sm")}>
+        {info.label}
+      </span>
     </span>
   )
 }
@@ -381,18 +407,62 @@ export const REGION_COLOR: Record<
   string,
   { text: string; border: string; bg: string }
 > = {
-  ALL: { text: "text-muted-foreground", border: "border-border/60", bg: "bg-muted/40" },
-  BRZ: { text: "text-[#4ade80]", border: "border-[#4ade80]/40", bg: "bg-[#4ade80]/10" },
-  "US-E": { text: "text-[#f87171]", border: "border-[#f87171]/40", bg: "bg-[#f87171]/10" },
-  "US-W": { text: "text-[#38bdf8]", border: "border-[#38bdf8]/40", bg: "bg-[#38bdf8]/10" },
-  EU: { text: "text-[#60a5fa]", border: "border-[#60a5fa]/40", bg: "bg-[#60a5fa]/10" },
-  SEA: { text: "text-[#2dd4bf]", border: "border-[#2dd4bf]/40", bg: "bg-[#2dd4bf]/10" },
-  AUS: { text: "text-[#fb923c]", border: "border-[#fb923c]/40", bg: "bg-[#fb923c]/10" },
+  ALL: {
+    text: "text-muted-foreground",
+    border: "border-border/60",
+    bg: "bg-muted/40",
+  },
+  BRZ: {
+    text: "text-[#4ade80]",
+    border: "border-[#4ade80]/40",
+    bg: "bg-[#4ade80]/10",
+  },
+  "US-E": {
+    text: "text-[#f87171]",
+    border: "border-[#f87171]/40",
+    bg: "bg-[#f87171]/10",
+  },
+  "US-W": {
+    text: "text-[#38bdf8]",
+    border: "border-[#38bdf8]/40",
+    bg: "bg-[#38bdf8]/10",
+  },
+  EU: {
+    text: "text-[#60a5fa]",
+    border: "border-[#60a5fa]/40",
+    bg: "bg-[#60a5fa]/10",
+  },
+  SEA: {
+    text: "text-[#2dd4bf]",
+    border: "border-[#2dd4bf]/40",
+    bg: "bg-[#2dd4bf]/10",
+  },
+  AUS: {
+    text: "text-[#fb923c]",
+    border: "border-[#fb923c]/40",
+    bg: "bg-[#fb923c]/10",
+  },
   // Both spellings: player data says JPN, leaderboard rows say JPS.
-  JPN: { text: "text-[#facc15]", border: "border-[#facc15]/40", bg: "bg-[#facc15]/10" },
-  JPS: { text: "text-[#facc15]", border: "border-[#facc15]/40", bg: "bg-[#facc15]/10" },
-  SA: { text: "text-[#c084fc]", border: "border-[#c084fc]/40", bg: "bg-[#c084fc]/10" },
-  ME: { text: "text-[#f472b6]", border: "border-[#f472b6]/40", bg: "bg-[#f472b6]/10" },
+  JPN: {
+    text: "text-[#facc15]",
+    border: "border-[#facc15]/40",
+    bg: "bg-[#facc15]/10",
+  },
+  JPS: {
+    text: "text-[#facc15]",
+    border: "border-[#facc15]/40",
+    bg: "bg-[#facc15]/10",
+  },
+  SA: {
+    text: "text-[#c084fc]",
+    border: "border-[#c084fc]/40",
+    bg: "bg-[#c084fc]/10",
+  },
+  ME: {
+    text: "text-[#f472b6]",
+    border: "border-[#f472b6]/40",
+    bg: "bg-[#f472b6]/10",
+  },
 }
 
 /** Region tag in the ladder's ice, for the profile — see REGION_COLOR. */
@@ -432,11 +502,11 @@ export function RegionRankTag({
     <InfoTip label={`#${rank.toLocaleString()} in ${region}`}>
       <span
         className={cn(
-          "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
+          "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wider uppercase",
           c?.text ?? "text-muted-foreground",
           c?.border ?? "border-border/60",
           c?.bg ?? "bg-muted/40",
-          className,
+          className
         )}
       >
         {region} #{rank.toLocaleString()}
@@ -459,11 +529,11 @@ export function RegionPill({
   return (
     <span
       className={cn(
-        "inline-flex min-w-[2.75rem] items-center justify-center rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
+        "inline-flex min-w-[2.75rem] items-center justify-center rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wider uppercase",
         c?.text ?? "text-muted-foreground",
         c?.border ?? "border-border/60",
         c?.bg ?? "bg-muted/40",
-        className,
+        className
       )}
     >
       {region}
@@ -499,9 +569,9 @@ export function PatchTag({
   return (
     <span
       className={cn(
-        "inline-flex items-center border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground",
+        "inline-flex items-center border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wider text-muted-foreground uppercase",
         pill ? "rounded-full" : "rounded",
-        className,
+        className
       )}
     >
       {version ? `Patch ${version}` : "Latest"}

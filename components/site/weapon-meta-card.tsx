@@ -5,6 +5,9 @@ import { getValhallanWeaponStats } from "@/lib/sync/valhallan"
 import { PreviewCard } from "./preview-card"
 import { LegendChip, PatchTag, WeaponIcon } from "./primitives"
 
+/** Legend names under each weapon. Three fit the line; five wrap it. */
+const TOP_LEGENDS_PER_ROW = 3
+
 export async function WeaponMetaCard({
   className,
 }: {
@@ -22,7 +25,7 @@ export async function WeaponMetaCard({
       className={className}
       meta={
         <>
-          <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-tier-valhallan">
+          <span className="rounded border border-tier-valhallan/40 bg-tier-valhallan/15 px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wider text-tier-valhallan uppercase">
             Valhallan+
           </span>
           <PatchTag version={CURRENT_PATCH} />
@@ -31,7 +34,12 @@ export async function WeaponMetaCard({
     >
       <ol className="grid auto-rows-fr divide-y divide-border/60">
         {top.map((weapon) => {
+          // Three, though the aggregation now returns five. The extra two are
+          // for the expanded row on /meta-picks, which has a row of its own to
+          // spend; here they ride a single line under the weapon's name, and
+          // five names made it wrap.
           const topLegends = weapon.top_legend_ids
+            .slice(0, TOP_LEGENDS_PER_ROW)
             .map((id) => {
               const slug = slugForLegendId(id)
               const name = rosterEntryByLegendId(id)?.name
@@ -87,7 +95,7 @@ export async function WeaponMetaCard({
                 <span className="font-mono text-sm tabular-nums">
                   {weapon.games.toLocaleString()}
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
                   games
                 </span>
               </div>
