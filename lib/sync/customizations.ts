@@ -6,7 +6,7 @@ import { db } from "@/lib/db"
 import { userCustomizations, type UserCustomizationRow } from "@/lib/db/schema"
 import { rosterEntryByLegendId } from "@/lib/legends-roster"
 import { DEFAULT_BANNER_ID, isValidBannerId } from "@/lib/profile/banners"
-import { formatFlairSelection, parseFlairSelection } from "@/lib/profile/flair"
+import { FLAIR_NONE, isFlairIdShape } from "@/lib/profile/flair"
 import {
   SOCIAL_KINDS,
   type SocialKind,
@@ -117,17 +117,10 @@ function parseBannerId(value: unknown): string | null {
  * simply falls back to the player's best earned badge — there is nothing to
  * cheat and nothing to correct.
  */
-/**
- * A selection is one id, "none", or a pair — the badge they fly plus their
- * membership badge (see formatFlairSelection). Validated for *shape* only, as
- * before: entitlement is re-derived on every render, so an id naming nothing
- * falls back rather than being rejected on the way in.
- */
 function parseFlairId(value: unknown): string | null {
   if (typeof value !== "string") return null
-  const { primary, companionId } = parseFlairSelection(value)
-  if (!primary) return null
-  return formatFlairSelection(primary, companionId)
+  if (value === FLAIR_NONE) return FLAIR_NONE
+  return isFlairIdShape(value) ? value : null
 }
 
 function toCustomization(row: UserCustomizationRow): Customization {

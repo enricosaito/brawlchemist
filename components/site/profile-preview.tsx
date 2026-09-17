@@ -3,7 +3,7 @@
 import Image from "next/image"
 import { createContext, useContext, useMemo, useState } from "react"
 import { resolveBanner } from "@/lib/profile/banners"
-import { resolveEarnedFlairs, type FlairId } from "@/lib/profile/flair"
+import { resolveEarnedFlair, type FlairId } from "@/lib/profile/flair"
 import { cn } from "@/lib/utils"
 import { useFlairCatalogue } from "./flair-catalogue"
 import { InfoTip } from "./info-tip"
@@ -111,26 +111,22 @@ export function PreviewFlair({
   const preview = useProfilePreview()
   const catalogue = useFlairCatalogue()
   const selected = preview?.flairId ?? savedId
-  const flairs = resolveEarnedFlairs(selected, earned, catalogue)
-  if (flairs.length === 0) return null
+  const flair = resolveEarnedFlair(selected, earned, catalogue)
+  if (!flair) return null
   return (
-    <>
-      {flairs.map((flair) => (
-        <InfoTip key={flair.id} label={flair.label}>
-          {/* No chip around it: the art is already a bounded object, and a
-              frame only made it read as one more tag in a row of tags. */}
-          <span className="inline-flex shrink-0 items-center">
-            <Image
-              src={flair.src}
-              alt={flair.label}
-              width={flair.width}
-              height={flair.height}
-              unoptimized
-              className={cn("w-auto object-contain select-none", className)}
-            />
-          </span>
-        </InfoTip>
-      ))}
-    </>
+    <InfoTip label={flair.label}>
+      {/* No chip around it: the art is already a bounded object, and a frame
+          only made it read as one more tag in a row of tags. */}
+      <span className="inline-flex shrink-0 items-center">
+        <Image
+          src={flair.src}
+          alt={flair.label}
+          width={flair.width}
+          height={flair.height}
+          unoptimized
+          className={cn("w-auto object-contain select-none", className)}
+        />
+      </span>
+    </InfoTip>
   )
 }

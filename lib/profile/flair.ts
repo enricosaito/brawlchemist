@@ -134,9 +134,11 @@ export const BUILTIN_FLAIRS: FlairDef[] = [
     id: "developer",
     label: "Brawlchemist Developer",
     requirement: "Build Brawlchemist",
-    src: "/assets/flairs/flair-developer.png",
-    // Resampled from 1024px: flair draws at 16px and ships unoptimised on every
-    // leaderboard row, so the source size lands fifty times on one screen.
+    src: "/assets/flairs/flair-developer.gif",
+    // Animated, and therefore served whole: Next’s optimizer detects animation
+    // and passes the file through untouched, so the raw weight lands on every
+    // leaderboard row that draws it. Worth keeping small for that reason rather
+    // than for the 16px it renders at.
     width: 193,
     height: 192,
     rule: "developer",
@@ -292,85 +294,49 @@ export function autoFlairId(
 }
 
 /**
- * A selection can name two badges: the one you fly, and your membership badge
- * beside it.
+ * Which rules a player can *choose* between.
  *
- * Stored in the one `flair_id` column as `"world-champion+brawlchemist-user"`,
- * rather than as a second column. The column already holds a *preference* that
- * is re-derived against entitlement on every render, and a pair is still one
- * preference — where a boolean beside it would be a second thing to migrate,
- * to plumb through the fifteen surfaces that pass a selection to FlairMark, and
- * to forget on the sixteenth. Every one of those surfaces passes this string
- * through untouched and keeps working.
+ * Two of the four rules aren't choices at all. `claimed` fires for every linked
+ * account, so its badge is the floor of the catalogue rather than a prize, and
+ * `developer` follows a role the account either has or doesn't. Offering either
+ * one in the picker asks a question with one answer — and worse, implies you
+ * could decline it, which you can't: both are derived on every render.
  *
- * Both halves are ids, not flags, so nothing here hardcodes which badge is the
- * membership one — that is the catalogue's `claimed` rule, and a stored id that
- * stops naming an earned flair falls back exactly like a primary that does.
+ * So they render but are never listed. A flair you earn by *doing* something —
+ * an accolade, or a hand-awarded badge — is the only kind worth a tile.
  */
-export const FLAIR_PAIR_SEPARATOR = "+"
+export const SELECTABLE_FLAIR_RULES: FlairRule[] = ["achievement", "manual"]
 
-export interface FlairSelection {
-  /** The badge to fly: an id, FLAIR_NONE, or null for "never chose". */
-  primary: string | null
-  /** The membership badge to show beside it, if any. */
-  companionId: string | null
+export function isSelectableFlair(flair: FlairDef): boolean {
+  return flair.enabled !== false && SELECTABLE_FLAIR_RULES.includes(flair.rule)
 }
 
-export function parseFlairSelection(
-  raw: string | null | undefined
-): FlairSelection {
-  if (typeof raw !== "string" || !raw) {
-    return { primary: null, companionId: null }
-  }
-  const [first, second] = raw.split(FLAIR_PAIR_SEPARATOR)
-  const primary =
-    first === FLAIR_NONE ? FLAIR_NONE : isFlairIdShape(first) ? first : null
-  return {
-    primary,
-    companionId: second && isFlairIdShape(second) ? second : null,
-  }
-}
-
-/** The stored form. Null primary means "never chose", which stores as null. */
-export function formatFlairSelection(
-  primary: string | null,
-  companionId: string | null
-): string | null {
-  if (!primary && !companionId) return null
-  const head = primary ?? FLAIR_NONE
-  return companionId ? `${head}${FLAIR_PAIR_SEPARATOR}${companionId}` : head
-}
-
-/**
- * The membership badge: the rarest enabled flair whose rule is `claimed`.
- *
- * Found by rule rather than by id so the companion follows the catalogue. An
- * operator can rename or replace "Brawlchemist User" and the toggle keeps
- * meaning "show that I'm a member here".
- */
-export function memberFlair(
+/** The catalogue as the picker should show it. */
+export function selectableFlairs(
   catalogue: FlairDef[] = BUILTIN_FLAIRS
-): FlairDef | null {
-  return (
-    byRarity(catalogue).find(
-      (f) => f.enabled !== false && f.rule === "claimed"
-    ) ?? null
-  )
+): FlairDef[] {
+  return byRarity(catalogue).filter(isSelectableFlair)
 }
 
 /**
- * Every flair to render, in rarity order.
+ * The flair to actually render: the player's choice, honoured only while they
+ * still hold it. An unset choice falls back to their best earned one so a badge
+ * shows up the moment it's won without anyone visiting a settings panel — and
+ * so a profile never silently loses its badge when a selection lapses. A player
+ * who drops out of Valhallan keeps showing the trophy they also earned rather
+ * than nothing.
  *
- * One or two: the badge they fly, and optionally the membership badge beside
- * it. The companion is dropped when it *is* the primary, so opting in while
- * flying the member badge shows it once rather than twice.
+ * One badge, always. A linked account that has earned nothing else therefore
+ * flies the membership badge by default, because it is last in the rarity order
+ * and `autoFlairId` takes the rarest held — the default falls out of the
+ * ordering rather than being a special case anyone has to maintain.
  */
-export function resolveFlairs(
+export function resolveFlair(
   selectedId: string | null | undefined,
   ctx: FlairContext,
   catalogue: FlairDef[] = BUILTIN_FLAIRS
-): FlairDef[] {
-  return resolveEarnedFlairs(
+): FlairDef | null {
+  return resolveEarnedFlair(
     selectedId,
     earnedFlairIds(ctx, catalogue),
     catalogue
@@ -381,59 +347,19 @@ export function resolveFlairs(
  * The same rule, for callers that already hold the earned list.
  *
  * The profile header is one: it is handed `earned` by the server and used to
- * re-implement this — pick the selection if earned, else the automatic one —
- * in its own component. That copy could only ever render a single badge, and
- * once a selection could name two it stopped matching its own `earned` list at
- * all and silently fell back to the automatic pick. A second copy of a rule
- * does not announce itself when the rule changes; there is one now.
+ * re-implement this — pick the selection if earned, else the automatic one — in
+ * its own component. A second copy of a rule does not announce itself when the
+ * rule changes, and that one had already drifted once. There is one now.
  */
-export function resolveEarnedFlairs(
+export function resolveEarnedFlair(
   selectedId: string | null | undefined,
   earned: FlairId[],
   catalogue: FlairDef[] = BUILTIN_FLAIRS
-): FlairDef[] {
-  const { primary, companionId } = parseFlairSelection(selectedId)
-  if (earned.length === 0) return []
-
-  const out: FlairDef[] = []
-  if (primary !== FLAIR_NONE) {
-    const chosen =
-      primary && earned.includes(primary)
-        ? flairById(primary, catalogue)
-        : flairById(autoFlairId(earned, catalogue), catalogue)
-    if (chosen) out.push(chosen)
-  }
-
-  if (companionId && companionId !== out[0]?.id) {
-    const companion = flairById(companionId, catalogue)
-    // Only a membership badge can ride along, and only if it is actually held.
-    // Anything else would make this a second free slot, which is a different
-    // feature and would need its own rarity argument.
-    if (
-      companion &&
-      companion.enabled !== false &&
-      companion.rule === "claimed" &&
-      earned.includes(companion.id)
-    ) {
-      out.push(companion)
-    }
-  }
-
-  return out
-}
-
-/**
- * The flair to actually render: the player's choice, honoured only while they
- * still hold it. An unset choice falls back to their best earned one so a badge
- * shows up the moment it's won without anyone visiting a settings panel — and
- * so a profile never silently loses its badge when a selection lapses. A player
- * who drops out of Valhallan keeps showing the trophy they also earned rather
- * than nothing.
- */
-export function resolveFlair(
-  selectedId: string | null | undefined,
-  ctx: FlairContext,
-  catalogue: FlairDef[] = BUILTIN_FLAIRS
 ): FlairDef | null {
-  return resolveFlairs(selectedId, ctx, catalogue)[0] ?? null
+  if (selectedId === FLAIR_NONE) return null
+  if (earned.length === 0) return null
+  if (selectedId && earned.includes(selectedId)) {
+    return flairById(selectedId, catalogue)
+  }
+  return flairById(autoFlairId(earned, catalogue), catalogue)
 }

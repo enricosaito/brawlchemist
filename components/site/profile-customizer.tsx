@@ -14,9 +14,7 @@ import { BANNER_PRESETS, DEFAULT_BANNER_ID } from "@/lib/profile/banners"
 import {
   autoFlairId,
   FLAIR_NONE,
-  formatFlairSelection,
-  memberFlair,
-  parseFlairSelection,
+  selectableFlairs,
   type FlairId,
 } from "@/lib/profile/flair"
 import { ACHIEVEMENTS } from "@/lib/profile/achievements"
@@ -155,32 +153,12 @@ export function ProfileCustomizer({
     preview?.setBannerId(id)
   }
 
-  /**
-   * Set one half of the selection and keep the other.
-   *
-   * The tiles pick the badge you fly; the checkbox underneath adds your
-   * membership badge beside it. They write the same string (see
-   * formatFlairSelection), so changing one must not silently drop the other —
-   * that is the whole reason this takes a patch rather than an id.
-   */
-  function setSelection(next: {
-    primary?: string
-    companionId?: string | null
-  }) {
+  function pickFlair(id: string) {
     if (pending) return
     setError(null)
     setSaved(false)
-    const current = parseFlairSelection(flairId)
-    const value = formatFlairSelection(
-      next.primary ?? current.primary ?? shownFlairId,
-      next.companionId !== undefined ? next.companionId : current.companionId
-    )
-    setFlairId(value)
-    preview?.setFlairId(value)
-  }
-
-  function pickFlair(id: string) {
-    setSelection({ primary: id })
+    setFlairId(id)
+    preview?.setFlairId(id)
   }
 
   /** The form as the server wants it. */
@@ -306,18 +284,8 @@ export function ProfileCustomizer({
   // What the profile is actually showing right now. A null choice means "show
   // my best", so the panel marks that row rather than claiming None and
   // disagreeing with the badge visible behind it.
-  const selection = parseFlairSelection(flairId)
   const shownFlairId =
-    selection.primary ?? autoFlairId(earnedFlairIds, catalogue) ?? FLAIR_NONE
-
-  // The membership badge, and whether it is worth offering. Nothing to offer if
-  // the catalogue has no `claimed` flair, if this player hasn't earned it, or
-  // if it is already the badge they fly — in that last case the checkbox would
-  // promise a second copy of what is on screen.
-  const member = memberFlair(catalogue)
-  const canPairMember =
-    !!member && earnedFlairIds.includes(member.id) && shownFlairId !== member.id
-  const memberPaired = !!member && selection.companionId === member.id
+    flairId ?? autoFlairId(earnedFlairIds, catalogue) ?? FLAIR_NONE
 
   const bioLeft = BIO_MAX - bio.length
 
@@ -383,7 +351,11 @@ export function ProfileCustomizer({
             onSelect={() => pickFlair(FLAIR_NONE)}
             label="None"
           />
-          {catalogue.map((f) => {
+          {/* Not the whole catalogue: a badge that follows a role or a linked
+            account is derived, so offering it asks a question with one answer
+            and implies you could decline it. Those still render — they just
+            aren't choices. */}
+          {selectableFlairs(catalogue).map((f) => {
             const earned = earnedFlairIds.includes(f.id)
             return (
               <FlairTile
@@ -410,46 +382,6 @@ export function ProfileCustomizer({
             )
           })}
         </div>
-
-        {/* The one badge that can be worn alongside another.
-            A checkbox rather than a second grid: there is exactly one thing it
-            can add, and a picker for a set of one is a picker that asks a
-            question with a single answer. Hidden when there is nothing to
-            offer — an unearned or already-flown member badge — rather than
-            shown disabled, because a disabled control on a settings panel is a
-            promise you have to explain. */}
-        {canPairMember && member && (
-          <label
-            className={cn(
-              "mt-2 flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2 transition-colors",
-              memberPaired
-                ? "border-pink/50 bg-pink/10"
-                : "border-border/60 bg-card/40 hover:border-pink/40"
-            )}
-          >
-            <input
-              type="checkbox"
-              checked={memberPaired}
-              onChange={(e) =>
-                setSelection({
-                  companionId: e.target.checked ? member.id : null,
-                })
-              }
-              className="size-3.5 shrink-0 accent-pink"
-            />
-            <Image
-              src={member.src}
-              alt=""
-              width={member.width}
-              height={member.height}
-              unoptimized
-              className="h-5 w-auto shrink-0 object-contain select-none"
-            />
-            <span className="min-w-0 text-xs text-muted-foreground">
-              Also show {member.label}
-            </span>
-          </label>
-        )}
       </Section>
 
       {/* Verified pros only, for now: free text and outbound links on a

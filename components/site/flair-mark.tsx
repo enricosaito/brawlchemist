@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { cn } from "@/lib/utils"
-import { resolveFlairs, type FlairContext } from "@/lib/profile/flair"
+import { resolveFlair, type FlairContext } from "@/lib/profile/flair"
 import { useFlairCatalogue } from "./flair-catalogue"
 import { InfoTip } from "./info-tip"
 
@@ -34,27 +34,20 @@ export function FlairMark({
   className?: string
 }) {
   const catalogue = useFlairCatalogue()
-  const flairs = resolveFlairs(selectedId, context, catalogue)
-  if (flairs.length === 0) return null
-  // No wrapper element around the group: this renders inline beside a name on
-  // fifteen surfaces, each with its own flex gap, and an extra span would
-  // change the spacing on all of them to serve the one case with two badges.
+  const flair = resolveFlair(selectedId, context, catalogue)
+  if (!flair) return null
   return (
-    <>
-      {flairs.map((flair) => (
-        <InfoTip key={flair.id} label={flair.label}>
-          <span className="inline-flex shrink-0 items-center">
-            <Image
-              src={flair.src}
-              alt={flair.label}
-              width={flair.width}
-              height={flair.height}
-              unoptimized
-              className={cn("w-auto object-contain select-none", className)}
-            />
-          </span>
-        </InfoTip>
-      ))}
-    </>
+    <InfoTip label={flair.label}>
+      <span className="inline-flex shrink-0 items-center">
+        <Image
+          src={flair.src}
+          alt={flair.label}
+          width={flair.width}
+          height={flair.height}
+          unoptimized
+          className={cn("w-auto object-contain select-none", className)}
+        />
+      </span>
+    </InfoTip>
   )
 }
