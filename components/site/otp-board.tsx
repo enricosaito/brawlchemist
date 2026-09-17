@@ -46,7 +46,7 @@ function buildColumns(
   previews: Map<number, PlayerPreview>,
   flairs: Map<number, string>,
   // The top 3 render in the podium, so the table starts at this rank.
-  rankOffset = 0,
+  rankOffset = 0
 ): ColDef<OtpPlayer>[] {
   return [
     {
@@ -65,12 +65,14 @@ function buildColumns(
       label: "Rank",
       width: "72px",
       align: "center",
-      render: (p) => {
-        const tier = deriveTier(p.tier, valhallanById.get(p.brawlhalla_id) ?? false)
-        return tier ? (
-          <RankIcon tier={tier} size={32} className="mx-auto" />
-        ) : null
-      },
+      render: (p) => (
+        <RankIcon
+          tier={deriveTier(p.tier, valhallanById.get(p.brawlhalla_id) ?? false)}
+          rating={p.rating}
+          size={32}
+          className="mx-auto"
+        />
+      ),
     },
     {
       id: "player",
@@ -88,12 +90,12 @@ function buildColumns(
             <div
               className={cn(
                 "flex min-w-0 flex-col gap-0.5",
-                handle && "group/pro",
+                handle && "group/pro"
               )}
             >
               <PlayerLink
                 id={p.brawlhalla_id}
-                className="text-sm font-medium leading-5"
+                className="text-sm leading-5 font-medium"
               >
                 {handle ? (
                   <span className="inline-flex min-w-0 items-center gap-1">
@@ -123,14 +125,14 @@ function buildColumns(
               </PlayerLink>
               {handle ? (
                 <>
-                  <span className="mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-mystic group-hover/pro:hidden">
+                  <span className="mt-0.5 font-mono text-[10px] font-medium tracking-wider text-mystic uppercase group-hover/pro:hidden">
                     Pro Player
                   </span>
                   {tier && (
                     <span
                       className={cn(
-                        "mt-0.5 hidden font-mono text-[10px] font-medium uppercase tracking-wider group-hover/pro:block",
-                        TIER_TEXT_COLOR[tier],
+                        "mt-0.5 hidden font-mono text-[10px] font-medium tracking-wider uppercase group-hover/pro:block",
+                        TIER_TEXT_COLOR[tier]
                       )}
                     >
                       {tierText}
@@ -140,8 +142,8 @@ function buildColumns(
               ) : tier ? (
                 <span
                   className={cn(
-                    "mt-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
-                    TIER_TEXT_COLOR[tier],
+                    "mt-0.5 font-mono text-[10px] font-medium tracking-wider uppercase",
+                    TIER_TEXT_COLOR[tier]
                   )}
                 >
                   {tierText}
@@ -180,7 +182,7 @@ function buildColumns(
       align: "right",
       width: "100px",
       render: (p) => (
-        <span className="font-mono text-sm tabular-nums text-muted-foreground">
+        <span className="font-mono text-sm text-muted-foreground tabular-nums">
           {p.peak_rating != null ? formatElo(p.peak_rating) : "—"}
         </span>
       ),
@@ -195,7 +197,7 @@ function buildColumns(
         const total = p.games ?? 0
         const share = total > 0 ? (lGames / total) * 100 : 0
         return (
-          <span className="font-mono text-sm tabular-nums text-tier-s">
+          <span className="font-mono text-sm text-tier-s tabular-nums">
             {share.toFixed(1)}%
           </span>
         )
@@ -207,7 +209,7 @@ function buildColumns(
       align: "right",
       width: "100px",
       render: (p) => (
-        <span className="font-mono text-sm tabular-nums text-positive">
+        <span className="font-mono text-sm text-positive tabular-nums">
           {formatWinRate(p.legend_wins, p.legend_games)}
         </span>
       ),
@@ -255,14 +257,12 @@ export async function OtpBoard({
     ...new Set(
       players
         .map((p) => p.region)
-        .filter(
-          (r): r is ApiRegion => !!r && r !== "ALL" && isApiRegion(r),
-        ),
+        .filter((r): r is ApiRegion => !!r && r !== "ALL" && isApiRegion(r))
     ),
   ]
   const cutoffs = await getValhallanCutoffs("1v1", regions)
   const cutoffFor = (region: string | null) =>
-    region && isApiRegion(region) ? cutoffs.get(region)?.rating ?? null : null
+    region && isApiRegion(region) ? (cutoffs.get(region)?.rating ?? null) : null
   // Ladder membership first — these ratings are stored and the cutoff is live,
   // so the comparison alone downgrades anyone who climbed since their last
   // sync. See isValhallan1v1 on the profile page.
@@ -275,7 +275,7 @@ export async function OtpBoard({
       p.brawlhalla_id,
       ladderValhallan.has(p.brawlhalla_id) ||
         isValhallan(p.rating, cutoffFor(p.region), p.wins),
-    ]),
+    ])
   )
   // Admin-curated pro handles/badges for the player column, plus the flair
   // selections (one cached map, not a read per row).
@@ -342,7 +342,7 @@ export async function OtpBoard({
             <span className="font-display text-lg font-semibold">
               {selectedLegend.name} mains
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
               {region === "ALL" ? "all regions" : `region: ${region}`} · top{" "}
               {players.length}
             </span>
@@ -369,7 +369,7 @@ export async function OtpBoard({
               valhallanById,
               overrides,
               flairs,
-              tableStart,
+              tableStart
             )}
             rows={tableRows}
             rowKey={(p) => String(p.brawlhalla_id)}

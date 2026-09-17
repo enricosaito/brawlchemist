@@ -2,6 +2,7 @@ import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { getLegend } from "@/lib/mock-data"
 import type { Stance, Tier, WeaponId } from "@/lib/types"
+import { TIER_FLOOR, tierFromRating } from "@/lib/tier"
 import { InfoTip } from "./info-tip"
 
 // PlayerLink lives in its own client-component file (it carries an interactive
@@ -191,21 +192,72 @@ export function RankHelm({
   )
 }
 
+/**
+ * The emblem for a rating we can't name.
+ *
+ * The ladder labels tiers with its own strings, and `toTier` only recognises
+ * the seven we model — anything else (an unfamiliar label, or a row where the
+ * API omits `tier` entirely, which its own type allows) used to resolve to
+ * null and render *nothing*. A blank cell in a column of emblems reads as a
+ * broken image, not as "we don't know".
+ *
+ * Fallen Valhallan is the honest stand-in at the top of the ladder, and it is
+ * the game's own idea: someone who held the tier and is no longer on the
+ * roster. Below the Diamond floor it would be a lie, so down there the band is
+ * derived from the rating instead — which is exact, since the floors are fixed.
+ */
+const FALLEN_VALHALLAN_SRC = "/assets/Avatar_Valhallan_Emblem_Fallen.webp"
+
 export function RankIcon({
   tier,
+  rating,
   size = 22,
   className,
 }: {
-  tier: Tier
+  /** Null when the ladder's label isn't one of the seven we model. */
+  tier: Tier | null
+  /** The fallback's only input. Without it an unknown tier still renders nothing. */
+  rating?: number | null
   size?: number
   className?: string
 }) {
-  const src = RANK_ICON_SRC[tier]
-  if (!src) return null
+  const known = tier ? RANK_ICON_SRC[tier] : null
+  if (known) {
+    return (
+      <Image
+        src={known}
+        alt={`${tier} rank`}
+        width={size}
+        height={size}
+        unoptimized
+        className={cn("shrink-0 object-contain select-none", className)}
+      />
+    )
+  }
+
+  if (rating == null) return null
+
+  if (rating >= TIER_FLOOR.Diamond) {
+    return (
+      <Image
+        src={FALLEN_VALHALLAN_SRC}
+        alt="Fallen Valhallan"
+        title="Fallen Valhallan"
+        width={size}
+        height={size}
+        unoptimized
+        className={cn("shrink-0 object-contain select-none", className)}
+      />
+    )
+  }
+
+  const derived = tierFromRating(rating)
+  const src = derived ? RANK_ICON_SRC[derived] : null
+  if (!src || !derived) return null
   return (
     <Image
       src={src}
-      alt={`${tier} rank`}
+      alt={`${derived} rank`}
       width={size}
       height={size}
       unoptimized
