@@ -48,26 +48,26 @@ export function LifetimeStatsSection({ stats }: { stats: PlayerStats | null }) {
   return (
     <Wrap>
       <div className="grid gap-10 xl:grid-cols-2 xl:gap-6">
-      <Section title="Legends">
-        <Table
-          head={["Legend", "Matches", "Win rate", "Level"]}
-          rows={lifetime.legends.map((l) => (
-            <LegendRow key={l.legendId} row={l} />
-          ))}
-        />
-      </Section>
+        <Section title="Legends">
+          <Table
+            head={["#", "Legend", "Matches", "Win rate", "Level"]}
+            rows={lifetime.legends.map((l, i) => (
+              <LegendRow key={l.legendId} row={l} rank={i + 1} />
+            ))}
+          />
+        </Section>
 
-      <Section title="Weapons">
-        {/* The caveat sits above the numbers rather than in a footnote, because
+        <Section title="Weapons">
+          {/* The caveat sits above the numbers rather than in a footnote, because
             it changes how they should be read and a footnote is where a caveat
             goes to be ignored. */}
-        <Table
-          head={["Weapon", "Matches", "Win rate"]}
-          rows={lifetime.weapons.map((w) => (
-            <WeaponRow key={w.weaponId} row={w} />
-          ))}
-        />
-      </Section>
+          <Table
+            head={["#", "Weapon", "Matches", "Win rate"]}
+            rows={lifetime.weapons.map((w, i) => (
+              <WeaponRow key={w.weaponId} row={w} rank={i + 1} />
+            ))}
+          />
+        </Section>
       </div>
     </Wrap>
   )
@@ -99,26 +99,22 @@ function Section({
   )
 }
 
-
 /** Tables scroll rather than squeeze — four numeric columns don't fit a phone. */
-function Table({
-  head,
-  rows,
-}: {
-  head: string[]
-  rows: React.ReactNode[]
-}) {
+function Table({ head, rows }: { head: string[]; rows: React.ReactNode[] }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-border/60 bg-card/40">
-      <table className="w-full min-w-[400px] border-collapse text-sm">
+      <table className="w-full min-w-[440px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-border/60">
             {head.map((h, i) => (
               <th
                 key={h}
                 className={cn(
-                  "px-4 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground",
-                  i === 0 ? "text-left" : "text-right",
+                  "px-4 py-2.5 font-mono text-[10px] font-medium tracking-wider text-muted-foreground uppercase",
+                  // Column 0 is the rank and column 1 is the name; everything
+                  // after them is a number, and numbers align right.
+                  i === 1 ? "text-left" : "text-right",
+                  i === 0 && "w-[56px]"
                 )}
               >
                 {h}
@@ -134,6 +130,20 @@ function Table({
 
 const CELL = "px-4 py-2.5 text-right font-mono tabular-nums"
 
+/**
+ * The ordinal. Both tables arrive sorted — legends by XP, weapons by matches —
+ * so the position is already true of the row; printing it just saves counting
+ * down to "where does my ninth-most-played legend sit". Muted and monospaced,
+ * because it is a label for the row rather than one of its numbers.
+ */
+function Rank({ value }: { value: number }) {
+  return (
+    <td className="w-[56px] px-4 py-2.5 text-right font-mono text-xs text-muted-foreground tabular-nums">
+      {value}
+    </td>
+  )
+}
+
 /** Brawlhalla's per-legend cap. Maxed reads as an achievement, not a number. */
 const MAX_LEGEND_LEVEL = 100
 
@@ -146,9 +156,10 @@ function WinRate({ value }: { value: number | null }) {
   )
 }
 
-function LegendRow({ row }: { row: LifetimeLegendRow }) {
+function LegendRow({ row, rank }: { row: LifetimeLegendRow; rank: number }) {
   return (
     <tr className="border-b border-border/40 last:border-0 hover:bg-card/60">
+      <Rank value={rank} />
       <td className="px-4 py-2.5">
         <span className="flex min-w-0 items-center gap-2.5">
           {row.slug ? (
@@ -163,16 +174,19 @@ function LegendRow({ row }: { row: LifetimeLegendRow }) {
       <td className={CELL}>
         <WinRate value={row.winRate} />
       </td>
-      <td className={cn(CELL, row.level >= MAX_LEGEND_LEVEL && "text-tier-gold")}>
+      <td
+        className={cn(CELL, row.level >= MAX_LEGEND_LEVEL && "text-tier-gold")}
+      >
         {row.level}
       </td>
     </tr>
   )
 }
 
-function WeaponRow({ row }: { row: LifetimeWeaponRow }) {
+function WeaponRow({ row, rank }: { row: LifetimeWeaponRow; rank: number }) {
   return (
     <tr className="border-b border-border/40 last:border-0 hover:bg-card/60">
+      <Rank value={rank} />
       <td className="px-4 py-2.5">
         <span className="flex min-w-0 items-center gap-2.5">
           <WeaponIcon weaponId={row.weaponId} size={24} className="shrink-0" />

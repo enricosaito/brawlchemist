@@ -2,7 +2,11 @@ import Image from "next/image"
 import type { PlayerStats } from "@/lib/brawlhalla-api"
 import { formatCompact } from "@/lib/format"
 import { computeLifetimeStats } from "@/lib/profile/lifetime-stats"
-import { resolveGems, type GemContext, type GemLevelDef } from "@/lib/profile/gems"
+import {
+  resolveGems,
+  type GemContext,
+  type GemLevelDef,
+} from "@/lib/profile/gems"
 import { cn } from "@/lib/utils"
 import { LifetimeStatsSection } from "@/components/player/lifetime-stats-section"
 
@@ -41,13 +45,13 @@ export function GemSection({
               art={<Gem level={level} />}
               title={def.name}
               tag={level ? level.label : "Uncut"}
+              note={gemProgress(value, next)}
               value={value == null ? "—" : value.toLocaleString()}
               // Account Level and Total XP were two tiles saying one thing:
               // the level is the XP, rounded off. XP rides its own gem's card.
-              sub={gemSub(def.id, value, next, lifetime)}
+              sub={gemStat(def.id, context, lifetime)}
             />
           ))}
-
         </div>
       </div>
 
@@ -57,18 +61,38 @@ export function GemSection({
 }
 
 /**
- * A gem's second line.
+ * How far this gem still has to climb, shown beside the level it has reached.
+ *
+ * It belongs on the title line rather than under the number because it is about
+ * the *badge*, not the player: "Sapphire · 260 to Emerald" is one continuous
+ * statement of standing, read left to right. Underneath, the line was competing
+ * with a statistic for the same slot, and two of the three gems have one — so
+ * the third printed its progress there and the row of cards read as though a
+ * stat were missing from one of them.
+ */
+function gemProgress(
+  value: number | null,
+  next: { min: number; label: string } | null
+): string | null {
+  if (value == null) return null
+  if (next) return `${(next.min - value).toLocaleString()} to ${next.label}`
+  return "Maxed"
+}
+
+/**
+ * A gem's second line: the reading behind the grade.
  *
  * Two of the three carry numbers that used to have tiles of their own — the
  * level *is* the XP rounded off, and a win count without the rate it came at is
- * half a fact. The third falls back to the distance to the next level, which is
- * the only thing a graded badge can say that a binary one can't.
+ * half a fact. Peak Elo takes the current rating, which is the one number a
+ * peak invites you to ask for and the only one on this card that can go down —
+ * except when they are the same number, which is both the most flattering thing
+ * this card can say and, printed twice, the thing that makes it look broken.
  */
-function gemSub(
+function gemStat(
   id: string,
-  value: number | null,
-  next: { min: number; label: string } | null,
-  lifetime: ReturnType<typeof computeLifetimeStats> | null,
+  ctx: GemContext,
+  lifetime: ReturnType<typeof computeLifetimeStats> | null
 ): string {
   if (lifetime) {
     if (id === "account-level") {
@@ -78,9 +102,12 @@ function gemSub(
       return `${lifetime.games.toLocaleString()} matches · ${lifetime.winRate?.toFixed(1) ?? "—"}%`
     }
   }
-  if (value == null) return "No data yet"
-  if (next) return `${(next.min - value).toLocaleString()} to ${next.label}`
-  return "Maxed"
+  if (id === "peak-elo" && ctx.rating != null && ctx.rating > 0) {
+    return ctx.rating === ctx.peakRating
+      ? "At peak"
+      : `${ctx.rating.toLocaleString()} now`
+  }
+  return "No data yet"
 }
 
 /** One shape for all six, so a gem and a reading sit level with each other. */
@@ -89,6 +116,7 @@ function Card({
   art,
   title,
   tag,
+  note,
   value,
   valueSize = "text-xl",
   tone,
@@ -100,6 +128,8 @@ function Card({
   title: string
   /** The gem's level name, where there is one. */
   tag?: string
+  /** Distance to the next level, or "Maxed" — rides beside the tag. */
+  note?: string | null
   value: string
   valueSize?: string
   tone?: string
@@ -109,7 +139,7 @@ function Card({
     <div
       className={cn(
         "flex items-center gap-4 rounded-2xl border p-4 backdrop-blur-sm",
-        lit ? "border-border/60 bg-card/50" : "border-border/40 bg-card/25",
+        lit ? "border-border/60 bg-card/50" : "border-border/40 bg-card/25"
       )}
     >
       {art && <span className="flex shrink-0 items-center">{art}</span>}
@@ -119,20 +149,30 @@ function Card({
           {tag && (
             <span
               className={cn(
-                "font-mono text-[10px] uppercase tracking-wider",
-                lit ? "text-foreground/70" : "text-muted-foreground/60",
+                "font-mono text-[10px] tracking-wider uppercase",
+                lit ? "text-foreground/70" : "text-muted-foreground/60"
               )}
             >
               {tag}
+              {note && (
+                // One mono run, one separator: the level and what is left of it
+                // are the same thought, and a second styled chip beside the
+                // name would read as a second label.
+                <span className="text-muted-foreground/60"> · {note}</span>
+              )}
             </span>
           )}
         </span>
         <span
-          className={cn("truncate font-mono font-bold tabular-nums", valueSize, tone)}
+          className={cn(
+            "truncate font-mono font-bold tabular-nums",
+            valueSize,
+            tone
+          )}
         >
           {value}
         </span>
-        <span className="truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
+        <span className="truncate font-mono text-[10px] tracking-wider text-muted-foreground/70 uppercase">
           {sub}
         </span>
       </div>
