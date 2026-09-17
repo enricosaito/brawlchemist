@@ -62,10 +62,7 @@ import {
   type PlayerStats,
   type PlayerStatsLegend,
 } from "@/lib/brawlhalla-api"
-import {
-  getEsportsProfile,
-  type EsportsProfile,
-} from "@/lib/brawltools-api"
+import { getEsportsProfile, type EsportsProfile } from "@/lib/brawltools-api"
 import {
   getPlayerRankedJson,
   getPlayersByIds,
@@ -176,7 +173,7 @@ type LoadedRanked = {
   apiError?: string
 }
 const loadSyncState = cache((id: number) =>
-  getPlayerSyncState(id).catch(() => null),
+  getPlayerSyncState(id).catch(() => null)
 )
 
 /**
@@ -204,8 +201,7 @@ const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
     Date.now() - state.liveActiveAt.getTime() < LIVE_SESSION_MS
   const freshMs = playing ? PROFILE_FRESH_ACTIVE_MS : PROFILE_FRESH_IDLE_MS
   const fresh =
-    !!state?.hasRankedJson &&
-    Date.now() - state.lastSynced.getTime() < freshMs
+    !!state?.hasRankedJson && Date.now() - state.lastSynced.getTime() < freshMs
   // A crawler is happy with whatever we already hold.
   const serveFromCache = !!state?.hasRankedJson && (fresh || crawler)
   // We asked about this player recently and the API had no ranked record for
@@ -233,7 +229,7 @@ const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
       result = { data: res.data, source: "api" }
     } else if (state?.hasRankedJson) {
       console.warn(
-        `[player ${numId}] live /ranked failed (${res.status}: ${res.error}) — served cached ranked_json fallback`,
+        `[player ${numId}] live /ranked failed (${res.status}: ${res.error}) — served cached ranked_json fallback`
       )
       result = {
         data: await getPlayerRankedJson(numId),
@@ -279,7 +275,7 @@ const loadRanked = cache(async (numId: number): Promise<LoadedRanked> => {
       apiStatus: result.apiStatus,
       client,
       referer,
-    }),
+    })
   )
 
   return result
@@ -297,12 +293,12 @@ const API_SKIPPED = {
 
 const loadStats = cache((id: number) => getPlayerStats(id))
 const loadGuild = cache((id: number) =>
-  getPlayerGuild(id, { revalidate: PROFILE_REVALIDATE }),
+  getPlayerGuild(id, { revalidate: PROFILE_REVALIDATE })
 )
 const loadStaticLegends = cache(() => getStaticLegends())
 const loadEsports = cache((id: number) => getEsportsProfile(id))
 const loadCutoff = cache((mode: ApiGameMode, region: ApiRegion) =>
-  getValhallanCutoff(mode, region),
+  getValhallanCutoff(mode, region)
 )
 const loadValhallanIds = cache((mode: ApiGameMode) => getValhallanIds(mode))
 
@@ -320,7 +316,7 @@ function parseId(raw: string): number | null {
  */
 async function valhallanCutoffRating(
   mode: ApiGameMode,
-  region: string | null | undefined,
+  region: string | null | undefined
 ): Promise<number | null> {
   return (await valhallanCutoffFor(mode, region))?.rating ?? null
 }
@@ -328,7 +324,7 @@ async function valhallanCutoffRating(
 /** The whole cutoff record, including the ids the ladder calls Valhallan. */
 async function valhallanCutoffFor(
   mode: ApiGameMode,
-  region: string | null | undefined,
+  region: string | null | undefined
 ) {
   if (!region || region === "ALL" || !isApiRegion(region)) return null
   return (await loadCutoff(mode, region)) ?? null
@@ -356,7 +352,7 @@ function isValhallan1v1(
   cutoff: { rating: number } | null,
   playerId: number,
   rating: number | null,
-  wins: number | null,
+  wins: number | null
 ): boolean {
   if (valhallanIds.includes(playerId)) return true
   return isValhallan(rating, cutoff?.rating ?? null, wins)
@@ -434,7 +430,13 @@ function Shell({ children }: { children: React.ReactNode }) {
   return <main className="pb-16">{children}</main>
 }
 
-function NoticeCard({ title, children }: { title: string; children: React.ReactNode }) {
+function NoticeCard({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
   return (
     <section className="mx-auto max-w-[1280px] px-4 pt-14 sm:px-6">
       <div className="mx-auto max-w-xl rounded-xl border border-border/60 bg-card/40 p-6 text-center">
@@ -442,7 +444,7 @@ function NoticeCard({ title, children }: { title: string; children: React.ReactN
         <p className="mt-2 text-sm text-muted-foreground">{children}</p>
         <Link
           href="/"
-          className="mt-4 inline-block font-mono text-[11px] uppercase tracking-wider text-pink transition-colors hover:text-foreground"
+          className="mt-4 inline-block font-mono text-[11px] tracking-wider text-pink uppercase transition-colors hover:text-foreground"
         >
           ← Search another player
         </Link>
@@ -475,12 +477,12 @@ function RatingTile({
 }) {
   return (
     <div className="min-w-0 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 sm:shrink-0">
-      <span className="flex min-w-0 items-baseline gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      <span className="flex min-w-0 items-baseline gap-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
         <span className="shrink-0">{label}</span>
         {partner && (
           <Link
             href={`/player/${partner.id}`}
-            className="min-w-0 truncate normal-case text-muted-foreground/70 transition-colors hover:text-foreground"
+            className="min-w-0 truncate text-muted-foreground/70 normal-case transition-colors hover:text-foreground"
           >
             · {partner.name}
           </Link>
@@ -495,9 +497,9 @@ function RatingTile({
         <div className="mt-1 flex h-7 min-w-0 items-baseline gap-1.5">
           {tier && <RankHelm tier={tier} className="h-6 self-center" />}
           {rating != null ? (
-            <span className="truncate font-display text-xl font-semibold tabular-nums text-foreground">
+            <span className="truncate font-display text-xl font-semibold text-foreground tabular-nums">
               {formatElo(rating)}
-              <span className="ml-1 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="ml-1 font-mono text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
                 ELO
               </span>
             </span>
@@ -510,7 +512,7 @@ function RatingTile({
       </InfoTip>
       {/* Peak comes back off the tooltip now that the tier has vacated this
           line — with three cards instead of four there is room for it. */}
-      <div className="mt-0.5 h-4 truncate font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="mt-0.5 h-4 truncate font-mono text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
         {peak != null && <>Peak {formatElo(peak)}</>}
       </div>
     </div>
@@ -531,13 +533,13 @@ function Metric({
 }) {
   return (
     <div className="flex min-w-0 flex-col">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
         {label}
       </span>
       <span
         className={cn(
           "mt-0.5 font-display text-2xl font-semibold tabular-nums",
-          accent,
+          accent
         )}
       >
         {value}
@@ -611,7 +613,7 @@ function weaponLabel(weaponId: WeaponId): string {
 function AccountTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3">
-      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      <div className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
         {label}
       </div>
       <div className="mt-1 font-mono text-xl font-bold tabular-nums">
@@ -641,70 +643,72 @@ function AccountSection({
   return (
     <div className="h-full rounded-2xl border border-border/60 bg-card/50 p-5">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <AccountTile
-              label="Account Level"
-              value={stats.level.toLocaleString()}
-            />
-            <AccountTile
-              label="Playtime"
-              value={`${stats.playtimeHours.toLocaleString()}h`}
-            />
-            <AccountTile label="Total XP" value={stats.xp.toLocaleString()} />
-            <AccountTile
-              label="Lifetime Games"
-              value={stats.games.toLocaleString()}
-            />
-          </div>
+        <AccountTile
+          label="Account Level"
+          value={stats.level.toLocaleString()}
+        />
+        <AccountTile
+          label="Playtime"
+          value={`${stats.playtimeHours.toLocaleString()}h`}
+        />
+        <AccountTile label="Total XP" value={stats.xp.toLocaleString()} />
+        <AccountTile
+          label="Lifetime Games"
+          value={stats.games.toLocaleString()}
+        />
+      </div>
 
-          <div className="mt-5 flex flex-wrap items-start gap-x-12 gap-y-5 border-t border-border/60 pt-5">
-            {stats.weapons.length > 0 && (
-              <div>
-                <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Main Weapons
-                </div>
-                <div className="flex flex-wrap items-center gap-4">
-                  {stats.weapons.map((w) => (
-                    <div key={w.weaponId} className="flex items-center gap-2">
-                      <WeaponIcon weaponId={w.weaponId} size={32} />
-                      <div className="flex flex-col leading-tight">
-                        <span className="text-sm font-medium">
-                          {weaponLabel(w.weaponId)}
-                        </span>
-                        <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                          {w.pct.toFixed(0)}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                Guild
-              </div>
-              {guildId ? (
-                <Link
-                  href={`/guilds/${guildId}`}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2.5 py-1.5 text-sm transition-colors hover:border-tier-valhallan/50 hover:text-foreground"
-                >
-                  <Users className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="max-w-[200px] truncate">
-                    {guildName || "Guild"}
-                  </span>
-                </Link>
-              ) : (
-                <span className="text-sm text-muted-foreground">No guild</span>
-              )}
+      <div className="mt-5 flex flex-wrap items-start gap-x-12 gap-y-5 border-t border-border/60 pt-5">
+        {stats.weapons.length > 0 && (
+          <div>
+            <div className="mb-2 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+              Main Weapons
             </div>
+            <div className="flex flex-wrap items-center gap-4">
+              {stats.weapons.map((w) => (
+                <div key={w.weaponId} className="flex items-center gap-2">
+                  <WeaponIcon weaponId={w.weaponId} size={32} />
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-sm font-medium">
+                      {weaponLabel(w.weaponId)}
+                    </span>
+                    <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+                      {w.pct.toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <div className="mb-2 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+            Guild
+          </div>
+          {guildId ? (
+            <Link
+              href={`/guilds/${guildId}`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2.5 py-1.5 text-sm transition-colors hover:border-tier-valhallan/50 hover:text-foreground"
+            >
+              <Users className="size-4 shrink-0 text-muted-foreground" />
+              <span className="max-w-[200px] truncate">
+                {guildName || "Guild"}
+              </span>
+            </Link>
+          ) : (
+            <span className="text-sm text-muted-foreground">No guild</span>
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
 /** Slug of the player's most-played legend this season. */
-function topLegendSlug(legends: PlayerRankedLegend[] | undefined): string | null {
+function topLegendSlug(
+  legends: PlayerRankedLegend[] | undefined
+): string | null {
   const top = [...(legends ?? [])]
     .filter((l) => l.games > 0)
     .sort((a, b) => b.games - a.games)[0]
@@ -723,7 +727,7 @@ function LegendHead({
       <span
         className={cn(
           "shrink-0 rounded-md border border-border/60 bg-muted/30",
-          className,
+          className
         )}
       />
     )
@@ -736,7 +740,7 @@ function LegendHead({
       height={48}
       className={cn(
         "shrink-0 rounded-md border border-border/60 object-cover",
-        className,
+        className
       )}
     />
   )
@@ -808,7 +812,7 @@ function TeamCard({
           alt={`${tier} rank banner`}
           width={182}
           height={330}
-          className="h-20 w-auto shrink-0 select-none object-contain drop-shadow-sm"
+          className="h-20 w-auto shrink-0 object-contain drop-shadow-sm select-none"
         />
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -838,30 +842,32 @@ function TeamCard({
         <div className="flex flex-wrap items-center gap-x-2 font-mono text-[11px]">
           {tier && (
             <span
-              className={cn("uppercase tracking-wider", TIER_TEXT_COLOR[tier])}
+              className={cn("tracking-wider uppercase", TIER_TEXT_COLOR[tier])}
             >
               {tierLabel(team.tier, valhallan)}
             </span>
           )}
           <span className="tabular-nums">
             {formatElo(team.rating)}
-            <span className="ml-1 text-[9px] uppercase text-muted-foreground">
+            <span className="ml-1 text-[9px] text-muted-foreground uppercase">
               ELO
             </span>
           </span>
           <span className="text-muted-foreground/50">·</span>
-          <span className="tabular-nums text-muted-foreground">
+          <span className="text-muted-foreground tabular-nums">
             peak {formatElo(team.peak_rating)}
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-x-2 font-mono text-[11px] tabular-nums text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-2 font-mono text-[11px] text-muted-foreground tabular-nums">
           <span>{team.games.toLocaleString()} games</span>
           <span className="text-muted-foreground/50">·</span>
           <span>
             {team.wins.toLocaleString()}–{losses.toLocaleString()}
           </span>
           <span className="text-muted-foreground/50">·</span>
-          <span className="text-positive">{winRate(team.wins, team.games)}</span>
+          <span className="text-positive">
+            {winRate(team.wins, team.games)}
+          </span>
         </div>
       </div>
       <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-tier-valhallan" />
@@ -896,8 +902,8 @@ function EditOverlay({ href }: { href: string }) {
       {/* A scrim under the chip. Without it the chip lands on whichever tag
           happens to be mid-card and reads as overlapping the content rather
           than floating over a card that has entered an edit state. */}
-      <span className="absolute inset-0 rounded-2xl bg-background/50 opacity-0 transition-opacity group-hover/edit:opacity-100 group-focus-within/edit:opacity-100 motion-reduce:transition-none" />
-      <span className="pointer-events-none relative flex items-center gap-2 rounded-full border border-pink/50 bg-card/90 px-4 py-2 font-mono text-[11px] font-medium tracking-wider text-pink uppercase opacity-0 shadow-lg backdrop-blur-md transition-opacity group-hover/edit:opacity-100 group-focus-within/edit:opacity-100 motion-reduce:transition-none">
+      <span className="absolute inset-0 rounded-2xl bg-background/50 opacity-0 transition-opacity group-focus-within/edit:opacity-100 group-hover/edit:opacity-100 motion-reduce:transition-none" />
+      <span className="pointer-events-none relative flex items-center gap-2 rounded-full border border-pink/50 bg-card/90 px-4 py-2 font-mono text-[11px] font-medium tracking-wider text-pink uppercase opacity-0 shadow-lg backdrop-blur-md transition-opacity group-focus-within/edit:opacity-100 group-hover/edit:opacity-100 motion-reduce:transition-none">
         <Sparkles className="size-3.5" />
         Customize profile
       </span>
@@ -923,7 +929,7 @@ export interface EarnedTitle {
  */
 function TitleTag({ title }: { title: EarnedTitle }) {
   const tag = (
-    <span className="inline-flex items-center rounded-md border border-royal/40 bg-royal/10 px-1.5 py-0.5 normal-case text-royal">
+    <span className="inline-flex items-center rounded-md border border-royal/40 bg-royal/10 px-1.5 py-0.5 text-royal normal-case">
       {title.text}
     </span>
   )
@@ -966,7 +972,7 @@ function MostPlayedCluster({
           read as decoration — the whole cluster is a link and nothing
           announced it. Both halves brighten on hover so the target reads as
           one thing. */}
-      <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors group-hover/most:text-foreground">
+      <span className="flex items-center gap-1.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase transition-colors group-hover/most:text-foreground">
         Most Played
         {href && (
           <>
@@ -1080,7 +1086,7 @@ function LegendsSection({
       align: "right",
       cellClass: PAD,
       render: (_l, i) => (
-        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+        <span className="font-mono text-xs text-muted-foreground tabular-nums">
           {i + 1}
         </span>
       ),
@@ -1113,10 +1119,10 @@ function LegendsSection({
       cellClass: PAD,
       render: (l) => (
         <span className="flex flex-col items-start gap-0.5">
-          <span className="font-mono text-lg font-bold leading-none tabular-nums text-foreground">
+          <span className="font-mono text-lg leading-none font-bold text-foreground tabular-nums">
             {l.games.toLocaleString()}
           </span>
-          <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+          <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
             {totalGames > 0
               ? `${((l.games / totalGames) * 100).toFixed(1)}% pick`
               : "—"}
@@ -1131,7 +1137,7 @@ function LegendsSection({
       width: "100px",
       cellClass: PAD,
       render: (l) => (
-        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+        <span className="font-mono text-xs text-muted-foreground tabular-nums">
           <span className="text-positive">{l.wins.toLocaleString()}</span>
           <span className="px-1 opacity-60">–</span>
           <span className="text-negative">
@@ -1149,7 +1155,8 @@ function LegendsSection({
       cellClass: PAD,
       render: (l) => {
         const wr = l.games > 0 ? (l.wins / l.games) * 100 : null
-        const delta = wr != null && overallWinRate != null ? wr - overallWinRate : null
+        const delta =
+          wr != null && overallWinRate != null ? wr - overallWinRate : null
         const flat = delta != null && Math.abs(delta) < 0.05
         // Tiny samples make wild deltas — keep the number but mute the color
         // until the legend has a meaningful game count.
@@ -1172,10 +1179,11 @@ function LegendsSection({
                     ? "text-muted-foreground"
                     : delta > 0
                       ? "text-positive"
-                      : "text-negative",
+                      : "text-negative"
                 )}
               >
-                {flat ? "±0.0%" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)}%`} vs avg
+                {flat ? "±0.0%" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)}%`}{" "}
+                vs avg
               </span>
             )}
           </span>
@@ -1192,7 +1200,9 @@ function LegendsSection({
       render: (l) => {
         const s = statsByLegendId.get(l.legend_id)
         if (!s) {
-          return <span className="font-mono text-xs text-muted-foreground">—</span>
+          return (
+            <span className="font-mono text-xs text-muted-foreground">—</span>
+          )
         }
         const maxed = s.level >= MAX_MASTERY_LEVEL
         return (
@@ -1200,12 +1210,12 @@ function LegendsSection({
             <span
               className={cn(
                 "font-mono text-sm font-semibold tabular-nums",
-                maxed ? "text-tier-gold" : "text-foreground",
+                maxed ? "text-tier-gold" : "text-foreground"
               )}
             >
               Lv {s.level}
             </span>
-            <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+            <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
               {s.xp.toLocaleString()} XP
             </span>
           </span>
@@ -1222,7 +1232,9 @@ function LegendsSection({
         const roster = rosterEntryByLegendId(l.legend_id)
         const s = statsByLegendId.get(l.legend_id)
         if (!roster) {
-          return <span className="font-mono text-xs text-muted-foreground">—</span>
+          return (
+            <span className="font-mono text-xs text-muted-foreground">—</span>
+          )
         }
         const t1 = s?.timeheldweaponone ?? 0
         const t2 = s?.timeheldweapontwo ?? 0
@@ -1234,7 +1246,7 @@ function LegendsSection({
             {roster.weapons.map((w, i) => (
               <span key={w} className="inline-flex items-center gap-1.5">
                 <WeaponIcon weaponId={w} size={22} />
-                <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
                   {total > 0 ? `${pcts[i].toFixed(0)}%` : "—"}
                 </span>
               </span>
@@ -1259,7 +1271,6 @@ function LegendsSection({
   )
 }
 
-
 /**
  * Esports credentials as tags: both power rankings and career earnings.
  *
@@ -1271,7 +1282,7 @@ function LegendsSection({
  * the words ride in the tooltip; the tag keeps the figure.
  */
 function esportsTags(
-  esports: EsportsProfile | null | undefined,
+  esports: EsportsProfile | null | undefined
 ): { key: string; node: React.ReactNode }[] {
   if (!esports) return []
   const tagClass =
@@ -1331,7 +1342,7 @@ function BackToProfile({
     <Link
       href={href}
       scroll={false}
-      className="group/back mx-auto flex max-w-[1280px] items-center gap-2 font-mono text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+      className="group/back mx-auto flex max-w-[1280px] items-center gap-2 font-mono text-xs tracking-wider text-muted-foreground uppercase transition-colors hover:text-foreground"
     >
       <ChevronRight className="size-3.5 rotate-180 transition-transform group-hover/back:-translate-x-0.5" />
       <span className="text-foreground/80">{label}</span>
@@ -1404,10 +1415,7 @@ function ProfileHeader({
   const titleName = proHandle || data.name
 
   const hasMeta =
-    !!proHandle ||
-    !!preview?.claimed ||
-    !!ladderRank ||
-    metaNodes.length > 0
+    !!proHandle || !!preview?.claimed || !!ladderRank || metaNodes.length > 0
   const hasAccolades = (preview?.esportsTitles?.length ?? 0) > 0
 
   return (
@@ -1418,7 +1426,7 @@ function ProfileHeader({
             "group/edit relative rounded-2xl border border-border/60 bg-card/50 p-6 shadow-lg backdrop-blur-sm",
             editHref &&
               !editing &&
-              "transition-colors hover:border-pink/50 motion-reduce:transition-none",
+              "transition-colors hover:border-pink/50 motion-reduce:transition-none"
           )}
         >
           {/* On-brand ambient wash — the owner's chosen banner preset (default
@@ -1443,7 +1451,7 @@ function ProfileHeader({
                 alt=""
                 width={364}
                 height={323}
-                className="absolute -top-10 right-4 h-[210%] w-auto max-w-none select-none object-contain object-top opacity-[0.22]"
+                className="absolute -top-10 right-4 h-[210%] w-auto max-w-none object-contain object-top opacity-[0.22] select-none"
                 style={{
                   // Two masks, intersected: the vertical one dissolves the
                   // lower half into the card, the horizontal one fades the
@@ -1477,7 +1485,7 @@ function ProfileHeader({
                   // layout this header used to carry, which left most players
                   // with a band of empty card under their tags. Pros run to a
                   // second row of accolades and still fit inside it.
-                  className="h-28 w-auto shrink-0 select-none object-contain drop-shadow-md"
+                  className="h-28 w-auto shrink-0 object-contain drop-shadow-md select-none"
                   priority
                 />
               </div>
@@ -1497,9 +1505,7 @@ function ProfileHeader({
                     {/* Verification reads as a mark on the name, not as one
                         more tag in the row — so it sits tight against the
                         title and carries its meaning in a tooltip. */}
-                    {proHandle && (
-                      <VerifiedMark className="size-5 sm:size-6" />
-                    )}
+                    {proHandle && <VerifiedMark className="size-5 sm:size-6" />}
                     {/* Flair rides the name line. It's the smallest, rarest
                         thing a player can hold and it says nothing in words,
                         so a row of its own left it stranded under a wall of
@@ -1513,7 +1519,7 @@ function ProfileHeader({
                     {claimSlot}
                   </div>
                   {hasMeta && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] tracking-wider uppercase">
                       {preview?.claimed && <BrawlchemistUserBadge />}
                       {/* Ladder standing, global then regional, in the one ice
                           blue they now share: they answer the same question at
@@ -1527,7 +1533,7 @@ function ProfileHeader({
                         <InfoTip
                           label={`#${ladderRank.n.toLocaleString()} on the global 1v1 ladder`}
                         >
-                          <span className="inline-flex items-center gap-1 rounded-md border border-ice/40 bg-ice/10 px-1.5 py-0.5 normal-case text-ice">
+                          <span className="inline-flex items-center gap-1 rounded-md border border-ice/40 bg-ice/10 px-1.5 py-0.5 text-ice normal-case">
                             Ranked #{ladderRank.n.toLocaleString()}
                           </span>
                         </InfoTip>
@@ -1573,7 +1579,6 @@ function ProfileHeader({
                   )}
                 </div>
               </div>
-
             </div>
           </div>
         </div>
@@ -1632,7 +1637,7 @@ function FallbackHeader({
             "group/edit relative rounded-2xl border border-border/60 bg-card/50 p-6 shadow-lg backdrop-blur-sm",
             editHref &&
               !editing &&
-              "transition-colors hover:border-pink/50 motion-reduce:transition-none",
+              "transition-colors hover:border-pink/50 motion-reduce:transition-none"
           )}
         >
           <PreviewBannerWash savedId={bannerId ?? null} />
@@ -1649,7 +1654,7 @@ function FallbackHeader({
                     alt={`${tier} rank banner`}
                     width={182}
                     height={330}
-                    className="h-28 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-36"
+                    className="h-28 w-auto shrink-0 object-contain drop-shadow-md select-none sm:h-36"
                     priority
                   />
                 )}
@@ -1660,7 +1665,7 @@ function FallbackHeader({
                     title={`Favorite skin: ${preview.favoriteSkin.name}`}
                     width={364}
                     height={323}
-                    className="h-28 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-36"
+                    className="h-28 w-auto shrink-0 object-contain drop-shadow-md select-none sm:h-36"
                   />
                 )}
               </div>
@@ -1673,13 +1678,11 @@ function FallbackHeader({
                     {proHandle || name}
                   </h1>
                   {/* See ProfileHeader — the mark belongs on the name. */}
-                  {proHandle && (
-                    <VerifiedMark className="size-5 sm:size-6" />
-                  )}
+                  {proHandle && <VerifiedMark className="size-5 sm:size-6" />}
                   {region && <RegionPill region={region} tone="ice" />}
                   {claimSlot}
                 </div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider">
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] tracking-wider uppercase">
                   {preview?.claimed && <BrawlchemistUserBadge />}
                   {/* Same credential tags as the ranked header. */}
                   {esportsTags(esports).map((item) => (
@@ -1705,22 +1708,23 @@ function FallbackHeader({
                     />
                     <div className="flex justify-between gap-6 rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
                       <div className="flex min-w-0 flex-col">
-                        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
                           Win Rate
                         </span>
-                        <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold tabular-nums text-positive">
+                        <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold text-positive tabular-nums">
                           {winRate(team.data.wins, team.data.games)}
                         </span>
                       </div>
                       <div className="flex min-w-0 flex-col">
-                        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
                           Games
                         </span>
                         <span className="mt-1 flex h-8 items-center font-display text-2xl font-semibold tabular-nums">
                           {team.data.games.toLocaleString()}
                         </span>
                         <span className="mt-1 h-4 font-mono text-[10px] text-muted-foreground">
-                          {team.data.wins.toLocaleString()}W · {losses.toLocaleString()}L
+                          {team.data.wins.toLocaleString()}W ·{" "}
+                          {losses.toLocaleString()}L
                         </span>
                       </div>
                     </div>
@@ -1729,7 +1733,10 @@ function FallbackHeader({
                   <>
                     <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-1">
                       <div className="flex items-start justify-between gap-6">
-                        <Metric label="Level" value={account.level.toLocaleString()} />
+                        <Metric
+                          label="Level"
+                          value={account.level.toLocaleString()}
+                        />
                         <Metric
                           label="Lifetime Games"
                           value={account.games.toLocaleString()}
@@ -1740,8 +1747,10 @@ function FallbackHeader({
                 ) : null}
               </div>
 
-              <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                {team ? "No 1v1 ranked this season" : "No ranked games this season"}
+              <p className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+                {team
+                  ? "No 1v1 ranked this season"
+                  : "No ranked games this season"}
               </p>
             </div>
           </div>
@@ -1867,7 +1876,7 @@ export default async function PlayerPage({
 
   // The player's guild shows in the Account section; persist it so a profile
   // view contributes to guild discovery (the row exists from the upsert above).
-  const guild = guildRes.ok ? guildRes.data.guild ?? null : null
+  const guild = guildRes.ok ? (guildRes.data.guild ?? null) : null
   // Only persist when the lookup actually ran. recordPlayerGuild writes null
   // for "no guild", so calling it after a skipped/failed lookup would wipe a
   // player's stored guild on every crawler visit.
@@ -1900,7 +1909,7 @@ export default async function PlayerPage({
   let titles: EarnedTitle[] = []
   if (statsRes.ok && legendsRes.ok) {
     const akaById = new Map(
-      legendsRes.data.map((l) => [l.legend_id, l.bio_aka]),
+      legendsRes.data.map((l) => [l.legend_id, l.bio_aka])
     )
     titles = [...(statsRes.data.legends ?? [])]
       .filter((l) => l.level >= MAX_LEGEND_LEVEL)
@@ -1943,7 +1952,7 @@ export default async function PlayerPage({
       (t) =>
         t.brawlhalla_id_one > 0 &&
         t.brawlhalla_id_two > 0 &&
-        t.brawlhalla_id_one !== t.brawlhalla_id_two,
+        t.brawlhalla_id_one !== t.brawlhalla_id_two
     )
     .sort((a, b) => b.rating - a.rating)
 
@@ -2030,7 +2039,7 @@ export default async function PlayerPage({
     cut1v1,
     numId,
     data.rating,
-    data.wins,
+    data.wins
   )
   // Live top-500 ladder position (global ALL ladder); null below the top 500.
   const ladderRank = ladderPos
@@ -2044,7 +2053,10 @@ export default async function PlayerPage({
 
   // Name from the best available source: ranked → lifetime stats → esports.
   const displayName =
-    data.name || (statsRes.ok ? statsRes.data.name : "") || esports?.handle || ""
+    data.name ||
+    (statsRes.ok ? statsRes.data.name : "") ||
+    esports?.handle ||
+    ""
   // Nothing anywhere — no ranked, no stats, no esports. (Unknown/empty BHID.)
   if (!displayName) {
     return (
@@ -2066,7 +2078,7 @@ export default async function PlayerPage({
   // double-count anything the Teams tab wouldn't also show.
   const combinedRecord = teams.reduce(
     (acc, t) => ({ wins: acc.wins + t.wins, games: acc.games + t.games }),
-    { wins: data.wins, games: data.games },
+    { wins: data.wins, games: data.games }
   )
 
   // Tabbed sections below the header. Tabs only appear when they have
@@ -2136,8 +2148,7 @@ export default async function PlayerPage({
   // Which of the three section tabs is lit. Everything that is not one of them
   // — legends, teams, customize — is reached from inside Ranked, so it keeps
   // Ranked lit rather than lighting nothing.
-  const navSection =
-    tab === "achievements" || tab === "gems" ? tab : "overview"
+  const navSection = tab === "achievements" || tab === "gems" ? tab : "overview"
 
   // Owner-chosen header banner (cached, fails open to the default wash). The
   // panel that sets it is gated to the owner inside ProfileCustomizerSlot.
@@ -2244,174 +2255,192 @@ export default async function PlayerPage({
           It carries unsaved banner/flair choices so the card above previews
           them without anything being written. */}
       <ProfilePreviewProvider>
-      <RecentVisitRecorder
-        id={numId}
-        username={displayName}
-        legendSlug={recentLegendSlug}
-        rating={typeof data.rating === "number" && data.rating > 0 ? data.rating : null}
-        region={data.region || null}
-        pro={!!preview?.verified}
-        // Everything the search dropdown renders, recorded as the page already
-        // knows it — a recent visit should come back looking exactly like a
-        // live suggestion for the same player, badge and helm included.
-        handle={preview?.verified?.handle || null}
-        tier={headerTier}
-        flairId={customization.flairId}
-        esportsTitles={preview?.esportsTitles}
-      />
-      {hasOneVOne ? (
-        <ProfileHeader
-          data={data}
-          titles={titles}
-          valhallan={headerValhallan}
-          ladderRank={ladderRank}
-          preview={preview}
-          esports={esports}
-          savedFlairId={customization.flairId}
-          earnedFlair={earnedFlair}
-          claimSlot={<ClaimBanner brawlhallaId={numId} />}
-          bannerId={bannerId}
-          editHref={isOwner ? customizeHref : undefined}
-          editing={tab === "customize"}
-        />
-      ) : topTeam ? (
-        <FallbackHeader
-          name={displayName}
-          region={data.region || null}
-          preview={preview}
-          titles={titles}
-          esports={esports}
-          team={{
-            data: topTeam,
-            valhallan: isValhallan(topTeam.rating, cutoff2v2, topTeam.wins),
-          }}
-          account={null}
-          claimSlot={<ClaimBanner brawlhallaId={numId} />}
-          bannerId={bannerId}
-          editHref={isOwner ? customizeHref : undefined}
-          editing={tab === "customize"}
-        />
-      ) : (
-        <FallbackHeader
-          name={displayName}
-          region={data.region || null}
-          preview={preview}
-          titles={titles}
-          esports={esports}
-          team={null}
-          account={
-            accountStats
-              ? { level: accountStats.level, games: accountStats.games }
+        <RecentVisitRecorder
+          id={numId}
+          username={displayName}
+          legendSlug={recentLegendSlug}
+          rating={
+            typeof data.rating === "number" && data.rating > 0
+              ? data.rating
               : null
           }
-          claimSlot={<ClaimBanner brawlhallaId={numId} />}
-          bannerId={bannerId}
-          editHref={isOwner ? customizeHref : undefined}
-          editing={tab === "customize"}
+          region={data.region || null}
+          pro={!!preview?.verified}
+          // Everything the search dropdown renders, recorded as the page already
+          // knows it — a recent visit should come back looking exactly like a
+          // live suggestion for the same player, badge and helm included.
+          handle={preview?.verified?.handle || null}
+          tier={headerTier}
+          flairId={customization.flairId}
+          esportsTitles={preview?.esportsTitles}
         />
-      )}
+        {hasOneVOne ? (
+          <ProfileHeader
+            data={data}
+            titles={titles}
+            valhallan={headerValhallan}
+            ladderRank={ladderRank}
+            preview={preview}
+            esports={esports}
+            savedFlairId={customization.flairId}
+            earnedFlair={earnedFlair}
+            claimSlot={<ClaimBanner brawlhallaId={numId} />}
+            bannerId={bannerId}
+            editHref={isOwner ? customizeHref : undefined}
+            editing={tab === "customize"}
+          />
+        ) : topTeam ? (
+          <FallbackHeader
+            name={displayName}
+            region={data.region || null}
+            preview={preview}
+            titles={titles}
+            esports={esports}
+            team={{
+              data: topTeam,
+              valhallan: isValhallan(topTeam.rating, cutoff2v2, topTeam.wins),
+            }}
+            account={null}
+            claimSlot={<ClaimBanner brawlhallaId={numId} />}
+            bannerId={bannerId}
+            editHref={isOwner ? customizeHref : undefined}
+            editing={tab === "customize"}
+          />
+        ) : (
+          <FallbackHeader
+            name={displayName}
+            region={data.region || null}
+            preview={preview}
+            titles={titles}
+            esports={esports}
+            team={null}
+            account={
+              accountStats
+                ? { level: accountStats.level, games: accountStats.games }
+                : null
+            }
+            claimSlot={<ClaimBanner brawlhallaId={numId} />}
+            bannerId={bannerId}
+            editHref={isOwner ? customizeHref : undefined}
+            editing={tab === "customize"}
+          />
+        )}
 
-      {/* Between the header and the season stats, and outside every tab: the
+        {/* Between the header and the season stats, and outside every tab: the
           shelf describes the player, not one view of them, so it stays put
           while the body below switches — including while the owner is editing,
           where it is the one part of the profile the editor can't change. */}
-      {/* Three sections of one page, not three pages — so nothing below needs a
+        {/* Three sections of one page, not three pages — so nothing below needs a
           way "back". The header above never moves; only the body swaps. */}
-      <ProfileSectionNav sections={sections} active={navSection} />
+        <ProfileSectionNav sections={sections} active={navSection} />
 
-      {tab === "achievements" && (
-        <AchievementSection context={achievementContext} />
-      )}
+        {tab === "achievements" && (
+          <AchievementSection context={achievementContext} />
+        )}
 
-      {tab === "gems" && (
-        <GemSection
-          context={achievementContext}
-          stats={statsRes.ok ? statsRes.data : null}
-        />
-      )}
+        {tab === "gems" && (
+          <GemSection
+            context={achievementContext}
+            stats={statsRes.ok ? statsRes.data : null}
+          />
+        )}
 
-      {tab === "overview" && (
-        <>
-          {/* Account level / playtime / XP / lifetime games / guild are hidden
+        {tab === "overview" && (
+          <>
+            {/* Account level / playtime / XP / lifetime games / guild are hidden
               pending the advanced-stats component that will own them.
               computeAccountStats still runs — the header reads its weapon
               shares — so bringing them back is a render, not a refetch. */}
-          <ProfileCustomization brawlhallaId={numId} />
+            <ProfileCustomization brawlhallaId={numId} />
 
-          {hasOneVOne && (
-            <section className="mt-8 px-4 sm:px-6">
-              <div
-                className={cn(
-                  "mx-auto grid max-w-[1280px] grid-cols-1 gap-4",
-                  overviewTeams.length > 0 && "lg:grid-cols-3",
-                )}
-              >
-                {/* A column, so the card below the heading can be told to
+            {hasOneVOne && (
+              <section className="mt-8 px-4 sm:px-6">
+                <div
+                  className={cn(
+                    "mx-auto grid max-w-[1280px] grid-cols-1 gap-4",
+                    overviewTeams.length > 0 && "lg:grid-cols-3"
+                  )}
+                >
+                  {/* A column, so the card below the heading can be told to
                     take the slack. The grid stretches this cell to the taller
                     of the two, and whichever side that is, both now end level
                     with each other — which for the common case means the side
                     column's last card lines up with the bottom of the chart. */}
-                <div
-                  className={cn(
-                    "flex flex-col",
-                    overviewTeams.length > 0 && "lg:col-span-2",
-                  )}
-                >
-                  <RankedStatsCard
-                    embedded
-                    cardClassName="lg:flex-1"
-                    brawlhallaId={numId}
-                    valhallanCutoff={cutoff1v1}
-                    stats={{
-                      rating: data.rating,
-                      peak: data.peak_rating,
-                      tier: headerTier,
-                      tierName: tierLabel(data.tier, headerValhallan),
-                      globalRank: ladderRank?.n ?? null,
-                      wins: combinedRecord.wins,
-                      games: combinedRecord.games,
-                    }}
-                    ratingSlot={
-                      <span
-                        className="flex items-baseline gap-1.5"
-                        title={headerTier ? tierLabel(data.tier, headerValhallan) : undefined}
-                      >
-                        {headerTier && (
-                          <RankHelm tier={headerTier} className="h-7 self-center" />
-                        )}
-                        {data.rating != null ? (
-                          <span>
-                            {formatElo(data.rating)}
-                            <span className="ml-1 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                              ELO
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </span>
-                    }
-                    mostPlayedSlot={
-                      headerTopLegends.length > 0 || headerWeapons.length > 0 ? (
-                        <MostPlayedCluster
-                          legends={headerTopLegends}
-                          weapons={headerWeapons}
-                          href={
-                            playedLegends.length > 0
-                              ? `/player/${numId}?tab=legends`
-                              : null
+                  <div
+                    className={cn(
+                      "flex flex-col",
+                      overviewTeams.length > 0 && "lg:col-span-2"
+                    )}
+                  >
+                    <RankedStatsCard
+                      embedded
+                      cardClassName="lg:flex-1"
+                      brawlhallaId={numId}
+                      valhallanCutoff={cutoff1v1}
+                      stats={{
+                        rating: data.rating,
+                        peak: data.peak_rating,
+                        tier: headerTier,
+                        tierName: tierLabel(data.tier, headerValhallan),
+                        globalRank: ladderRank?.n ?? null,
+                        wins: combinedRecord.wins,
+                        games: combinedRecord.games,
+                      }}
+                      ratingSlot={
+                        <span
+                          className="flex items-baseline gap-1.5"
+                          title={
+                            headerTier
+                              ? tierLabel(data.tier, headerValhallan)
+                              : undefined
                           }
-                        />
-                      ) : null
-                    }
-                  />
-                </div>
+                        >
+                          {headerTier && (
+                            <RankHelm
+                              tier={headerTier}
+                              className="h-7 self-center"
+                            />
+                          )}
+                          {data.rating != null ? (
+                            <span>
+                              {formatElo(data.rating)}
+                              <span className="ml-1 font-mono text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
+                                ELO
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </span>
+                      }
+                      mostPlayedSlot={
+                        headerTopLegends.length > 0 ||
+                        headerWeapons.length > 0 ? (
+                          <MostPlayedCluster
+                            legends={headerTopLegends}
+                            weapons={headerWeapons}
+                            href={
+                              playedLegends.length > 0
+                                ? `/player/${numId}?tab=legends`
+                                : null
+                            }
+                          />
+                        ) : null
+                      }
+                    />
+                  </div>
 
-                {/* The side column, as one grid child. The track card was a
+                  {/* The side column, as one grid child. The track card was a
                     third child of a three-column grid, which put it on a new
                     row under the stats rather than under the teams. */}
-                <div className="flex flex-col gap-4">
-                  {overviewTeams.length > 0 && (
+                  <div className="flex flex-col gap-4">
+                    {/* The heading renders whether or not there are teams.
+                      Hiding the section entirely made a solo player's profile
+                      look like a page that had failed to load half of itself —
+                      and "no 2v2 this season" is an answer to the question the
+                      heading asks, not an absence of one. It also keeps the
+                      side column the same shape for everyone, so the track
+                      card underneath doesn't jump up under the chart. */}
                     <div>
                       <div className="mb-3 flex items-center gap-2">
                         <h2 className="font-display text-lg font-semibold">
@@ -2421,104 +2450,110 @@ export default async function PlayerPage({
                           <Link
                             href={`/player/${numId}?tab=teams`}
                             scroll={false}
-                            className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                            className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase transition-colors hover:text-foreground"
                           >
                             all {teamViews.length} →
                           </Link>
                         )}
                       </div>
-                      <div className="flex flex-col gap-3">
-                        {overviewTeams.map((view) => (
-                          <TeamCard
-                            key={`${view.team.brawlhalla_id_one}-${view.team.brawlhalla_id_two}`}
-                            view={view}
-                            owner={teamOwner}
-                            valhallanCutoff={cutoff2v2}
-                          />
-                        ))}
-                      </div>
+                      {overviewTeams.length > 0 ? (
+                        <div className="flex flex-col gap-3">
+                          {overviewTeams.map((view) => (
+                            <TeamCard
+                              key={`${view.team.brawlhalla_id_one}-${view.team.brawlhalla_id_two}`}
+                              view={view}
+                              owner={teamOwner}
+                              valhallanCutoff={cutoff2v2}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        // Same register as the 1v1 line below, because they are
+                        // the same sentence about a different queue.
+                        <p className="rounded-2xl border border-dashed border-border/60 bg-card/30 px-4 py-6 text-center font-mono text-xs tracking-wider text-muted-foreground uppercase">
+                          No 2v2 ranked play this season
+                        </p>
+                      )}
                     </div>
-                  )}
-                  {/* lg:flex-1 so the card eats the slack the teams leave and
+                    {/* lg:flex-1 so the card eats the slack the teams leave and
                       its bottom edge lands level with the rating chart beside
                       it. The grid already stretches this column to the taller
                       cell; without it the card sits at its natural height and
                       the column ends short. */}
-                  <TrackPlayerCard
-                    brawlhallaId={numId}
-                    name={trackName}
-                    className="lg:flex-1"
-                  />
+                    <TrackPlayerCard
+                      brawlhallaId={numId}
+                      name={trackName}
+                      className="lg:flex-1"
+                    />
+                  </div>
                 </div>
-              </div>
-            </section>
-          )}
+              </section>
+            )}
 
-          {!hasOneVOne && (
-            <>
-              <p className="mt-10 text-center font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                No 1v1 ranked play this season.
-              </p>
-              {/* The track card lives in the Overview's side column, which only
+            {!hasOneVOne && (
+              <>
+                <p className="mt-10 text-center font-mono text-xs tracking-wider text-muted-foreground uppercase">
+                  No 1v1 ranked play this season.
+                </p>
+                {/* The track card lives in the Overview's side column, which only
                   exists for players with 1v1 data — without this, a player who
                   hasn't queued 1v1 this season couldn't be tracked at all. */}
-              <div className="mx-auto mt-6 max-w-[1280px] px-4 sm:px-6">
-                <TrackPlayerCard brawlhallaId={numId} name={trackName} />
-              </div>
-            </>
-          )}
-        </>
-      )}
+                <div className="mx-auto mt-6 max-w-[1280px] px-4 sm:px-6">
+                  <TrackPlayerCard brawlhallaId={numId} name={trackName} />
+                </div>
+              </>
+            )}
+          </>
+        )}
 
-      {/* Customize takes the place of Ranked Season and 2v2 Teams rather than
+        {/* Customize takes the place of Ranked Season and 2v2 Teams rather than
           sitting alongside them: the editor is what you came for, and leaving
           the stats up would have you scrolling past your own numbers to reach
           the thing you clicked. The header above stays, so every change lands
           in view of the card it changes. */}
-      {tab === "customize" && (
-        <ProfileCustomizerSlot
-          brawlhallaId={numId}
-          flairContext={flairContext}
-          inline
-          doneHref={profileHref}
-        />
-      )}
-
-      {tab === "legends" && (
-        <>
-          <BackToProfile href={`/player/${numId}`} label="Legends" />
-          <LegendsSection
-            legends={playedLegends}
-            overallWinRate={
-              hasOneVOne && data.games > 0
-                ? (data.wins / data.games) * 100
-                : null
-            }
-            statsByLegendId={fullLegendStatsById}
+        {tab === "customize" && (
+          <ProfileCustomizerSlot
+            brawlhallaId={numId}
+            flairContext={flairContext}
+            inline
+            doneHref={profileHref}
           />
-        </>
-      )}
+        )}
 
-      {tab === "teams" && (
-        <div className="mt-8 px-4 sm:px-6">
-          <BackToProfile
-            href={`/player/${numId}`}
-            label={`2v2 Teams · ${teamViews.length}`}
-            bare
-          />
-          <div className="mx-auto mt-3 grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2">
-            {teamViews.map((view) => (
-              <TeamCard
-                key={`${view.team.brawlhalla_id_one}-${view.team.brawlhalla_id_two}`}
-                view={view}
-                owner={teamOwner}
-                valhallanCutoff={cutoff2v2}
-              />
-            ))}
+        {tab === "legends" && (
+          <>
+            <BackToProfile href={`/player/${numId}`} label="Legends" />
+            <LegendsSection
+              legends={playedLegends}
+              overallWinRate={
+                hasOneVOne && data.games > 0
+                  ? (data.wins / data.games) * 100
+                  : null
+              }
+              statsByLegendId={fullLegendStatsById}
+            />
+          </>
+        )}
+
+        {tab === "teams" && (
+          <div className="mt-8 px-4 sm:px-6">
+            <BackToProfile
+              href={`/player/${numId}`}
+              label={`2v2 Teams · ${teamViews.length}`}
+              bare
+            />
+            <div className="mx-auto mt-3 grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2">
+              {teamViews.map((view) => (
+                <TeamCard
+                  key={`${view.team.brawlhalla_id_one}-${view.team.brawlhalla_id_two}`}
+                  view={view}
+                  owner={teamOwner}
+                  valhallanCutoff={cutoff2v2}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-
+        )}
       </ProfilePreviewProvider>
     </Shell>
   )
