@@ -50,6 +50,7 @@ export function LifetimeStatsSection({ stats }: { stats: PlayerStats | null }) {
       <div className="grid gap-10 xl:grid-cols-2 xl:gap-6">
         <Section title="Legends">
           <Table
+            maxHeight={LEGEND_VIEWPORT}
             head={["#", "Legend", "Matches", "Win rate", "Level"]}
             rows={lifetime.legends.map((l, i) => (
               <LegendRow key={l.legendId} row={l} rank={i + 1} />
@@ -99,10 +100,37 @@ function Section({
   )
 }
 
+/**
+ * How tall the Legends table is allowed to get: its header plus fifteen rows,
+ * measured rather than guessed.
+ *
+ * Fifteen because that is how many weapons there are, and the two tables sit
+ * side by side — a roster of sixty-odd legends beside a fixed fifteen turned
+ * the pair into a column with a stub next to it. Same reason /meta-picks caps
+ * its legend half. A height rather than a slice, because the rows below are
+ * still the answer; they just are not the headline.
+ */
+const LEGEND_VIEWPORT = "max-h-[652px]"
+
 /** Tables scroll rather than squeeze — four numeric columns don't fit a phone. */
-function Table({ head, rows }: { head: string[]; rows: React.ReactNode[] }) {
+function Table({
+  head,
+  rows,
+  maxHeight,
+}: {
+  head: string[]
+  rows: React.ReactNode[]
+  /** Caps the visible rows and scrolls past them. Omit for the full table. */
+  maxHeight?: string
+}) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border/60 bg-card/40">
+    <div
+      className={cn(
+        "overflow-x-auto rounded-2xl border border-border/60 bg-card/40",
+        maxHeight && "scroll-quiet overflow-y-auto overscroll-contain",
+        maxHeight
+      )}
+    >
       <table className="w-full min-w-[440px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-border/60">
