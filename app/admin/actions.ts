@@ -22,6 +22,8 @@ import {
   updateFlair,
 } from "@/lib/sync/flairs"
 import { isFlairIdShape, parseFlairRule, toFlairId } from "@/lib/profile/flair"
+import { deleteCombo, getCombo, upsertCombo } from "@/lib/sync/true-combos"
+import { WEAPON_NAMES } from "@/lib/mock-data"
 import { setCronPaused } from "@/lib/sync/cron-controls"
 import { unlinkProfile } from "@/lib/sync/claims"
 import { clearFlair, FLAIR_MAP_TAG } from "@/lib/sync/customizations"
@@ -454,4 +456,118 @@ export async function revokeFlairAction(formData: FormData) {
     await revokeFlair(brawlhallaId, flairId)
   }
   redirect("/admin?tab=flairs&flairrevoked=1")
+}
+
+/**
+ * Ceiling for one clip.
+ *
+ * A 2-4 second 480p H.264 clip encoded with the recipe in lib/true-combos.ts
+ * lands around 150-300KB, so 4MB is roughly ten times the honest size — loose
+ * enough that a slightly long or slightly sharper clip gets through, tight
+ * enough that nobody uploads a screen recording of a whole match by accident.
+ * The player fetches the file whole on click, so this number is what a viewer
+ * pays to watch one combo.
+ */
+const MAX_CLIP_BYTES = 4 * 1024 * 1024
+/** Posters are a single frame; a 480p WebP is ~10KB. */
+const MAX_POSTER_BYTES = 512 * 1024
+
+const CLIP_TYPES = ["video/mp4", "video/webm"]
+const POSTER_TYPES = ["image/webp", "image/jpeg", "image/png"]
+
+/**
+ * Upload one file to Blob and return its public URL.
+ *
+ * Bytes go to Vercel Blob rather than Supabase storage on purpose: Supabase
+ * egress bills against the same 5GB/month as every query on the site and has
+ * been blown three times (cardinal constraint #2), and video is the largest
+ * thing this site could serve. Postgres keeps the URL, which is text.
+ */
+async function uploadClipFile(
+  file: File,
+  prefix: string,
+  maxBytes: number,
+  allowed: string[]
+): Promise<string> {
+  // Without a Blob store connected to the project there is no token, and
+  // `put` throws a 500 that says nothing an operator can act on. Checked here
+  // so the panel can say what is actually missing.
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    redirect("/admin?tab=combos&error=blob-unconfigured")
+  }
+  if (file.size > maxBytes) redirect("/admin?tab=combos&error=clip-too-large")
+  if (file.type && !allowed.includes(file.type)) {
+    redirect("/admin?tab=combos&error=clip-type")
+  }
+  const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
+  const blob = await put(`combos/${prefix}-${Date.now()}-${safe}`, file, {
+    access: "public",
+  })
+  return blob.url
+}
+
+/**
+ * Create or edit one clip.
+ *
+ * The id is a slug so a clip can be linked to, and it is derived from the
+ * notation when the operator doesn't supply one — the same trick the flair form
+ * uses. Editing without attaching a new file keeps the existing URLs, so fixing
+ * a typo in the notation doesn't mean re-uploading the video.
+ */
+export async function saveComboAction(formData: FormData) {
+  await requireAdmin()
+
+  const weaponId = String(formData.get("weaponId") ?? "").trim()
+  if (!(weaponId in WEAPON_NAMES)) {
+    redirect("/admin?tab=combos&error=combo-weapon")
+  }
+
+  const notation = String(formData.get("notation") ?? "").trim()
+  if (!notation) redirect("/admin?tab=combos&error=combo-notation")
+
+  const rawId = String(formData.get("id") ?? "").trim()
+  const id = toFlairId(rawId || `${weaponId}-${notation}`)
+  if (!isFlairIdShape(id)) redirect("/admin?tab=combos&error=combo-id")
+
+  const existing = await getCombo(id)
+
+  let src = existing?.src ?? ""
+  const clip = formData.get("clip")
+  if (clip instanceof File && clip.size > 0) {
+    src = await uploadClipFile(clip, id, MAX_CLIP_BYTES, CLIP_TYPES)
+  }
+  if (!src) redirect("/admin?tab=combos&error=combo-clip")
+
+  let poster = existing?.poster ?? null
+  const posterFile = formData.get("poster")
+  if (posterFile instanceof File && posterFile.size > 0) {
+    poster = await uploadClipFile(
+      posterFile,
+      `${id}-poster`,
+      MAX_POSTER_BYTES,
+      POSTER_TYPES
+    )
+  }
+
+  const note = String(formData.get("note") ?? "").trim()
+  const sortRaw = Number(formData.get("sort"))
+
+  await upsertCombo({
+    id,
+    weaponId,
+    notation,
+    note: note || null,
+    src,
+    poster,
+    sort: Number.isFinite(sortRaw) ? sortRaw : 100,
+  })
+
+  redirect("/admin?tab=combos&combosaved=1")
+}
+
+export async function deleteComboAction(formData: FormData) {
+  await requireAdmin()
+  const id = String(formData.get("id") ?? "")
+  if (isFlairIdShape(id)) await deleteCombo(id)
+  redirect("/admin?tab=combos&combodeleted=1")
 }

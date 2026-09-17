@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { CombosTab } from "./combos-tab"
 import { FlairsTab } from "./flairs-tab"
 import { PeopleTab } from "./people-tab"
 import { SystemTab } from "./system-tab"
@@ -23,6 +24,7 @@ const TABS = [
   { id: "people", label: "People" },
   { id: "users", label: "Users" },
   { id: "flairs", label: "Flairs" },
+  { id: "combos", label: "Combos" },
   { id: "system", label: "System" },
 ] as const
 
@@ -39,6 +41,9 @@ export default async function AdminPage({
     tab?: string
     edit?: string
     editflair?: string
+    editcombo?: string
+    combosaved?: string
+    combodeleted?: string
     flairsaved?: string
     flairdeleted?: string
     flairimported?: string
@@ -104,6 +109,8 @@ export default async function AdminPage({
         <UsersTab />
       ) : tab === "flairs" ? (
         <FlairsTab editId={sp.editflair ?? null} />
+      ) : tab === "combos" ? (
+        <CombosTab editId={sp.editcombo ?? null} />
       ) : (
         <SystemTab />
       )}
@@ -114,6 +121,8 @@ export default async function AdminPage({
 /** One place to decide what the last action said, instead of a nested ternary. */
 function noticeFor(sp: {
   saved?: string
+  combosaved?: string
+  combodeleted?: string
   flairsaved?: string
   flairdeleted?: string
   flairimported?: string
@@ -149,17 +158,31 @@ function noticeFor(sp: {
                       ? "A flair with that id already exists. Edit it instead, or pick another id."
                       : sp.error === "flair-not-found"
                         ? "No such flair — it may have been deleted since this page loaded."
-                        : sp.error === "skin-src"
-                          ? "That skin path can’t be fetched. Use an https:// URL or a path starting with / (e.g. /assets/my-skin.png) — a bare filename stores fine and then renders nothing."
-                          : sp.error === "skin-too-large"
-                            ? "That skin is over 3 MB. An animated GIF is served whole on every profile view — trim the frames or the dimensions and try again."
-                            : sp.error === "account-self"
-                              ? "You can’t change your own role. Ask another Developer, or use ADMIN_BOOTSTRAP_EMAILS."
-                              : sp.error === "account-not-found"
-                                ? "No such account — it may have been removed since this page loaded."
-                                : sp.error === "account-invalid"
-                                  ? "That isn’t a role or plan we recognise."
-                                  : "Couldn’t save — check the Brawlhalla ID.",
+                        : sp.error === "blob-unconfigured"
+                          ? "No Blob store is connected to this project, so there is nowhere to put the file. Connect one in the Vercel dashboard — BLOB_READ_WRITE_TOKEN is injected automatically once you do."
+                          : sp.error === "clip-too-large"
+                            ? "That clip is over 4 MB. Encode it at 480p/30fps with no audio — a 3-second combo should land near 250 KB."
+                            : sp.error === "clip-type"
+                              ? "Clips must be mp4 or webm; posters webp, jpeg or png."
+                              : sp.error === "combo-weapon"
+                                ? "That isn’t a weapon we know."
+                                : sp.error === "combo-notation"
+                                  ? "A clip needs its notation — it’s the caption under the video."
+                                  : sp.error === "combo-clip"
+                                    ? "A new clip needs a video file."
+                                    : sp.error === "combo-id"
+                                      ? "That notation doesn’t reduce to a usable id. Give the clip an explicit one."
+                                      : sp.error === "skin-src"
+                                        ? "That skin path can’t be fetched. Use an https:// URL or a path starting with / (e.g. /assets/my-skin.png) — a bare filename stores fine and then renders nothing."
+                                        : sp.error === "skin-too-large"
+                                          ? "That skin is over 3 MB. An animated GIF is served whole on every profile view — trim the frames or the dimensions and try again."
+                                          : sp.error === "account-self"
+                                            ? "You can’t change your own role. Ask another Developer, or use ADMIN_BOOTSTRAP_EMAILS."
+                                            : sp.error === "account-not-found"
+                                              ? "No such account — it may have been removed since this page loaded."
+                                              : sp.error === "account-invalid"
+                                                ? "That isn’t a role or plan we recognise."
+                                                : "Couldn’t save — check the Brawlhalla ID.",
     }
   }
   if (sp.accountsaved) {
@@ -169,6 +192,15 @@ function noticeFor(sp: {
         sp.accountsaved === "plan"
           ? "Plan updated. Plans carry no permissions."
           : "Role updated.",
+    }
+  }
+  if (sp.combosaved) {
+    return { tone: "ok", text: "Clip saved. Live on The Lab now." }
+  }
+  if (sp.combodeleted) {
+    return {
+      tone: "ok",
+      text: "Clip removed from the library. The uploaded file is left in Blob storage.",
     }
   }
   if (sp.flairsaved) {

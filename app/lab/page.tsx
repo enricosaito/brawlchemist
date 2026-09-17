@@ -1,10 +1,12 @@
 import Link from "next/link"
 import type { Metadata } from "next"
 import { WEAPON_NAMES } from "@/lib/mock-data"
-import { combosFor, totalCombos, type TrueCombo } from "@/lib/true-combos"
+import type { TrueCombo } from "@/lib/true-combos"
+import { getComboLibrary } from "@/lib/sync/true-combos"
 import type { WeaponId } from "@/lib/types"
 import { PageHero } from "@/components/site/page-hero"
 import { WeaponIcon } from "@/components/site/primitives"
+import { ComboPlayer } from "@/components/site/combo-player"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
@@ -39,8 +41,11 @@ export default async function LabPage({
 }) {
   const sp = await searchParams
   const weapon: WeaponId = isWeapon(sp.weapon) ? sp.weapon : WEAPONS[0]
-  const combos = combosFor(weapon)
-  const total = totalCombos()
+  // One cached read of the whole library: the weapon chips need a count each,
+  // so fifteen per-weapon queries would buy nothing.
+  const library = await getComboLibrary()
+  const combos = library[weapon] ?? []
+  const total = Object.values(library).reduce((n, list) => n + list.length, 0)
 
   return (
     <main className="pb-16">
@@ -67,7 +72,7 @@ export default async function LabPage({
           >
             {WEAPONS.map((w) => {
               const active = w === weapon
-              const n = combosFor(w).length
+              const n = (library[w] ?? []).length
               return (
                 <Link
                   key={w}
@@ -116,26 +121,19 @@ export default async function LabPage({
 }
 
 /**
- * One clip.
+ * One clip, with its notation under it.
  *
- * Muted, looping and autoplaying, because a true combo is two seconds long and
- * a play button on a two-second clip is a click to see the thing you came for.
- * `controls` stays on so it can be scrubbed and paused, and `preload="metadata"`
- * keeps a grid of them from pulling every file on load.
+ * The card is deliberately thin — the player owns everything about playback,
+ * including the fact that nothing downloads until someone asks. All this adds
+ * is what the clip is called.
  */
 function ComboCard({ combo }: { combo: TrueCombo }) {
   return (
     <li className="overflow-hidden rounded-2xl border border-border/60 bg-card/50 backdrop-blur-sm">
-      <video
+      <ComboPlayer
         src={combo.src}
         poster={combo.poster}
-        controls
-        loop
-        muted
-        autoPlay
-        playsInline
-        preload="metadata"
-        className="aspect-video w-full bg-black/40 object-contain"
+        label={combo.notation}
       />
       <div className="flex flex-col gap-1 p-3">
         <span className="font-mono text-sm font-medium">{combo.notation}</span>

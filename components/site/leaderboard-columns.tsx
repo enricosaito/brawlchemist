@@ -156,12 +156,16 @@ export function buildLeaderboardColumns(
       label: "Rank",
       width: "72px",
       align: "center",
-      render: (r) => {
-        const tier = toTier(r.tier)
-        return tier ? (
-          <RankIcon tier={tier} size={32} className="mx-auto" />
-        ) : null
-      },
+      // No null guard here any more: RankIcon owns the fallback, so a label
+      // we don't model draws the Fallen Valhallan emblem rather than a hole.
+      render: (r) => (
+        <RankIcon
+          tier={toTier(r.tier)}
+          rating={r.rating}
+          size={32}
+          className="mx-auto"
+        />
+      ),
     },
     {
       id: "main-legend",

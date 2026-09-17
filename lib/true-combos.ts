@@ -1,5 +1,3 @@
-import type { WeaponId } from "@/lib/types"
-
 /**
  * A true combo: a string that cannot be escaped once the first hit lands.
  *
@@ -8,50 +6,38 @@ import type { WeaponId } from "@/lib/types"
  * video first and a caption second.
  */
 export interface TrueCombo {
-  /** Stable within its weapon — used as the React key and the anchor. */
+  /** Slug, unique across the library — the React key and the anchor. */
   id: string
   /** Input notation, e.g. "dLight → nAir". */
   notation: string
   /** When it works: the damage window, the gravity, the stage position. */
   note?: string
-  /** Video under `public/assets/combos/`. */
+  /** Public URL of the clip — a Vercel Blob upload. */
   src: string
   /** Poster frame, so a card isn't a black rectangle before it plays. */
   poster?: string
 }
 
 /**
- * The library, keyed by weapon.
+ * Where the clips live: `true_combos` in Postgres, pointing at Vercel Blob.
  *
- * **Deliberately empty.** Combo data is a game fact, not a derivation, and
- * there is no endpoint for it — the Brawlhalla API reports matches and levels,
- * never inputs. Seeding this with notation from memory would put guesses on a
- * page whose whole promise is that these strings are *true*, and this codebase
- * has been bitten by exactly that before: the homepage legend card once carried
- * hardcoded tier grades beside live numbers, and the live numbers lent the
- * guesses credibility.
+ * This module used to hold the library itself. That was right for five entries
+ * and wrong for two hundred, because it made adding a video a deploy. The rows
+ * moved to a table an operator curates from /admin (see lib/sync/true-combos.ts
+ * and the Combos tab); what stays here is the shape and the recipe, which are
+ * code.
  *
- * So the shelf is built and the shelf is honest: every weapon renders, each one
- * says it has no clips yet, and `/lab` becomes useful the moment a real clip
- * lands rather than the moment someone remembers a combo.
+ * **Encode before uploading.** Clips are 2-4 seconds, silent, and read frame by
+ * frame, so the player assumes 30fps for its frame-step button:
  *
- * Adding one is two steps and no code:
- *   1. Drop the file at `public/assets/combos/<weapon-id>/<combo-id>.mp4`
- *      (weapon ids are the `WeaponId` union — "rocket-lance", "battle-boots").
- *   2. Add an entry here under that weapon.
+ *   ffmpeg -i in.mp4 -an -vf "scale=-2:480,fps=30" -c:v libx264 -crf 28 \
+ *     -preset slow -pix_fmt yuv420p -movflags +faststart out.mp4
+ *   ffmpeg -i out.mp4 -frames:v 1 -vf "scale=-2:480" poster.webp
  *
- * Keep clips short and silent. They autoplay muted on loop, which is what makes
- * a page of them readable at a glance; anything with audio or a long wind-up
- * turns a reference into a playlist.
+ * `-an` drops an audio track nobody will hear, `+faststart` lets the clip play
+ * before it has finished downloading, and `yuv420p` is what Safari will decode.
+ * A three-second clip lands around 150-300KB at these settings.
+ *
+ * A combo is a game fact and there is no endpoint for it, so nothing is seeded:
+ * every row is a clip somebody recorded, and the empty state says so.
  */
-export const TRUE_COMBOS: Partial<Record<WeaponId, TrueCombo[]>> = {}
-
-/** Clips for a weapon, newest-authored last. Empty array when we have none. */
-export function combosFor(weapon: WeaponId): TrueCombo[] {
-  return TRUE_COMBOS[weapon] ?? []
-}
-
-/** How many clips the library holds, for the page's provenance chip. */
-export function totalCombos(): number {
-  return Object.values(TRUE_COMBOS).reduce((n, list) => n + list.length, 0)
-}

@@ -344,6 +344,59 @@ export type FlairRow = typeof flairs.$inferSelect
 export type FlairInsert = typeof flairs.$inferInsert
 
 /**
+ * true_combos — The Lab's clip library.
+ *
+ * The *metadata* lives here; the video never does. Clips are Vercel Blob URLs,
+ * which matters more than it sounds: Supabase storage egress bills against the
+ * same 5GB/month as every query on the site, and that budget has been blown
+ * three times already (cardinal constraint #2). Video is the largest thing this
+ * site could ever serve, so it is served from the platform that is on a paid
+ * plan, and Postgres holds a couple of hundred bytes of text pointing at it.
+ *
+ * A table rather than a code module because the alternative is a deploy per
+ * clip. `lib/true-combos.ts` shipped as a static list and was right for five
+ * entries; at two hundred it makes adding a video a pull request. Same split as
+ * `flairs`: the catalogue is data an operator curates, and the only thing code
+ * owns is which weapon ids are real.
+ *
+ * Tiny by construction — no jsonb, a few hundred rows of short strings — and
+ * read once per request behind a cache tag, so it costs nothing against either
+ * the egress or the 500MB size budget.
+ */
+export const trueCombos = pgTable(
+  "true_combos",
+  {
+    /** Slug, stable: it is the anchor a clip can be linked by. */
+    id: text("id").primaryKey(),
+    /** A `WeaponId` — validated in code, since the roster is code. */
+    weaponId: text("weapon_id").notNull(),
+    /** Input notation, e.g. "dLight → nAir". */
+    notation: text("notation").notNull(),
+    /** When it works: the damage window, the gravity, the stage position. */
+    note: text("note"),
+    /** Blob URL of the clip itself. */
+    src: text("src").notNull(),
+    /** Blob URL of a poster frame. Null renders the play button on black. */
+    poster: text("poster"),
+    /** Ascending within a weapon. Operator-owned, so the basics can come first. */
+    sort: integer("sort").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  // Declared here and nowhere else: `drizzle-kit push` reconciles the database
+  // down to this file and drops any index it cannot see (it silently removed
+  // all four perf indexes once). The read is always "one weapon, in order".
+  (t) => [index("true_combos_weapon_sort_idx").on(t.weaponId, t.sort)],
+)
+
+export type TrueComboRow = typeof trueCombos.$inferSelect
+export type TrueComboInsert = typeof trueCombos.$inferInsert
+
+/**
  * flair_grants — who holds a `rule='manual'` flair.
  *
  * The other two rules read facts we already have (an account's role, a curated
