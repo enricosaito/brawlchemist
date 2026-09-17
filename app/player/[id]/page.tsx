@@ -22,6 +22,7 @@ import { RecentVisitRecorder } from "@/components/site/recent-visit-recorder"
 import { getCustomization, getFlairMap } from "@/lib/sync/customizations"
 import { getLadderPosition } from "@/lib/sync/live"
 import { ProfileCustomization } from "@/components/site/profile-customization"
+import { ProfileIdentityRow } from "@/components/site/profile-identity-row"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { BrawlchemistUserBadge } from "@/components/site/brawlchemist-user-badge"
 import { InfoTip } from "@/components/site/info-tip"
@@ -1373,6 +1374,7 @@ function ProfileHeader({
   esports,
   savedFlairId,
   earnedFlair,
+  identity,
   claimSlot,
   bannerId,
   editHref,
@@ -1394,6 +1396,8 @@ function ProfileHeader({
    * same answer the server did rather than trust the editor. */
   savedFlairId: string | null
   earnedFlair: FlairId[]
+  /** Mains and links — the header's "who is this" row. */
+  identity?: React.ReactNode
   claimSlot?: React.ReactNode
   bannerId?: string | null
   /**
@@ -1589,6 +1593,9 @@ function ProfileHeader({
                       ))}
                     </div>
                   )}
+                  {/* Last row, and the only one that is art rather than words:
+                      what they play and where to find them. */}
+                  {identity}
                 </div>
               </div>
             </div>
@@ -2298,6 +2305,12 @@ export default async function PlayerPage({
             esports={esports}
             savedFlairId={customization.flairId}
             earnedFlair={earnedFlair}
+            identity={
+              <ProfileIdentityRow
+                favoriteLegendIds={customization.favoriteLegendIds}
+                socialLinks={customization.socialLinks}
+              />
+            }
             claimSlot={<ClaimBanner brawlhallaId={numId} />}
             bannerId={bannerId}
             editHref={isOwner ? customizeHref : undefined}
