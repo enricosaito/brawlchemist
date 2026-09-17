@@ -74,10 +74,10 @@ export default async function AdminPage({
             href={`/admin?tab=${t.id}`}
             aria-current={tab === t.id ? "page" : undefined}
             className={cn(
-              "rounded px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors",
+              "rounded px-3 py-1.5 font-mono text-[11px] tracking-wider uppercase transition-colors",
               tab === t.id
                 ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
-                : "text-muted-foreground hover:text-foreground",
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             {t.label}
@@ -91,7 +91,7 @@ export default async function AdminPage({
             "rounded-md border px-3 py-2 text-sm",
             notice.tone === "error"
               ? "border-negative/40 bg-negative/10 text-negative"
-              : "border-positive/40 bg-positive/10 text-positive",
+              : "border-positive/40 bg-positive/10 text-positive"
           )}
         >
           {notice.text}
@@ -137,27 +137,29 @@ function noticeFor(sp: {
           ? "Upload failed — is Vercel Blob set up (BLOB_READ_WRITE_TOKEN)?"
           : sp.error === "flair-too-large"
             ? "That art is over 128 KB. Flair renders on every leaderboard row, so the file size lands fifty times on one screen — export it around 192px."
-          : sp.error === "flair-not-png"
-            ? "That file isn’t a PNG. Dimensions are read out of the PNG header, so the format is the check."
-          : sp.error === "flair-image"
-            ? "A flair needs art — upload a PNG."
-          : sp.error === "flair-id"
-            ? "That isn’t a usable id. Lowercase letters, digits and dashes."
-          : sp.error === "flair-label"
-            ? "A flair needs a label — it’s the tooltip players see."
-          : sp.error === "flair-exists"
-            ? "A flair with that id already exists. Edit it instead, or pick another id."
-          : sp.error === "flair-not-found"
-            ? "No such flair — it may have been deleted since this page loaded."
-          : sp.error === "skin-too-large"
-            ? "That skin is over 3 MB. An animated GIF is served whole on every profile view — trim the frames or the dimensions and try again."
-            : sp.error === "account-self"
-              ? "You can’t change your own role. Ask another Developer, or use ADMIN_BOOTSTRAP_EMAILS."
-              : sp.error === "account-not-found"
-                ? "No such account — it may have been removed since this page loaded."
-                : sp.error === "account-invalid"
-                  ? "That isn’t a role or plan we recognise."
-                  : "Couldn’t save — check the Brawlhalla ID.",
+            : sp.error === "flair-not-png"
+              ? "That file isn’t a PNG. Dimensions are read out of the PNG header, so the format is the check."
+              : sp.error === "flair-image"
+                ? "A flair needs art — upload a PNG."
+                : sp.error === "flair-id"
+                  ? "That isn’t a usable id. Lowercase letters, digits and dashes."
+                  : sp.error === "flair-label"
+                    ? "A flair needs a label — it’s the tooltip players see."
+                    : sp.error === "flair-exists"
+                      ? "A flair with that id already exists. Edit it instead, or pick another id."
+                      : sp.error === "flair-not-found"
+                        ? "No such flair — it may have been deleted since this page loaded."
+                        : sp.error === "skin-src"
+                          ? "That skin path can’t be fetched. Use an https:// URL or a path starting with / (e.g. /assets/my-skin.png) — a bare filename stores fine and then renders nothing."
+                          : sp.error === "skin-too-large"
+                            ? "That skin is over 3 MB. An animated GIF is served whole on every profile view — trim the frames or the dimensions and try again."
+                            : sp.error === "account-self"
+                              ? "You can’t change your own role. Ask another Developer, or use ADMIN_BOOTSTRAP_EMAILS."
+                              : sp.error === "account-not-found"
+                                ? "No such account — it may have been removed since this page loaded."
+                                : sp.error === "account-invalid"
+                                  ? "That isn’t a role or plan we recognise."
+                                  : "Couldn’t save — check the Brawlhalla ID.",
     }
   }
   if (sp.accountsaved) {

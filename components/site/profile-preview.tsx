@@ -3,12 +3,7 @@
 import Image from "next/image"
 import { createContext, useContext, useMemo, useState } from "react"
 import { resolveBanner } from "@/lib/profile/banners"
-import {
-  autoFlairId,
-  flairById,
-  FLAIR_NONE,
-  type FlairId,
-} from "@/lib/profile/flair"
+import { resolveEarnedFlairs, type FlairId } from "@/lib/profile/flair"
 import { cn } from "@/lib/utils"
 import { useFlairCatalogue } from "./flair-catalogue"
 import { InfoTip } from "./info-tip"
@@ -65,7 +60,7 @@ export function ProfilePreviewProvider({
         setFlairId(null)
       },
     }),
-    [bannerId, flairId],
+    [bannerId, flairId]
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
@@ -89,7 +84,7 @@ export function PreviewBannerWash({ savedId }: { savedId: string | null }) {
       aria-hidden
       className={cn(
         "pointer-events-none absolute inset-0 rounded-2xl transition-opacity",
-        resolveBanner(id).wash,
+        resolveBanner(id).wash
       )}
     />
   )
@@ -116,27 +111,26 @@ export function PreviewFlair({
   const preview = useProfilePreview()
   const catalogue = useFlairCatalogue()
   const selected = preview?.flairId ?? savedId
-  if (selected === FLAIR_NONE) return null
-  const id =
-    selected && earned.includes(selected as FlairId)
-      ? (selected as FlairId)
-      : autoFlairId(earned, catalogue)
-  const flair = id ? flairById(id, catalogue) : null
-  if (!flair) return null
+  const flairs = resolveEarnedFlairs(selected, earned, catalogue)
+  if (flairs.length === 0) return null
   return (
-    <InfoTip label={flair.label}>
-      {/* No chip around it: the art is already a bounded object, and a frame
-          only made it read as one more tag in a row of tags. */}
-      <span className="inline-flex shrink-0 items-center">
-        <Image
-          src={flair.src}
-          alt={flair.label}
-          width={flair.width}
-          height={flair.height}
-          unoptimized
-          className={cn("w-auto select-none object-contain", className)}
-        />
-      </span>
-    </InfoTip>
+    <>
+      {flairs.map((flair) => (
+        <InfoTip key={flair.id} label={flair.label}>
+          {/* No chip around it: the art is already a bounded object, and a
+              frame only made it read as one more tag in a row of tags. */}
+          <span className="inline-flex shrink-0 items-center">
+            <Image
+              src={flair.src}
+              alt={flair.label}
+              width={flair.width}
+              height={flair.height}
+              unoptimized
+              className={cn("w-auto object-contain select-none", className)}
+            />
+          </span>
+        </InfoTip>
+      ))}
+    </>
   )
 }

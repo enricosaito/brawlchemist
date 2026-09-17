@@ -370,8 +370,29 @@ export function resolveFlairs(
   ctx: FlairContext,
   catalogue: FlairDef[] = BUILTIN_FLAIRS
 ): FlairDef[] {
+  return resolveEarnedFlairs(
+    selectedId,
+    earnedFlairIds(ctx, catalogue),
+    catalogue
+  )
+}
+
+/**
+ * The same rule, for callers that already hold the earned list.
+ *
+ * The profile header is one: it is handed `earned` by the server and used to
+ * re-implement this — pick the selection if earned, else the automatic one —
+ * in its own component. That copy could only ever render a single badge, and
+ * once a selection could name two it stopped matching its own `earned` list at
+ * all and silently fell back to the automatic pick. A second copy of a rule
+ * does not announce itself when the rule changes; there is one now.
+ */
+export function resolveEarnedFlairs(
+  selectedId: string | null | undefined,
+  earned: FlairId[],
+  catalogue: FlairDef[] = BUILTIN_FLAIRS
+): FlairDef[] {
   const { primary, companionId } = parseFlairSelection(selectedId)
-  const earned = earnedFlairIds(ctx, catalogue)
   if (earned.length === 0) return []
 
   const out: FlairDef[] = []

@@ -21,11 +21,7 @@ import {
   revokeFlair,
   updateFlair,
 } from "@/lib/sync/flairs"
-import {
-  isFlairIdShape,
-  parseFlairRule,
-  toFlairId,
-} from "@/lib/profile/flair"
+import { isFlairIdShape, parseFlairRule, toFlairId } from "@/lib/profile/flair"
 import { setCronPaused } from "@/lib/sync/cron-controls"
 import { unlinkProfile } from "@/lib/sync/claims"
 import { clearFlair, FLAIR_MAP_TAG } from "@/lib/sync/customizations"
@@ -44,6 +40,21 @@ import {
  * the heaviest thing on a profile. Stills sit around 100-400 KB.
  */
 const MAX_SKIN_BYTES = 3 * 1024 * 1024
+
+/**
+ * A pasted skin path has to be something a browser can fetch.
+ *
+ * Unvalidated, a hand-typed filename stores fine and then renders nothing: the
+ * profiles map hands `next/image` a src with no leading slash, which is not a
+ * URL it can resolve, and the skin is simply absent with no error anywhere. One
+ * profile on the site is in that state right now — a bare
+ * "ZARIEL_..._100p_Anim", no /assets/ and no extension — which is what a
+ * missing check looks like six months later. Uploads skip this: Blob hands
+ * back an absolute URL.
+ */
+function isUsableSkinSrc(src: string): boolean {
+  return src.startsWith("/") || src.startsWith("https://")
+}
 
 export async function saveProfileAction(formData: FormData) {
   await requireAdmin()
@@ -75,6 +86,10 @@ export async function saveProfileAction(formData: FormData) {
       console.error("[admin] skin upload failed:", err)
       redirect("/admin?error=upload")
     }
+  }
+
+  if (skinSrc && !isUsableSkinSrc(skinSrc)) {
+    redirect("/admin?error=skin-src")
   }
 
   const skinName = String(formData.get("skinName") ?? "").trim()
@@ -170,7 +185,7 @@ export async function backfillValhallansAction() {
   const remaining = Math.max(stale.length - batch.length, 0)
 
   redirect(
-    `/admin?tab=system&backfill=${synced}&remaining=${remaining}${failed ? `&failed=${failed}` : ""}`,
+    `/admin?tab=system&backfill=${synced}&remaining=${remaining}${failed ? `&failed=${failed}` : ""}`
   )
 }
 
@@ -235,7 +250,7 @@ export async function setAccountRoleAction(formData: FormData) {
   redirect(
     result.ok
       ? "/admin?tab=users&accountsaved=role"
-      : `/admin?tab=users&error=account-${result.reason}`,
+      : `/admin?tab=users&error=account-${result.reason}`
   )
 }
 
@@ -255,7 +270,7 @@ export async function setAccountPlanAction(formData: FormData) {
   redirect(
     result.ok
       ? "/admin?tab=users&accountsaved=plan"
-      : `/admin?tab=users&error=account-${result.reason}`,
+      : `/admin?tab=users&error=account-${result.reason}`
   )
 }
 
@@ -362,7 +377,13 @@ export async function saveFlairAction(formData: FormData) {
     }
   }
 
-  if (!src || !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+  if (
+    !src ||
+    !Number.isInteger(width) ||
+    !Number.isInteger(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
     redirect("/admin?tab=flairs&error=flair-image")
   }
 
@@ -391,7 +412,7 @@ export async function saveFlairAction(formData: FormData) {
   redirect(
     result.ok
       ? `/admin?tab=flairs&flairsaved=${encodeURIComponent(id)}`
-      : `/admin?tab=flairs&error=flair-${result.reason}`,
+      : `/admin?tab=flairs&error=flair-${result.reason}`
   )
 }
 
@@ -421,7 +442,7 @@ export async function grantFlairAction(formData: FormData) {
   redirect(
     result.ok
       ? `/admin?tab=flairs&flairgranted=${brawlhallaId}`
-      : `/admin?tab=flairs&error=flair-${result.reason}`,
+      : `/admin?tab=flairs&error=flair-${result.reason}`
   )
 }
 
