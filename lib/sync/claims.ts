@@ -4,7 +4,7 @@ import { revalidateTag } from "next/cache"
 import { and, eq, isNull } from "drizzle-orm"
 import type { PlayerRanked, PlayerRankedLegend } from "@/lib/brawlhalla-api"
 import { db } from "@/lib/db"
-import { profileClaims, profiles, players } from "@/lib/db/schema"
+import { appUsers, profileClaims, profiles, players } from "@/lib/db/schema"
 import { rosterEntryByLegendId } from "@/lib/legends-roster"
 import { PROFILES_TAG } from "@/lib/sync/profiles"
 
@@ -369,4 +369,87 @@ export async function unlinkProfile(brawlhallaId: number): Promise<void> {
     })
     .where(eq(profiles.brawlhallaId, brawlhallaId))
   revalidateTag(PROFILES_TAG, "max")
+}
+
+export type LinkProfileResult =
+  | { ok: true }
+  | { ok: false; reason: "already-claimed" | "owns-another" | "no-account" }
+
+/**
+ * Link a player to an account by operator decision, skipping the challenge.
+ *
+ * The quiz exists to prove ownership to *us*; an operator who already knows
+ * whose account it is has nothing to prove, which is why `claim_method` has
+ * always listed 'admin' alongside 'quiz'. Recording which path was taken is the
+ * point — a hand-linked profile and a self-verified one should never be
+ * indistinguishable afterwards.
+ *
+ * Guarded exactly like finalizeClaim, because the constraints are the same ones
+ * and an admin is not exempt from them:
+ *
+ *  - a profile already owned by somebody else is refused rather than
+ *    reassigned. Taking a player off one account and giving it to another is
+ *    two decisions, and the second one should be deliberate — unlink first.
+ *  - `profiles.userId` is unique, so an account that already owns a player is
+ *    refused by Postgres. That surfaces as a reason rather than a 500.
+ */
+export async function linkProfile(
+  userId: string,
+  brawlhallaId: number,
+): Promise<LinkProfileResult> {
+  const account = await db()
+    .select({ id: appUsers.id })
+    .from(appUsers)
+    .where(eq(appUsers.id, userId))
+    .limit(1)
+  if (account.length === 0) return { ok: false, reason: "no-account" }
+
+  const owner = await ownerOf(brawlhallaId)
+  if (owner && owner !== userId) return { ok: false, reason: "already-claimed" }
+  if (owner === userId) return { ok: true }
+
+  const now = new Date()
+  try {
+    // Creates the row when the player has no profile yet. Claiming never grants
+    // pro fields, so isPro stays false — same as the quiz path.
+    await db()
+      .insert(profiles)
+      .values({
+        brawlhallaId,
+        userId,
+        claimedAt: now,
+        claimMethod: "admin",
+        verifiedAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing()
+
+    await db()
+      .update(profiles)
+      .set({
+        userId,
+        claimedAt: now,
+        claimMethod: "admin",
+        verifiedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(eq(profiles.brawlhallaId, brawlhallaId), isNull(profiles.userId)),
+      )
+  } catch (err) {
+    if ((err as { code?: string })?.code === PG_UNIQUE_VIOLATION) {
+      return { ok: false, reason: "owns-another" }
+    }
+    throw err
+  }
+
+  if ((await ownerOf(brawlhallaId)) !== userId) {
+    return { ok: false, reason: "already-claimed" }
+  }
+
+  // Same reason finalizeClaim busts it: the cached profiles map projects userId
+  // into PlayerPreview.claimed, which is what puts the membership badge beside
+  // their name. Without this the link would not show for up to an hour.
+  revalidateTag(PROFILES_TAG, "max")
+  return { ok: true }
 }

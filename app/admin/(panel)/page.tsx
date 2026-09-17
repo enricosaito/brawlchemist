@@ -42,6 +42,7 @@ export default async function AdminPage({
     edit?: string
     editflair?: string
     editcombo?: string
+    linked?: string
     combosaved?: string
     combodeleted?: string
     flairsaved?: string
@@ -121,6 +122,7 @@ export default async function AdminPage({
 /** One place to decide what the last action said, instead of a nested ternary. */
 function noticeFor(sp: {
   saved?: string
+  linked?: string
   combosaved?: string
   combodeleted?: string
   flairsaved?: string
@@ -158,7 +160,15 @@ function noticeFor(sp: {
                       ? "A flair with that id already exists. Edit it instead, or pick another id."
                       : sp.error === "flair-not-found"
                         ? "No such flair — it may have been deleted since this page loaded."
-                        : sp.error === "blob-unconfigured"
+                        : sp.error === "link-id"
+            ? "That isn’t a Brawlhalla id."
+          : sp.error === "link-already-claimed"
+            ? "That player already belongs to another account. Unlink it there first — moving a player between accounts is two decisions, not one."
+          : sp.error === "link-owns-another"
+            ? "That account already owns a player. An account can hold one profile, so unlink the current one first."
+          : sp.error === "link-no-account"
+            ? "No such account — it may have been removed since this page loaded."
+          : sp.error === "blob-unconfigured"
                           ? "No Blob store is connected to this project, so there is nowhere to put the file. Connect one in the Vercel dashboard — BLOB_READ_WRITE_TOKEN is injected automatically once you do."
                           : sp.error === "clip-too-large"
                             ? "That clip is over 4 MB. Encode it at 480p/30fps with no audio — a 3-second combo should land near 250 KB."
@@ -192,6 +202,12 @@ function noticeFor(sp: {
         sp.accountsaved === "plan"
           ? "Plan updated. Plans carry no permissions."
           : "Role updated.",
+    }
+  }
+  if (sp.linked) {
+    return {
+      tone: "ok",
+      text: `Linked player #${sp.linked} to that account. It carries the membership badge now, and claim_method records that an operator vouched rather than the player passing the quiz.`,
     }
   }
   if (sp.combosaved) {
