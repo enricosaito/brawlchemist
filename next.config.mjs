@@ -18,6 +18,13 @@ const nextConfig = {
         protocol: "https",
         hostname: "cms.brawlhalla.com",
       },
+      // Skin art for the favorite-skin picker. We store a thumbnail URL rather
+      // than mirroring 673 images; see lib/skins.ts for what that trades.
+      {
+        protocol: "https",
+        hostname: "brawlhalla.wiki.gg",
+        pathname: "/images/**",
+      },
     ],
   },
   // Vanity short links to our official socials. `permanent: false` (307) keeps

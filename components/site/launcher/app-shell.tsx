@@ -6,6 +6,7 @@ import { FavoritesProvider } from "../favorites-provider"
 import type { ClaimedProfile } from "./account-control"
 import type { FlairContext } from "@/lib/profile/flair"
 import { BackgroundMusic } from "./background-music"
+import { ClaimPrompt } from "@/components/site/claim-prompt"
 import { SidebarNav } from "./sidebar-nav"
 import { VideoBackground } from "./video-background"
 
@@ -41,10 +42,10 @@ export function AppShell({
   if (pathname?.startsWith("/admin")) {
     return (
       <FavoritesProvider
-      initialIds={favoriteIds}
-      loggedIn={loggedIn}
-      selfId={claimed?.id ?? null}
-    >
+        initialIds={favoriteIds}
+        loggedIn={loggedIn}
+        selfId={claimed?.id ?? null}
+      >
         {children}
       </FavoritesProvider>
     )
@@ -67,6 +68,10 @@ export function AppShell({
         />
         <div className="min-w-0">{children}</div>
       </div>
+      {/* Signed in, owns no player. Mounted here rather than per-page so it
+          follows them around the site, and skipped entirely for everyone else
+          so the component never ships work to do for a signed-out visitor. */}
+      {loggedIn && !claimed && <ClaimPrompt />}
     </FavoritesProvider>
   )
 }
