@@ -1,7 +1,8 @@
 import Link from "next/link"
 import type { Metadata } from "next"
 import { WEAPON_NAMES } from "@/lib/mock-data"
-import { combosFor, totalCombos, type TrueCombo } from "@/lib/true-combos"
+import type { TrueCombo } from "@/lib/true-combos"
+import { getComboLibrary } from "@/lib/sync/true-combos"
 import type { WeaponId } from "@/lib/types"
 import { PageHero } from "@/components/site/page-hero"
 import { WeaponIcon } from "@/components/site/primitives"
@@ -40,8 +41,11 @@ export default async function LabPage({
 }) {
   const sp = await searchParams
   const weapon: WeaponId = isWeapon(sp.weapon) ? sp.weapon : WEAPONS[0]
-  const combos = combosFor(weapon)
-  const total = totalCombos()
+  // One cached read of the whole library: the weapon chips need a count each,
+  // so fifteen per-weapon queries would buy nothing.
+  const library = await getComboLibrary()
+  const combos = library[weapon] ?? []
+  const total = Object.values(library).reduce((n, list) => n + list.length, 0)
 
   return (
     <main className="pb-16">
@@ -68,7 +72,7 @@ export default async function LabPage({
           >
             {WEAPONS.map((w) => {
               const active = w === weapon
-              const n = combosFor(w).length
+              const n = (library[w] ?? []).length
               return (
                 <Link
                   key={w}
