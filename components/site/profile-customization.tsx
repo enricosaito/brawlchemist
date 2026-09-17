@@ -1,15 +1,12 @@
-import Image from "next/image"
-import { ExternalLink } from "lucide-react"
-import {
-  rosterEntryByLegendId,
-  slugForLegendId,
-} from "@/lib/legends-roster"
-import { getCustomization, SOCIAL_META } from "@/lib/sync/customizations"
+import { getCustomization } from "@/lib/sync/customizations"
 import { getProfile } from "@/lib/sync/profiles"
 
 /**
- * Owner-set profile customization (bio, favorite legends, social links) as it
- * appears on the public profile. Display only — editing lives in the Customize
+ * The owner-set bio as it appears on the public profile.
+ *
+ * Favorite legends and links used to share this card; they moved to the header
+ * (ProfileIdentityRow) because they are identity rather than prose. What is
+ * left is one paragraph, so the card renders only when there is one. Display only — editing lives in the Customize
  * panel in the header, which is the single place anything here is set. This
  * card used to carry its own inline bio editor, which meant a bio could be
  * changed in two places with two different save paths.
@@ -40,76 +37,17 @@ export async function ProfileCustomization({
   ])
   if (!preview?.verified) return null
 
-  const favorites = custom.favoriteLegendIds
-    .map((id) => {
-      const entry = rosterEntryByLegendId(id)
-      const slug = slugForLegendId(id)
-      return entry && slug ? { name: entry.name, slug } : null
-    })
-    .filter((f): f is { name: string; slug: string } => f !== null)
-
-  const hasContent =
-    !!custom.bio || favorites.length > 0 || custom.socialLinks.length > 0
-  if (!hasContent) return null
-
-  const bioShown = !!custom.bio
+  // Favorite legends and links render in the header now (see
+  // ProfileIdentityRow) — they are identity, and this card is prose. With
+  // nothing to say, there is no card.
+  if (!custom.bio) return null
 
   return (
     <div className="mt-6 px-4 sm:px-6">
       <section className="mx-auto max-w-[1280px] rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-sm">
-        {custom.bio && (
-          <p className="text-sm leading-relaxed text-foreground/90">
-            {custom.bio}
-          </p>
-        )}
-
-        {favorites.length > 0 && (
-          <div className={bioShown ? "mt-4" : ""}>
-            <h3 className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              Favorite legends
-            </h3>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {favorites.map((f) => (
-                <span
-                  key={f.slug}
-                  className="flex items-center gap-2 rounded-md border border-border/60 bg-card/40 py-1 pl-1 pr-3"
-                >
-                  <Image
-                    src={`/assets/legends/${f.slug}.png`}
-                    alt=""
-                    width={24}
-                    height={24}
-                    unoptimized
-                    className="size-6 rounded-full object-cover"
-                  />
-                  <span className="text-xs font-semibold">{f.name}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {custom.socialLinks.length > 0 && (
-          <div className={bioShown || favorites.length ? "mt-4" : ""}>
-            <h3 className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              Links
-            </h3>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {custom.socialLinks.map((l) => (
-                <a
-                  key={l.kind}
-                  href={l.url}
-                  target="_blank"
-                  rel="noopener noreferrer nofollow"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/40 px-2.5 py-1.5 text-xs font-medium transition-colors hover:border-pink/60 hover:text-pink"
-                >
-                  {SOCIAL_META[l.kind].label}
-                  <ExternalLink className="size-3" />
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
+        <p className="text-sm leading-relaxed text-foreground/90">
+          {custom.bio}
+        </p>
       </section>
     </div>
   )
