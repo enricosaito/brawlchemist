@@ -11,7 +11,12 @@ import {
   type AccountRole,
 } from "@/lib/auth/account"
 import { adminActorId } from "@/lib/admin-auth"
-import { setAccountPlanAction, setAccountRoleAction } from "../actions"
+import {
+  linkProfileAction,
+  setAccountPlanAction,
+  setAccountRoleAction,
+  unlinkProfileAction,
+} from "../actions"
 
 /**
  * Accents. Developer is the only thing on this screen that carries power today,
@@ -71,8 +76,9 @@ export async function UsersTab() {
           never cost someone their access.{" "}
           <span className="font-medium text-foreground">Linked User</span> is
           not a setting: it is what a regular account becomes once it claims a
-          Brawlhalla profile. Nothing marked unreleased is on sale or visible
-          outside this page.
+          Brawlhalla profile — normally by passing the ELO challenge, and from
+          here by an operator vouching instead. Nothing marked unreleased is on
+          sale or visible outside this page.
         </p>
       </section>
 
@@ -123,6 +129,53 @@ export async function UsersTab() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                  {/* Linking by hand skips the ELO challenge, which exists to
+                      prove ownership to us — an operator who already knows
+                      whose account this is has nothing to prove. The refusals
+                      still apply: one player per account, and a player already
+                      owned by someone else has to be unlinked there first. */}
+                  {u.brawlhallaId == null ? (
+                    <form
+                      action={linkProfileAction}
+                      className="flex items-center gap-1.5"
+                    >
+                      <input type="hidden" name="userId" value={u.id} />
+                      <label className="sr-only" htmlFor={`link-${u.id}`}>
+                        Brawlhalla ID to link to {u.email ?? u.id}
+                      </label>
+                      <input
+                        id={`link-${u.id}`}
+                        name="brawlhallaId"
+                        inputMode="numeric"
+                        placeholder="Brawlhalla ID"
+                        className={cn(selectCls, "w-[132px]")}
+                      />
+                      <button type="submit" className={saveCls}>
+                        Link
+                      </button>
+                    </form>
+                  ) : (
+                    <form
+                      action={unlinkProfileAction}
+                      className="flex items-center gap-1.5"
+                    >
+                      <input
+                        type="hidden"
+                        name="brawlhallaId"
+                        value={u.brawlhallaId}
+                      />
+                      {/* Sends the operator back to this tab rather than to
+                          People, which is where the same action is also used. */}
+                      <input type="hidden" name="from" value="users" />
+                      <button
+                        type="submit"
+                        className={cn(saveCls, "text-negative")}
+                      >
+                        Unlink
+                      </button>
+                    </form>
+                  )}
+
                   {/* Changing your own role is refused server-side as well —
                       see setAccountRole. Hiding the control here only spares
                       the operator a submit that was always going to bounce. */}

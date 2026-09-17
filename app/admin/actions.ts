@@ -25,7 +25,7 @@ import { isFlairIdShape, parseFlairRule, toFlairId } from "@/lib/profile/flair"
 import { deleteCombo, getCombo, upsertCombo } from "@/lib/sync/true-combos"
 import { WEAPON_NAMES } from "@/lib/mock-data"
 import { setCronPaused } from "@/lib/sync/cron-controls"
-import { unlinkProfile } from "@/lib/sync/claims"
+import { linkProfile, unlinkProfile } from "@/lib/sync/claims"
 import { clearFlair, FLAIR_MAP_TAG } from "@/lib/sync/customizations"
 import { clearFetchLog, recordFetch } from "@/lib/sync/fetch-log"
 import { syncManyPlayers, syncPlayer } from "@/lib/sync/players"
@@ -281,7 +281,34 @@ export async function unlinkProfileAction(formData: FormData) {
   await requireAdmin()
   const id = Number(formData.get("brawlhallaId"))
   if (Number.isInteger(id) && id > 0) await unlinkProfile(id)
-  redirect("/admin?unlinked=1")
+  // People is keyed by brawlhalla_id and Users by account, and both can unlink.
+  // Returning the operator to the tab they were on beats guessing.
+  const from = String(formData.get("from") ?? "")
+  redirect(from === "users" ? "/admin?tab=users&unlinked=1" : "/admin?unlinked=1")
+}
+
+/**
+ * Link a player to an account by hand.
+ *
+ * The public path is the ELO challenge, which exists to prove ownership to us.
+ * An operator who already knows whose account it is has nothing to prove — so
+ * this skips the quiz and records `claim_method = 'admin'`, which is what keeps
+ * a vouched-for link distinguishable from a self-verified one afterwards.
+ *
+ * Every refusal is surfaced rather than swallowed: the constraints that stop a
+ * player belonging to two accounts apply to an operator too, and "nothing
+ * happened" is the worst possible answer on a panel.
+ */
+export async function linkProfileAction(formData: FormData) {
+  await requireAdmin()
+  const userId = String(formData.get("userId") ?? "").trim()
+  const brawlhallaId = Number(formData.get("brawlhallaId"))
+  if (!userId || !Number.isInteger(brawlhallaId) || brawlhallaId <= 0) {
+    redirect("/admin?tab=users&error=link-id")
+  }
+  const res = await linkProfile(userId, brawlhallaId)
+  if (!res.ok) redirect(`/admin?tab=users&error=link-${res.reason}`)
+  redirect(`/admin?tab=users&linked=${brawlhallaId}`)
 }
 
 /** Reset a player's flair choice to the automatic pick (admin). */
