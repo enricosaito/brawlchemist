@@ -58,7 +58,8 @@ export const FLAIR_RULE_LABELS: Record<FlairRule, string> = {
 
 export function isFlairRule(value: unknown): value is FlairRule {
   return (
-    typeof value === "string" && (FLAIR_RULES as readonly string[]).includes(value)
+    typeof value === "string" &&
+    (FLAIR_RULES as readonly string[]).includes(value)
   )
 }
 
@@ -170,7 +171,7 @@ export const BUILTIN_FLAIRS: FlairDef[] = [
 
 export function flairById(
   id: string | null | undefined,
-  catalogue: FlairDef[] = BUILTIN_FLAIRS,
+  catalogue: FlairDef[] = BUILTIN_FLAIRS
 ): FlairDef | null {
   if (!id) return null
   return catalogue.find((f) => f.id === id) ?? null
@@ -224,7 +225,7 @@ export function flairContextFrom(
         claimed?: boolean
       }
     | null
-    | undefined,
+    | undefined
 ): FlairContext {
   return {
     esportsTitles: preview?.esportsTitles,
@@ -246,9 +247,7 @@ function holds(flair: FlairDef, ctx: FlairContext): boolean {
       // An empty needle would match every accolade, handing the badge to every
       // pro on the site. A rule with nothing to match fires for nobody.
       if (!needle) return false
-      return !!ctx.esportsTitles?.some((t) =>
-        t.toLowerCase().includes(needle),
-      )
+      return !!ctx.esportsTitles?.some((t) => t.toLowerCase().includes(needle))
     }
     case "manual":
       return !!ctx.grants?.includes(flair.id)
@@ -262,7 +261,7 @@ function byRarity(catalogue: FlairDef[]): FlairDef[] {
 
 export function earnedFlairIds(
   ctx: FlairContext,
-  catalogue: FlairDef[] = BUILTIN_FLAIRS,
+  catalogue: FlairDef[] = BUILTIN_FLAIRS
 ): FlairId[] {
   return byRarity(catalogue)
     .filter((f) => f.enabled !== false && holds(f, ctx))
@@ -287,9 +286,119 @@ export const FLAIR_NONE = "none"
  */
 export function autoFlairId(
   earned: FlairId[],
-  catalogue: FlairDef[] = BUILTIN_FLAIRS,
+  catalogue: FlairDef[] = BUILTIN_FLAIRS
 ): FlairId | null {
   return byRarity(catalogue).find((f) => earned.includes(f.id))?.id ?? null
+}
+
+/**
+ * A selection can name two badges: the one you fly, and your membership badge
+ * beside it.
+ *
+ * Stored in the one `flair_id` column as `"world-champion+brawlchemist-user"`,
+ * rather than as a second column. The column already holds a *preference* that
+ * is re-derived against entitlement on every render, and a pair is still one
+ * preference — where a boolean beside it would be a second thing to migrate,
+ * to plumb through the fifteen surfaces that pass a selection to FlairMark, and
+ * to forget on the sixteenth. Every one of those surfaces passes this string
+ * through untouched and keeps working.
+ *
+ * Both halves are ids, not flags, so nothing here hardcodes which badge is the
+ * membership one — that is the catalogue's `claimed` rule, and a stored id that
+ * stops naming an earned flair falls back exactly like a primary that does.
+ */
+export const FLAIR_PAIR_SEPARATOR = "+"
+
+export interface FlairSelection {
+  /** The badge to fly: an id, FLAIR_NONE, or null for "never chose". */
+  primary: string | null
+  /** The membership badge to show beside it, if any. */
+  companionId: string | null
+}
+
+export function parseFlairSelection(
+  raw: string | null | undefined
+): FlairSelection {
+  if (typeof raw !== "string" || !raw) {
+    return { primary: null, companionId: null }
+  }
+  const [first, second] = raw.split(FLAIR_PAIR_SEPARATOR)
+  const primary =
+    first === FLAIR_NONE ? FLAIR_NONE : isFlairIdShape(first) ? first : null
+  return {
+    primary,
+    companionId: second && isFlairIdShape(second) ? second : null,
+  }
+}
+
+/** The stored form. Null primary means "never chose", which stores as null. */
+export function formatFlairSelection(
+  primary: string | null,
+  companionId: string | null
+): string | null {
+  if (!primary && !companionId) return null
+  const head = primary ?? FLAIR_NONE
+  return companionId ? `${head}${FLAIR_PAIR_SEPARATOR}${companionId}` : head
+}
+
+/**
+ * The membership badge: the rarest enabled flair whose rule is `claimed`.
+ *
+ * Found by rule rather than by id so the companion follows the catalogue. An
+ * operator can rename or replace "Brawlchemist User" and the toggle keeps
+ * meaning "show that I'm a member here".
+ */
+export function memberFlair(
+  catalogue: FlairDef[] = BUILTIN_FLAIRS
+): FlairDef | null {
+  return (
+    byRarity(catalogue).find(
+      (f) => f.enabled !== false && f.rule === "claimed"
+    ) ?? null
+  )
+}
+
+/**
+ * Every flair to render, in rarity order.
+ *
+ * One or two: the badge they fly, and optionally the membership badge beside
+ * it. The companion is dropped when it *is* the primary, so opting in while
+ * flying the member badge shows it once rather than twice.
+ */
+export function resolveFlairs(
+  selectedId: string | null | undefined,
+  ctx: FlairContext,
+  catalogue: FlairDef[] = BUILTIN_FLAIRS
+): FlairDef[] {
+  const { primary, companionId } = parseFlairSelection(selectedId)
+  const earned = earnedFlairIds(ctx, catalogue)
+  if (earned.length === 0) return []
+
+  const out: FlairDef[] = []
+  if (primary !== FLAIR_NONE) {
+    const chosen =
+      primary && earned.includes(primary)
+        ? flairById(primary, catalogue)
+        : flairById(autoFlairId(earned, catalogue), catalogue)
+    if (chosen) out.push(chosen)
+  }
+
+  if (companionId && companionId !== out[0]?.id) {
+    const companion = flairById(companionId, catalogue)
+    // Only a membership badge can ride along, and only if it is actually held.
+    // Anything else would make this a second free slot, which is a different
+    // feature and would need its own rarity argument.
+    if (
+      companion &&
+      companion.enabled !== false &&
+      companion.rule === "claimed" &&
+      earned.includes(companion.id)
+    ) {
+      out.push(companion)
+    }
+  }
+
+  return out
 }
 
 /**
@@ -303,13 +412,7 @@ export function autoFlairId(
 export function resolveFlair(
   selectedId: string | null | undefined,
   ctx: FlairContext,
-  catalogue: FlairDef[] = BUILTIN_FLAIRS,
+  catalogue: FlairDef[] = BUILTIN_FLAIRS
 ): FlairDef | null {
-  if (selectedId === FLAIR_NONE) return null
-  const earned = earnedFlairIds(ctx, catalogue)
-  if (earned.length === 0) return null
-  if (selectedId && earned.includes(selectedId)) {
-    return flairById(selectedId, catalogue)
-  }
-  return flairById(autoFlairId(earned, catalogue), catalogue)
+  return resolveFlairs(selectedId, ctx, catalogue)[0] ?? null
 }

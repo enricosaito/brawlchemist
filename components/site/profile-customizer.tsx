@@ -11,7 +11,14 @@ import {
   saveProfileFieldsAction,
 } from "@/app/account/actions"
 import { BANNER_PRESETS, DEFAULT_BANNER_ID } from "@/lib/profile/banners"
-import { autoFlairId, FLAIR_NONE, type FlairId } from "@/lib/profile/flair"
+import {
+  autoFlairId,
+  FLAIR_NONE,
+  formatFlairSelection,
+  memberFlair,
+  parseFlairSelection,
+  type FlairId,
+} from "@/lib/profile/flair"
 import { ACHIEVEMENTS } from "@/lib/profile/achievements"
 import { toastAchievement, toastSaved } from "./unlock-toast"
 import { useFlairCatalogue } from "./flair-catalogue"
@@ -148,12 +155,32 @@ export function ProfileCustomizer({
     preview?.setBannerId(id)
   }
 
-  function pickFlair(id: string) {
+  /**
+   * Set one half of the selection and keep the other.
+   *
+   * The tiles pick the badge you fly; the checkbox underneath adds your
+   * membership badge beside it. They write the same string (see
+   * formatFlairSelection), so changing one must not silently drop the other —
+   * that is the whole reason this takes a patch rather than an id.
+   */
+  function setSelection(next: {
+    primary?: string
+    companionId?: string | null
+  }) {
     if (pending) return
     setError(null)
     setSaved(false)
-    setFlairId(id)
-    preview?.setFlairId(id)
+    const current = parseFlairSelection(flairId)
+    const value = formatFlairSelection(
+      next.primary ?? current.primary ?? shownFlairId,
+      next.companionId !== undefined ? next.companionId : current.companionId
+    )
+    setFlairId(value)
+    preview?.setFlairId(value)
+  }
+
+  function pickFlair(id: string) {
+    setSelection({ primary: id })
   }
 
   /** The form as the server wants it. */
@@ -180,7 +207,7 @@ export function ProfileCustomizer({
         .map((l) => ({ kind: l.kind, url: l.url.trim() }))
         .filter((l) => l.url.length > 0),
       favoriteLegendIds: initialFavoriteLegendIds.filter(
-        (n) => Number.isInteger(n) && n > 0,
+        (n) => Number.isInteger(n) && n > 0
       ),
     })
   const dirty = bannerDirty || flairDirty || fieldsDirty
@@ -271,16 +298,26 @@ export function ProfileCustomizer({
     setLinks(seed)
     setFavorites(
       Array.from({ length: FAVORITE_SLOTS }, (_, i) =>
-        String(initialFavoriteLegendIds[i] ?? ""),
-      ),
+        String(initialFavoriteLegendIds[i] ?? "")
+      )
     )
   }
 
   // What the profile is actually showing right now. A null choice means "show
   // my best", so the panel marks that row rather than claiming None and
   // disagreeing with the badge visible behind it.
+  const selection = parseFlairSelection(flairId)
   const shownFlairId =
-    flairId ?? autoFlairId(earnedFlairIds, catalogue) ?? FLAIR_NONE
+    selection.primary ?? autoFlairId(earnedFlairIds, catalogue) ?? FLAIR_NONE
+
+  // The membership badge, and whether it is worth offering. Nothing to offer if
+  // the catalogue has no `claimed` flair, if this player hasn't earned it, or
+  // if it is already the badge they fly — in that last case the checkbox would
+  // promise a second copy of what is on screen.
+  const member = memberFlair(catalogue)
+  const canPairMember =
+    !!member && earnedFlairIds.includes(member.id) && shownFlairId !== member.id
+  const memberPaired = !!member && selection.companionId === member.id
 
   const bioLeft = BIO_MAX - bio.length
 
@@ -312,148 +349,188 @@ export function ProfileCustomizer({
           : "max-h-[min(70vh,34rem)] space-y-5 overflow-y-auto pr-1"
       }
     >
-            <Section label="Background">
-              <div className="grid grid-cols-5 gap-2">
-                {BANNER_PRESETS.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    title={p.label}
-                    onClick={() => pickBanner(p.id)}
-                    className={cn(
-                      "relative h-8 rounded-md border transition-all",
-                      p.swatch,
-                      bannerId === p.id
-                        ? "border-foreground/70 ring-1 ring-foreground/30"
-                        : "border-border/60 hover:border-foreground/40"
-                    )}
-                  >
-                    {bannerId === p.id ? (
-                      <Check className="absolute inset-0 m-auto size-3.5 text-foreground drop-shadow" />
-                    ) : null}
-                  </button>
-                ))}
-              </div>
-            </Section>
-
-            <Section
-              label="Flair"
-              hint="Earned, not chosen — pick which one you fly."
+      <Section label="Background">
+        <div className="grid grid-cols-5 gap-2">
+          {BANNER_PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              title={p.label}
+              onClick={() => pickBanner(p.id)}
+              className={cn(
+                "relative h-8 rounded-md border transition-all",
+                p.swatch,
+                bannerId === p.id
+                  ? "border-foreground/70 ring-1 ring-foreground/30"
+                  : "border-border/60 hover:border-foreground/40"
+              )}
             >
-              <div className="grid grid-cols-3 gap-1.5">
-                <FlairTile
-                  selected={shownFlairId === FLAIR_NONE}
-                  onSelect={() => pickFlair(FLAIR_NONE)}
-                  label="None"
-                />
-                {catalogue.map((f) => {
-                  const earned = earnedFlairIds.includes(f.id)
-                  return (
-                    <FlairTile
-                      key={f.id}
-                      selected={shownFlairId === f.id}
-                      locked={!earned}
-                      onSelect={() => earned && pickFlair(f.id)}
-                      label={f.label}
-                      sub={earned ? undefined : f.requirement}
-                      art={
-                        <Image
-                          src={f.src}
-                          alt=""
-                          width={f.width}
-                          height={f.height}
-                          unoptimized
-                          className={cn(
-                            "h-9 w-auto object-contain select-none",
-                            !earned && "opacity-30 grayscale"
-                          )}
-                        />
-                      }
-                    />
-                  )
-                })}
-              </div>
-            </Section>
+              {bannerId === p.id ? (
+                <Check className="absolute inset-0 m-auto size-3.5 text-foreground drop-shadow" />
+              ) : null}
+            </button>
+          ))}
+        </div>
+      </Section>
 
-            {/* Verified pros only, for now: free text and outbound links on a
+      <Section
+        label="Flair"
+        hint="Earned, not chosen — pick which one you fly."
+      >
+        <div className="grid grid-cols-3 gap-1.5">
+          <FlairTile
+            selected={shownFlairId === FLAIR_NONE}
+            onSelect={() => pickFlair(FLAIR_NONE)}
+            label="None"
+          />
+          {catalogue.map((f) => {
+            const earned = earnedFlairIds.includes(f.id)
+            return (
+              <FlairTile
+                key={f.id}
+                selected={shownFlairId === f.id}
+                locked={!earned}
+                onSelect={() => earned && pickFlair(f.id)}
+                label={f.label}
+                sub={earned ? undefined : f.requirement}
+                art={
+                  <Image
+                    src={f.src}
+                    alt=""
+                    width={f.width}
+                    height={f.height}
+                    unoptimized
+                    className={cn(
+                      "h-9 w-auto object-contain select-none",
+                      !earned && "opacity-30 grayscale"
+                    )}
+                  />
+                }
+              />
+            )
+          })}
+        </div>
+
+        {/* The one badge that can be worn alongside another.
+            A checkbox rather than a second grid: there is exactly one thing it
+            can add, and a picker for a set of one is a picker that asks a
+            question with a single answer. Hidden when there is nothing to
+            offer — an unearned or already-flown member badge — rather than
+            shown disabled, because a disabled control on a settings panel is a
+            promise you have to explain. */}
+        {canPairMember && member && (
+          <label
+            className={cn(
+              "mt-2 flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2 transition-colors",
+              memberPaired
+                ? "border-pink/50 bg-pink/10"
+                : "border-border/60 bg-card/40 hover:border-pink/40"
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={memberPaired}
+              onChange={(e) =>
+                setSelection({
+                  companionId: e.target.checked ? member.id : null,
+                })
+              }
+              className="size-3.5 shrink-0 accent-pink"
+            />
+            <Image
+              src={member.src}
+              alt=""
+              width={member.width}
+              height={member.height}
+              unoptimized
+              className="h-5 w-auto shrink-0 object-contain select-none"
+            />
+            <span className="min-w-0 text-xs text-muted-foreground">
+              Also show {member.label}
+            </span>
+          </label>
+        )}
+      </Section>
+
+      {/* Verified pros only, for now: free text and outbound links on a
             public page stay with the accounts we have vetted. The server
             action refuses these for everyone else regardless of what the
             panel shows — this is the UI half. */}
-            {isPro ? (
-              <>
-                <Section label="Quote" hint={`${bioLeft} left`}>
-                  <textarea
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX))}
-                    rows={3}
-                    placeholder="Say something about yourself."
-                    className="w-full resize-none rounded-md border border-border/60 bg-background/60 px-2.5 py-2 text-sm transition-colors outline-none focus:border-pink/60"
-                  />
-                </Section>
+      {isPro ? (
+        <>
+          <Section label="Quote" hint={`${bioLeft} left`}>
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX))}
+              rows={3}
+              placeholder="Say something about yourself."
+              className="w-full resize-none rounded-md border border-border/60 bg-background/60 px-2.5 py-2 text-sm transition-colors outline-none focus:border-pink/60"
+            />
+          </Section>
 
-                <Section label="Favorite legends">
-                  <div className="grid grid-cols-3 gap-2">
-                    {favorites.map((value, i) => (
-                      <select
-                        key={i}
-                        value={value}
-                        onChange={(e) => {
-                          const next = [...favorites]
-                          next[i] = e.target.value
-                          setFavorites(next)
-                        }}
-                        className="min-w-0 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs transition-colors outline-none focus:border-pink/60"
-                      >
-                        <option value="">—</option>
-                        {LEGEND_OPTIONS.map((o) => (
-                          <option key={o.legendId} value={o.legendId}>
-                            {o.name}
-                          </option>
-                        ))}
-                      </select>
-                    ))}
-                  </div>
-                </Section>
-
-                <Section label="Links" hint="https only">
-                  <div className="space-y-1.5">
-                    {SOCIAL_KINDS.map((kind) => (
-                      <div key={kind} className="flex items-center gap-2">
-                        <span className="w-20 shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-                          {SOCIAL_META[kind].label}
-                        </span>
-                        <input
-                          type="url"
-                          value={links[kind]}
-                          onChange={(e) =>
-                            setLinks({ ...links, [kind]: e.target.value })
-                          }
-                          placeholder={SOCIAL_META[kind].placeholder}
-                          className="min-w-0 flex-1 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs transition-colors outline-none focus:border-pink/60"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </Section>
-              </>
-            ) : (
-              <Section label="Quote, legends and links">
-                <Soon
-                  label="Pro only"
-                  icon={<BadgeCheck className="size-3 shrink-0 text-mystic" />}
+          <Section label="Favorite legends">
+            <div className="grid grid-cols-3 gap-2">
+              {favorites.map((value, i) => (
+                <select
+                  key={i}
+                  value={value}
+                  onChange={(e) => {
+                    const next = [...favorites]
+                    next[i] = e.target.value
+                    setFavorites(next)
+                  }}
+                  className="min-w-0 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs transition-colors outline-none focus:border-pink/60"
                 >
-                  Available to verified pro players for now.
-                </Soon>
-              </Section>
-            )}
+                  <option value="">—</option>
+                  {LEGEND_OPTIONS.map((o) => (
+                    <option key={o.legendId} value={o.legendId}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              ))}
+            </div>
+          </Section>
 
-            <Section label="Favorite skin">
-              <Soon>Needs a skin catalogue before you can pick one.</Soon>
-            </Section>
+          <Section label="Links" hint="https only">
+            <div className="space-y-1.5">
+              {SOCIAL_KINDS.map((kind) => (
+                <div key={kind} className="flex items-center gap-2">
+                  <span className="w-20 shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+                    {SOCIAL_META[kind].label}
+                  </span>
+                  <input
+                    type="url"
+                    value={links[kind]}
+                    onChange={(e) =>
+                      setLinks({ ...links, [kind]: e.target.value })
+                    }
+                    placeholder={SOCIAL_META[kind].placeholder}
+                    className="min-w-0 flex-1 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs transition-colors outline-none focus:border-pink/60"
+                  />
+                </div>
+              ))}
+            </div>
+          </Section>
+        </>
+      ) : (
+        <Section label="Quote, legends and links">
+          <Soon
+            label="Pro only"
+            icon={<BadgeCheck className="size-3 shrink-0 text-mystic" />}
+          >
+            Available to verified pro players for now.
+          </Soon>
+        </Section>
+      )}
 
-            <Section label="Name color">
-              <Soon>Coming soon.</Soon>
-            </Section>
+      <Section label="Favorite skin">
+        <Soon>Needs a skin catalogue before you can pick one.</Soon>
+      </Section>
+
+      <Section label="Name color">
+        <Soon>Coming soon.</Soon>
+      </Section>
     </div>
   )
 
@@ -466,7 +543,7 @@ export function ProfileCustomizer({
             ? "text-negative"
             : saved
               ? "text-positive"
-              : "text-muted-foreground",
+              : "text-muted-foreground"
         )}
       >
         {error ?? (saved ? "Saved." : dirty ? "Unsaved changes." : "")}
@@ -546,7 +623,7 @@ export function ProfileCustomizer({
           {sections}
           {saveBar}
         </div>,
-        document.body,
+        document.body
       )}
     </>
   )
@@ -623,7 +700,7 @@ function FlairTile({
           selected
             ? "border-pink/60 bg-pink/10"
             : "border-border/60 bg-card/40 hover:border-foreground/30",
-          locked && "cursor-not-allowed opacity-70 hover:border-border/60",
+          locked && "cursor-not-allowed opacity-70 hover:border-border/60"
         )}
       >
         {art ? (

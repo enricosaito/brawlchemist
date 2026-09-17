@@ -6,7 +6,7 @@ import { db } from "@/lib/db"
 import { userCustomizations, type UserCustomizationRow } from "@/lib/db/schema"
 import { rosterEntryByLegendId } from "@/lib/legends-roster"
 import { DEFAULT_BANNER_ID, isValidBannerId } from "@/lib/profile/banners"
-import { FLAIR_NONE, isFlairIdShape } from "@/lib/profile/flair"
+import { formatFlairSelection, parseFlairSelection } from "@/lib/profile/flair"
 import {
   SOCIAL_KINDS,
   type SocialKind,
@@ -117,10 +117,17 @@ function parseBannerId(value: unknown): string | null {
  * simply falls back to the player's best earned badge — there is nothing to
  * cheat and nothing to correct.
  */
+/**
+ * A selection is one id, "none", or a pair — the badge they fly plus their
+ * membership badge (see formatFlairSelection). Validated for *shape* only, as
+ * before: entitlement is re-derived on every render, so an id naming nothing
+ * falls back rather than being rejected on the way in.
+ */
 function parseFlairId(value: unknown): string | null {
   if (typeof value !== "string") return null
-  if (value === FLAIR_NONE) return FLAIR_NONE
-  return isFlairIdShape(value) ? value : null
+  const { primary, companionId } = parseFlairSelection(value)
+  if (!primary) return null
+  return formatFlairSelection(primary, companionId)
 }
 
 function toCustomization(row: UserCustomizationRow): Customization {
@@ -137,7 +144,7 @@ function toCustomization(row: UserCustomizationRow): Customization {
 /** Validate + normalize raw form input. Banner and flair are managed
  * separately (setBanner / setFlair). */
 export function normalizeInput(
-  input: CustomizationInput,
+  input: CustomizationInput
 ): Omit<Customization, "bannerId" | "flairId"> {
   const bio = input.bio.trim().slice(0, BIO_MAX)
   return {
@@ -149,7 +156,7 @@ export function normalizeInput(
 
 /** Cached public read. Returns EMPTY (never throws) so profiles fail open. */
 export async function getCustomization(
-  brawlhallaId: number,
+  brawlhallaId: number
 ): Promise<Customization> {
   return unstable_cache(
     async (): Promise<Customization> => {
@@ -166,7 +173,7 @@ export async function getCustomization(
       }
     },
     ["customization", String(brawlhallaId)],
-    { tags: [customizationTag(brawlhallaId)], revalidate: 300 },
+    { tags: [customizationTag(brawlhallaId)], revalidate: 300 }
   )()
 }
 
@@ -206,7 +213,7 @@ const getFlairObject = unstable_cache(
     }
   },
   ["flair-map"],
-  { tags: [FLAIR_MAP_TAG], revalidate: 300 },
+  { tags: [FLAIR_MAP_TAG], revalidate: 300 }
 )
 
 /** `unstable_cache` can't serialize a Map, so it caches an object and we
@@ -220,7 +227,7 @@ export async function getFlairMap(): Promise<Map<number, string>> {
 
 /** Uncached read for the owner's edit form. */
 export async function getCustomizationRecord(
-  brawlhallaId: number,
+  brawlhallaId: number
 ): Promise<Customization> {
   const [row] = await db()
     .select()
@@ -233,7 +240,7 @@ export async function getCustomizationRecord(
 /** Write the owner's customization and bust its cache. Caller MUST have checked ownership. */
 export async function upsertCustomization(
   brawlhallaId: number,
-  input: CustomizationInput,
+  input: CustomizationInput
 ): Promise<void> {
   const v = normalizeInput(input)
   const values = {
@@ -267,7 +274,7 @@ export async function upsertCustomization(
  */
 export async function setBanner(
   brawlhallaId: number,
-  rawBannerId: string,
+  rawBannerId: string
 ): Promise<void> {
   const bannerId =
     isValidBannerId(rawBannerId) && rawBannerId !== DEFAULT_BANNER_ID
@@ -297,7 +304,7 @@ export async function setBanner(
  */
 export async function setFlair(
   brawlhallaId: number,
-  rawFlairId: string,
+  rawFlairId: string
 ): Promise<void> {
   const flairId = parseFlairId(rawFlairId)
   const now = new Date()
@@ -313,7 +320,6 @@ export async function setFlair(
   // player changing theirs has to invalidate it.
   revalidateTag(FLAIR_MAP_TAG, "max")
 }
-
 
 /**
  * Admin: drop a player's flair choice, returning them to the automatic pick.
