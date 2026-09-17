@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 
 // Filename has spaces — encode them so the browser fetches the right URL.
 const VIDEO_SRC =
-  "/assets/Anime%20Sparkling%20Stars%20Background%20by%20Sliced%20Bread.mp4"
+  "/assets/media/Anime%20Sparkling%20Stars%20Background%20by%20Sliced%20Bread.mp4"
 
 /**
  * VideoBackground — fixed, darkened looping starfield behind the launcher.

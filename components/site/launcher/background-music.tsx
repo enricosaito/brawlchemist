@@ -8,7 +8,7 @@ import {
 } from "@/lib/ui-sound"
 
 // Filename has spaces — encode them for the URL.
-const MUSIC_SRC = "/assets/Brawlhalla%20Piano%20Theme.mp3"
+const MUSIC_SRC = "/assets/media/Brawlhalla%20Piano%20Theme.mp3"
 
 /**
  * BackgroundMusic — loops the Brawlhalla piano theme while the mute toggle is
