@@ -364,7 +364,7 @@ export default async function LeaderboardPage({
                     >
                       <span className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/60 px-2 py-1.5 font-mono text-[10px] uppercase tracking-wider text-foreground">
                         <Image
-                          src="/assets/valhallan-helm.png"
+                          src="/assets/ranks/valhallan-helm.png"
                           alt="Valhallan cutoff"
                           width={16}
                           height={16}

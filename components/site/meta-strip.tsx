@@ -7,9 +7,9 @@ import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 const CUTOFF_REGIONS: ApiRegion[] = ["US-E", "EU", "BRZ"]
 
 const REGION_FLAG: Partial<Record<ApiRegion, string>> = {
-  "US-E": "/assets/usa.webp",
-  EU: "/assets/europe.webp",
-  BRZ: "/assets/brazil.webp",
+  "US-E": "/assets/regions/usa.webp",
+  EU: "/assets/regions/europe.webp",
+  BRZ: "/assets/regions/brazil.webp",
 }
 
 export async function MetaStrip() {
@@ -27,7 +27,7 @@ export async function MetaStrip() {
               className="flex items-center justify-between gap-3 bg-card/80 px-4 py-3"
             >
               <Image
-                src="/assets/valhallan-helm.png"
+                src="/assets/ranks/valhallan-helm.png"
                 alt=""
                 width={36}
                 height={36}

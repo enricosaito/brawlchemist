@@ -123,15 +123,15 @@ export function RankPill({
  * in per-tier files once the rest are provided.
  */
 const RANK_ICON_SRC: Partial<Record<Tier, string>> = {
-  Valhallan: "/assets/Valhallan-GIF.webp",
-  Diamond: "/assets/Avatar_Diamond_37.webp",
-  Platinum: "/assets/Avatar_Platinum_6.webp",
-  Gold: "/assets/Avatar_Gold_6.webp",
+  Valhallan: "/assets/ranks/Valhallan-GIF.webp",
+  Diamond: "/assets/ranks/Avatar_Diamond_37.webp",
+  Platinum: "/assets/ranks/Avatar_Platinum_6.webp",
+  Gold: "/assets/ranks/Avatar_Gold_6.webp",
   // No dedicated art yet for Silver / Bronze / Tin — generic participation
   // avatar serves as the placeholder until per-tier art arrives.
-  Silver: "/assets/Avatar_Participation_10.webp",
-  Bronze: "/assets/Avatar_Participation_10.webp",
-  Tin: "/assets/Avatar_Participation_10.webp",
+  Silver: "/assets/ranks/Avatar_Participation_10.webp",
+  Bronze: "/assets/ranks/Avatar_Participation_10.webp",
+  Tin: "/assets/ranks/Avatar_Participation_10.webp",
 }
 
 /**
@@ -156,13 +156,13 @@ const RANK_ICON_SRC: Partial<Record<Tier, string>> = {
  */
 const RANK_HELM: Record<Tier, { src: string; width: number; height: number }> =
   {
-    Valhallan: { src: "/assets/valhallan-helm.png", width: 192, height: 153 },
-    Diamond: { src: "/assets/diamond-helm.png", width: 192, height: 168 },
-    Platinum: { src: "/assets/platinum-helm.png", width: 192, height: 122 },
-    Gold: { src: "/assets/gold-helm.png", width: 192, height: 169 },
-    Silver: { src: "/assets/silver-helm.png", width: 192, height: 140 },
-    Bronze: { src: "/assets/bronze-helm.png", width: 192, height: 150 },
-    Tin: { src: "/assets/tin-helm.png", width: 192, height: 140 },
+    Valhallan: { src: "/assets/ranks/valhallan-helm.png", width: 192, height: 153 },
+    Diamond: { src: "/assets/ranks/diamond-helm.png", width: 192, height: 168 },
+    Platinum: { src: "/assets/ranks/platinum-helm.png", width: 192, height: 122 },
+    Gold: { src: "/assets/ranks/gold-helm.png", width: 192, height: 169 },
+    Silver: { src: "/assets/ranks/silver-helm.png", width: 192, height: 140 },
+    Bronze: { src: "/assets/ranks/bronze-helm.png", width: 192, height: 150 },
+    Tin: { src: "/assets/ranks/tin-helm.png", width: 192, height: 140 },
   }
 
 export function RankHelm({
@@ -206,7 +206,7 @@ export function RankHelm({
  * roster. Below the Diamond floor it would be a lie, so down there the band is
  * derived from the rating instead — which is exact, since the floors are fixed.
  */
-const FALLEN_VALHALLAN_SRC = "/assets/Avatar_Valhallan_Emblem_Fallen.webp"
+const FALLEN_VALHALLAN_SRC = "/assets/ranks/Avatar_Valhallan_Emblem_Fallen.webp"
 
 export function RankIcon({
   tier,

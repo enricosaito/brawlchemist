@@ -31,46 +31,46 @@ const NAV: NavEntry[] = [
   {
     label: "Power Rankings",
     href: "/power-rankings",
-    avatar: "/assets/AniAvatar_Retro_Mjolnir.webp",
+    avatar: "/assets/avatars/AniAvatar_Retro_Mjolnir.webp",
   },
   {
     label: "Leaderboards",
     href: "/leaderboards/1v1",
-    avatar: "/assets/AniAvatar_Volkonomicon.webp",
+    avatar: "/assets/avatars/AniAvatar_Volkonomicon.webp",
     match: ["/leaderboards"],
   },
   {
     label: "Ranked Queue",
     href: "/queue",
-    avatar: "/assets/AniAvatar_Ash_%26_Yarra.webp",
+    avatar: "/assets/avatars/AniAvatar_Ash_%26_Yarra.webp",
     live: true,
   },
   {
     label: "Tournaments",
     href: "/tournaments",
-    avatar: "/assets/AniAvatar_BCX_2017_Brawler.webp",
+    avatar: "/assets/avatars/AniAvatar_BCX_2017_Brawler.webp",
   },
   {
     label: "Patch Notes",
     href: "/patch-notes",
-    avatar: "/assets/AniAvatar_Potion_Shelf.webp",
+    avatar: "/assets/avatars/AniAvatar_Potion_Shelf.webp",
   },
   {
     label: "Meta Picks",
     href: "/meta-picks",
-    avatar: "/assets/AniAvatar_Cursed_Kunai.webp",
+    avatar: "/assets/avatars/AniAvatar_Cursed_Kunai.webp",
   },
   {
     // The flipbook cat, because the page is a flipbook: two-second loops you
     // scrub through until the input order sticks.
     label: "The Lab",
     href: "/lab",
-    avatar: "/assets/AniAvatar_Flipbook_Cat.webp",
+    avatar: "/assets/avatars/AniAvatar_Flipbook_Cat.webp",
   },
   {
     label: "Guilds",
     href: "/guilds",
-    avatar: "/assets/AniAvatar_River_Raid.webp",
+    avatar: "/assets/avatars/AniAvatar_River_Raid.webp",
   },
 ]
 

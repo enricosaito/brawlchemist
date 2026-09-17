@@ -764,6 +764,18 @@ interface TeamMember {
   esportsTitles?: string[]
   /** Owning account has the Developer role. */
   developer?: boolean
+  /**
+   * Profile is linked to a Brawlchemist account.
+   *
+   * Every other field of FlairContext was here and this one wasn't, so the
+   * membership badge — the badge most players on a team card actually hold —
+   * could never render beside a name here while it rendered everywhere else.
+   * Nothing caught it: `flairContextFrom` takes a structural type, so an
+   * absent optional property is still assignable and reads as "not claimed".
+   * The same trap CLAUDE.md records for the esportsTitles rename; a context
+   * field added in future has to be added here too.
+   */
+  claimed?: boolean
 }
 
 function TeamMemberName({ member }: { member: TeamMember }) {
@@ -2018,6 +2030,7 @@ export default async function PlayerPage({
         flairId: teamFlairs.get(teammateId),
         esportsTitles: mate?.esportsTitles,
         developer: mate?.developer,
+        claimed: mate?.claimed,
       },
     }
   })
@@ -2230,6 +2243,7 @@ export default async function PlayerPage({
     flairId: customization.flairId ?? undefined,
     esportsTitles: preview?.esportsTitles,
     developer: preview?.developer,
+    claimed: preview?.claimed,
   }
   // The name the page titles with — a pro is known by their handle, so the
   // track card shouldn't call them something the heading never did.
