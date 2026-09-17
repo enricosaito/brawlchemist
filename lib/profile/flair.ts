@@ -311,6 +311,23 @@ export function isSelectableFlair(flair: FlairDef): boolean {
   return flair.enabled !== false && SELECTABLE_FLAIR_RULES.includes(flair.rule)
 }
 
+/**
+ * The membership badge: the rarest enabled flair whose rule is `claimed`.
+ *
+ * Found by rule rather than by id, so nothing hardcodes "brawlchemist-user". An
+ * operator can rename or replace it and the badge keeps meaning "this profile
+ * belongs to someone with an account here".
+ */
+export function memberFlair(
+  catalogue: FlairDef[] = BUILTIN_FLAIRS
+): FlairDef | null {
+  return (
+    byRarity(catalogue).find(
+      (f) => f.enabled !== false && f.rule === "claimed"
+    ) ?? null
+  )
+}
+
 /** The catalogue as the picker should show it. */
 export function selectableFlairs(
   catalogue: FlairDef[] = BUILTIN_FLAIRS
@@ -326,17 +343,28 @@ export function selectableFlairs(
  * who drops out of Valhallan keeps showing the trophy they also earned rather
  * than nothing.
  *
- * One badge, always. A linked account that has earned nothing else therefore
- * flies the membership badge by default, because it is last in the rarity order
- * and `autoFlairId` takes the rarest held — the default falls out of the
- * ordering rather than being a special case anyone has to maintain.
+ * The membership badge rides to the right of it, always, for anyone who has
+ * one. It is not a second prize and not a choice — it says the profile belongs
+ * to someone with an account here, which is true independently of whatever they
+ * are flying, so it is appended rather than competing for the slot. A linked
+ * account that has earned nothing else shows it alone, because the badge it
+ * would otherwise fly *is* the membership badge and one is enough.
  */
 export function resolveFlair(
   selectedId: string | null | undefined,
   ctx: FlairContext,
   catalogue: FlairDef[] = BUILTIN_FLAIRS
 ): FlairDef | null {
-  return resolveEarnedFlair(
+  return resolveFlairs(selectedId, ctx, catalogue)[0] ?? null
+}
+
+/** Every badge to draw, left to right. */
+export function resolveFlairs(
+  selectedId: string | null | undefined,
+  ctx: FlairContext,
+  catalogue: FlairDef[] = BUILTIN_FLAIRS
+): FlairDef[] {
+  return resolveEarnedFlairs(
     selectedId,
     earnedFlairIds(ctx, catalogue),
     catalogue
@@ -351,15 +379,26 @@ export function resolveFlair(
  * its own component. A second copy of a rule does not announce itself when the
  * rule changes, and that one had already drifted once. There is one now.
  */
-export function resolveEarnedFlair(
+export function resolveEarnedFlairs(
   selectedId: string | null | undefined,
   earned: FlairId[],
   catalogue: FlairDef[] = BUILTIN_FLAIRS
-): FlairDef | null {
-  if (selectedId === FLAIR_NONE) return null
-  if (earned.length === 0) return null
-  if (selectedId && earned.includes(selectedId)) {
-    return flairById(selectedId, catalogue)
+): FlairDef[] {
+  // An explicit None means none — including the membership badge. It is the one
+  // setting that says "draw nothing next to my name", and a badge that ignored
+  // it would make the setting a lie.
+  if (selectedId === FLAIR_NONE) return []
+  if (earned.length === 0) return []
+
+  const chosen =
+    selectedId && earned.includes(selectedId)
+      ? flairById(selectedId, catalogue)
+      : flairById(autoFlairId(earned, catalogue), catalogue)
+
+  const out = chosen ? [chosen] : []
+  const member = memberFlair(catalogue)
+  if (member && earned.includes(member.id) && member.id !== chosen?.id) {
+    out.push(member)
   }
-  return flairById(autoFlairId(earned, catalogue), catalogue)
+  return out
 }
