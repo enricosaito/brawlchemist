@@ -7,9 +7,11 @@ import { useRouter } from "next/navigation"
 import { BadgeCheck, Check, Loader2, Lock, Sparkles, X } from "lucide-react"
 import {
   saveBannerAction,
+  saveFavoriteSkinAction,
   saveFlairAction,
   saveProfileFieldsAction,
 } from "@/app/account/actions"
+import { SkinPicker } from "./skin-picker"
 import { BANNER_PRESETS, DEFAULT_BANNER_ID } from "@/lib/profile/banners"
 import {
   autoFlairId,
@@ -70,6 +72,8 @@ export function ProfileCustomizer({
   initialBio,
   initialSocialLinks,
   initialFavoriteLegendIds,
+  initialFavoriteSkin,
+  mainLegendName,
   isPro,
   inline = false,
   doneHref,
@@ -82,6 +86,10 @@ export function ProfileCustomizer({
   initialBio: string | null
   initialSocialLinks: SocialLink[]
   initialFavoriteLegendIds: number[]
+  /** The stored favorite skin, as { src, name } — see lib/skins.ts. */
+  initialFavoriteSkin: { src: string; name: string } | null
+  /** Opens the picker on the legend they actually play. */
+  mainLegendName?: string | null
   /** Verified pro. Gates the free-text and outbound-link fields. */
   isPro: boolean
   /**
@@ -108,6 +116,7 @@ export function ProfileCustomizer({
 
   const [bannerId, setBannerId] = useState(initialBannerId ?? DEFAULT_BANNER_ID)
   const [flairId, setFlairId] = useState(initialFlairId)
+  const [skin, setSkin] = useState(initialFavoriteSkin)
 
   const [bio, setBio] = useState(initialBio ?? "")
   const [links, setLinks] = useState<Record<SocialKind, string>>(() => {
@@ -177,6 +186,9 @@ export function ProfileCustomizer({
 
   const bannerDirty = bannerId !== (initialBannerId ?? DEFAULT_BANNER_ID)
   const flairDirty = flairId !== initialFlairId
+  // Compared by src: the name rides along with it, so two selections differ
+  // exactly when the image does.
+  const skinDirty = (skin?.src ?? null) !== (initialFavoriteSkin?.src ?? null)
   const fieldsDirty =
     JSON.stringify(currentFields()) !==
     JSON.stringify({
@@ -188,7 +200,7 @@ export function ProfileCustomizer({
         (n) => Number.isInteger(n) && n > 0
       ),
     })
-  const dirty = bannerDirty || flairDirty || fieldsDirty
+  const dirty = bannerDirty || flairDirty || skinDirty || fieldsDirty
 
   /**
    * Had they customized anything *before* this session opened the panel?
@@ -228,6 +240,17 @@ export function ProfileCustomizer({
       if (bannerDirty) {
         const res = await saveBannerAction(brawlhallaId, bannerId)
         if (!res.ok) return setError(errorText(res.error))
+      }
+      if (skinDirty) {
+        const res = await saveFavoriteSkinAction(brawlhallaId, skin)
+        if (!res.ok) {
+          setError(
+            res.error === "invalid"
+              ? "That skin isn't one we recognise."
+              : "Couldn't save your skin."
+          )
+          return
+        }
       }
       if (flairDirty) {
         const res = await saveFlairAction(brawlhallaId, flairId ?? FLAIR_NONE)
@@ -269,6 +292,7 @@ export function ProfileCustomizer({
     preview?.reset()
     setBannerId(initialBannerId ?? DEFAULT_BANNER_ID)
     setFlairId(initialFlairId)
+    setSkin(initialFavoriteSkin)
     setBio(initialBio ?? "")
     const seed = {} as Record<SocialKind, string>
     for (const kind of SOCIAL_KINDS) seed[kind] = ""
@@ -382,6 +406,21 @@ export function ProfileCustomizer({
             )
           })}
         </div>
+      </Section>
+
+      <Section
+        label="Favorite skin"
+        hint="Shows behind your name. Pick a legend, then a skin."
+      >
+        <SkinPicker
+          value={skin}
+          onChange={(next) => {
+            setError(null)
+            setSaved(false)
+            setSkin(next)
+          }}
+          defaultLegend={mainLegendName}
+        />
       </Section>
 
       {/* Verified pros only, for now: free text and outbound links on a

@@ -304,3 +304,29 @@ export async function deleteProfile(brawlhallaId: number): Promise<void> {
   await db().delete(profiles).where(eq(profiles.brawlhallaId, brawlhallaId))
   revalidateTag(TAG, "max")
 }
+
+/**
+ * Set (or clear) just the favorite skin on a profile.
+ *
+ * Column-scoped on purpose. `profiles` is otherwise admin-curated — isPro, the
+ * pro handle, esports titles — and this is the one field its *owner* gets to
+ * choose, so the write touches nothing else and cannot become a way for a
+ * player to edit their own credentials. `upsertProfile` would rewrite all four.
+ *
+ * Insert-if-missing, because a claimed player always has a profiles row but an
+ * admin could clear one; the row it creates carries no pro fields.
+ */
+export async function setFavoriteSkin(
+  brawlhallaId: number,
+  skin: FavoriteSkin | null,
+): Promise<void> {
+  const now = new Date()
+  await db()
+    .insert(profiles)
+    .values({ brawlhallaId, favoriteSkin: skin, updatedAt: now })
+    .onConflictDoUpdate({
+      target: profiles.brawlhallaId,
+      set: { favoriteSkin: skin, updatedAt: now },
+    })
+  revalidateTag(TAG, "max")
+}
