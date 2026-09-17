@@ -159,6 +159,19 @@ function Table({
 const CELL = "px-4 py-2.5 text-right font-mono tabular-nums"
 
 /**
+ * The leading art in both tables, in pixels.
+ *
+ * One constant because the two tables sit side by side and are meant to be read
+ * across, and the art is what sets the row height: nothing else in either row
+ * is taller than a line of text. A 24px weapon icon beside a 20px legend
+ * portrait made the weapon rows 45px against 41, so the two columns drifted a
+ * row out of step every ten rows and neither table looked wrong on its own.
+ *
+ * 20px is `LegendChip size="sm"`, which is the box on the other side.
+ */
+const ROW_ART_PX = 20
+
+/**
  * The ordinal. Both tables arrive sorted — legends by XP, weapons by matches —
  * so the position is already true of the row; printing it just saves counting
  * down to "where does my ninth-most-played legend sit". Muted and monospaced,
@@ -217,7 +230,11 @@ function WeaponRow({ row, rank }: { row: LifetimeWeaponRow; rank: number }) {
       <Rank value={rank} />
       <td className="px-4 py-2.5">
         <span className="flex min-w-0 items-center gap-2.5">
-          <WeaponIcon weaponId={row.weaponId} size={24} className="shrink-0" />
+          <WeaponIcon
+            weaponId={row.weaponId}
+            size={ROW_ART_PX}
+            className="shrink-0"
+          />
           <span className="truncate font-medium">{row.label}</span>
         </span>
       </td>
