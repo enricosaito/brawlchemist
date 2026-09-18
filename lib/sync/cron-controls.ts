@@ -11,6 +11,10 @@ import { cronControls } from "@/lib/db/schema"
  * shared by every cron *and* on-demand player-profile fetches, so a runaway
  * job can starve profile loads — pausing it frees the budget back up.
  *
+ * reap-sessions is the one that spends no API budget at all; its switch is
+ * there because a job that terminates database connections should have an off
+ * button within reach, not because it competes for anything.
+ *
  * `CRON_JOBS` is the source of truth (keys match the route segments under
  * app/api/cron/<key> and the cron paths in vercel.ts); the DB only stores the
  * paused flag, and a missing row means "not paused".
@@ -36,6 +40,13 @@ export const CRON_JOBS = [
     schedule: "0 6 * * *",
     description:
       "Daily legend/weapon aggregation from the Valhallan population.",
+  },
+  {
+    key: "reap-sessions",
+    label: "Abandoned sessions",
+    schedule: "*/5 * * * *",
+    description:
+      "Terminates database sessions left open mid-transaction by serverless instances that died. They hold a lock and a pooler slot, and Postgres's own timeouts don't reach them. Spends no API budget.",
   },
 ] as const
 
