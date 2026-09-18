@@ -23,5 +23,14 @@ export const config: VercelConfig = {
       path: "/api/cron/sync-valhallan",
       schedule: "0 6 * * *",
     },
+    {
+      // Terminates sessions abandoned mid-transaction by serverless instances
+      // that died between sending a query and reading the result. They hold a
+      // lock and a pooler slot forever; Postgres's own timeouts do not reach
+      // them (see the route). Every 5 min because the pool is small enough
+      // that a handful matters.
+      path: "/api/cron/reap-sessions",
+      schedule: "*/5 * * * *",
+    },
   ],
 }
