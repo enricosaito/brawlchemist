@@ -33,6 +33,17 @@ const SEASON_RANK: Record<string, number> = {
 }
 
 /**
+ * The two that outrank recency.
+ *
+ * Sorting by date alone buried a World Championship behind the "+N" because the
+ * player had won a regional seasonal more recently — and a World title is the
+ * one accolade nobody would choose to hide. Midseason keeps it company because
+ * both are single global events, where the seasonals run once per region and
+ * five players share each one.
+ */
+const MAJORS = ["world", "midseason"]
+
+/**
  * Sort key parsed from the rendered string rather than carried alongside it.
  *
  * Both halves of the merged list are plain strings by the time they reach a
@@ -41,19 +52,26 @@ const SEASON_RANK: Record<string, number> = {
  * every surface that renders a title care about the shape. The year is right
  * there in the text; anything without one sorts last and keeps its order.
  */
-function rank(title: string): [number, number] {
+function rank(title: string): [number, number, number] {
+  const lower = title.toLowerCase()
   const year = /'(\d{2})\b/.exec(title)
-  const season = Object.keys(SEASON_RANK).find((s) =>
-    title.toLowerCase().includes(s)
-  )
-  return [year ? Number(year[1]) : -1, season ? SEASON_RANK[season] : 0]
+  const season = Object.keys(SEASON_RANK).find((s) => lower.includes(s))
+  return [
+    MAJORS.some((m) => lower.includes(m)) ? 1 : 0,
+    year ? Number(year[1]) : -1,
+    season ? SEASON_RANK[season] : 0,
+  ]
 }
 
+/**
+ * Majors first, then most recent. Named for what it mostly does; the exception
+ * is the whole point of the first key.
+ */
 export function sortTitlesByRecency(titles: string[]): string[] {
   return [...titles].sort((a, b) => {
-    const [ay, as] = rank(a)
-    const [by, bs] = rank(b)
-    return by - ay || bs - as
+    const [am, ay, as] = rank(a)
+    const [bm, by, bs] = rank(b)
+    return bm - am || by - ay || bs - as
   })
 }
 
