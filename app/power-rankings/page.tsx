@@ -16,8 +16,10 @@ import {
 import { PlayerLink } from "@/components/site/player-link"
 import { InfoTip } from "@/components/site/info-tip"
 import { FlairMark } from "@/components/site/flair-mark"
+import { SmurfMark } from "@/components/site/smurf-mark"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
+import { getSmurfIds } from "@/lib/sync/smurf"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { flairContextFrom } from "@/lib/profile/flair"
 
@@ -253,17 +255,22 @@ export default async function PowerRankingsPage({
   // Unresolvable ids (no linked account) just render as plain text.
   // Esports id -> brawlhalla id, which is what lets an esports board show
   // anything from our own side (flair, here).
-  const [bhIds, previews, flairs] =
+  const [bhIds, previews, flairs, smurfs] =
     rows.length > 0
       ? await Promise.all([
           resolveBrawlhallaIds(rows.map((p) => p.playerId)),
           getProfilesMap(),
           getFlairMap(),
+          getSmurfIds().catch((err) => {
+            console.error("[power-rankings] smurf ids failed:", err)
+            return new Set<number>()
+          }),
         ])
       : [
           new Map<number, number>(),
           new Map<number, PlayerPreview>(),
           new Map<number, string>(),
+          new Set<number>(),
         ]
 
   const columns: ColDef<PrPlayer>[] = [
@@ -293,6 +300,7 @@ export default async function PowerRankingsPage({
                   context={flairContextFrom(previews.get(bhId))}
                 />
               )}
+              {bhId != null && smurfs.has(bhId) && <SmurfMark />}
             </span>
           </PlayerLink>
         )
