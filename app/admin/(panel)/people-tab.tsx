@@ -1,8 +1,9 @@
+import { cn } from "@/lib/utils"
 import Link from "next/link"
 import {
   getProfileRecord,
-  listDerivedTitles,
-  type DerivedTitle,
+  listTitles,
+  type EsportsTitle,
 } from "@/lib/sync/profiles"
 import { listAdminPeople } from "@/lib/sync/admin-people"
 import { flairById, FLAIR_NONE, selectableFlairs } from "@/lib/profile/flair"
@@ -15,9 +16,10 @@ import { SOCIAL_HOSTS, SOCIAL_KINDS, SOCIAL_META } from "@/lib/profile/social"
 import { BANNER_PRESETS, DEFAULT_BANNER_ID } from "@/lib/profile/banners"
 import { LEGEND_ROSTER } from "@/lib/legends-roster"
 import {
+  addTitleAction,
   clearFlairAction,
   deleteProfileAction,
-  removeDerivedTitleAction,
+  removeTitleAction,
   saveOwnerFieldsAction,
   saveProfileAction,
   unlinkProfileAction,
@@ -53,10 +55,10 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
   const valid = !!editId && Number.isInteger(editId)
   // One fan-out rather than three sequential awaits — on this screen the cost
   // is round trips, not queries.
-  const [editing, custom, derivedTitles] = await Promise.all([
+  const [editing, custom, titles] = await Promise.all([
     valid ? getProfileRecord(editId) : Promise.resolve(null),
     valid ? getCustomizationRecord(editId) : Promise.resolve(null),
-    valid ? listDerivedTitles(editId) : Promise.resolve([]),
+    valid ? listTitles(editId) : Promise.resolve([]),
   ])
   const people = await listAdminPeople()
   // Resolved against the curated catalogue, not the built-in pair, or this list
@@ -124,13 +126,13 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
                       not pro
                     </span>
                   )}
-                  {p.esportsTitles.length > 0 && (
+                  {p.titleCount > 0 && (
                     <span
                       className={`${tagCls} border-tier-gold/40 bg-tier-gold/10 text-tier-gold`}
-                      title={p.esportsTitles.join("\n")}
+                      title="Championship titles, hand-typed and derived"
                     >
-                      {p.esportsTitles.length} title
-                      {p.esportsTitles.length === 1 ? "" : "s"}
+                      {p.titleCount} title
+                      {p.titleCount === 1 ? "" : "s"}
                     </span>
                   )}
 
@@ -313,20 +315,6 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
             </p>
           </div>
 
-          <div className="sm:col-span-2">
-            <label className={labelCls} htmlFor="esportsTitles">
-              Esports titles (one per line)
-            </label>
-            <textarea
-              id="esportsTitles"
-              name="esportsTitles"
-              rows={3}
-              defaultValue={editing?.esportsTitles.join("\n") ?? ""}
-              placeholder={"2v2 World Champion '24\n1v1 Midseason Champion '24"}
-              className={inputCls}
-            />
-          </div>
-
           <div className="flex items-center gap-3 sm:col-span-2">
             <button
               type="submit"
@@ -346,12 +334,14 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
         </form>
 
         {editing && (
-          <OwnerFields
-            brawlhallaId={editing.brawlhallaId}
-            custom={custom}
-            derivedTitles={derivedTitles}
-            catalogue={catalogue}
-          />
+          <>
+            <TitlesCard brawlhallaId={editing.brawlhallaId} titles={titles} />
+            <OwnerFields
+              brawlhallaId={editing.brawlhallaId}
+              custom={custom}
+              catalogue={catalogue}
+            />
+          </>
         )}
       </section>
     </div>
@@ -378,12 +368,10 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
 function OwnerFields({
   brawlhallaId,
   custom,
-  derivedTitles,
   catalogue,
 }: {
   brawlhallaId: number
   custom: Customization | null
-  derivedTitles: DerivedTitle[]
   catalogue: Awaited<ReturnType<typeof getFlairCatalogue>>
 }) {
   const links = new Map(custom?.socialLinks.map((l) => [l.kind, l.url]) ?? [])
@@ -507,54 +495,113 @@ function OwnerFields({
         </div>
       </form>
 
-      <div className="mt-6 border-t border-border/60 pt-4">
-        <span className={labelCls}>
-          Derived esports titles ({derivedTitles.length})
-        </span>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Read off Challengermode placements by the sync script, which is why
-          they are not in the textarea above. Removing one is a one-off —
-          re-running the script puts it back, so a consistently wrong derivation
-          belongs in that script&apos;s allow-list.
+    </div>
+  )
+}
+
+/**
+ * Every championship title on one profile, in one editable list.
+ *
+ * There were two homes for these: a textarea writing a jsonb column, and the
+ * `esports_titles` table, written by scripts/sync-esports-titles.mjs off
+ * Challengermode placements. They were never redundant — the typed ones are the
+ * pre-Challengermode history the script structurally cannot reach (BCX '21, the
+ * SGG-era worlds), the derived ones are 2025 onward — but keeping them apart
+ * meant an operator could edit half of someone's honours and not the other
+ * half, and meant the profile merged them at render time by comparing strings.
+ * A derivation phrased "World Champion 2v2 '23" against a typed "2v2 World
+ * Champion '23" would have shown the same win twice.
+ *
+ * One list now, with the source named on each row so it is obvious which ones
+ * the script will recreate if it runs again.
+ */
+function TitlesCard({
+  brawlhallaId,
+  titles,
+}: {
+  brawlhallaId: number
+  titles: EsportsTitle[]
+}) {
+  return (
+    <div className="mt-6 rounded-xl border border-tier-gold/30 bg-card/40 p-5">
+      <h3 className="font-display text-base font-semibold">
+        Esports titles ({titles.length})
+      </h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Shown as gold tags under the player&apos;s name.{" "}
+        <span className="font-medium text-foreground">Derived</span> ones are
+        read off Challengermode placements and come back if the sync script runs
+        again — a consistently wrong one belongs in that script&apos;s
+        allow-list. <span className="font-medium text-foreground">Manual</span>{" "}
+        ones are typed here, and are the only way to record anything
+        Challengermode never hosted.
+      </p>
+
+      {titles.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">
+          No titles on this profile.
         </p>
-        {derivedTitles.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-foreground">
-            None — every title on this profile was typed by hand.
-          </p>
-        ) : (
-          <ul className="mt-2 flex flex-col gap-1">
-            {derivedTitles.map((t) => (
-              <li
-                key={t.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5"
-              >
-                <span className="min-w-0">
-                  <span className="text-sm font-medium text-tier-gold">
-                    {t.title}
-                  </span>
-                  <span className="ml-2 font-mono text-[10px] tracking-wider text-muted-foreground">
+      ) : (
+        <ul className="mt-3 flex flex-col gap-1">
+          {titles.map((t) => (
+            <li
+              key={t.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5"
+            >
+              <span className="flex min-w-0 flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-tier-gold">
+                  {t.title}
+                </span>
+                <span
+                  className={cn(
+                    tagCls,
+                    t.source === "manual"
+                      ? "border-mystic/40 bg-mystic/10 text-mystic"
+                      : "border-border/60 bg-muted/40 text-muted-foreground"
+                  )}
+                >
+                  {t.source}
+                </span>
+                {t.tournamentName && (
+                  <span className="truncate font-mono text-[10px] tracking-wider text-muted-foreground">
                     {t.tournamentName}
                   </span>
-                </span>
-                <form action={removeDerivedTitleAction}>
-                  <input
-                    type="hidden"
-                    name="brawlhallaId"
-                    value={brawlhallaId}
-                  />
-                  <input type="hidden" name="titleId" value={t.id} />
-                  <button
-                    type="submit"
-                    className={actionCls + " text-negative hover:text-negative/80"}
-                  >
-                    Remove
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                )}
+              </span>
+              <form action={removeTitleAction}>
+                <input type="hidden" name="brawlhallaId" value={brawlhallaId} />
+                <input type="hidden" name="titleId" value={t.id} />
+                <button
+                  type="submit"
+                  className={actionCls + " text-negative hover:text-negative/80"}
+                >
+                  Remove
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form action={addTitleAction} className="mt-3 flex items-center gap-2">
+        <input type="hidden" name="brawlhallaId" value={brawlhallaId} />
+        <label className="sr-only" htmlFor="new-title">
+          New title
+        </label>
+        <input
+          id="new-title"
+          name="title"
+          type="text"
+          placeholder="e.g. BCX Champion '21"
+          className="min-w-0 flex-1 rounded-md border border-border/60 bg-background px-2 py-1.5 text-xs outline-none focus:border-pink"
+        />
+        <button
+          type="submit"
+          className="rounded-md border border-tier-gold/50 bg-tier-gold/10 px-3 py-1.5 font-mono text-[11px] font-medium tracking-wider text-tier-gold uppercase transition-colors hover:bg-tier-gold/20"
+        >
+          Add
+        </button>
+      </form>
     </div>
   )
 }

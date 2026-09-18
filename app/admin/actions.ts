@@ -5,7 +5,8 @@ import { revalidateTag } from "next/cache"
 import { put } from "@vercel/blob"
 import { adminActorId, requireAdmin } from "@/lib/admin-auth"
 import {
-  deleteDerivedTitle,
+  addManualTitle,
+  deleteTitle,
   deleteProfile,
   upsertProfile,
   PROFILES_TAG,
@@ -109,11 +110,6 @@ export async function saveProfileAction(formData: FormData) {
     isPro: formData.get("isPro") === "on",
     handle: String(formData.get("handle") ?? "").trim() || null,
     favoriteSkin: skinSrc ? { src: skinSrc, name: skinName } : null,
-    // Esports titles: one championship per line.
-    esportsTitles: String(formData.get("esportsTitles") ?? "")
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean),
   }
 
   await upsertProfile(input)
@@ -365,23 +361,41 @@ export async function saveOwnerFieldsAction(formData: FormData) {
 }
 
 /**
- * Remove one derived championship title.
+ * Remove one championship title, whichever kind it is.
  *
- * The curated titles have had a textarea here since they existed; the derived
- * ones had nothing, so a bad derivation could only be undone with SQL. Note it
- * comes back if the sync script runs again — a genuinely wrong derivation
- * belongs in that script's SERIES allow-list, and this is for the one-off.
+ * Removing a derived one is a one-off: re-running the sync script puts it back,
+ * and a consistently wrong derivation belongs in that script's allow-list.
+ * Removing a manual one is permanent, because nothing else writes it.
  */
-export async function removeDerivedTitleAction(formData: FormData) {
+export async function removeTitleAction(formData: FormData) {
   await requireAdmin()
   const rowId = String(formData.get("titleId") ?? "").trim()
   const playerId = Number(formData.get("brawlhallaId"))
-  if (rowId) await deleteDerivedTitle(rowId)
+  if (rowId) await deleteTitle(rowId)
   redirect(
     Number.isInteger(playerId) && playerId > 0
       ? `/admin?tab=people&edit=${playerId}&titleremoved=1`
       : "/admin?titleremoved=1"
   )
+}
+
+/**
+ * Add a championship title by hand.
+ *
+ * This is how the pre-Challengermode history gets onto a profile at all — BCX
+ * '21 and the SGG-era worlds are not on Challengermode, so the sync script
+ * structurally cannot reach them and someone has to type them. It used to be a
+ * textarea writing a jsonb column; now it writes a row beside the derived ones,
+ * so both kinds are one list an operator can edit.
+ */
+export async function addTitleAction(formData: FormData) {
+  await requireAdmin()
+  const playerId = Number(formData.get("brawlhallaId"))
+  const title = String(formData.get("title") ?? "").trim()
+  if (!Number.isInteger(playerId) || playerId <= 0) redirect("/admin?error=bad-id")
+  if (!title) redirect(`/admin?tab=people&edit=${playerId}&error=title-empty`)
+  await addManualTitle(playerId, title)
+  redirect(`/admin?tab=people&edit=${playerId}&titleadded=1`)
 }
 
 export async function clearFlairAction(formData: FormData) {
