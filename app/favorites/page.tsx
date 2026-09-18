@@ -45,8 +45,8 @@ export default async function FavoritesPage() {
   // /live and the leaderboards, and both fail open — a favorites list that
   // loads without a helm beats one that doesn't load.
   const [playersMap, profiles, valhallan, flairs, smurfs] = await Promise.all([
-    // withRegion because the bare ladder_region column is empty for every row
-    // in the table — the region pill on this page had silently never rendered.
+    // withRegion because region lives in ranked_json, not in a column — the
+    // region pill on this page silently never rendered until it was opted in.
     ids.length
       ? getPlayersByIds(ids, { includeRankedJson: false, withRegion: true })
       : Promise.resolve(new Map<number, PlayerRow>()),
@@ -102,7 +102,7 @@ export default async function FavoritesPage() {
               player={playersMap.get(id) ?? null}
               preview={profiles.get(id)}
               tier={tierFromRating(
-                playersMap.get(id)?.ladderRating,
+                playersMap.get(id)?.rating,
                 valhallan.has(id),
               )}
               flairId={flairs.get(id)}
@@ -142,8 +142,8 @@ function FavoriteRow({
   smurf?: boolean
 }) {
   const slug = player?.topLegendId ? slugForLegendId(player.topLegendId) : null
-  const rating = player?.ladderRating ?? null
-  const region = player?.ladderRegion ?? null
+  const rating = player?.rating ?? null
+  const region = player?.region ?? null
   const handle = preview?.verified?.handle || null
   const username = player?.username ?? `Player #${id}`
 

@@ -70,21 +70,13 @@ export async function listAdminPeople(): Promise<AdminPerson[]> {
       email: appUsers.email,
       flairId: userCustomizations.flairId,
       username: players.username,
-      // Coalesced for the same reason PLAYER_SCALAR_COLUMNS does it: nothing
-      // populates ladder_rating (constraint #8), so the bare column would show
-      // every person on this screen as having no ELO. Safe in a SELECT list —
-      // the warning about coalesce is about ORDER BY, where it defeats the
-      // index.
-      rating: raw<number | null>`coalesce(${players.rating}, ${players.ladderRating})`,
-      // Region comes out of the blob, because `ladder_region` is the other dead
-      // column (constraint #8) — bare, it resolved for 0 of 171 people, which is
-      // why this screen has never shown a region. This is the one place the
-      // admin list touches ranked_json, and it is a deliberate, measured
-      // exception: 49.7ms and 1,285 buffers for the whole statement, no extra
-      // round trip, 168 of 171 regions resolved. `getPlayersByIds` gates the
-      // same coalesce behind `withRegion` for exactly this reason; an admin
-      // list of 171 rows can afford what a leaderboard render cannot.
-      region: raw<string | null>`coalesce(${players.ladderRegion}, ${players.rankedJson} ->> 'region')`,
+      rating: players.rating,
+      // The one place the admin list touches ranked_json, and a deliberate,
+      // measured exception: 49.7ms and 1,285 buffers for the whole statement,
+      // no extra round trip, 168 of 171 regions resolved. `getPlayersByIds`
+      // gates the same read behind `withRegion` for exactly this reason; an
+      // admin list of 171 rows can afford what a leaderboard render cannot.
+      region: raw<string | null>`${players.rankedJson} ->> 'region'`,
     })
     .from(profiles)
     .leftJoin(appUsers, eq(appUsers.id, profiles.userId))

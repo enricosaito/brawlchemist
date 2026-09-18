@@ -95,7 +95,7 @@ export async function SuggestedFavorites({
                 const slug = player?.topLegendId
                   ? slugForLegendId(player.topLegendId)
                   : null
-                const rating = player?.ladderRating ?? null
+                const rating = player?.rating ?? null
                 const tier = tierFromRating(rating, valhallan.has(id))
                 const handle = preview?.verified?.handle || null
                 return (
@@ -131,8 +131,8 @@ export async function SuggestedFavorites({
                         </span>
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
-                        {player?.ladderRegion && (
-                          <RegionPill region={player.ladderRegion} />
+                        {player?.region && (
+                          <RegionPill region={player.region} />
                         )}
                         {rating != null && (
                           <span className="flex items-center gap-1.5 font-mono text-sm tabular-nums">
