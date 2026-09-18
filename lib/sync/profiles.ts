@@ -43,7 +43,6 @@ export interface ProfileRecord {
   isPro: boolean
   handle: string | null
   favoriteSkin: FavoriteSkin | null
-  esportsTitles: string[]
   updatedAt: Date
 }
 
@@ -53,7 +52,6 @@ export interface ProfileInput {
   isPro: boolean
   handle: string | null
   favoriteSkin: FavoriteSkin | null
-  esportsTitles: string[]
 }
 
 /**
@@ -107,7 +105,6 @@ function toRecord(row: ProfileRow): ProfileRecord {
     isPro: row.isPro,
     handle: row.handle,
     favoriteSkin: parseSkin(row.favoriteSkin),
-    esportsTitles: parseEsportsTitles(row.esportsTitles),
     updatedAt: row.updatedAt,
   }
 }
@@ -124,16 +121,16 @@ function toPreview(
   row: ProfileRow,
   owner?: OwnerFacts,
   grants?: string[],
-  derivedTitles?: string[]
+  titles?: string[]
 ): PlayerPreview {
   const skin = parseSkin(row.favoriteSkin)
-  // Curated first, then anything derived it doesn't already say. The operator's
-  // wording wins on a collision: they typed it, and a machine-generated string
-  // that differs only in phrasing would read as two wins rather than one.
-  const curated = parseEsportsTitles(row.esportsTitles)
-  const esportsTitles = derivedTitles?.length
-    ? [...curated, ...derivedTitles.filter((t) => !curated.includes(t))]
-    : curated
+  // One source now. Titles used to live in two places — a curated jsonb
+  // column and this table — and were merged here by comparing strings, which
+  // worked only while the wordings happened to match exactly. A derivation
+  // phrased "World Champion 2v2 '23" against a curated "2v2 World Champion
+  // '23" would have rendered the same win twice. Both kinds are rows in
+  // esports_titles now, told apart by `source`, so there is nothing to dedupe.
+  const esportsTitles = titles ?? []
   return {
     favoriteSkin: skin ?? undefined,
     verified: row.isPro ? { handle: row.handle ?? "" } : undefined,
@@ -202,11 +199,10 @@ const getProfilesObject = unstable_cache(
         console.error("[profiles] flair grants read failed:", err)
         return new Map<number, string[]>()
       })
-    // Championship wins read off Challengermode placements
-    // (scripts/sync-esports-titles.mjs). Caught on its own for the same reason
-    // the grants read is: a table that cannot be read must cost a title, never
-    // every profile on the site.
-    const derivedPromise = db()
+    // Every championship title, hand-typed and derived alike. Caught on its
+    // own for the same reason the grants read is: a table that cannot be read
+    // must cost a title, never every profile on the site.
+    const titlesPromise = db()
       .select({
         brawlhallaId: esportsTitlesTable.brawlhallaId,
         title: esportsTitlesTable.title,
@@ -224,7 +220,7 @@ const getProfilesObject = unstable_cache(
         return map
       })
       .catch((err) => {
-        console.error("[profiles] derived titles read failed:", err)
+        console.error("[profiles] titles read failed:", err)
         return new Map<number, string[]>()
       })
     try {
@@ -262,14 +258,14 @@ const getProfilesObject = unstable_cache(
       console.error("[profiles] read failed:", err)
       throw err
     }
-    const [grants, derived] = await Promise.all([grantsPromise, derivedPromise])
+    const [grants, titles] = await Promise.all([grantsPromise, titlesPromise])
     const obj: Record<string, PlayerPreview> = {}
     for (const r of rows) {
       obj[String(r.brawlhallaId)] = toPreview(
         r,
         r.userId ? owners.get(r.userId) : undefined,
         grants.get(r.brawlhallaId),
-        derived.get(r.brawlhallaId)
+        titles.get(r.brawlhallaId)
       )
     }
     return obj
@@ -320,49 +316,78 @@ export async function getProfileRecord(
 }
 
 /**
- * One player's derived championship titles, newest first.
+ * One player's championship titles, hand-typed and derived together.
  *
- * Uncached and admin-only. These are written by
- * scripts/sync-esports-titles.mjs off Challengermode placements, which means
- * until now they were the one thing on a profile nobody could correct: the
- * curated titles had a textarea in /admin and these had nothing, so a wrong
- * derivation could only be removed with SQL.
+ * Uncached and admin-only. There were two homes for these once — a jsonb
+ * column an operator typed into, and this table, written by
+ * scripts/sync-esports-titles.mjs off Challengermode placements. They were not
+ * redundant but complementary: the curated ones are the pre-Challengermode
+ * history the script structurally cannot reach (BCX '21, the SGG-era worlds),
+ * the derived ones are 2025 onward. Keeping them apart meant an operator could
+ * edit half of a profile's honours and not the other half, and meant the two
+ * were merged at render time by comparing strings.
  */
-export interface DerivedTitle {
+export interface EsportsTitle {
   id: string
   title: string
-  tournamentName: string
-  year: number
+  /** "manual" — someone typed it. "derived" — the script read it off a placement. */
+  source: string
+  /** Null for manual titles: a hand-typed honour names no tournament. */
+  tournamentName: string | null
+  year: number | null
 }
 
-export async function listDerivedTitles(
+export async function listTitles(
   brawlhallaId: number
-): Promise<DerivedTitle[]> {
-  const rows = await db()
+): Promise<EsportsTitle[]> {
+  return db()
     .select({
       id: esportsTitlesTable.id,
       title: esportsTitlesTable.title,
+      source: esportsTitlesTable.source,
       tournamentName: esportsTitlesTable.tournamentName,
       year: esportsTitlesTable.year,
     })
     .from(esportsTitlesTable)
     .where(eq(esportsTitlesTable.brawlhallaId, brawlhallaId))
     .orderBy(desc(esportsTitlesTable.year))
-  return rows
 }
 
 /**
- * Remove one derived title.
+ * Remove one title.
  *
- * Deliberately by row id, not by (player, title): the id is
+ * By row id, not by (player, title): a derived id is
  * `${tournamentId}:${brawlhallaId}`, so this deletes the claim about one
- * tournament rather than every title that happens to share a string. Re-running
- * the sync script will put it back — that is the right behaviour for a bad
- * *derivation*, and the reason to fix a genuinely wrong one in the script's
- * SERIES allow-list rather than here.
+ * tournament rather than every title that happens to share a string. Removing
+ * a *derived* one is a one-off — re-running the sync script puts it back, and a
+ * consistently wrong derivation belongs in that script's allow-list. Removing a
+ * manual one is permanent, because nothing else writes it.
  */
-export async function deleteDerivedTitle(id: string): Promise<void> {
+export async function deleteTitle(id: string): Promise<void> {
   await db().delete(esportsTitlesTable).where(eq(esportsTitlesTable.id, id))
+  revalidateTag(TAG, "max")
+}
+
+/**
+ * Add a title by hand.
+ *
+ * The id is derived from the player and the exact text, so adding the same
+ * title twice is idempotent rather than producing a duplicate tag on a profile.
+ * No year, mode or tournament: those are facts about a derivation, and this has
+ * none — which is why those columns are nullable.
+ */
+export async function addManualTitle(
+  brawlhallaId: number,
+  title: string
+): Promise<void> {
+  const clean = title.trim().slice(0, 120)
+  if (!clean) return
+  const { createHash } = await import("node:crypto")
+  const id = `manual:${brawlhallaId}:${createHash("md5").update(clean).digest("hex")}`
+  await db()
+    .insert(esportsTitlesTable)
+    .values({ id, brawlhallaId, title: clean, source: "manual" })
+    .onConflictDoNothing()
   revalidateTag(TAG, "max")
 }
 
@@ -372,7 +397,6 @@ export async function upsertProfile(input: ProfileInput): Promise<void> {
     isPro: input.isPro,
     handle: input.handle,
     favoriteSkin: input.favoriteSkin,
-    esportsTitles: input.esportsTitles,
     updatedAt: new Date(),
   }
   await db()
@@ -384,7 +408,6 @@ export async function upsertProfile(input: ProfileInput): Promise<void> {
         isPro: values.isPro,
         handle: values.handle,
         favoriteSkin: values.favoriteSkin,
-        esportsTitles: values.esportsTitles,
         updatedAt: values.updatedAt,
       },
     })

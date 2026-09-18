@@ -149,6 +149,16 @@ export const profiles = pgTable("profiles", {
    * column is an ALTER that has to be sequenced against a deploy, and it buys
    * nothing the mapping doesn't.
    */
+  /**
+   * DEPRECATED — every title moved into `esports_titles` with source='manual'
+   * on 2026-09-18 and nothing reads this any more.
+   *
+   * The column stays declared for one deploy so the version of the app still
+   * running can keep selecting it: `getProfilesObject` projects profiles by
+   * explicit column list, so dropping it out from under the old code would
+   * fail that read for every request until the new build took over. Drop it
+   * once this has shipped.
+   */
   esportsTitles: jsonb("achievements"),
   /** Auth owner — the Supabase `auth.users` id of whoever claimed this player
    * via the ELO challenge (or an admin/CM assignment). Null = unclaimed (the
@@ -440,17 +450,38 @@ export type TrueComboInsert = typeof trueCombos.$inferInsert
 export const esportsTitles = pgTable(
   "esports_titles",
   {
-    /** `${tournamentId}:${brawlhallaId}` — idempotent across re-runs. */
+    /**
+     * `${tournamentId}:${brawlhallaId}` for a derivation,
+     * `manual:${brawlhallaId}:${md5(title)}` for a hand-typed one. Either way
+     * it is a function of its inputs, so writing the same title twice is
+     * idempotent rather than a duplicate tag on a profile.
+     */
     id: text("id").primaryKey(),
     brawlhallaId: integer("brawlhalla_id").notNull(),
     /** Rendered form, e.g. "1v1 Summer Champion '26". */
     title: text("title").notNull(),
-    year: integer("year").notNull(),
+    /**
+     * "derived" — read off a Challengermode placement by
+     * scripts/sync-esports-titles.mjs. "manual" — someone typed it in /admin.
+     *
+     * Both are titles and the profile renders them identically; they differ in
+     * who is making the claim. The distinction exists so an operator can tell
+     * which ones the script will recreate if it runs again, and because the two
+     * are complementary rather than alternative: the script structurally cannot
+     * reach the pre-Challengermode history, so BCX '21 and the SGG-era worlds
+     * can only ever be typed.
+     */
+    source: text("source").notNull().default("derived"),
+    /**
+     * Everything below describes a *derivation* and is therefore null for a
+     * manual title. A hand-typed honour names no tournament.
+     */
+    year: integer("year"),
     /** "1v1" | "2v2" — the game mode the event was run in. */
-    mode: text("mode").notNull(),
+    mode: text("mode"),
     /** The Challengermode tournament this was read from. */
-    tournamentId: text("tournament_id").notNull(),
-    tournamentName: text("tournament_name").notNull(),
+    tournamentId: text("tournament_id"),
+    tournamentName: text("tournament_name"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

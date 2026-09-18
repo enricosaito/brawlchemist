@@ -11,11 +11,7 @@ import {
 // Shared with the public read side on purpose: /admin is where a malformed row
 // gets noticed and repaired, so it has to see exactly what the site sees —
 // including the double-encoded-jsonb unwrap.
-import {
-  parseEsportsTitles,
-  parseSkin,
-  type FavoriteSkin,
-} from "@/lib/sync/profiles"
+import { parseSkin, type FavoriteSkin } from "@/lib/sync/profiles"
 
 /**
  * The admin "People" view: every player we hold a profiles row for, whether we
@@ -44,7 +40,8 @@ export interface AdminPerson {
   /** Curation. */
   isPro: boolean
   handle: string | null
-  esportsTitles: string[]
+  /** How many championship titles they hold, of either source. */
+  titleCount: number
   favoriteSkin: FavoriteSkin | null
   /** Ownership — null when nobody has claimed this profile. */
   userId: string | null
@@ -62,7 +59,13 @@ export async function listAdminPeople(): Promise<AdminPerson[]> {
       brawlhallaId: profiles.brawlhallaId,
       isPro: profiles.isPro,
       handle: profiles.handle,
-      esportsTitles: profiles.esportsTitles,
+      // Counted in SQL rather than fetched: this list renders "3 titles", not
+      // the titles, and a correlated count over a 106-row table is cheaper than
+      // shipping every string for 171 people.
+      titleCount: raw<number>`(
+        select count(*)::int from esports_titles e
+        where e.brawlhalla_id = ${profiles.brawlhallaId}
+      )`,
       favoriteSkin: profiles.favoriteSkin,
       userId: profiles.userId,
       claimedAt: profiles.claimedAt,
@@ -95,7 +98,7 @@ export async function listAdminPeople(): Promise<AdminPerson[]> {
         region: r.region,
         isPro: r.isPro,
         handle: r.handle,
-        esportsTitles: parseEsportsTitles(r.esportsTitles),
+        titleCount: r.titleCount,
         favoriteSkin: parseSkin(r.favoriteSkin),
         userId: r.userId,
         email: r.email,

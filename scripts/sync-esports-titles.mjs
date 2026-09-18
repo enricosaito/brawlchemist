@@ -248,6 +248,11 @@ for (const year of YEARS) {
         }
         rows.push({
           id: `${event.id}:${brawlhallaId}`,
+          // Named rather than left to the column default: these rows now sit
+          // beside hand-typed ones in the same table, and "who is making this
+          // claim" is the only thing that tells them apart. A manual title is
+          // `manual:${brawlhallaId}:${md5(title)}` and is never touched here.
+          source: "derived",
           brawlhalla_id: brawlhallaId,
           title,
           year: event.year ?? year,
@@ -285,7 +290,7 @@ if (DRY) {
       INSERT INTO esports_titles ${sql(r)}
       ON CONFLICT (id) DO UPDATE SET
         title = ${r.title}, year = ${r.year}, mode = ${r.mode},
-        tournament_name = ${r.tournament_name}`
+        tournament_name = ${r.tournament_name}, source = 'derived'`
   }
   const [{ n }] = await sql`SELECT count(*)::int AS n FROM esports_titles`
   console.log(`\nesports_titles now holds ${n} rows`)
