@@ -16,8 +16,15 @@
  * proves a second account — no creation date, no linked identity (see the note
  * in lib/profile/achievements.ts) — so this is an observation about a record,
  * not an accusation about a person, and the tooltip says so in those words. A
- * pro who bought a fresh account and a prodigy who is genuinely that good in
- * 200 hours both land here, and both are fair readings of what the numbers say.
+ * prodigy who is genuinely that good in 200 hours lands here, and that is a
+ * fair reading of what the numbers say.
+ *
+ * A **verified pro never does**, and that exception lives in `getSmurfIds`
+ * (lib/sync/smurf.ts) rather than in this predicate, because it is not a fact
+ * about the record — it is a fact about the profile, curated by hand. A known
+ * competitor on a new account satisfies every number here, and the badge that
+ * says we know who this is outranks the one that says we cannot account for
+ * them. The profile page runs the same check where it computes the answer live.
  *
  * All three must be known. A null level or playtime means nobody has read this
  * player's /player/{id}/stats yet, and "we haven't looked" is not "they're

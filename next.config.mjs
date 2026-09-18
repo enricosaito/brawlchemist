@@ -43,6 +43,14 @@ const nextConfig = {
         destination: "/queue",
         permanent: true,
       },
+      // There were two pros boards. This one had its own region list and its
+      // own column build, nothing linked to it, and it was drifting — the
+      // survivor is the OTHER view, which shares the ladder's controls.
+      {
+        source: "/leaderboards/pro",
+        destination: "/leaderboards/1v1?pro=1",
+        permanent: true,
+      },
       {
         source: "/legends",
         destination: "/meta-picks",

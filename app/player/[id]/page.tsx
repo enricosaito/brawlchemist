@@ -1530,7 +1530,9 @@ function ProfileHeader({
                         someone is, and this says their record doesn't add up.
                         Reading it last is what keeps it a footnote on the name
                         instead of a label on the player. */}
-                    {possibleSmurf && <SmurfMark className="size-5 sm:size-6" />}
+                    {possibleSmurf && (
+                      <SmurfMark className="size-5 sm:size-6" />
+                    )}
                     {claimSlot}
                   </div>
                   {hasMeta && (
@@ -1941,14 +1943,20 @@ export default async function PlayerPage({
    * exactly the paths that serve stored data — and falling back to the cached
    * id set there keeps the profile agreeing with the leaderboard it was linked
    * from, rather than quietly dropping the tag for half the visitors.
+   *
+   * A verified pro is never tagged. `getSmurfIds` already subtracts them, so
+   * the fallback branch is covered; this page is the one caller that computes
+   * the answer itself, so it has to run the same check rather than inherit it.
    */
-  const possibleSmurf = accountStats
-    ? isPossibleSmurf({
-        rating: data.rating,
-        level: accountStats.level,
-        playtimeHours: accountStats.playtimeHours,
-      })
-    : smurfIds.has(numId)
+  const possibleSmurf =
+    !preview?.verified &&
+    (accountStats
+      ? isPossibleSmurf({
+          rating: data.rating,
+          level: accountStats.level,
+          playtimeHours: accountStats.playtimeHours,
+        })
+      : smurfIds.has(numId))
   // Prefer a live answer, then the stored one, then the clan embedded in
   // /stats. The stored value is authoritative on a `guildFresh` view — that's
   // the whole point of not making the call.
