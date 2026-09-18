@@ -149,17 +149,6 @@ export const profiles = pgTable("profiles", {
    * column is an ALTER that has to be sequenced against a deploy, and it buys
    * nothing the mapping doesn't.
    */
-  /**
-   * DEPRECATED — every title moved into `esports_titles` with source='manual'
-   * on 2026-09-18 and nothing reads this any more.
-   *
-   * The column stays declared for one deploy so the version of the app still
-   * running can keep selecting it: `getProfilesObject` projects profiles by
-   * explicit column list, so dropping it out from under the old code would
-   * fail that read for every request until the new build took over. Drop it
-   * once this has shipped.
-   */
-  esportsTitles: jsonb("achievements"),
   /** Auth owner — the Supabase `auth.users` id of whoever claimed this player
    * via the ELO challenge (or an admin/CM assignment). Null = unclaimed (the
    * original admin-curated state). Unique so one auth user owns at most one
