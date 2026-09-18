@@ -82,8 +82,9 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           Everyone with a profile row — pros you curated and accounts that
-          claimed themselves. Pro status and titles are curation; the linked
-          account and the flair belong to the player.
+          claimed themselves. Editing one is three cards, split by who is making
+          the claim: what we assert about them (pro, handle), their titles, and
+          what they chose for themselves.
         </p>
 
         {people.length === 0 ? (
@@ -268,53 +269,6 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
             />
           </div>
 
-          <div className="sm:col-span-1">
-            <label className={labelCls} htmlFor="skinSrc">
-              Favorite skin — image path
-            </label>
-            <input
-              id="skinSrc"
-              name="skinSrc"
-              type="text"
-              defaultValue={editing?.favoriteSkin?.src ?? ""}
-              placeholder="/assets/SKIN_File.png"
-              className={inputCls}
-            />
-          </div>
-
-          <div className="sm:col-span-1">
-            <label className={labelCls} htmlFor="skinName">
-              Favorite skin — display name
-            </label>
-            <input
-              id="skinName"
-              name="skinName"
-              type="text"
-              defaultValue={editing?.favoriteSkin?.name ?? ""}
-              placeholder="e.g. Fallen Prince Teros"
-              className={inputCls}
-            />
-          </div>
-
-          <div className="sm:col-span-2">
-            <label className={labelCls} htmlFor="skinFile">
-              …or upload a skin image (stored in Vercel Blob)
-            </label>
-            <input
-              id="skinFile"
-              name="skinFile"
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              className="mt-1 block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-pink file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-background hover:file:bg-pink/90"
-            />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              On save, an uploaded image replaces the path above. Animated GIFs
-              work — they render frame-for-frame, so keep them short and small.
-              Hard limit 3&nbsp;MB; a static skin should be well under
-              ~500&nbsp;KB.
-            </p>
-          </div>
-
           <div className="flex items-center gap-3 sm:col-span-2">
             <button
               type="submit"
@@ -339,6 +293,7 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
             <OwnerFields
               brawlhallaId={editing.brawlhallaId}
               custom={custom}
+              favoriteSkin={editing.favoriteSkin}
               catalogue={catalogue}
             />
           </>
@@ -368,10 +323,18 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
 function OwnerFields({
   brawlhallaId,
   custom,
+  favoriteSkin,
   catalogue,
 }: {
   brawlhallaId: number
   custom: Customization | null
+  /**
+   * Lives on `profiles` rather than `user_customizations` — the one owner-set
+   * field that does, for historical reasons not worth a migration. Which table
+   * it sits in is our problem; the operator's question is "did the player
+   * choose this", and the answer is yes, so it belongs in this card.
+   */
+  favoriteSkin: { src: string; name: string } | null
   catalogue: Awaited<ReturnType<typeof getFlairCatalogue>>
 }) {
   const links = new Map(custom?.socialLinks.map((l) => [l.kind, l.url]) ?? [])
@@ -483,6 +446,56 @@ function OwnerFields({
               ))}
             </select>
           </div>
+        </div>
+
+        <div className="sm:col-span-2">
+          <span className={labelCls}>Favorite skin</span>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            The player picks theirs from the wiki catalogue; you can point this
+            anywhere or upload art, which is how a pro gets a skin the catalogue
+            doesn&apos;t have. An upload replaces the path on save.
+          </p>
+          <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+            <div>
+              <label className="sr-only" htmlFor="skinSrc">
+                Favorite skin image path
+              </label>
+              <input
+                id="skinSrc"
+                name="skinSrc"
+                type="text"
+                defaultValue={favoriteSkin?.src ?? ""}
+                placeholder="https://… or /assets/SKIN_File.png"
+                className={"w-full " + selectCls}
+              />
+            </div>
+            <div>
+              <label className="sr-only" htmlFor="skinName">
+                Favorite skin display name
+              </label>
+              <input
+                id="skinName"
+                name="skinName"
+                type="text"
+                defaultValue={favoriteSkin?.name ?? ""}
+                placeholder="e.g. Fallen Prince Teros"
+                className={"w-full " + selectCls}
+              />
+            </div>
+          </div>
+          <input
+            id="skinFile"
+            name="skinFile"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            aria-label="Upload a skin image"
+            className="mt-2 block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-pink file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-background hover:file:bg-pink/90"
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Animated GIFs work and are served whole — every profile view pays
+            the full file. Hard limit 3&nbsp;MB; a static skin should be well
+            under ~500&nbsp;KB. Clear the path to remove the skin.
+          </p>
         </div>
 
         <div className="sm:col-span-2">

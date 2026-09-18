@@ -46,12 +46,18 @@ export interface ProfileRecord {
   updatedAt: Date
 }
 
-/** Fields the admin form can set. */
+/**
+ * Fields the admin *curation* form can set — what we assert about a player.
+ *
+ * The favourite skin is deliberately not here. It is something the player
+ * chooses in their own customizer, so it is written by `setFavoriteSkin` from
+ * the owner-set half of the panel. Two writers for one column is how a
+ * "curation" save quietly reverts a choice the player made an hour ago.
+ */
 export interface ProfileInput {
   brawlhallaId: number
   isPro: boolean
   handle: string | null
-  favoriteSkin: FavoriteSkin | null
 }
 
 /**
@@ -396,7 +402,6 @@ export async function upsertProfile(input: ProfileInput): Promise<void> {
     brawlhallaId: input.brawlhallaId,
     isPro: input.isPro,
     handle: input.handle,
-    favoriteSkin: input.favoriteSkin,
     updatedAt: new Date(),
   }
   await db()
@@ -407,7 +412,6 @@ export async function upsertProfile(input: ProfileInput): Promise<void> {
       set: {
         isPro: values.isPro,
         handle: values.handle,
-        favoriteSkin: values.favoriteSkin,
         updatedAt: values.updatedAt,
       },
     })
