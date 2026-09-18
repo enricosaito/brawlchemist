@@ -57,6 +57,7 @@
 
     --color-positive: var(--positive);
     --color-negative: var(--negative);
+    --color-warning: var(--warning);
     --color-copper: var(--copper);
     --color-mystic: var(--mystic);
     --color-pink: var(--pink);
@@ -116,6 +117,10 @@
 
     --positive: oklch(0.74 0.13 175);
     --negative: oklch(0.6 0.2 22);
+    /* Caution, and nothing else. Distinct from --tier-gold (an accolade) and
+       from --negative (a loss or an error), because a "possible smurf" tag is
+       neither congratulating the player nor reporting a failure. */
+    --warning: oklch(0.72 0.15 85);
     /* No longer the accent — see --primary. Kept for the "copper" profile
        banner preset, which is a name players have chosen and stored. */
     --copper: oklch(0.66 0.13 75);
@@ -173,6 +178,7 @@
 
     --positive: oklch(0.85 0.105 175);             /* mystic cyan for ↑ */
     --negative: oklch(0.66 0.18 22);
+    --warning: oklch(0.85 0.16 92);          /* amber — possible-smurf caution */
     --copper: oklch(0.74 0.115 75);          /* banner preset only, not the accent */
     --mystic: oklch(0.85 0.105 175);
     --pink: oklch(0.74 0.23 350);            /* nav accent glow */

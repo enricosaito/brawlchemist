@@ -61,7 +61,6 @@ export async function ProfileCustomizerSlot({
       initialBannerId={custom.bannerId}
       initialFlairId={custom.flairId}
       earnedFlairIds={earnedFlairIds(flairContext, catalogue)}
-      initialBio={custom.bio}
       initialSocialLinks={custom.socialLinks}
       initialFavoriteLegendIds={custom.favoriteLegendIds}
       initialFavoriteSkin={favoriteSkin}

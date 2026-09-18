@@ -42,6 +42,12 @@ export interface RecentVisit {
   esportsTitles?: string[]
   /** Owning account has the Developer role — drives the Brawlchemist flair. */
   developer?: boolean
+  /**
+   * Their record reads as a possible smurf (see lib/profile/smurf.ts). Derived
+   * server-side like `tier`: it needs level and playtime, which nothing on the
+   * client has.
+   */
+  smurf?: boolean
 }
 
 const KEY = "bc-recent-visits"

@@ -9,6 +9,7 @@ import { getFavoriteIds } from "@/lib/sync/favorites"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
+import { getSmurfIds } from "@/lib/sync/smurf"
 import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import { tierFromRating } from "@/lib/tier"
 import type { Tier } from "@/lib/types"
@@ -16,6 +17,7 @@ import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { LegendChip, RankHelm, RegionPill } from "@/components/site/primitives"
 import { VerifiedMark } from "@/components/site/pro-badge"
+import { SmurfMark } from "@/components/site/smurf-mark"
 import { FlairMark } from "@/components/site/flair-mark"
 import { FavoriteToggleControl } from "@/components/site/favorite-toggle-control"
 import { SuggestedFavorites } from "@/components/site/suggested-favorites"
@@ -42,7 +44,7 @@ export default async function FavoritesPage() {
   // Tier + flair alongside the rows. Both cached app-wide and shared with
   // /live and the leaderboards, and both fail open — a favorites list that
   // loads without a helm beats one that doesn't load.
-  const [playersMap, profiles, valhallan, flairs] = await Promise.all([
+  const [playersMap, profiles, valhallan, flairs, smurfs] = await Promise.all([
     // withRegion because the bare ladder_region column is empty for every row
     // in the table — the region pill on this page had silently never rendered.
     ids.length
@@ -58,6 +60,10 @@ export default async function FavoritesPage() {
     getFlairMap().catch((err) => {
       console.error("[favorites] flair map failed:", err)
       return new Map<number, string>()
+    }),
+    getSmurfIds().catch((err) => {
+      console.error("[favorites] smurf ids failed:", err)
+      return new Set<number>()
     }),
   ])
 
@@ -100,6 +106,7 @@ export default async function FavoritesPage() {
                 valhallan.has(id),
               )}
               flairId={flairs.get(id)}
+              smurf={smurfs.has(id)}
             />
           ))}
         </ul>
@@ -123,6 +130,7 @@ function FavoriteRow({
   preview,
   tier,
   flairId,
+  smurf,
 }: {
   id: number
   self: boolean
@@ -131,6 +139,7 @@ function FavoriteRow({
   /** Derived by the page — Valhallan is ladder membership, not a rating band. */
   tier: Tier | null
   flairId?: string
+  smurf?: boolean
 }) {
   const slug = player?.topLegendId ? slugForLegendId(player.topLegendId) : null
   const rating = player?.ladderRating ?? null
@@ -164,6 +173,7 @@ function FavoriteRow({
                 selectedId={flairId}
                 context={flairContextFrom(preview)}
               />
+              {smurf && <SmurfMark />}
               {self && (
                 <span className="shrink-0 rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-tier-gold">
                   You

@@ -1,5 +1,6 @@
 import { FlairMark } from "@/components/site/flair-mark"
 import { VerifiedMark } from "@/components/site/pro-badge"
+import { SmurfMark } from "@/components/site/smurf-mark"
 import { cn } from "@/lib/utils"
 import { formatElo, formatPercent } from "@/lib/format"
 import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
@@ -22,8 +23,9 @@ import type {
 } from "@/lib/brawlhalla-api"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
-import type { Tier, WeaponId } from "@/lib/types"
+import type { WeaponId } from "@/lib/types"
 import { flairContextFrom } from "@/lib/profile/flair"
+import { toTier } from "@/lib/tier"
 
 const TOP_LEGENDS_LIMIT = 3
 const TOP_WEAPONS_LIMIT = 2
@@ -76,26 +78,6 @@ export function topWeaponsFor(player: PlayerRow | undefined): WeaponId[] {
     .map(([w]) => w)
 }
 
-const KNOWN_TIERS: readonly Tier[] = [
-  "Tin",
-  "Bronze",
-  "Silver",
-  "Gold",
-  "Platinum",
-  "Diamond",
-  "Valhallan",
-]
-
-export function toTier(value: string | null): Tier | null {
-  if (!value) return null
-  // The leaderboard endpoint returns tier with a division suffix ("Gold 3",
-  // "Platinum 1") — strip it down to the base tier for icon/color lookup.
-  const base = value.split(" ")[0]
-  return (KNOWN_TIERS as readonly string[]).includes(base)
-    ? (base as Tier)
-    : null
-}
-
 function formatWinRate(wins: number | null, losses: number | null): string {
   if (wins == null || losses == null) return "—"
   const total = wins + losses
@@ -117,7 +99,9 @@ export function buildLeaderboardColumns(
   region: ApiRegion,
   previews: Map<number, PlayerPreview>,
   /** Chosen flair per player (getFlairMap); omit to render no flair. */
-  flairs: Map<number, string> = new Map()
+  flairs: Map<number, string> = new Map(),
+  /** Players whose record reads as a possible smurf (getSmurfIds). */
+  smurfs: Set<number> = new Set()
 ): ColDef<RankedEntry>[] {
   // Accolades are the only thing flair reads now, and previews already holds
   // them — so no per-row derivation, and nothing here can disagree with the
@@ -227,11 +211,13 @@ export function buildLeaderboardColumns(
                           <span className="min-w-0 truncate">{handle}</span>
                           <VerifiedMark />
                           {flairFor(p.id)}
+                          {smurfs.has(p.id) && <SmurfMark />}
                         </span>
                       ) : (
                         <span className="inline-flex min-w-0 items-center gap-1">
                           <span className="min-w-0 truncate">{p.username}</span>
                           {flairFor(p.id)}
+                          {smurfs.has(p.id) && <SmurfMark />}
                         </span>
                       )}
                     </PlayerLink>
@@ -256,11 +242,16 @@ export function buildLeaderboardColumns(
       render: (r) => {
         // The helm rides with the rating, as it does on the profile and the
         // home card: it describes where that number sits, so the two read as
-        // one figure. Only the top two tiers have one.
+        // one figure.
+        //
+        // No `tier &&` guard: RankHelm owns the fallback, so a "Fallen
+        // Valhallan" — the one label on this ladder that isn't one of the seven
+        // — gets the Diamond helm rather than a bare number in a column of
+        // helmed ones.
         const tier = toTier(r.tier)
         return (
           <span className="flex items-center justify-end gap-1.5 font-mono text-sm tabular-nums">
-            {tier && <RankHelm tier={tier} className="h-[18px]" />}
+            <RankHelm tier={tier} rating={r.rating} className="h-[18px]" />
             <span>
               {formatNullableElo(r.rating)}
               {r.rating != null && (

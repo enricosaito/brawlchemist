@@ -47,6 +47,23 @@ export const players = pgTable("players", {
    * null for all 91,088 rows, which left search results in physical order.
    */
   rating: integer("rating"),
+  /**
+   * Account level and lifetime seconds in matches, from GetPlayerStats.
+   *
+   * The only two facts on this row that /ranked does not carry, and the two the
+   * "possible smurf" reading needs (see lib/profile/smurf.ts). They live here
+   * rather than in a table of their own because the question is asked per row
+   * across a whole leaderboard, and a second table would mean a join or a
+   * second read on every list view.
+   *
+   * Written wherever a fresh /stats payload already exists — a profile view, or
+   * the backfill script — never by a call made for this. Null means nobody has
+   * looked yet, which is why the predicate treats unknown as "no" rather than
+   * as zero. `statsSynced` is how the backfill knows what it can skip.
+   */
+  level: integer("level"),
+  playtimeSeconds: integer("playtime_seconds"),
+  statsSynced: timestamp("stats_synced", { withTimezone: true }),
   ladderRating: integer("ladder_rating"),
   ladderRegion: text("ladder_region"),
   /** The player's guild, discovered via GetPlayerGuild. `guildId` is null when
@@ -262,8 +279,6 @@ export type AppUserInsert = typeof appUsers.$inferInsert
  */
 export const userCustomizations = pgTable("user_customizations", {
   brawlhallaId: integer("brawlhalla_id").primaryKey(),
-  /** Short freeform bio (length-capped; rendered as plain text). */
-  bio: text("bio"),
   /** Allow-listed social links: [{ kind, url }] (https only). */
   socialLinks: jsonb("social_links"),
   /** Up to a few legend ids the owner wants to highlight. */

@@ -10,29 +10,12 @@ import type {
 } from "@/lib/brawlhalla-api"
 import { slugForLegendId } from "@/lib/legends-roster"
 import type { PlayerPreview } from "@/lib/player-previews"
-import type { Tier } from "@/lib/types"
 import { LegendChip, REGION_COLOR, TIER_TEXT_COLOR } from "./primitives"
 import { VerifiedMark } from "./pro-badge"
+import { SmurfMark } from "./smurf-mark"
 import { FlairMark } from "./flair-mark"
 import { flairContextFrom } from "@/lib/profile/flair"
-
-const KNOWN_TIERS: readonly Tier[] = [
-  "Tin",
-  "Bronze",
-  "Silver",
-  "Gold",
-  "Platinum",
-  "Diamond",
-  "Valhallan",
-]
-
-function toTier(value: string | null): Tier | null {
-  if (!value) return null
-  const base = value.split(" ")[0]
-  return (KNOWN_TIERS as readonly string[]).includes(base)
-    ? (base as Tier)
-    : null
-}
+import { toTier } from "@/lib/tier"
 
 const TOP_LEGENDS_LIMIT = 5
 
@@ -63,6 +46,7 @@ function PodiumCard({
   gameMode,
   previews,
   flairs,
+  smurfs,
   showRegion,
 }: {
   entry: RankedEntry
@@ -70,6 +54,7 @@ function PodiumCard({
   gameMode: ApiGameMode
   previews: Map<number, PlayerPreview>
   flairs: Map<number, string>
+  smurfs: Set<number>
   showRegion: boolean
 }) {
   const tier = toTier(entry.tier)
@@ -148,6 +133,9 @@ function PodiumCard({
                 : username) || "—"}
             </span>
             {verified && <VerifiedMark className="size-4" />}
+            {entry.players.some((p) => smurfs.has(p.id)) && (
+              <SmurfMark className="size-4" />
+            )}
             {player && (
               <FlairMark
                 selectedId={flairs.get(player.id)}
@@ -228,6 +216,7 @@ export function LeaderboardPodium({
   gameMode,
   previews,
   flairs = new Map(),
+  smurfs = new Set(),
   showRegion = false,
 }: {
   entries: RankedEntry[]
@@ -236,6 +225,8 @@ export function LeaderboardPodium({
   previews: Map<number, PlayerPreview>
   /** Chosen flair per player (getFlairMap); omit to render none. */
   flairs?: Map<number, string>
+  /** Players whose record reads as a possible smurf (getSmurfIds). */
+  smurfs?: Set<number>
   showRegion?: boolean
 }) {
   const top3 = entries.slice(0, 3)
@@ -251,6 +242,7 @@ export function LeaderboardPodium({
           gameMode={gameMode}
           previews={previews}
           flairs={flairs}
+          smurfs={smurfs}
           showRegion={showRegion}
         />
       ))}

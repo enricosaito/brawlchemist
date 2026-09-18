@@ -14,9 +14,15 @@ import {
 } from "@/lib/profile/social"
 
 /**
- * Public-facing profile customization (bio, social links, favorite legends) set
- * by a verified owner. Reads are cached per profile and fail open; writes are
- * gated by ownership at the action layer.
+ * Public-facing profile customization (social links, favorite legends) set by a
+ * verified owner. Reads are cached per profile and fail open; writes are gated
+ * by ownership at the action layer.
+ *
+ * There used to be a freeform bio here too. It was the only thing on the site
+ * whose contents nobody could check — a paragraph of arbitrary text on a public
+ * page with no moderation behind it — and three people had filled it in. Every
+ * other customization is a choice from a list we control, which is why nothing
+ * else in this file has any notion of review.
  */
 
 export {
@@ -27,7 +33,6 @@ export {
 } from "@/lib/profile/social"
 
 export interface Customization {
-  bio: string | null
   socialLinks: SocialLink[]
   favoriteLegendIds: number[]
   /** Header banner preset id, or null for the default wash (see lib/profile/banners). */
@@ -37,18 +42,15 @@ export interface Customization {
 }
 
 export interface CustomizationInput {
-  bio: string
   socialLinks: SocialLink[]
   favoriteLegendIds: number[]
 }
 
-const BIO_MAX = 280
 const MAX_LINKS = 5
 const MAX_FAVORITES = 3
 const URL_MAX = 200
 
 const EMPTY: Customization = {
-  bio: null,
   socialLinks: [],
   favoriteLegendIds: [],
   bannerId: null,
@@ -124,9 +126,7 @@ function parseFlairId(value: unknown): string | null {
 }
 
 function toCustomization(row: UserCustomizationRow): Customization {
-  const bio = typeof row.bio === "string" && row.bio.trim() ? row.bio : null
   return {
-    bio,
     socialLinks: parseSocialLinks(row.socialLinks),
     favoriteLegendIds: parseFavorites(row.favoriteLegendIds),
     bannerId: parseBannerId(row.bannerId),
@@ -139,9 +139,7 @@ function toCustomization(row: UserCustomizationRow): Customization {
 export function normalizeInput(
   input: CustomizationInput
 ): Omit<Customization, "bannerId" | "flairId"> {
-  const bio = input.bio.trim().slice(0, BIO_MAX)
   return {
-    bio: bio || null,
     socialLinks: parseSocialLinks(input.socialLinks),
     favoriteLegendIds: parseFavorites(input.favoriteLegendIds),
   }
@@ -238,7 +236,6 @@ export async function upsertCustomization(
   const v = normalizeInput(input)
   const values = {
     brawlhallaId,
-    bio: v.bio,
     socialLinks: v.socialLinks,
     favoriteLegendIds: v.favoriteLegendIds,
     updatedAt: new Date(),
@@ -249,7 +246,6 @@ export async function upsertCustomization(
     .onConflictDoUpdate({
       target: userCustomizations.brawlhallaId,
       set: {
-        bio: values.bio,
         socialLinks: values.socialLinks,
         favoriteLegendIds: values.favoriteLegendIds,
         updatedAt: values.updatedAt,
@@ -261,7 +257,7 @@ export async function upsertCustomization(
 /**
  * Write the owner's chosen header banner and bust its cache. Kept independent of
  * upsertCustomization (whose conflict-set never touches banner_id) so a banner
- * change can't clobber bio/links and vice-versa. The default preset is stored as
+ * change can't clobber links and vice-versa. The default preset is stored as
  * null — an unknown id is coerced to null too, so the read always fails open to
  * the default wash. Caller MUST have checked ownership.
  */

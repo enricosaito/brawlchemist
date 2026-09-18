@@ -21,11 +21,13 @@ import { FlairMark } from "@/components/site/flair-mark"
 import { RecentVisitRecorder } from "@/components/site/recent-visit-recorder"
 import { getCustomization, getFlairMap } from "@/lib/sync/customizations"
 import { getLadderPosition } from "@/lib/sync/live"
-import { ProfileCustomization } from "@/components/site/profile-customization"
 import { ProfileIdentityRow } from "@/components/site/profile-identity-row"
 import { EsportsTitles } from "@/components/site/esports-titles"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { BrawlchemistUserBadge } from "@/components/site/brawlchemist-user-badge"
+import { SmurfMark, SmurfTag } from "@/components/site/smurf-mark"
+import { isPossibleSmurf } from "@/lib/profile/smurf"
+import { getSmurfIds, recordPlayerStats } from "@/lib/sync/smurf"
 import { InfoTip } from "@/components/site/info-tip"
 import { RankedStatsCard } from "@/components/player/ranked-stats-card"
 import { CURRENT_SEASON } from "@/lib/mock-data"
@@ -567,6 +569,13 @@ interface AccountStats {
   /** Lifetime, all modes — what the Total Wins gem grades. */
   wins: number
   playtimeHours: number
+  /**
+   * The same figure unrounded, because it is stored as well as shown.
+   * `playtimeHours` is rounded to the nearest hour for display; rounding on the
+   * way into the database would make the smurf threshold disagree with itself
+   * between a live view and the backfill script.
+   */
+  playtimeSeconds: number
   weapons: WeaponShare[]
 }
 
@@ -600,6 +609,7 @@ function computeAccountStats(stats: PlayerStats): AccountStats {
     games: stats.games ?? 0,
     wins: stats.wins ?? 0,
     playtimeHours: Math.round(playtimeSeconds / 3600),
+    playtimeSeconds,
     weapons,
   }
 }
@@ -778,6 +788,8 @@ interface TeamMember {
    * field added in future has to be added here too.
    */
   claimed?: boolean
+  /** Their record reads as a possible smurf — see lib/profile/smurf.ts. */
+  smurf?: boolean
 }
 
 function TeamMemberName({ member }: { member: TeamMember }) {
@@ -790,6 +802,7 @@ function TeamMemberName({ member }: { member: TeamMember }) {
         context={flairContextFrom(member)}
         className="h-3.5"
       />
+      {member.smurf && <SmurfMark className="size-3" />}
     </span>
   )
 }
@@ -1373,6 +1386,7 @@ function ProfileHeader({
   ladderRank,
   preview,
   esports,
+  possibleSmurf,
   savedFlairId,
   earnedFlair,
   identity,
@@ -1393,6 +1407,8 @@ function ProfileHeader({
   } | null
   preview: PlayerPreview | undefined
   esports: EsportsProfile | null
+  /** Their record reads as a possible smurf — see lib/profile/smurf.ts. */
+  possibleSmurf: boolean
   /** Raw selection + what they hold, so the live preview can re-derive the
    * same answer the server did rather than trust the editor. */
   savedFlairId: string | null
@@ -1432,7 +1448,11 @@ function ProfileHeader({
   const titleName = proHandle || data.name
 
   const hasMeta =
-    !!proHandle || !!preview?.claimed || !!ladderRank || metaNodes.length > 0
+    !!proHandle ||
+    !!preview?.claimed ||
+    !!ladderRank ||
+    possibleSmurf ||
+    metaNodes.length > 0
   const hasAccolades = (preview?.esportsTitles?.length ?? 0) > 0
 
   return (
@@ -1533,11 +1553,20 @@ function ProfileHeader({
                       earned={earnedFlair}
                       className="h-8"
                     />
+                    {/* The caution trails the insignia rather than joining
+                        them: verification, flair and a claim all say who
+                        someone is, and this says their record doesn't add up.
+                        Reading it last is what keeps it a footnote on the name
+                        instead of a label on the player. */}
+                    {possibleSmurf && <SmurfMark className="size-5 sm:size-6" />}
                     {claimSlot}
                   </div>
                   {hasMeta && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] tracking-wider uppercase">
                       {preview?.claimed && <BrawlchemistUserBadge />}
+                      {/* Spelled out here because this is the one page that
+                          shows the numbers behind it. */}
+                      {possibleSmurf && <SmurfTag />}
                       {/* Ladder standing, global then regional, in the one ice
                           blue they now share: they answer the same question at
                           two scopes, so reading them as one pair beats the old
@@ -1875,6 +1904,7 @@ export default async function PlayerPage({
     esports,
     ladderPos,
     customization,
+    smurfIds,
   ] = await Promise.all([
     skipUpstream ? API_SKIPPED : loadStats(numId),
     loadStaticLegends(),
@@ -1883,6 +1913,13 @@ export default async function PlayerPage({
     loadEsports(numId),
     getLadderPosition(numId),
     getCustomization(numId),
+    // Shared app-wide and five minutes stale at worst. Needed here only for the
+    // teammates and for views that skip /stats, but it is one cached read for
+    // the whole page either way.
+    getSmurfIds().catch((err) => {
+      console.error("[player] smurf ids failed:", err)
+      return new Set<number>()
+    }),
   ])
 
   // The player's guild shows in the Account section; persist it so a profile
@@ -1906,6 +1943,40 @@ export default async function PlayerPage({
   // GetPlayerGuild lookup comes up empty.
   const accountStats = statsRes.ok ? computeAccountStats(statsRes.data) : null
   const clan = statsRes.ok ? statsRes.data.clan : undefined
+  // Account level and lifetime playtime are the only two facts the "possible
+  // smurf" reading needs that /ranked does not carry, and this page has just
+  // fetched them for the header's weapon shares. Remembering them here is what
+  // lets every list view on the site answer the same question without a single
+  // extra Brawlhalla call (cardinal constraint #1) — the same piggyback the
+  // rating snapshot makes on upsertPlayerRanked.
+  //
+  // Deferred, like every other write on this page: the payload is in hand, so
+  // the reader has no reason to wait on it.
+  if (accountStats) {
+    const { level, playtimeSeconds } = accountStats
+    after(async () => {
+      try {
+        await recordPlayerStats(numId, { level, playtimeSeconds })
+      } catch {
+        // A cache write failure shouldn't take down the page.
+      }
+    })
+  }
+  /**
+   * Live facts when we have them, the shared set when we don't.
+   *
+   * A crawler view and a 429 both skip /stats, so accountStats is null on
+   * exactly the paths that serve stored data — and falling back to the cached
+   * id set there keeps the profile agreeing with the leaderboard it was linked
+   * from, rather than quietly dropping the tag for half the visitors.
+   */
+  const possibleSmurf = accountStats
+    ? isPossibleSmurf({
+        rating: data.rating,
+        level: accountStats.level,
+        playtimeHours: accountStats.playtimeHours,
+      })
+    : smurfIds.has(numId)
   // Prefer a live answer, then the stored one, then the clan embedded in
   // /stats. The stored value is authoritative on a `guildFresh` view — that's
   // the whole point of not making the call.
@@ -2030,6 +2101,7 @@ export default async function PlayerPage({
         esportsTitles: mate?.esportsTitles,
         developer: mate?.developer,
         claimed: mate?.claimed,
+        smurf: smurfIds.has(teammateId),
       },
     }
   })
@@ -2193,12 +2265,11 @@ export default async function PlayerPage({
     accolades: preview?.esportsTitles,
     memberSince: preview?.memberSince,
     hasFavorites: preview?.hasFavorites,
-    // Any of the five things the customizer can set. The banner and flair are
+    // Any of the four things the customizer can set. The banner and flair are
     // null when untouched (default wash, automatic pick), so "not null" is the
     // honest test for both — a player who opened the panel and changed nothing
     // has not customized anything.
     hasCustomization:
-      !!customization.bio ||
       customization.socialLinks.length > 0 ||
       customization.favoriteLegendIds.length > 0 ||
       customization.bannerId !== null ||
@@ -2243,6 +2314,7 @@ export default async function PlayerPage({
     esportsTitles: preview?.esportsTitles,
     developer: preview?.developer,
     claimed: preview?.claimed,
+    smurf: possibleSmurf,
   }
   // The name the page titles with — a pro is known by their handle, so the
   // track card shouldn't call them something the heading never did.
@@ -2295,6 +2367,7 @@ export default async function PlayerPage({
             ladderRank={ladderRank}
             preview={preview}
             esports={esports}
+            possibleSmurf={possibleSmurf}
             savedFlairId={customization.flairId}
             earnedFlair={earnedFlair}
             identity={
@@ -2370,8 +2443,6 @@ export default async function PlayerPage({
               pending the advanced-stats component that will own them.
               computeAccountStats still runs — the header reads its weapon
               shares — so bringing them back is a render, not a refetch. */}
-            <ProfileCustomization brawlhallaId={numId} />
-
             {hasOneVOne && (
               <section className="mt-8 px-4 sm:px-6">
                 <div

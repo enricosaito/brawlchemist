@@ -11,7 +11,9 @@ import {
   WeaponIcon,
 } from "@/components/site/primitives"
 import { VerifiedMark } from "@/components/site/pro-badge"
+import { SmurfMark } from "@/components/site/smurf-mark"
 import { getProfilesMap } from "@/lib/sync/profiles"
+import { getSmurfIds } from "@/lib/sync/smurf"
 import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import { tierFromRating } from "@/lib/tier"
 import type { PlayerPreview } from "@/lib/player-previews"
@@ -116,8 +118,15 @@ export default async function MetaPicksPage({
   // The mainers ride the same cached Valhallan scan the stats do (constraint
   // #6's sanctioned exception), so the expandable detail costs no query of its
   // own — it is projected out of a pass the page was already making.
-  const [legendStats, weaponStats, mainers, mainerCounts, profiles, valhallan] =
-    await Promise.all([
+  const [
+    legendStats,
+    weaponStats,
+    mainers,
+    mainerCounts,
+    profiles,
+    valhallan,
+    smurfs,
+  ] = await Promise.all([
       getValhallanLegendStats({ region: regionFilter, method, minGames }),
       getValhallanWeaponStats({ region: regionFilter }),
       getTopValhallanMainers({ region: regionFilter, perLegend: 5 }),
@@ -129,6 +138,7 @@ export default async function MetaPicksPage({
       getValhallanIds("1v1")
         .then((v) => new Set(v))
         .catch(() => new Set<number>()),
+      getSmurfIds().catch(() => new Set<number>()),
     ])
 
   // Weapon detail is free: its top wielders are legend ids, and this page has
@@ -170,6 +180,7 @@ export default async function MetaPicksPage({
                 legendSlug={slug}
                 preview={profiles.get(m.brawlhallaId)}
                 tier={tierFromRating(m.rating, valhallan.has(m.brawlhallaId))}
+                smurf={smurfs.has(m.brawlhallaId)}
               />
             ))}
           </ul>
@@ -307,11 +318,13 @@ function MainerRow({
   legendSlug,
   preview,
   tier,
+  smurf,
 }: {
   mainer: TopMainer
   legendSlug: string | null
   preview?: PlayerPreview
   tier: Tier | null
+  smurf?: boolean
 }) {
   const handle = preview?.verified?.handle?.trim() || null
   return (
@@ -329,6 +342,7 @@ function MainerRow({
             {handle ?? mainer.username}
           </span>
           {handle && <VerifiedMark />}
+          {smurf && <SmurfMark className="size-3" />}
           <RegionPill region={mainer.region} />
           <span className="ml-auto flex shrink-0 items-center gap-1 pl-1 font-mono text-[11px] tabular-nums">
             {tier && <RankHelm tier={tier} className="h-4" />}

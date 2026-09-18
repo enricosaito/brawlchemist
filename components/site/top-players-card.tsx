@@ -8,34 +8,19 @@ import { getPlayersByIds } from "@/lib/sync/players"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
+import { getSmurfIds } from "@/lib/sync/smurf"
 import { FlairMark } from "./flair-mark"
 import { VerifiedMark } from "./pro-badge"
+import { SmurfMark } from "./smurf-mark"
 import type { PlayerRow } from "@/lib/db/schema"
-import type { Tier } from "@/lib/types"
 import { PreviewCard } from "./preview-card"
 import { LegendChip, PlayerLink, RankHelm } from "./primitives"
 import { flairContextFrom } from "@/lib/profile/flair"
+import { toTier } from "@/lib/tier"
 
 // All API regions (ALL first), shown in the home region dropdown.
 export const HOME_REGIONS = API_REGIONS
 export type HomeRegion = (typeof HOME_REGIONS)[number]
-
-const KNOWN_TIERS: readonly Tier[] = [
-  "Tin",
-  "Bronze",
-  "Silver",
-  "Gold",
-  "Platinum",
-  "Diamond",
-  "Valhallan",
-]
-
-function toTier(value: string | null): Tier | null {
-  if (!value) return null
-  return (KNOWN_TIERS as readonly string[]).includes(value)
-    ? (value as Tier)
-    : null
-}
 
 /**
  * TopPlayersCard — the home "Top Pros" preview: the six highest-rated
@@ -66,9 +51,10 @@ export async function TopPlayersCard({
 
   // Handles come from the admin-curated profiles (verified pros); flair
   // selections from one shared cached map rather than a read per row.
-  const [overrides, flairs] = await Promise.all([
+  const [overrides, flairs, smurfs] = await Promise.all([
     getProfilesMap(),
     getFlairMap(),
+    getSmurfIds().catch(() => new Set<number>()),
   ])
 
   return (
@@ -187,6 +173,7 @@ export async function TopPlayersCard({
                         context={flairContextFrom(overrides.get(player.id))}
                         className="h-4"
                       />
+                      {smurfs.has(player.id) && <SmurfMark />}
                     </span>
                   </PlayerLink>
                 </span>
@@ -197,7 +184,11 @@ export async function TopPlayersCard({
                       silhouette survives this size where the round avatar
                       emblem turns to mush. */}
                   <span className="flex items-center gap-1.5 font-mono text-sm tabular-nums">
-                    {tier && <RankHelm tier={tier} className="h-[18px]" />}
+                    <RankHelm
+                      tier={tier}
+                      rating={entry.rating}
+                      className="h-[18px]"
+                    />
                     <span>
                       {entry.rating != null ? formatElo(entry.rating) : "—"}
                       <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
