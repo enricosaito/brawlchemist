@@ -3,13 +3,15 @@ import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
-import { List, Trophy } from "lucide-react"
+
 import { cn } from "@/lib/utils"
 import { DataTable } from "@/components/site/data-table"
 import { buildLeaderboardColumns } from "@/components/site/leaderboard-columns"
 import { LeaderboardPodium } from "@/components/site/leaderboard-podium"
 import { LeaderboardPlayerSearch } from "@/components/site/leaderboard-player-search"
 import { LegendFilter } from "@/components/site/legend-filter"
+import { BoardSwitch } from "@/components/site/board-switch"
+import { boardSupportsMode, type BoardId } from "@/lib/boards"
 import { OtpBoard } from "@/components/site/otp-board"
 import { Pagination } from "@/components/site/pagination"
 import { LEGEND_ROSTER, rosterEntryBySlug } from "@/lib/legends-roster"
@@ -51,51 +53,8 @@ const PAGE_SIZE = 50
  * (ALL) board, since a combined cutoff doesn't exist. */
 const GLOBAL_CUTOFF_REGIONS: ApiRegion[] = ["US-E", "EU", "BRZ"]
 
-/** ALL ⟷ PRO switch — shown on every 1v1 board (the pro list filters per
- * region). Each click navigates to the opposite state, keeping the region. */
-function ProToggle({ pro, region }: { pro: boolean; region: ApiRegion }) {
-  const allHref = `/leaderboards/1v1?region=${region}`
-  const proHref = `/leaderboards/1v1?region=${region}&pro=1`
-  return (
-    <Link
-      href={pro ? allHref : proHref}
-      aria-label={pro ? "Show all players" : "Show verified pros only"}
-      className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-2"
-    >
-      <span
-        className={cn(
-          "flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider transition-colors",
-          pro ? "text-muted-foreground" : "text-foreground",
-        )}
-      >
-        <List className="size-3.5" />
-        All
-      </span>
-      <span
-        className={cn(
-          "relative inline-flex h-4 w-8 shrink-0 items-center rounded-full transition-colors",
-          pro ? "bg-gradient-to-r from-mystic to-tier-s" : "bg-muted",
-        )}
-      >
-        <span
-          className={cn(
-            "absolute size-3 rounded-full bg-white shadow transition-transform",
-            pro ? "translate-x-[18px]" : "translate-x-0.5",
-          )}
-        />
-      </span>
-      <span
-        className={cn(
-          "flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider transition-colors",
-          pro ? "text-foreground" : "text-muted-foreground",
-        )}
-      >
-        <Trophy className="size-3.5" />
-        Pro
-      </span>
-    </Link>
-  )
-}
+// The ALL/PRO switch that used to live here is gone: Pros is one of three
+// boards now, and a two-state toggle cannot hold three. See BoardSwitch.
 
 /** Valid path modes. "pro" is a separate static route, not handled here. */
 function parseMode(mode: string): ApiGameMode | null {
@@ -187,6 +146,7 @@ export default async function LeaderboardPage({
   // mutually exclusive with the legend filter (mains aren't pro-scoped).
   const canPro = gameMode === "1v1" && !legendActive
   const proView = canPro && sp.pro === "1"
+  const board: BoardId = proView ? "pros" : "ladder"
   const baseQuery = proView ? `region=${region}&pro=1` : `region=${region}`
 
   // The Valhallan cutoff is region-specific; the ALL board shows the three
@@ -288,12 +248,14 @@ export default async function LeaderboardPage({
             there — a region click, a shared link, or the back button. */}
         <RememberRegion region={region} />
         <div className="px-4 pt-8 sm:px-6 sm:pt-10">
-          {/* One compact control row: Search · Mode · Pro toggle · Region,
+          {/* One compact control row: Search · Board · Mode · Legend · Region,
               with the Valhallan cutoff chips closing it out on the right.
-              Paddings run slightly tighter than other pages so the whole set
-              fits a single line on desktop. */}
+              Board leads because it gates Mode — each board publishes a
+              different set of queues. Paddings run slightly tighter than other
+              pages so the whole set fits a single line on desktop. */}
           <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-2.5 gap-y-3">
             <LeaderboardPlayerSearch className="w-full sm:w-auto sm:min-w-[220px]" />
+            <BoardSwitch board={board} mode={gameMode} region={region} />
 
             <div className="flex items-center gap-1.5">
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -304,7 +266,7 @@ export default async function LeaderboardPage({
                 aria-label="Queue"
                 className="flex items-center rounded-md border border-border/60 bg-muted/40 p-1"
               >
-                {QUEUES.map((q) => (
+                {QUEUES.filter((q) => boardSupportsMode(board, q.id)).map((q) => (
                   <Link
                     key={q.id}
                     role="tab"
@@ -332,7 +294,7 @@ export default async function LeaderboardPage({
               />
             )}
 
-            {canPro && <ProToggle pro={proView} region={region} />}
+
 
             <div className="flex items-center gap-1.5">
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">

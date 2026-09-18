@@ -30,15 +30,14 @@ interface NavEntry {
 const NAV: NavEntry[] = [
   // Home isn't listed — the wordmark/logo is the way back to "/".
   {
-    label: "Power Rankings",
-    href: "/power-rankings",
-    avatar: "/assets/avatars/AniAvatar_Retro_Mjolnir.webp",
-  },
-  {
+    // One entry for three boards. The power rankings had their own for a while,
+    // which made them read as a different feature rather than a third answer to
+    // "who is the best" — they are reached from the Board switch on the
+    // leaderboard now, and /power-rankings still lights this entry.
     label: "Leaderboards",
     href: "/leaderboards/1v1",
     avatar: "/assets/avatars/AniAvatar_Volkonomicon.webp",
-    match: ["/leaderboards"],
+    match: ["/leaderboards", "/power-rankings"],
   },
   {
     label: "Ranked Queue",
