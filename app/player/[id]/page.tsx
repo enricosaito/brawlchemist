@@ -23,6 +23,7 @@ import { getCustomization, getFlairMap } from "@/lib/sync/customizations"
 import { getLadderPosition } from "@/lib/sync/live"
 import { ProfileCustomization } from "@/components/site/profile-customization"
 import { ProfileIdentityRow } from "@/components/site/profile-identity-row"
+import { EsportsTitles } from "@/components/site/esports-titles"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { BrawlchemistUserBadge } from "@/components/site/brawlchemist-user-badge"
 import { InfoTip } from "@/components/site/info-tip"
@@ -1582,16 +1583,7 @@ function ProfileHeader({
                       vacated, so the two rows read "who you are" then "what
                       you've won". */}
                   {hasAccolades && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px] tracking-wider">
-                      {preview?.esportsTitles?.map((a: string) => (
-                        <span
-                          key={a}
-                          className="inline-flex items-center rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 text-tier-gold"
-                        >
-                          {a}
-                        </span>
-                      ))}
-                    </div>
+                    <EsportsTitles titles={preview?.esportsTitles ?? []} />
                   )}
                   {/* Last row, and the only one that is art rather than words:
                       what they play and where to find them. */}
