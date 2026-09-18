@@ -319,6 +319,53 @@ export async function getProfileRecord(
   return row ? toRecord(row) : null
 }
 
+/**
+ * One player's derived championship titles, newest first.
+ *
+ * Uncached and admin-only. These are written by
+ * scripts/sync-esports-titles.mjs off Challengermode placements, which means
+ * until now they were the one thing on a profile nobody could correct: the
+ * curated titles had a textarea in /admin and these had nothing, so a wrong
+ * derivation could only be removed with SQL.
+ */
+export interface DerivedTitle {
+  id: string
+  title: string
+  tournamentName: string
+  year: number
+}
+
+export async function listDerivedTitles(
+  brawlhallaId: number
+): Promise<DerivedTitle[]> {
+  const rows = await db()
+    .select({
+      id: esportsTitlesTable.id,
+      title: esportsTitlesTable.title,
+      tournamentName: esportsTitlesTable.tournamentName,
+      year: esportsTitlesTable.year,
+    })
+    .from(esportsTitlesTable)
+    .where(eq(esportsTitlesTable.brawlhallaId, brawlhallaId))
+    .orderBy(desc(esportsTitlesTable.year))
+  return rows
+}
+
+/**
+ * Remove one derived title.
+ *
+ * Deliberately by row id, not by (player, title): the id is
+ * `${tournamentId}:${brawlhallaId}`, so this deletes the claim about one
+ * tournament rather than every title that happens to share a string. Re-running
+ * the sync script will put it back — that is the right behaviour for a bad
+ * *derivation*, and the reason to fix a genuinely wrong one in the script's
+ * SERIES allow-list rather than here.
+ */
+export async function deleteDerivedTitle(id: string): Promise<void> {
+  await db().delete(esportsTitlesTable).where(eq(esportsTitlesTable.id, id))
+  revalidateTag(TAG, "max")
+}
+
 export async function upsertProfile(input: ProfileInput): Promise<void> {
   const values = {
     brawlhallaId: input.brawlhallaId,

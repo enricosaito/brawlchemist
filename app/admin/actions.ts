@@ -5,6 +5,7 @@ import { revalidateTag } from "next/cache"
 import { put } from "@vercel/blob"
 import { adminActorId, requireAdmin } from "@/lib/admin-auth"
 import {
+  deleteDerivedTitle,
   deleteProfile,
   upsertProfile,
   PROFILES_TAG,
@@ -26,7 +27,15 @@ import { deleteCombo, getCombo, upsertCombo } from "@/lib/sync/true-combos"
 import { WEAPON_NAMES } from "@/lib/mock-data"
 import { setCronPaused } from "@/lib/sync/cron-controls"
 import { linkProfile, unlinkProfile } from "@/lib/sync/claims"
-import { clearFlair, FLAIR_MAP_TAG } from "@/lib/sync/customizations"
+import {
+  clearFlair,
+  FLAIR_MAP_TAG,
+  setBanner,
+  setFlair,
+  upsertCustomization,
+  SOCIAL_KINDS,
+  type SocialLink,
+} from "@/lib/sync/customizations"
 import { clearFetchLog, recordFetch } from "@/lib/sync/fetch-log"
 import { syncManyPlayers, syncPlayer } from "@/lib/sync/players"
 import {
@@ -312,6 +321,69 @@ export async function linkProfileAction(formData: FormData) {
 }
 
 /** Reset a player's flair choice to the automatic pick (admin). */
+/**
+ * Admin edit of everything the *owner* sets: links, favourite legends, banner,
+ * flair choice.
+ *
+ * These lived only in the owner's customizer until now, which made them the one
+ * category of content on the site nobody could moderate. That is not
+ * hypothetical: a profile was using its `website` link to point at a porn site
+ * from a page with our name on it, and removing it took raw SQL because no
+ * screen could see it. An admin panel that can edit a pro's handle but not the
+ * URL they point at the world has the wrong half of the problem.
+ *
+ * It writes through the SAME functions the owner's customizer uses, so every
+ * rule holds identically — the host allow-list on links, the roster check on
+ * legends, the preset allow-list on banners, the shape check on flair. An
+ * operator gets reach, not a bypass. In particular a link to somewhere the kind
+ * doesn't name is dropped here exactly as it would be there.
+ *
+ * Three writes rather than one because they are three different validations
+ * that already exist, and the conflict-sets are deliberately disjoint so a
+ * banner change cannot clobber links (see setBanner).
+ */
+export async function saveOwnerFieldsAction(formData: FormData) {
+  await requireAdmin()
+  const id = Number(formData.get("brawlhallaId"))
+  if (!Number.isInteger(id) || id <= 0) redirect("/admin?error=bad-id")
+
+  const socialLinks: SocialLink[] = SOCIAL_KINDS.map((kind) => ({
+    kind,
+    url: String(formData.get(`link-${kind}`) ?? "").trim(),
+  })).filter((l) => l.url.length > 0)
+
+  const favoriteLegendIds = [0, 1, 2]
+    .map((i) => Number(formData.get(`legend-${i}`)))
+    .filter((n) => Number.isInteger(n) && n > 0)
+
+  await upsertCustomization(id, { socialLinks, favoriteLegendIds })
+  await setBanner(id, String(formData.get("bannerId") ?? ""))
+  // "" parses to null, which means "show their best earned" rather than "none".
+  await setFlair(id, String(formData.get("flairId") ?? ""))
+
+  redirect(`/admin?tab=people&edit=${id}&ownersaved=1`)
+}
+
+/**
+ * Remove one derived championship title.
+ *
+ * The curated titles have had a textarea here since they existed; the derived
+ * ones had nothing, so a bad derivation could only be undone with SQL. Note it
+ * comes back if the sync script runs again — a genuinely wrong derivation
+ * belongs in that script's SERIES allow-list, and this is for the one-off.
+ */
+export async function removeDerivedTitleAction(formData: FormData) {
+  await requireAdmin()
+  const rowId = String(formData.get("titleId") ?? "").trim()
+  const playerId = Number(formData.get("brawlhallaId"))
+  if (rowId) await deleteDerivedTitle(rowId)
+  redirect(
+    Number.isInteger(playerId) && playerId > 0
+      ? `/admin?tab=people&edit=${playerId}&titleremoved=1`
+      : "/admin?titleremoved=1"
+  )
+}
+
 export async function clearFlairAction(formData: FormData) {
   await requireAdmin()
   const id = Number(formData.get("brawlhallaId"))

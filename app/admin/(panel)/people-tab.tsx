@@ -1,15 +1,33 @@
 import Link from "next/link"
-import { getProfileRecord } from "@/lib/sync/profiles"
+import {
+  getProfileRecord,
+  listDerivedTitles,
+  type DerivedTitle,
+} from "@/lib/sync/profiles"
 import { listAdminPeople } from "@/lib/sync/admin-people"
-import { flairById } from "@/lib/profile/flair"
+import { flairById, FLAIR_NONE, selectableFlairs } from "@/lib/profile/flair"
 import { getFlairCatalogue } from "@/lib/sync/flairs"
+import {
+  getCustomizationRecord,
+  type Customization,
+} from "@/lib/sync/customizations"
+import { SOCIAL_HOSTS, SOCIAL_KINDS, SOCIAL_META } from "@/lib/profile/social"
+import { BANNER_PRESETS, DEFAULT_BANNER_ID } from "@/lib/profile/banners"
+import { LEGEND_ROSTER } from "@/lib/legends-roster"
 import {
   clearFlairAction,
   deleteProfileAction,
+  removeDerivedTitleAction,
+  saveOwnerFieldsAction,
   saveProfileAction,
   unlinkProfileAction,
 } from "../actions"
 import { AdminPeopleSearch } from "./people-search"
+
+/** Alphabetical: a picker is a lookup, and roster order is release order. */
+const LEGEND_OPTIONS = [...LEGEND_ROSTER].sort((a, b) =>
+  a.name.localeCompare(b.name)
+)
 
 const labelCls =
   "font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
@@ -32,10 +50,14 @@ const actionCls =
  * unlinking an account never quietly demotes a pro and vice versa.
  */
 export async function PeopleTab({ editId }: { editId: number | null }) {
-  const editing =
-    editId && Number.isInteger(editId)
-      ? await getProfileRecord(editId)
-      : null
+  const valid = !!editId && Number.isInteger(editId)
+  // One fan-out rather than three sequential awaits — on this screen the cost
+  // is round trips, not queries.
+  const [editing, custom, derivedTitles] = await Promise.all([
+    valid ? getProfileRecord(editId) : Promise.resolve(null),
+    valid ? getCustomizationRecord(editId) : Promise.resolve(null),
+    valid ? listDerivedTitles(editId) : Promise.resolve([]),
+  ])
   const people = await listAdminPeople()
   // Resolved against the curated catalogue, not the built-in pair, or this list
   // would show a raw id for every badge minted since the last deploy.
@@ -322,7 +344,217 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
             )}
           </div>
         </form>
+
+        {editing && (
+          <OwnerFields
+            brawlhallaId={editing.brawlhallaId}
+            custom={custom}
+            derivedTitles={derivedTitles}
+            catalogue={catalogue}
+          />
+        )}
       </section>
+    </div>
+  )
+}
+
+/**
+ * Everything the *owner* set, editable by an operator.
+ *
+ * A separate card and a separate action from the curation form above, for the
+ * reason the rest of this tab already works that way: curation and the player's
+ * own choices are different claims, and an operator fixing a bad link should
+ * not be able to un-verify a pro with the same submit.
+ *
+ * Until now these were the one category of content on the site nobody could
+ * moderate. That is not hypothetical — a profile used its link field to point
+ * at a porn site from a page with our name on it, and removing it took raw SQL
+ * because no screen could see it. An admin panel that can edit a pro's handle
+ * but not the URL they point at the world has the wrong half of the problem.
+ *
+ * Every field writes through the same function the owner's customizer uses, so
+ * the rules are identical: this is reach, not a bypass.
+ */
+function OwnerFields({
+  brawlhallaId,
+  custom,
+  derivedTitles,
+  catalogue,
+}: {
+  brawlhallaId: number
+  custom: Customization | null
+  derivedTitles: DerivedTitle[]
+  catalogue: Awaited<ReturnType<typeof getFlairCatalogue>>
+}) {
+  const links = new Map(custom?.socialLinks.map((l) => [l.kind, l.url]) ?? [])
+  const legends = custom?.favoriteLegendIds ?? []
+  const selectCls =
+    "rounded-md border border-border/60 bg-background px-2 py-1.5 text-xs outline-none focus:border-pink"
+
+  return (
+    <div className="mt-6 rounded-xl border border-mystic/30 bg-card/40 p-5">
+      <h3 className="font-display text-base font-semibold">Owner-set</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        What this player chose for themselves. Editable here so it can be
+        moderated — the same validation runs either way, so a link that
+        doesn&apos;t point at the site its icon names is dropped on save.
+      </p>
+
+      <form
+        action={saveOwnerFieldsAction}
+        className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2"
+      >
+        <input type="hidden" name="brawlhallaId" value={brawlhallaId} />
+
+        <div className="sm:col-span-2">
+          <span className={labelCls}>Links — must point at the real site</span>
+          <div className="mt-1 flex flex-col gap-1.5">
+            {SOCIAL_KINDS.map((kind) => (
+              <div key={kind} className="flex items-center gap-2">
+                <label
+                  className={labelCls + " w-20 shrink-0"}
+                  htmlFor={"link-" + kind}
+                >
+                  {SOCIAL_META[kind].label}
+                </label>
+                <input
+                  id={"link-" + kind}
+                  name={"link-" + kind}
+                  type="url"
+                  defaultValue={links.get(kind) ?? ""}
+                  placeholder={SOCIAL_HOSTS[kind].join(" / ")}
+                  className={"min-w-0 flex-1 " + selectCls}
+                />
+              </div>
+            ))}
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Clear a field to remove that link.
+          </p>
+        </div>
+
+        <div className="sm:col-span-1">
+          <span className={labelCls}>Favorite legends</span>
+          <div className="mt-1 grid grid-cols-3 gap-2">
+            {[0, 1, 2].map((i) => (
+              <select
+                key={i}
+                name={"legend-" + i}
+                defaultValue={legends[i] ?? ""}
+                aria-label={"Favourite legend " + (i + 1)}
+                className={"min-w-0 " + selectCls}
+              >
+                <option value="">—</option>
+                {LEGEND_OPTIONS.map((o) => (
+                  <option key={o.legendId} value={o.legendId}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 sm:col-span-1">
+          <div>
+            <label className={labelCls} htmlFor="bannerId">
+              Banner
+            </label>
+            <select
+              id="bannerId"
+              name="bannerId"
+              defaultValue={custom?.bannerId ?? DEFAULT_BANNER_ID}
+              className={"mt-1 w-full " + selectCls}
+            >
+              {BANNER_PRESETS.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls} htmlFor="flairId">
+              Flair shown
+            </label>
+            {/* Three states, not two: empty means "their best earned", which is
+                what an untouched profile does. Setting one they have not earned
+                renders nothing — entitlement is re-derived on every view. */}
+            <select
+              id="flairId"
+              name="flairId"
+              defaultValue={custom?.flairId ?? ""}
+              className={"mt-1 w-full " + selectCls}
+            >
+              <option value="">Automatic (best earned)</option>
+              <option value={FLAIR_NONE}>None</option>
+              {selectableFlairs(catalogue).map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="sm:col-span-2">
+          <button
+            type="submit"
+            className="rounded-md border border-mystic/50 bg-mystic/10 px-4 py-2 text-sm font-semibold text-mystic transition-colors hover:bg-mystic/20"
+          >
+            Save owner-set fields
+          </button>
+        </div>
+      </form>
+
+      <div className="mt-6 border-t border-border/60 pt-4">
+        <span className={labelCls}>
+          Derived esports titles ({derivedTitles.length})
+        </span>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Read off Challengermode placements by the sync script, which is why
+          they are not in the textarea above. Removing one is a one-off —
+          re-running the script puts it back, so a consistently wrong derivation
+          belongs in that script&apos;s allow-list.
+        </p>
+        {derivedTitles.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            None — every title on this profile was typed by hand.
+          </p>
+        ) : (
+          <ul className="mt-2 flex flex-col gap-1">
+            {derivedTitles.map((t) => (
+              <li
+                key={t.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5"
+              >
+                <span className="min-w-0">
+                  <span className="text-sm font-medium text-tier-gold">
+                    {t.title}
+                  </span>
+                  <span className="ml-2 font-mono text-[10px] tracking-wider text-muted-foreground">
+                    {t.tournamentName}
+                  </span>
+                </span>
+                <form action={removeDerivedTitleAction}>
+                  <input
+                    type="hidden"
+                    name="brawlhallaId"
+                    value={brawlhallaId}
+                  />
+                  <input type="hidden" name="titleId" value={t.id} />
+                  <button
+                    type="submit"
+                    className={actionCls + " text-negative hover:text-negative/80"}
+                  >
+                    Remove
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   )
 }

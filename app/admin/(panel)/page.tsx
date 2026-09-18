@@ -62,6 +62,8 @@ export default async function AdminPage({
     deleted?: string
     unlinked?: string
     flaircleared?: string
+    ownersaved?: string
+    titleremoved?: string
     error?: string
     backfill?: string
     remaining?: string
@@ -142,6 +144,8 @@ function noticeFor(sp: {
   deleted?: string
   unlinked?: string
   flaircleared?: string
+  ownersaved?: string
+  titleremoved?: string
   error?: string
   backfill?: string
   remaining?: string
@@ -258,6 +262,18 @@ function noticeFor(sp: {
     return {
       tone: "ok",
       text: "Account unlinked — the profile can be claimed again. Pro status and titles were left as they were.",
+    }
+  }
+  if (sp.ownersaved) {
+    return {
+      tone: "ok",
+      text: "Owner-set fields saved. Same validation as the player's own editor, so a link that doesn't point at the site its icon names was dropped.",
+    }
+  }
+  if (sp.titleremoved) {
+    return {
+      tone: "ok",
+      text: "Derived title removed. Re-running the sync script will put it back — fix a consistently wrong one in its allow-list.",
     }
   }
   if (sp.flaircleared) {
