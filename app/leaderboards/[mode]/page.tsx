@@ -2,16 +2,15 @@ import { cookies } from "next/headers"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import Image from "next/image"
-import Link from "next/link"
 
-import { cn } from "@/lib/utils"
 import { DataTable } from "@/components/site/data-table"
 import { buildLeaderboardColumns } from "@/components/site/leaderboard-columns"
 import { LeaderboardPodium } from "@/components/site/leaderboard-podium"
 import { LeaderboardPlayerSearch } from "@/components/site/leaderboard-player-search"
 import { LegendFilter } from "@/components/site/legend-filter"
-import { BoardSwitch } from "@/components/site/board-switch"
-import { boardSupportsMode, type BoardId } from "@/lib/boards"
+import { ViewSwitch } from "@/components/site/view-switch"
+import { RegionFilter } from "@/components/site/region-filter"
+import { ladderView } from "@/lib/boards"
 import { OtpBoard } from "@/components/site/otp-board"
 import { Pagination } from "@/components/site/pagination"
 import { LEGEND_ROSTER, rosterEntryBySlug } from "@/lib/legends-roster"
@@ -40,21 +39,17 @@ import { getSmurfIds } from "@/lib/sync/smurf"
 import type { PlayerRow } from "@/lib/db/schema"
 import { InfoTip } from "@/components/site/info-tip"
 
-const QUEUES: { id: ApiGameMode; label: string }[] = [
-  { id: "1v1", label: "1v1" },
-  { id: "2v2", label: "2v2" },
-  { id: "solo_2v2", label: "Solo 2v2" },
-  { id: "3v3", label: "3v3" },
-]
-
 const PAGE_SIZE = 50
 
 /** The three biggest ladders — their Valhallan cutoffs headline the global
  * (ALL) board, since a combined cutoff doesn't exist. */
 const GLOBAL_CUTOFF_REGIONS: ApiRegion[] = ["US-E", "EU", "BRZ"]
 
-// The ALL/PRO switch that used to live here is gone: Pros is one of three
-// boards now, and a two-state toggle cannot hold three. See BoardSwitch.
+// Neither the ALL/PRO switch nor the Mode tablist lives here any more. Queue
+// *is* the view now — Ranked 1v1, Ranked 2v2 and Power Rankings under TYPE,
+// Solo 2v2, 3v3 and Pros only under OTHER — so both controls collapsed into
+// ViewSwitch, split by how often each is asked for rather than by how the data
+// happens to be stored.
 
 /** Valid path modes. "pro" is a separate static route, not handled here. */
 function parseMode(mode: string): ApiGameMode | null {
@@ -146,7 +141,7 @@ export default async function LeaderboardPage({
   // mutually exclusive with the legend filter (mains aren't pro-scoped).
   const canPro = gameMode === "1v1" && !legendActive
   const proView = canPro && sp.pro === "1"
-  const board: BoardId = proView ? "pros" : "ladder"
+  const view = ladderView(gameMode, proView)
   const baseQuery = proView ? `region=${region}&pro=1` : `region=${region}`
 
   // The Valhallan cutoff is region-specific; the ALL board shows the three
@@ -255,35 +250,23 @@ export default async function LeaderboardPage({
               pages so the whole set fits a single line on desktop. */}
           <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-2.5 gap-y-3">
             <LeaderboardPlayerSearch className="w-full sm:w-auto sm:min-w-[220px]" />
-            <BoardSwitch board={board} mode={gameMode} region={region} />
+            <ViewSwitch
+              group="type"
+              label="Type"
+              current={view}
+              region={region}
+              mode={gameMode}
+            />
+            <ViewSwitch
+              group="other"
+              label="Other"
+              current={view}
+              region={region}
+              mode={gameMode}
+            />
 
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                Mode
-              </span>
-              <div
-                role="tablist"
-                aria-label="Queue"
-                className="flex items-center rounded-md border border-border/60 bg-muted/40 p-1"
-              >
-                {QUEUES.filter((q) => boardSupportsMode(board, q.id)).map((q) => (
-                  <Link
-                    key={q.id}
-                    role="tab"
-                    aria-selected={gameMode === q.id}
-                    href={`/leaderboards/${q.id}?region=${region}`}
-                    className={cn(
-                      "rounded-md px-2 py-1 font-mono text-xs uppercase tracking-wider transition-colors",
-                      gameMode === q.id
-                        ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {q.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
+            {/* The Mode tablist is gone: queue *is* the view now, split across
+                TYPE and OTHER by how often each is asked for. */}
 
             {canFilterLegend && (
               <LegendFilter
@@ -296,28 +279,15 @@ export default async function LeaderboardPage({
 
 
 
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                Region
-              </span>
-              <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-border/60 bg-muted/40 p-1">
-                {API_REGIONS.map((r) => (
-                  <Link
-                    key={r}
-                    href={`${modePath}?region=${r}${legendSuffix}`}
-                    aria-current={region === r ? "true" : undefined}
-                    className={cn(
-                      "rounded-md px-2 py-1 font-mono text-xs uppercase tracking-wider transition-colors",
-                      region === r
-                        ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {r}
-                  </Link>
-                ))}
-              </div>
-            </div>
+            {/* Region as a dropdown. Ten chips were the heaviest thing in this
+                row, paying for a choice almost nobody makes: resolvePreferredRegion
+                already opens on the region you play. */}
+            <RegionFilter
+              regions={API_REGIONS}
+              selected={region}
+              basePath={modePath}
+              suffix={`${proView ? "&pro=1" : ""}${legendSuffix}`}
+            />
 
             {/* Valhallan cutoffs — close out the control row; the helm icon
                 carries the meaning and the tooltip holds the detail. The ALL
