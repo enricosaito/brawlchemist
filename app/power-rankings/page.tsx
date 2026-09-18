@@ -17,6 +17,7 @@ import { PlayerLink } from "@/components/site/player-link"
 import { InfoTip } from "@/components/site/info-tip"
 import { FlairMark } from "@/components/site/flair-mark"
 import { SmurfMark } from "@/components/site/smurf-mark"
+import { BoardSwitch } from "@/components/site/board-switch"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
 import { getSmurfIds } from "@/lib/sync/smurf"
@@ -370,6 +371,10 @@ export default async function PowerRankingsPage({
     <main className="pb-16">
       <div className="px-4 pt-8 sm:px-6 sm:pt-10">
         <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-3 gap-y-3">
+          {/* Board leads here exactly as it does on the ladder — it decides
+              which modes the next control may offer. */}
+          <BoardSwitch board="pr" mode={mode.key} region={region} />
+
           {/* Mode */}
           <div className="flex items-center gap-2">
             <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -399,7 +404,9 @@ export default async function PowerRankingsPage({
             </div>
           </div>
 
-          {/* Region — the PR boards are strictly regional (no ALL upstream). */}
+          {/* Region — the PR boards are strictly regional (no ALL upstream), so
+              this control keeps its own vocabulary rather than borrowing the
+              ladder's. See lib/boards.ts. */}
           <div className="flex items-center gap-2">
             <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
               Region
