@@ -397,6 +397,50 @@ export type TrueComboRow = typeof trueCombos.$inferSelect
 export type TrueComboInsert = typeof trueCombos.$inferInsert
 
 /**
+ * esports_titles — championship wins, derived rather than typed.
+ *
+ * `profiles.esports_titles` is a curated array an operator maintains by hand.
+ * This table is the machine-readable half: one row per (tournament, player)
+ * where the player's lineup finished first in an official championship, built
+ * by scripts/sync-esports-titles.mjs from Challengermode placements.
+ *
+ * The two coexist and are merged on read. Curation stays because the API only
+ * covers what Challengermode hosted — the SGG era before 2022 is not in there,
+ * and a title someone earned at an event nobody indexed still belongs on their
+ * profile. Derived rows never overwrite a curated one; they are deduped by the
+ * exact title string.
+ *
+ * `tournamentId` and `tournamentName` are kept for provenance, not display:
+ * the point of deriving a title is being able to say which event produced it,
+ * and a row nobody can trace back is a guess with a timestamp.
+ */
+export const esportsTitles = pgTable(
+  "esports_titles",
+  {
+    /** `${tournamentId}:${brawlhallaId}` — idempotent across re-runs. */
+    id: text("id").primaryKey(),
+    brawlhallaId: integer("brawlhalla_id").notNull(),
+    /** Rendered form, e.g. "1v1 Summer Champion '26". */
+    title: text("title").notNull(),
+    year: integer("year").notNull(),
+    /** "1v1" | "2v2" — the game mode the event was run in. */
+    mode: text("mode").notNull(),
+    /** The Challengermode tournament this was read from. */
+    tournamentId: text("tournament_id").notNull(),
+    tournamentName: text("tournament_name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  // Declared here and nowhere else: `drizzle-kit push` reconciles the database
+  // down to this file and drops any index it cannot see. The read is always
+  // "every title, grouped by player", so the id column is what it walks.
+  (t) => [index("esports_titles_player_idx").on(t.brawlhallaId)],
+)
+
+export type EsportsTitleRow = typeof esportsTitles.$inferSelect
+
+/**
  * flair_grants — who holds a `rule='manual'` flair.
  *
  * The other two rules read facts we already have (an account's role, a curated
