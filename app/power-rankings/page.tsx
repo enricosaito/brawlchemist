@@ -110,7 +110,7 @@ function MedalCount({
       <span
         className={cn(
           "inline-flex items-center gap-1 font-mono text-xs tabular-nums",
-          count > 0 ? MEDAL[tone] : "text-muted-foreground/40",
+          count > 0 ? MEDAL[tone] : "text-muted-foreground/40"
         )}
       >
         <Medal className="size-3.5" />
@@ -125,7 +125,7 @@ function PlayerName({ raw }: { raw: string }) {
   return (
     <span className="inline-flex min-w-0 items-baseline gap-1.5">
       {team && (
-        <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
           {team}
         </span>
       )}
@@ -165,27 +165,27 @@ function PrPodium({
               <span
                 className={cn(
                   "inline-flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted/40 font-display text-sm font-bold text-foreground",
-                  RING[i] ?? "border-border/60",
+                  RING[i] ?? "border-border/60"
                 )}
               >
                 {p.powerRanking}
               </span>
               {team && (
-                <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
                   {team}
                 </span>
               )}
-              <span className="min-w-0 flex-1 truncate text-base font-semibold leading-tight">
+              <span className="min-w-0 flex-1 truncate text-base leading-tight font-semibold">
                 {name}
               </span>
             </div>
 
             {/* Earnings are the featured metric; points demote to the meta row. */}
             <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-3xl font-bold tabular-nums text-positive">
+              <span className="font-mono text-3xl font-bold text-positive tabular-nums">
                 {fmtEarnings(p.earnings)}
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
                 earned
               </span>
             </div>
@@ -202,7 +202,7 @@ function PrPodium({
                 tone="bronze"
                 title="Bronze placements"
               />
-              <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className="ml-auto font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
                 {fmtPoints(p.points)} PR points
               </span>
             </div>
@@ -281,7 +281,7 @@ export default async function PowerRankingsPage({
       label: "PR",
       width: "64px",
       render: (p) => (
-        <span className="font-mono text-sm tabular-nums text-muted-foreground">
+        <span className="font-mono text-sm text-muted-foreground tabular-nums">
           {p.powerRanking.toLocaleString()}
         </span>
       ),
@@ -315,7 +315,7 @@ export default async function PowerRankingsPage({
       align: "right",
       width: "120px",
       render: (p) => (
-        <span className="font-mono text-sm tabular-nums text-positive">
+        <span className="font-mono text-sm text-positive tabular-nums">
           {fmtEarnings(p.earnings)}
         </span>
       ),
@@ -326,7 +326,7 @@ export default async function PowerRankingsPage({
       align: "right",
       width: "80px",
       render: (p) => (
-        <span className="font-mono text-sm tabular-nums text-muted-foreground">
+        <span className="font-mono text-sm text-muted-foreground tabular-nums">
           {p.top8}
         </span>
       ),
@@ -337,7 +337,7 @@ export default async function PowerRankingsPage({
       align: "right",
       width: "80px",
       render: (p) => (
-        <span className="font-mono text-sm tabular-nums text-muted-foreground">
+        <span className="font-mono text-sm text-muted-foreground tabular-nums">
           {p.top32}
         </span>
       ),
@@ -350,8 +350,16 @@ export default async function PowerRankingsPage({
       render: (p) => (
         <span className="inline-flex items-center gap-3">
           <MedalCount count={p.gold} tone="gold" title="Gold placements" />
-          <MedalCount count={p.silver} tone="silver" title="Silver placements" />
-          <MedalCount count={p.bronze} tone="bronze" title="Bronze placements" />
+          <MedalCount
+            count={p.silver}
+            tone="silver"
+            title="Silver placements"
+          />
+          <MedalCount
+            count={p.bronze}
+            tone="bronze"
+            title="Bronze placements"
+          />
         </span>
       ),
     },
@@ -372,10 +380,22 @@ export default async function PowerRankingsPage({
     <main className="pb-16">
       <div className="px-4 pt-8 sm:px-6 sm:pt-10">
         <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-3 gap-y-3">
-          {/* Type leads here exactly as it does on the ladder. Only the TYPE
-              group renders: Solo 2v2, 3v3 and Pros are ladder views, so on this
-              page the OTHER group would be three dead tabs. The 1v1/2v2 choice
-              takes its slot instead — both are real boards upstream. */}
+          {/* Region leads, exactly as it does on the ladder: it qualifies every
+              control after it. The PR boards are strictly regional (no ALL
+              upstream), so this one keeps its own vocabulary rather than
+              borrowing the ladder's. See lib/boards.ts. */}
+          <RegionFilter
+            regions={PR_REGIONS}
+            selected={region}
+            basePath="/power-rankings"
+            suffix={`&mode=${mode.key}`}
+          />
+
+          {/* Then Type, exactly as on the ladder. Only the TYPE group renders:
+              Solo 2v2, 3v3, Pros and the mains boards are all ladder views, so
+              on this page an OTHER picker would be a menu of dead ends. The
+              1v1/2v2 choice takes its slot instead — both are real boards
+              upstream. */}
           <ViewSwitch
             group="type"
             label="Type"
@@ -386,7 +406,7 @@ export default async function PowerRankingsPage({
 
           {/* Mode */}
           <div className="flex items-center gap-2">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+            <span className="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
               Mode
             </span>
             <div
@@ -404,7 +424,7 @@ export default async function PowerRankingsPage({
                     FILTER_BTN,
                     mode.key === m.key
                       ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
-                      : "text-muted-foreground hover:text-foreground",
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {m.label}
@@ -412,16 +432,6 @@ export default async function PowerRankingsPage({
               ))}
             </div>
           </div>
-
-          {/* Region — the PR boards are strictly regional (no ALL upstream), so
-              this control keeps its own vocabulary rather than borrowing the
-              ladder's. See lib/boards.ts. */}
-          <RegionFilter
-            regions={PR_REGIONS}
-            selected={region}
-            basePath="/power-rankings"
-            suffix={`&mode=${mode.key}`}
-          />
 
           {/* Board provenance — rides the filter row, pushed to the right. */}
           <div className="ml-auto flex flex-wrap items-center gap-1.5">
@@ -439,10 +449,12 @@ export default async function PowerRankingsPage({
 
         {!result.ok ? (
           <div className="mx-auto max-w-[1280px] rounded-xl border border-negative/30 bg-negative/5 p-6 text-sm text-muted-foreground">
-            <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-negative">
+            <div className="mb-1 font-mono text-[10px] tracking-wider text-negative uppercase">
               Power rankings unavailable
             </div>
-            <p>Couldn&apos;t reach the esports API. Please try again shortly.</p>
+            <p>
+              Couldn&apos;t reach the esports API. Please try again shortly.
+            </p>
           </div>
         ) : rows.length === 0 ? (
           <div className="mx-auto max-w-[1280px] rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">
@@ -450,7 +462,9 @@ export default async function PowerRankingsPage({
           </div>
         ) : (
           <div className="mx-auto max-w-[1280px]">
-            {page === 1 && <PrPodium entries={rows.slice(0, 3)} bhIds={bhIds} />}
+            {page === 1 && (
+              <PrPodium entries={rows.slice(0, 3)} bhIds={bhIds} />
+            )}
             <DataTable
               columns={columns}
               rows={rows}
