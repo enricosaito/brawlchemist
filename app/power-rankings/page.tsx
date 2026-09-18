@@ -17,7 +17,8 @@ import { PlayerLink } from "@/components/site/player-link"
 import { InfoTip } from "@/components/site/info-tip"
 import { FlairMark } from "@/components/site/flair-mark"
 import { SmurfMark } from "@/components/site/smurf-mark"
-import { BoardSwitch } from "@/components/site/board-switch"
+import { ViewSwitch } from "@/components/site/view-switch"
+import { RegionFilter } from "@/components/site/region-filter"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
 import { getSmurfIds } from "@/lib/sync/smurf"
@@ -371,9 +372,17 @@ export default async function PowerRankingsPage({
     <main className="pb-16">
       <div className="px-4 pt-8 sm:px-6 sm:pt-10">
         <div className="mx-auto mb-4 flex max-w-[1280px] flex-wrap items-center gap-x-3 gap-y-3">
-          {/* Board leads here exactly as it does on the ladder — it decides
-              which modes the next control may offer. */}
-          <BoardSwitch board="pr" mode={mode.key} region={region} />
+          {/* Type leads here exactly as it does on the ladder. Only the TYPE
+              group renders: Solo 2v2, 3v3 and Pros are ladder views, so on this
+              page the OTHER group would be three dead tabs. The 1v1/2v2 choice
+              takes its slot instead — both are real boards upstream. */}
+          <ViewSwitch
+            group="type"
+            label="Type"
+            current="pr"
+            region={region}
+            mode={mode.key}
+          />
 
           {/* Mode */}
           <div className="flex items-center gap-2">
@@ -407,28 +416,12 @@ export default async function PowerRankingsPage({
           {/* Region — the PR boards are strictly regional (no ALL upstream), so
               this control keeps its own vocabulary rather than borrowing the
               ladder's. See lib/boards.ts. */}
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-              Region
-            </span>
-            <div className="flex flex-wrap items-center gap-1 rounded-md border border-border/60 bg-muted/40 p-1">
-              {PR_REGIONS.map((r) => (
-                <Link
-                  key={r}
-                  href={`/power-rankings?mode=${mode.key}&region=${r}`}
-                  aria-current={region === r ? "true" : undefined}
-                  className={cn(
-                    FILTER_BTN,
-                    region === r
-                      ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {r}
-                </Link>
-              ))}
-            </div>
-          </div>
+          <RegionFilter
+            regions={PR_REGIONS}
+            selected={region}
+            basePath="/power-rankings"
+            suffix={`&mode=${mode.key}`}
+          />
 
           {/* Board provenance — rides the filter row, pushed to the right. */}
           <div className="ml-auto flex flex-wrap items-center gap-1.5">

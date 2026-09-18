@@ -2,54 +2,101 @@ import type { ApiRegion } from "./brawlhalla-api"
 import type { PrRegion } from "./brawltools-api"
 
 /**
- * The three rankings the site publishes, as one vocabulary.
+ * Every ranking the site publishes, as one list of *views* rather than a
+ * board-and-mode grid.
  *
- * They were two pages behind two sidebar entries, which made them read as two
- * features rather than three answers to "who is the best". They are not
- * merged — and should not be. The ladder comes from the Brawlhalla API keyed by
- * brawlhalla_id; the power rankings come from brawltools keyed by an esports id
- * that has to be bridged back. Rendering both at once measured ~3.2s and over a
- * megabyte for a visitor who wanted one of them.
+ * The grid was the honest model of the data and the wrong model for a control
+ * row: it made "Ranked 2v2" and "Solo 2v2" look like siblings, when one is a
+ * board most people want and the other is a queue most people have never
+ * played. So the views are split by how often they are asked for, not by how
+ * they are stored:
  *
- * So the pages stay separate and only the *navigation* is joined: each board is
- * a link, and nothing is fetched until you ask for it.
+ *   TYPE   the three people come here for
+ *   OTHER  everything else, one click away rather than one row away
  *
- * The harder reason not to merge is the regions. `NA` spans US-E and US-W,
- * `MENA` is `ME`, and there is no `ALL` upstream — so one shared region control
- * would have to either lie or blank half its options on switch. That is the
- * /meta-picks lesson inverted: there, one region control was the substance of
- * the merge because both halves drew on the same pool with the same
- * vocabulary. Here they genuinely do not.
+ * They are one mutually exclusive choice across two groups — picking from
+ * OTHER clears TYPE and vice versa. Two groups, one selection.
+ *
+ * The pages behind them are NOT merged, and should not be. The ladder comes
+ * from the Brawlhalla API keyed by brawlhalla_id; the power rankings come from
+ * brawltools keyed by an esports id that has to be bridged back. Rendering both
+ * at once measured ~3.2s and over a megabyte for a visitor who wanted one.
+ * Every view here is a link, and nothing is fetched until you ask for it.
+ *
+ * The harder reason not to merge is the regions — see the note on API_TO_PR.
  */
-export const BOARDS = ["ladder", "pros", "pr"] as const
-export type BoardId = (typeof BOARDS)[number]
+export const VIEW_GROUPS = ["type", "other"] as const
+export type ViewGroup = (typeof VIEW_GROUPS)[number]
 
-export interface BoardDef {
-  id: BoardId
+export type ViewId =
+  | "ranked-1v1"
+  | "ranked-2v2"
+  | "pr"
+  | "solo-2v2"
+  | "3v3"
+  | "pros"
+
+export interface ViewDef {
+  id: ViewId
   label: string
-  /** Modes this board actually publishes. Anything else has no rows upstream. */
-  modes: readonly string[]
+  group: ViewGroup
+  /** Which page serves it. */
+  board: "ladder" | "pr"
+  /**
+   * The ladder queue it maps to. Undefined for the power rankings, which carry
+   * whichever mode you were already reading — 1v1 and 2v2 both have real
+   * boards there (~20 ranked players per region in each).
+   */
+  mode?: string
+  pro?: boolean
 }
 
-export const BOARD_DEFS: Record<BoardId, BoardDef> = {
-  ladder: {
-    id: "ladder",
-    label: "Ladder",
-    modes: ["1v1", "2v2", "solo_2v2", "3v3"],
+export const VIEWS: Record<ViewId, ViewDef> = {
+  "ranked-1v1": {
+    id: "ranked-1v1",
+    label: "Ranked 1v1",
+    group: "type",
+    board: "ladder",
+    mode: "1v1",
   },
-  // A filter over the ladder rather than a separate source, but it answers the
-  // same question the other two do, so it belongs in the same control.
-  pros: { id: "pros", label: "Pros", modes: ["1v1"] },
-  pr: { id: "pr", label: "Power Rankings", modes: ["1v1", "2v2"] },
+  "ranked-2v2": {
+    id: "ranked-2v2",
+    label: "Ranked 2v2",
+    group: "type",
+    board: "ladder",
+    mode: "2v2",
+  },
+  pr: { id: "pr", label: "Power Rankings", group: "type", board: "pr" },
+  "solo-2v2": {
+    id: "solo-2v2",
+    label: "Solo 2v2",
+    group: "other",
+    board: "ladder",
+    mode: "solo_2v2",
+  },
+  "3v3": { id: "3v3", label: "3v3", group: "other", board: "ladder", mode: "3v3" },
+  pros: {
+    id: "pros",
+    label: "Pros only",
+    group: "other",
+    board: "ladder",
+    mode: "1v1",
+    pro: true,
+  },
 }
 
-export function boardSupportsMode(board: BoardId, mode: string): boolean {
-  return BOARD_DEFS[board].modes.includes(mode)
+export const VIEWS_IN_GROUP: Record<ViewGroup, ViewDef[]> = {
+  type: Object.values(VIEWS).filter((v) => v.group === "type"),
+  other: Object.values(VIEWS).filter((v) => v.group === "other"),
 }
 
-/** The mode to land on when the current one doesn't exist on the target board. */
-export function modeForBoard(board: BoardId, mode: string): string {
-  return boardSupportsMode(board, mode) ? mode : BOARD_DEFS[board].modes[0]
+/** Which view a leaderboard render is showing. */
+export function ladderView(mode: string, pro: boolean): ViewId {
+  if (pro) return "pros"
+  if (mode === "2v2") return "ranked-2v2"
+  if (mode === "solo_2v2") return "solo-2v2"
+  if (mode === "3v3") return "3v3"
+  return "ranked-1v1"
 }
 
 /**
@@ -61,6 +108,10 @@ export function modeForBoard(board: BoardId, mode: string): string {
  * than invent one they fall through to the board's own default — being sent to
  * a region you did not pick is better than being told Japan has a power
  * ranking.
+ *
+ * This asymmetry is also why the two pages keep separate region controls rather
+ * than sharing one: a single control would have to either lie or blank half its
+ * options on switch.
  */
 const API_TO_PR: Partial<Record<ApiRegion, PrRegion>> = {
   "US-E": "NA",
