@@ -98,13 +98,6 @@ export function parseSkin(value: unknown): FavoriteSkin | null {
   return null
 }
 
-export function parseEsportsTitles(value: unknown): string[] {
-  const raw = unwrapJson(value)
-  return Array.isArray(raw)
-    ? raw.filter((a): a is string => typeof a === "string")
-    : []
-}
-
 function toRecord(row: ProfileRow): ProfileRecord {
   return {
     brawlhallaId: row.brawlhallaId,
