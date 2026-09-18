@@ -176,20 +176,18 @@ export async function searchPlayersByUsername(
   const rows = await db()
     .select({
       ...PLAYER_SCALAR_COLUMNS,
-      // Collapse the season rating/region into the two ladder scalars the
-      // result card already falls back to, so a matched row carries its rating
-      // without the whole ranked_json blob crossing the wire. Evaluated for the
-      // returned rows only — never in the ORDER BY (see below).
-      ladderRating: sql<number | null>`coalesce(${players.rating}, ${players.ladderRating})`,
-      ladderRegion: sql<string | null>`coalesce(${players.ladderRegion}, ${players.rankedJson}->>'region')`,
+      // The region too, so a matched row carries it without the whole
+      // ranked_json blob crossing the wire. Evaluated for the returned rows
+      // only — never in the ORDER BY (see below).
+      region: REGION_FROM_RANKED,
     })
     .from(players)
     .where(ilike(players.username, `%${q}%`))
-    // Order by the bare indexed column. Wrapping it in coalesce() with
-    // ladder_rating looked harmless but made players_rating_idx unusable, and
-    // a two-character query went from 0.4s to 15s because Postgres had to sort
-    // every ILIKE match instead of walking the index and stopping at 8. There
-    // is nothing to coalesce with anyway: nothing populates ladder_rating.
+    // Order by the bare indexed column. Wrapping it in coalesce() with the
+    // old ladder_rating column looked harmless but made players_rating_idx
+    // unusable, and a two-character query went from 0.4s to 15s because
+    // Postgres had to sort every ILIKE match instead of walking the index and
+    // stopping at 8.
     .orderBy(sql`${players.rating} desc nulls last`)
     .limit(limit)
   return rows.map((r) => ({ ...r, rankedJson: null }) as PlayerRow)
@@ -200,12 +198,11 @@ export async function searchPlayersByUsername(
 // scalar fields — username, top legend, ladder snapshot — without dragging the
 // full ranked payload over the wire.
 /**
- * A player's region, actually populated.
+ * A player's region.
  *
- * `ladder_region` is dead in the same way `ladder_rating` is (constraint #8):
- * measured 0 non-null out of 95,635 rows, because only the search-index harvest
- * ever wrote it and nothing calls that harvest. The real value has always been
- * in the stored ranked payload — 94,928 of those same rows have one.
+ * Straight out of the stored ranked payload, which is the only place it has
+ * ever actually been: the `ladder_region` column that used to be coalesced in
+ * front of this held 0 non-null values across 97,325 rows and is gone.
  *
  * Opt-in rather than folded into PLAYER_SCALAR_COLUMNS, because reading it
  * detoasts ranked_json per row: harmless for the 120 ids /favorites and the
@@ -214,23 +211,25 @@ export async function searchPlayersByUsername(
  * for 500. The extracted string is all that crosses the wire either way — the
  * cost is server-side detoast, not egress.
  */
-const REGION_COALESCED = sql<
+const REGION_FROM_RANKED = sql<
   string | null
->`coalesce(${players.ladderRegion}, ${players.rankedJson}->>'region')`
+>`${players.rankedJson}->>'region'`
 
 const PLAYER_SCALAR_COLUMNS = {
   brawlhallaId: players.brawlhallaId,
   username: players.username,
   topLegendId: players.topLegendId,
-  // Coalesced, not the raw column: nothing populates `ladder_rating`
-  // (constraint #8), so projecting it bare handed every caller a null rating.
-  // /search sorts on this field, which put a pro pulled in by handle — the one
-  // result the searcher actually wanted — last, with no ELO shown.
-  // searchPlayersByUsername already projects it this way; this aligns the two.
-  // Safe in a SELECT list: the coalesce warning in #8 is about ORDER BY, where
-  // it defeats the index. Here it only fills in a value for rows already found.
-  ladderRating: sql<number | null>`coalesce(${players.rating}, ${players.ladderRating})`,
-  ladderRegion: players.ladderRegion,
+  // The denormalised season rating, plain. This used to be
+  // coalesce(rating, ladder_rating) against a column that was null for every
+  // row in the table; the coalesce is gone with it.
+  rating: players.rating,
+  // Cheap inline ints, and the two facts the possible-smurf reading needs
+  // (lib/profile/smurf.ts). Included so this projection is what its name says
+  // — every scalar column — which is what makes the `as PlayerRow` casts below
+  // true rather than merely unchecked.
+  level: players.level,
+  playtimeSeconds: players.playtimeSeconds,
+  statsSynced: players.statsSynced,
   guildId: players.guildId,
   guildName: players.guildName,
   guildCheckedAt: players.guildCheckedAt,
@@ -259,7 +258,7 @@ export async function getPlayersByIds(
       includeRankedJson
         ? { ...PLAYER_SCALAR_COLUMNS, rankedJson: players.rankedJson }
         : opts.withRegion
-          ? { ...PLAYER_SCALAR_COLUMNS, ladderRegion: REGION_COALESCED }
+          ? { ...PLAYER_SCALAR_COLUMNS, region: REGION_FROM_RANKED }
           : PLAYER_SCALAR_COLUMNS,
     )
     .from(players)
@@ -371,8 +370,8 @@ export async function searchPlayerSuggestions(
       id: players.brawlhallaId,
       username: players.username,
       topLegendId: players.topLegendId,
-      rating: sql<number | null>`coalesce(${players.rating}, ${players.ladderRating})`,
-      region: sql<string | null>`coalesce(${players.ladderRegion}, ${players.rankedJson}->>'region')`,
+      rating: players.rating,
+      region: REGION_FROM_RANKED,
     })
     .from(players)
     .where(ilike(players.username, `%${q}%`))
@@ -386,10 +385,9 @@ export async function searchPlayerSuggestions(
  *
  * Exists because pro-handle search resolves its matches to ids out of the
  * cached profiles map and then needs rows for them. `getPlayersByIds` can't
- * serve this: its scalar projection returns the raw `ladder_rating` column,
- * which nothing populates (constraint #8), so every pro hit would render
- * without an ELO. This projects the same `coalesce(rating, ladder_rating)` the
- * typeahead already uses.
+ * serve this: its scalar projection once returned the raw `ladder_rating`
+ * column, which nothing populated, so every pro hit rendered without an ELO.
+ * That column is gone; both paths project the denormalised `rating`.
  */
 export async function getPlayerSuggestionsByIds(
   ids: number[],
@@ -400,8 +398,8 @@ export async function getPlayerSuggestionsByIds(
       id: players.brawlhallaId,
       username: players.username,
       topLegendId: players.topLegendId,
-      rating: sql<number | null>`coalesce(${players.rating}, ${players.ladderRating})`,
-      region: sql<string | null>`coalesce(${players.ladderRegion}, ${players.rankedJson}->>'region')`,
+      rating: players.rating,
+      region: REGION_FROM_RANKED,
     })
     .from(players)
     .where(inArray(players.brawlhallaId, ids))

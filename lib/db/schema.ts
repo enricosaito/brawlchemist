@@ -32,19 +32,14 @@ export const players = pgTable("players", {
   /** Single legend with the most games played in the current ranked season. */
   topLegendId: integer("top_legend_id"),
   rankedJson: jsonb("ranked_json"),
-  /** Lightweight ladder snapshot from the search-index harvest (leaderboard
-   * walk): the player's 1v1 rating and region. Kept separate from rankedJson
-   * so name-only rows are searchable with rating/region shown, without a full
-   * /player/{id}/ranked fetch and without affecting the Valhallan aggregation
-   * (which keys off ranked_json). Both null until harvested. */
   /**
    * Season 1v1 rating, lifted out of ranked_json by upsertPlayerRanked.
    *
    * Exists so ordering never has to touch the blob: sorting on a ranked_json
    * expression detoasts the whole ~200MB column and measured 95s on the
-   * username search. ladder_rating was meant to serve this role, but only the
-   * search-index harvest writes it and nothing calls that harvest — it was
-   * null for all 91,088 rows, which left search results in physical order.
+   * username search. A `ladder_rating` column was meant to serve this role and
+   * never did — only an unreferenced harvest wrote it, so it was null for all
+   * 97,325 rows and left search results in physical order. It is gone.
    */
   rating: integer("rating"),
   /**
@@ -64,8 +59,6 @@ export const players = pgTable("players", {
   level: integer("level"),
   playtimeSeconds: integer("playtime_seconds"),
   statsSynced: timestamp("stats_synced", { withTimezone: true }),
-  ladderRating: integer("ladder_rating"),
-  ladderRegion: text("ladder_region"),
   /** The player's guild, discovered via GetPlayerGuild. `guildId` is null when
    * they have no guild; `guildCheckedAt` records the last lookup so the guild
    * discovery cron can skip recently-checked players. */
@@ -90,9 +83,6 @@ export const players = pgTable("players", {
       "gin",
       sql`${t.username} gin_trgm_ops`,
     ),
-    // Both search paths order by this scalar rather than a ranked_json
-    // expression — see the note in lib/sync/players.ts.
-    index("players_ladder_rating_idx").on(t.ladderRating.desc().nullsLast()),
     // Search orders by this; see the column comment.
     index("players_rating_idx").on(t.rating.desc().nullsLast()),
     // "Best players who main this legend", for Suggested Favorites.
@@ -110,7 +100,25 @@ export const players = pgTable("players", {
   ],
 )
 
-export type PlayerRow = typeof players.$inferSelect
+/**
+ * A players row as the app reads it.
+ *
+ * `region` is NOT a column — it is extracted from `ranked_json` and only
+ * projected when a caller opts in with `withRegion`, because reading it
+ * detoasts the blob per row. It lives on this type rather than in each
+ * caller's own shape so the one place that knows how to derive it
+ * (PLAYER_SCALAR_COLUMNS) stays the only place that does.
+ *
+ * There were two real columns for this once, `ladder_rating` and
+ * `ladder_region`, written by a harvest that nothing ever called. They held 0
+ * non-null values across 97,325 rows and cost this project three separate bugs
+ * — a missing region pill on /favorites, a missing one on the admin People
+ * list, and a guild-discovery cron whose "order by rating" ranked nothing at
+ * all because every value it sorted on was null.
+ */
+export type PlayerRow = typeof players.$inferSelect & {
+  region?: string | null
+}
 export type PlayerInsert = typeof players.$inferInsert
 
 /**

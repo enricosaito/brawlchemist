@@ -113,10 +113,13 @@ export async function playersNeedingGuildCheck(limit: number): Promise<number[]>
       ),
     )
     // Ordering on a ranked_json expression detoasts the ~200 MB column for
-    // every candidate row. ladder_rating is the same ranking signal as a plain
-    // indexed int, and this runs on a cron that shares the database with live
-    // page renders.
-    .orderBy(sql`${players.ladderRating} desc nulls last`)
+    // every candidate row, so this sorts on the denormalised scalar instead.
+    //
+    // It used to sort on `ladder_rating`, which was null for all 97,325 rows —
+    // so "discover guilds for the highest-rated players first" picked them in
+    // whatever order the heap returned. `nulls last` matches
+    // players_rating_idx, which is `rating DESC NULLS LAST` (constraint #8).
+    .orderBy(sql`${players.rating} desc nulls last`)
     .limit(limit)
   return rows.map((r) => r.id)
 }

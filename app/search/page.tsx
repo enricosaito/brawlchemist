@@ -60,8 +60,8 @@ function PlayerResultRow({
   const slug = player.topLegendId ? slugForLegendId(player.topLegendId) : null
   // Fall back to the lightweight ladder snapshot for harvested-but-not-yet-
   // visited players (no rankedJson until their profile is opened).
-  const rating = ranked?.rating ?? player.ladderRating ?? undefined
-  const region = ranked?.region ?? player.ladderRegion ?? undefined
+  const rating = ranked?.rating ?? player.rating ?? undefined
+  const region = ranked?.region ?? player.region ?? undefined
   // Verified pros lead with their pro handle + badge regardless of whether the
   // search matched their handle or their in-game name; the IGN moves to the
   // meta line so the match stays recognizable.
@@ -193,10 +193,10 @@ export default async function SearchPage({
         }
       }
 
-      // searchPlayersByUsername collapses the season rating into ladderRating
+      // searchPlayersByUsername projects the denormalised season rating
       // (it no longer ships ranked_json), and getPlayersByIds rows carry the
       // harvested snapshot — so one scalar orders both sources.
-      const ratingOf = (p: PlayerRow) => p.ladderRating ?? -1
+      const ratingOf = (p: PlayerRow) => p.rating ?? -1
       results = [...byId.values()].sort((a, b) => ratingOf(b) - ratingOf(a))
     } catch (err) {
       console.error("[search] name/handle lookup failed:", err)
@@ -261,7 +261,7 @@ export default async function SearchPage({
                       preview={overrides?.get(p.brawlhallaId)}
                       tier={tierFromRating(
                         (p.rankedJson as PlayerRanked | null)?.rating ??
-                          p.ladderRating,
+                          p.rating,
                         valhallanIds.has(p.brawlhallaId),
                       )}
                       flairId={flairs.get(p.brawlhallaId)}

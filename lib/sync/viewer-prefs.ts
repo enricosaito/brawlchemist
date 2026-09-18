@@ -16,11 +16,10 @@ import { appUsers, players, profiles } from "@/lib/db/schema"
  *   2. The region of the player they've claimed. If you've proved you're a
  *      BRZ player, BRZ is the queue you care about — no setting required.
  *
- * Region comes from `players.ladder_region` first, falling back to
- * `ranked_json->>'region'`. The cheap scalar alone isn't enough in practice:
- * it's only written by the leaderboard harvest, and every claimed profile
- * checked had it null while the blob had the right answer. Touching the blob
- * is fine *here* specifically — it's one row behind a primary key, behind a
+ * Region comes out of `ranked_json->>'region'`, which is the only place it
+ * has ever been — there was a cheap `ladder_region` scalar in front of this
+ * once, written by a harvest nothing called, and it was null for every row in
+ * the table. Touching the blob is fine *here* specifically — it's one row behind a primary key, behind a
  * five-minute cache, so /live re-rendering every 45 seconds doesn't repeat it.
  * Doing the same across a list of players would not be fine (constraint #2).
  *
@@ -37,7 +36,7 @@ export async function getViewerDefaultRegion(
         const [row] = await db()
           .select({
             prefRegion: appUsers.prefs,
-            claimedRegion: sql<string | null>`coalesce(${players.ladderRegion}, ${players.rankedJson}->>'region')`,
+            claimedRegion: sql<string | null>`${players.rankedJson}->>'region'`,
           })
           .from(profiles)
           .leftJoin(players, eq(players.brawlhallaId, profiles.brawlhallaId))

@@ -69,7 +69,7 @@ async function selfFacts(selfId: number): Promise<{
     .filter((id) => Number.isInteger(id) && id > 0 && id !== selfId)
 
   return {
-    region: row?.ladderRegion ?? ranked?.region ?? null,
+    region: row?.region ?? ranked?.region ?? null,
     mainLegendId: row?.topLegendId ?? null,
     teammateIds: [...new Set(teammateIds)],
   }
@@ -101,8 +101,8 @@ async function prosInRegion(
     withRegion: true,
   })
   return [...rows.values()]
-    .filter((p) => p.ladderRegion === region && p.ladderRating != null)
-    .sort((a, b) => (b.ladderRating ?? 0) - (a.ladderRating ?? 0))
+    .filter((p) => p.region === region && p.rating != null)
+    .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
     .map((p) => p.brawlhallaId)
 }
 
