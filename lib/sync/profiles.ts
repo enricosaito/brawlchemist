@@ -5,6 +5,7 @@ import { desc, eq, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
   appUsers,
+  esportsTitles as esportsTitlesTable,
   flairGrants,
   profiles,
   type ProfileRow,
@@ -122,9 +123,16 @@ function toPreview(
   row: ProfileRow,
   owner?: OwnerFacts,
   grants?: string[],
+  derivedTitles?: string[]
 ): PlayerPreview {
   const skin = parseSkin(row.favoriteSkin)
-  const esportsTitles = parseEsportsTitles(row.esportsTitles)
+  // Curated first, then anything derived it doesn't already say. The operator's
+  // wording wins on a collision: they typed it, and a machine-generated string
+  // that differs only in phrasing would read as two wins rather than one.
+  const curated = parseEsportsTitles(row.esportsTitles)
+  const esportsTitles = derivedTitles?.length
+    ? [...curated, ...derivedTitles.filter((t) => !curated.includes(t))]
+    : curated
   return {
     favoriteSkin: skin ?? undefined,
     verified: row.isPro ? { handle: row.handle ?? "" } : undefined,
@@ -193,6 +201,31 @@ const getProfilesObject = unstable_cache(
         console.error("[profiles] flair grants read failed:", err)
         return new Map<number, string[]>()
       })
+    // Championship wins read off Challengermode placements
+    // (scripts/sync-esports-titles.mjs). Caught on its own for the same reason
+    // the grants read is: a table that cannot be read must cost a title, never
+    // every profile on the site.
+    const derivedPromise = db()
+      .select({
+        brawlhallaId: esportsTitlesTable.brawlhallaId,
+        title: esportsTitlesTable.title,
+      })
+      .from(esportsTitlesTable)
+      .then((rows) => {
+        const map = new Map<number, string[]>()
+        for (const t of rows) {
+          const list = map.get(t.brawlhallaId)
+          if (list) list.push(t.title)
+          else map.set(t.brawlhallaId, [t.title])
+        }
+        // Newest first, so a profile leads with the most recent win.
+        for (const list of map.values()) list.sort((a, b) => b.localeCompare(a))
+        return map
+      })
+      .catch((err) => {
+        console.error("[profiles] derived titles read failed:", err)
+        return new Map<number, string[]>()
+      })
     try {
       const [profileRows, userRows] = await Promise.all([
         db().select().from(profiles),
@@ -217,26 +250,27 @@ const getProfilesObject = unstable_cache(
             memberSince: u.createdAt,
             hasFavorites: !!u.hasFavorites,
           },
-        ]),
+        ])
       )
     } catch (err) {
       // Fail open — the UI renders fine without profiles.
       console.error("[profiles] read failed:", err)
       return {}
     }
-    const grants = await grantsPromise
+    const [grants, derived] = await Promise.all([grantsPromise, derivedPromise])
     const obj: Record<string, PlayerPreview> = {}
     for (const r of rows) {
       obj[String(r.brawlhallaId)] = toPreview(
         r,
         r.userId ? owners.get(r.userId) : undefined,
         grants.get(r.brawlhallaId),
+        derived.get(r.brawlhallaId)
       )
     }
     return obj
   },
   ["profiles-map"],
-  { tags: [TAG], revalidate: 3600 },
+  { tags: [TAG], revalidate: 3600 }
 )
 
 /** All profiles as a Map<brawlhallaId, PlayerPreview> (cached). */
@@ -249,7 +283,7 @@ export async function getProfilesMap(): Promise<Map<number, PlayerPreview>> {
 
 /** A single player's preview, or undefined (cached via the map). */
 export async function getProfile(
-  brawlhallaId: number,
+  brawlhallaId: number
 ): Promise<PlayerPreview | undefined> {
   return (await getProfilesMap()).get(brawlhallaId)
 }
@@ -265,7 +299,7 @@ export async function listProfiles(): Promise<ProfileRecord[]> {
 }
 
 export async function getProfileRecord(
-  brawlhallaId: number,
+  brawlhallaId: number
 ): Promise<ProfileRecord | null> {
   const [row] = await db()
     .select()
@@ -318,7 +352,7 @@ export async function deleteProfile(brawlhallaId: number): Promise<void> {
  */
 export async function setFavoriteSkin(
   brawlhallaId: number,
-  skin: FavoriteSkin | null,
+  skin: FavoriteSkin | null
 ): Promise<void> {
   const now = new Date()
   await db()
