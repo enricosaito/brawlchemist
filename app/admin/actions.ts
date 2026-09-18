@@ -8,6 +8,7 @@ import {
   addManualTitle,
   deleteTitle,
   deleteProfile,
+  setFavoriteSkin,
   upsertProfile,
   PROFILES_TAG,
   type ProfileInput,
@@ -68,48 +69,24 @@ function isUsableSkinSrc(src: string): boolean {
   return src.startsWith("/") || src.startsWith("https://")
 }
 
+/**
+ * Curation only: is this a verified pro, and what handle do we show.
+ *
+ * The favourite skin used to be saved here too, which put a field the *player*
+ * sets in the form an operator uses to assert things *about* them — and meant
+ * every curation save rewrote the player's choice. It moved to
+ * saveOwnerFieldsAction with the rest of what they author.
+ */
 export async function saveProfileAction(formData: FormData) {
   await requireAdmin()
 
   const id = Number(formData.get("brawlhallaId"))
   if (!Number.isInteger(id) || id <= 0) redirect("/admin?error=bad-id")
 
-  // A picked file wins over the pasted path: upload it to Vercel Blob and use
-  // the returned public URL as the skin src.
-  let skinSrc = String(formData.get("skinSrc") ?? "").trim()
-  const file = formData.get("skinFile")
-  if (file instanceof File && file.size > 0) {
-    // Nothing enforced the size guidance before, which mattered less when every
-    // skin was a ~100 KB still. An animated GIF is served whole and uncompressed
-    // — Next's optimizer detects animation and passes the file through
-    // untouched, which is what keeps it moving — so its full weight lands on
-    // every profile view, the leaderboard podium included.
-    if (file.size > MAX_SKIN_BYTES) {
-      redirect("/admin?error=skin-too-large")
-    }
-    try {
-      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
-      const blob = await put(`skins/${id}-${Date.now()}-${safe}`, file, {
-        access: "public",
-        addRandomSuffix: false,
-      })
-      skinSrc = blob.url
-    } catch (err) {
-      console.error("[admin] skin upload failed:", err)
-      redirect("/admin?error=upload")
-    }
-  }
-
-  if (skinSrc && !isUsableSkinSrc(skinSrc)) {
-    redirect("/admin?error=skin-src")
-  }
-
-  const skinName = String(formData.get("skinName") ?? "").trim()
   const input: ProfileInput = {
     brawlhallaId: id,
     isPro: formData.get("isPro") === "on",
     handle: String(formData.get("handle") ?? "").trim() || null,
-    favoriteSkin: skinSrc ? { src: skinSrc, name: skinName } : null,
   }
 
   await upsertProfile(input)
@@ -356,6 +333,35 @@ export async function saveOwnerFieldsAction(formData: FormData) {
   await setBanner(id, String(formData.get("bannerId") ?? ""))
   // "" parses to null, which means "show their best earned" rather than "none".
   await setFlair(id, String(formData.get("flairId") ?? ""))
+
+  // The favourite skin. An operator gets more reach here than the player does —
+  // the owner's picker only ever produces a wiki thumbnail URL, while this
+  // accepts any https path or an upload — because curating art for a pro is a
+  // thing we do and pointing a profile at an arbitrary host is not something we
+  // let a player do. A picked file wins over the pasted path.
+  let skinSrc = String(formData.get("skinSrc") ?? "").trim()
+  const file = formData.get("skinFile")
+  if (file instanceof File && file.size > 0) {
+    // An animated GIF is served whole and uncompressed — Next's optimizer
+    // detects animation and passes the file through untouched, which is what
+    // keeps it moving — so its full weight lands on every profile view, the
+    // leaderboard podium included.
+    if (file.size > MAX_SKIN_BYTES) redirect("/admin?error=skin-too-large")
+    try {
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
+      const blob = await put(`skins/${id}-${Date.now()}-${safe}`, file, {
+        access: "public",
+        addRandomSuffix: false,
+      })
+      skinSrc = blob.url
+    } catch (err) {
+      console.error("[admin] skin upload failed:", err)
+      redirect("/admin?error=upload")
+    }
+  }
+  if (skinSrc && !isUsableSkinSrc(skinSrc)) redirect("/admin?error=skin-src")
+  const skinName = String(formData.get("skinName") ?? "").trim()
+  await setFavoriteSkin(id, skinSrc ? { src: skinSrc, name: skinName } : null)
 
   redirect(`/admin?tab=people&edit=${id}&ownersaved=1`)
 }
