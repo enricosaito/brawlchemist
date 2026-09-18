@@ -110,6 +110,27 @@ export function tierFromRating(
   return "Tin"
 }
 
+/**
+ * The ladder's own tier string, reduced to one of the seven we model.
+ *
+ * The leaderboard suffixes a division ("Gold 3", "Platinum 1"), so the base
+ * word is the tier. Anything else — "Fallen Valhallan", or a label the game
+ * adds tomorrow — returns null, and the surface decides what to draw for a
+ * rating it cannot name (see RankIcon and RankHelm, which both fall back to
+ * the rating).
+ *
+ * There were three private copies of this, one per list view, and they had
+ * already drifted: the home Top Pros card compared the whole string, so every
+ * "Gold 3" on it resolved to null and drew no helm at all.
+ */
+export function toTier(value: string | null): Tier | null {
+  if (!value) return null
+  const base = value.split(" ")[0]
+  return (KNOWN_TIERS as readonly string[]).includes(base)
+    ? (base as Tier)
+    : null
+}
+
 export function deriveTier(
   apiTier: string | null,
   valhallan: boolean,

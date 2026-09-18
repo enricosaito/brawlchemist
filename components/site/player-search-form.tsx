@@ -13,6 +13,7 @@ import {
   type RecentVisit,
 } from "@/lib/recent-visits"
 import { VerifiedMark } from "./pro-badge"
+import { SmurfMark } from "./smurf-mark"
 import { FlairMark } from "./flair-mark"
 import { flairContextFrom } from "@/lib/profile/flair"
 import { RankHelm, RegionPill } from "./primitives"
@@ -357,6 +358,9 @@ export function PlayerSearchForm({
                               context={flairContextFrom(opt.result)}
                               className="h-3.5"
                             />
+                            {opt.result.smurf && (
+                              <SmurfMark className="size-3.5" />
+                            )}
                           </span>
                           {/* Region reads as a tag rather than as text in a
                               sub-line: colour-coded, it's scannable down the

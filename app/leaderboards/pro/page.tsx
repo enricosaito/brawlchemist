@@ -9,6 +9,7 @@ import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
+import { getSmurfIds } from "@/lib/sync/smurf"
 import type { PlayerRow } from "@/lib/db/schema"
 
 export const metadata = {
@@ -44,9 +45,13 @@ export default async function ProLeaderboardPage({
 
   // proBoard mode: show the pro handle + verified badge in the name, keep the
   // real Valhallan/Diamond tier in the subtext.
-  const [overrides, flairs] = await Promise.all([
+  const [overrides, flairs, smurfs] = await Promise.all([
     getProfilesMap(),
     getFlairMap(),
+    getSmurfIds().catch((err) => {
+      console.error("[pro-leaderboard] smurf ids failed:", err)
+      return new Set<number>()
+    }),
   ])
   // rankIsGlobalLadder stays false: this board ranks pros among themselves.
   const columns = buildLeaderboardColumns(
@@ -55,6 +60,7 @@ export default async function ProLeaderboardPage({
     region,
     overrides,
     flairs,
+    smurfs,
   )
 
   return (

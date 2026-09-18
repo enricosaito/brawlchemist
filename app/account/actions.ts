@@ -24,8 +24,8 @@ async function authedUserId(): Promise<string | null> {
 
 /**
  * Set the signed-in owner's header banner from their own public profile. Same
- * ownership gate as the bio editor — only the brawlhalla id this user actually
- * owns can be touched, so a forged request can't restyle someone else's page.
+ * ownership gate as everything else here — only the brawlhalla id this user
+ * actually owns can be touched, so a forged request can't restyle someone else's page.
  * Banner id validation (allow-list → default) happens in setBanner.
  */
 export async function saveBannerAction(
@@ -76,13 +76,13 @@ export async function saveFlairAction(
 }
 
 /**
- * Save bio, links and favourite legends together from the customizer panel.
- * The FormData variant above redirects (it backs a plain <form> on /account);
- * this returns a result so the panel can stay open and show its own state.
+ * Save links and favourite legends together from the customizer panel. Returns
+ * a result rather than redirecting, so the panel can stay open and show its own
+ * state.
  */
 export async function saveProfileFieldsAction(
   brawlhallaId: number,
-  input: { bio: string; socialLinks: SocialLink[]; favoriteLegendIds: number[] }
+  input: { socialLinks: SocialLink[]; favoriteLegendIds: number[] }
 ): Promise<{ ok: boolean; error?: "auth" | "forbidden" | "save" }> {
   const userId = await authedUserId()
   if (!userId) return { ok: false, error: "auth" }
@@ -90,8 +90,8 @@ export async function saveProfileFieldsAction(
   const owned = await getClaimedBrawlhallaId(userId)
   if (!owned || owned !== brawlhallaId) return { ok: false, error: "forbidden" }
 
-  // Verified pros only, for now. These three fields put free text and outbound
-  // links on a public page, so they stay with the accounts we have vetted. The
+  // Verified pros only, for now. These fields put outbound links on a public
+  // page, so they stay with the accounts we have vetted. The
   // panel hides them for everyone else; this is the half that actually decides,
   // since the panel is only the UI.
   const preview = await getProfile(brawlhallaId)

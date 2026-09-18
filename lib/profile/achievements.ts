@@ -118,7 +118,7 @@ export interface AchievementContext {
   hasFavorites?: boolean
   /**
    * The owner has changed something about how this profile looks — a banner, a
-   * flair, a bio, a link, a favourite legend.
+   * flair, a link, a favourite legend.
    *
    * Free to ask: the profile page already reads the customization row to render
    * the header, so this is a boolean over data in hand rather than a lookup.

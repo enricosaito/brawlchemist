@@ -4,6 +4,7 @@ import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
 import { flairContextFrom } from "@/lib/profile/flair"
 import { getFlairMap } from "@/lib/sync/customizations"
+import { getSmurfIds } from "@/lib/sync/smurf"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getSuggestedFavorites } from "@/lib/sync/suggestions"
@@ -14,6 +15,7 @@ import { FavoriteToggleControl } from "./favorite-toggle-control"
 import { FlairMark } from "./flair-mark"
 import { LegendChip, RankHelm, RegionPill } from "./primitives"
 import { VerifiedMark } from "./pro-badge"
+import { SmurfMark } from "./smurf-mark"
 
 /**
  * Suggested Favorites — the bottom of /favorites, for people who have run out
@@ -52,13 +54,14 @@ export async function SuggestedFavorites({
   // The same three enrichment reads the list above makes, all cached app-wide
   // and shared with /live and the leaderboards — so asking again costs nothing
   // and keeps this component self-contained.
-  const [playersMap, profiles, valhallan, flairs] = await Promise.all([
+  const [playersMap, profiles, valhallan, flairs, smurfs] = await Promise.all([
     getPlayersByIds(ids, { includeRankedJson: false, withRegion: true }),
     getProfilesMap(),
     getValhallanIds("1v1")
       .then((v) => new Set(v))
       .catch(() => new Set<number>()),
     getFlairMap().catch(() => new Map<number, string>()),
+    getSmurfIds().catch(() => new Set<number>()),
   ])
 
   return (
@@ -124,6 +127,7 @@ export async function SuggestedFavorites({
                             selectedId={flairs.get(id)}
                             context={flairContextFrom(preview)}
                           />
+                          {smurfs.has(id) && <SmurfMark />}
                         </span>
                       </div>
                       <div className="flex shrink-0 items-center gap-3">

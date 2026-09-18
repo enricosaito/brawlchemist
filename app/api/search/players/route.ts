@@ -5,6 +5,7 @@ import {
 } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
+import { getSmurfIds } from "@/lib/sync/smurf"
 import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import { tierFromRating } from "@/lib/tier"
 import { slugForLegendId } from "@/lib/legends-roster"
@@ -101,7 +102,7 @@ export async function GET(req: Request) {
     // a helm or a badge is never worth a 500 on the search box. Valhallan has
     // to come from ladder membership rather than a rating threshold; below it
     // the bands are fixed (see lib/tier.ts).
-    const [valhallan, flairs] = await Promise.all([
+    const [valhallan, flairs, smurfs] = await Promise.all([
       getValhallanIds("1v1")
         .then((ids) => new Set(ids))
         .catch((err) => {
@@ -111,6 +112,10 @@ export async function GET(req: Request) {
       getFlairMap().catch((err) => {
         console.error("[api/search/players] flair map failed:", err)
         return new Map<number, string>()
+      }),
+      getSmurfIds().catch((err) => {
+        console.error("[api/search/players] smurf ids failed:", err)
+        return new Set<number>()
       }),
     ])
 
@@ -133,6 +138,9 @@ export async function GET(req: Request) {
       flairId: flairs.get(p.id) ?? null,
       esportsTitles: profiles.get(p.id)?.esportsTitles,
       developer: profiles.get(p.id)?.developer,
+      // Omitted rather than false for everyone else — this is a handful of
+      // players out of ~90k, and the payload is a keystroke's worth of JSON.
+      smurf: smurfs.has(p.id) || undefined,
     }))
     return Response.json({ results }, { headers })
   } catch (err) {

@@ -39,7 +39,6 @@ const LEGEND_OPTIONS = [...LEGEND_ROSTER].sort((a, b) =>
   a.name.localeCompare(b.name)
 )
 
-const BIO_MAX = 280
 const FAVORITE_SLOTS = 3
 
 function errorText(error?: "auth" | "forbidden" | "save"): string {
@@ -55,11 +54,10 @@ function errorText(error?: "auth" | "forbidden" | "save"): string {
  * profile, opened from the header of the profile it edits.
  *
  * Editing happens over the thing being edited rather than on a settings page,
- * because every axis here is visual: a banner wash, a badge, a quote. Choosing
+ * because every axis here is visual: a banner wash, a badge, a skin. Choosing
  * them against a preview of someone else's idea of your page is guesswork.
- * Banner and flair save on click and refresh in place, so the header behind the
- * panel updates as you pick; the text fields save together on submit, because
- * a half-typed bio is not a preference yet.
+ * Everything is local until Save, so trying three backgrounds writes nothing
+ * until you keep one.
  *
  * The server actions are the authority — this is only the UI half, and the
  * server wrapper sends it to nobody but the owner.
@@ -69,7 +67,6 @@ export function ProfileCustomizer({
   initialBannerId,
   initialFlairId,
   earnedFlairIds,
-  initialBio,
   initialSocialLinks,
   initialFavoriteLegendIds,
   initialFavoriteSkin,
@@ -83,14 +80,13 @@ export function ProfileCustomizer({
   initialFlairId: string | null
   /** Flair the player has actually earned; the rest render locked. */
   earnedFlairIds: FlairId[]
-  initialBio: string | null
   initialSocialLinks: SocialLink[]
   initialFavoriteLegendIds: number[]
   /** The stored favorite skin, as { src, name } — see lib/skins.ts. */
   initialFavoriteSkin: { src: string; name: string } | null
   /** Opens the picker on the legend they actually play. */
   mainLegendName?: string | null
-  /** Verified pro. Gates the free-text and outbound-link fields. */
+  /** Verified pro. Gates the outbound-link and favourite-legend fields. */
   isPro: boolean
   /**
    * Render as a page section instead of a floating panel.
@@ -118,7 +114,6 @@ export function ProfileCustomizer({
   const [flairId, setFlairId] = useState(initialFlairId)
   const [skin, setSkin] = useState(initialFavoriteSkin)
 
-  const [bio, setBio] = useState(initialBio ?? "")
   const [links, setLinks] = useState<Record<SocialKind, string>>(() => {
     const seed = {} as Record<SocialKind, string>
     for (const kind of SOCIAL_KINDS) seed[kind] = ""
@@ -135,8 +130,8 @@ export function ProfileCustomizer({
   const [saved, setSaved] = useState(false)
   const [pending, startTransition] = useTransition()
 
-  // Close on Escape. No outside-click close: this panel holds half-typed text,
-  // and losing a bio to a stray click is a worse failure than an extra click to
+  // Close on Escape. No outside-click close: this panel holds unsaved choices,
+  // and losing them to a stray click is a worse failure than an extra click to
   // dismiss.
   useEffect(() => {
     if (!open) return
@@ -173,7 +168,6 @@ export function ProfileCustomizer({
   /** The form as the server wants it. */
   function currentFields() {
     return {
-      bio,
       socialLinks: SOCIAL_KINDS.map((kind) => ({
         kind,
         url: links[kind].trim(),
@@ -192,7 +186,6 @@ export function ProfileCustomizer({
   const fieldsDirty =
     JSON.stringify(currentFields()) !==
     JSON.stringify({
-      bio: initialBio ?? "",
       socialLinks: initialSocialLinks
         .map((l) => ({ kind: l.kind, url: l.url.trim() }))
         .filter((l) => l.url.length > 0),
@@ -205,7 +198,7 @@ export function ProfileCustomizer({
   /**
    * Had they customized anything *before* this session opened the panel?
    *
-   * Same five things the achievement's rule tests, read off the initial props
+   * Same four things the achievement's rule tests, read off the initial props
    * rather than asked of the server. The client is the only place that still
    * knows the "before" state once the save lands — and asking the server would
    * mean a round trip to learn something already in hand. A null banner and a
@@ -213,7 +206,6 @@ export function ProfileCustomizer({
    * this false, which is what makes the unlock fire exactly once.
    */
   const wasCustomized =
-    !!initialBio ||
     initialSocialLinks.length > 0 ||
     initialFavoriteLegendIds.length > 0 ||
     initialBannerId !== null ||
@@ -293,7 +285,6 @@ export function ProfileCustomizer({
     setBannerId(initialBannerId ?? DEFAULT_BANNER_ID)
     setFlairId(initialFlairId)
     setSkin(initialFavoriteSkin)
-    setBio(initialBio ?? "")
     const seed = {} as Record<SocialKind, string>
     for (const kind of SOCIAL_KINDS) seed[kind] = ""
     for (const l of initialSocialLinks) seed[l.kind] = l.url
@@ -310,8 +301,6 @@ export function ProfileCustomizer({
   // disagreeing with the badge visible behind it.
   const shownFlairId =
     flairId ?? autoFlairId(earnedFlairIds, catalogue) ?? FLAIR_NONE
-
-  const bioLeft = BIO_MAX - bio.length
 
   const trigger = (
     <button
@@ -423,22 +412,12 @@ export function ProfileCustomizer({
         />
       </Section>
 
-      {/* Verified pros only, for now: free text and outbound links on a
-            public page stay with the accounts we have vetted. The server
-            action refuses these for everyone else regardless of what the
-            panel shows — this is the UI half. */}
+      {/* Verified pros only, for now: outbound links on a public page stay
+            with the accounts we have vetted. The server action refuses these
+            for everyone else regardless of what the panel shows — this is the
+            UI half. */}
       {isPro ? (
         <>
-          <Section label="Quote" hint={`${bioLeft} left`}>
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX))}
-              rows={3}
-              placeholder="Say something about yourself."
-              className="w-full resize-none rounded-md border border-border/60 bg-background/60 px-2.5 py-2 text-sm transition-colors outline-none focus:border-pink/60"
-            />
-          </Section>
-
           <Section label="Favorite legends">
             <div className="grid grid-cols-3 gap-2">
               {favorites.map((value, i) => (
@@ -485,7 +464,7 @@ export function ProfileCustomizer({
           </Section>
         </>
       ) : (
-        <Section label="Quote, legends and links">
+        <Section label="Legends and links">
           <Soon
             label="Pro only"
             icon={<BadgeCheck className="size-3 shrink-0 text-mystic" />}
@@ -494,10 +473,6 @@ export function ProfileCustomizer({
           </Soon>
         </Section>
       )}
-
-      <Section label="Favorite skin">
-        <Soon>Needs a skin catalogue before you can pick one.</Soon>
-      </Section>
 
       <Section label="Name color">
         <Soon>Coming soon.</Soon>

@@ -165,22 +165,54 @@ const RANK_HELM: Record<Tier, { src: string; width: number; height: number }> =
     Tin: { src: "/assets/ranks/tin-helm.png", width: 192, height: 140 },
   }
 
+/**
+ * The helm that rides beside a rating.
+ *
+ * Takes the rating as well as the tier because the tier can be unnameable: the
+ * ladder labels players who held Valhallan and fell out of the roster "Fallen
+ * Valhallan", which is none of the seven, so `toTier` returns null and this
+ * used to render nothing — a rating with no helm next to it, in a column where
+ * every other row has one.
+ *
+ * The fallback is the Diamond helm, and it is the honest one rather than a
+ * near-miss: there is no Fallen Valhallan helm to draw, and everyone in that
+ * state is above the Diamond floor and no longer on the roster, which is
+ * exactly what Diamond means. Promoting them to the Valhallan helm would claim
+ * a membership the ladder has already taken back. Below the floor the band is
+ * derived from the rating instead, which is exact.
+ *
+ * Same rule as RankIcon, which draws the game's own Fallen emblem where it has
+ * one. The two agree on when they don't know; they differ only in what art
+ * exists to say so.
+ */
 export function RankHelm({
   tier,
+  rating,
   className = "h-7",
 }: {
-  tier: Tier
+  /** Null when the ladder's label isn't one of the seven we model. */
+  tier: Tier | null
+  /** The fallback's only input. Without it an unknown tier still renders nothing. */
+  rating?: number | null
   /** Height utility; width follows the art's aspect ratio. */
   className?: string
 }) {
   // Still guarded: `tier` reaches some callers from stored JSON (live rows,
   // recent visits), where an unknown string is possible.
-  const helm = RANK_HELM[tier]
-  if (!helm) return null
+  const named = tier ? RANK_HELM[tier] : null
+  const resolved: Tier | null = named
+    ? tier
+    : rating == null
+      ? null
+      : rating >= TIER_FLOOR.Diamond
+        ? "Diamond"
+        : tierFromRating(rating)
+  const helm = resolved ? RANK_HELM[resolved] : null
+  if (!helm || !resolved) return null
   return (
     <Image
       src={helm.src}
-      alt={`${tier} helm`}
+      alt={`${resolved} helm`}
       width={helm.width}
       height={helm.height}
       unoptimized
