@@ -1,7 +1,6 @@
 import { FlairMark } from "@/components/site/flair-mark"
 import { VerifiedMark } from "@/components/site/pro-badge"
 import { SmurfMark } from "@/components/site/smurf-mark"
-import { cn } from "@/lib/utils"
 import { formatElo, formatPercent } from "@/lib/format"
 import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import {
@@ -10,7 +9,6 @@ import {
   RankIcon,
   RankHelm,
   RegionPill,
-  TIER_TEXT_COLOR,
   WeaponIcon,
 } from "@/components/site/primitives"
 import { type ColDef } from "@/components/site/data-table"
@@ -112,6 +110,15 @@ export function buildLeaderboardColumns(
       context={flairContextFrom(previews.get(id))}
     />
   )
+  // A cap, only where two names share a line. Side by side, a team's cell is as
+  // wide as BOTH names — "The Jokester + È INUTILE VIVERE PER SEMPRE" is forty
+  // characters of min-content, and min-content wins in an auto-layout table, so
+  // one team like that widened the whole board and pushed Win Rate off the
+  // edge. Bounding each name lets the ellipsis do the work instead of the
+  // table. 1v1 has one name and no such sum, so it keeps the room.
+  const nameClass =
+    gameMode === "2v2" ? "min-w-0 max-w-[150px] truncate" : "min-w-0 truncate"
+
   const regionColumn: ColDef<RankedEntry> = {
     id: "region",
     label: "Region",
@@ -154,10 +161,16 @@ export function buildLeaderboardColumns(
     {
       id: "main-legend",
       label: "Main",
-      width: "56px",
+      // Two chips need room to sit beside each other; one does not.
+      width: gameMode === "2v2" ? "80px" : "56px",
       align: "center",
+      // Side by side, never stacked. A 2v2 row is one row — the same height,
+      // the same columns and the same reading order as a 1v1 row — because it
+      // answers the same question about a different number of people. Stacking
+      // made every team two lines tall and made the board look like a different
+      // table rather than the same one with a partner in it.
       render: (r) => (
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex items-center justify-center gap-1">
           {r.players.map((p) => {
             const lid = playersMap.get(p.id)?.topLegendId
             const slug = lid ? slugForLegendId(lid) : null
@@ -193,29 +206,40 @@ export function buildLeaderboardColumns(
         // hover was a second copy of an identity the row had already
         // established. Pros are known by their handle — that's the name.
         return (
-          <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex min-w-0 items-center gap-1.5">
             {r.players.length > 0 ? (
-              r.players.map((p) => {
+              r.players.map((p, i) => {
                 const handle = previews.get(p.id)?.verified?.handle
                 return (
                   <span
                     key={p.id}
-                    className="flex min-w-0 items-baseline gap-2"
+                    className="flex min-w-0 items-center gap-1.5"
                   >
+                    {/* "+" rather than a rule or a gap: these two are not two
+                        entries, they are one team, and it is the same join the
+                        podium already uses for the same pair. */}
+                    {i > 0 && (
+                      <span
+                        aria-hidden
+                        className="shrink-0 font-mono text-xs text-muted-foreground/60"
+                      >
+                        +
+                      </span>
+                    )}
                     <PlayerLink
                       id={p.id}
                       className="min-w-0 text-[15px] leading-5 font-semibold"
                     >
                       {handle ? (
                         <span className="inline-flex min-w-0 items-center gap-1">
-                          <span className="min-w-0 truncate">{handle}</span>
+                          <span className={nameClass}>{handle}</span>
                           <VerifiedMark />
                           {flairFor(p.id)}
                           {smurfs.has(p.id) && <SmurfMark />}
                         </span>
                       ) : (
                         <span className="inline-flex min-w-0 items-center gap-1">
-                          <span className="min-w-0 truncate">{p.username}</span>
+                          <span className={nameClass}>{p.username}</span>
                           {flairFor(p.id)}
                           {smurfs.has(p.id) && <SmurfMark />}
                         </span>
@@ -310,19 +334,28 @@ export function buildLeaderboardColumns(
           },
         }
       : {
-          id: "tier",
-          label: "Tier",
-          width: "110px",
+          // Games, where the textual tier used to be. The tier was the one cell
+          // on the row that said nothing new: the emblem two columns left and
+          // the helm beside the rating both already say it, in colour, and
+          // spelling "VALHALLAN" a third time crowded out the one thing a team
+          // board cannot otherwise tell you — how much they have actually
+          // played together. A 2,400 rating over 60 games and over 600 are
+          // different claims.
+          id: "games",
+          label: "Games",
+          align: "right",
+          width: "90px",
           render: (r) => {
-            const tier = toTier(r.tier)
+            // Not on the payload; wins and losses are, and either can be null.
+            // Both null means the season is inaccessible, which is a dash — not
+            // zero, which would read as "played none".
+            const games =
+              r.wins == null && r.losses == null
+                ? null
+                : (r.wins ?? 0) + (r.losses ?? 0)
             return (
-              <span
-                className={cn(
-                  "font-mono text-[11px] font-medium tracking-wider uppercase",
-                  tier ? TIER_TEXT_COLOR[tier] : "text-muted-foreground"
-                )}
-              >
-                {r.tier ?? "—"}
+              <span className="font-mono text-sm text-muted-foreground tabular-nums">
+                {games?.toLocaleString() ?? "—"}
               </span>
             )
           },
@@ -344,7 +377,11 @@ export function buildLeaderboardColumns(
       align: "right",
       width: "110px",
       render: (r) => (
-        <span className="font-mono text-xs text-muted-foreground tabular-nums">
+        // nowrap: "502 – 151" is one figure, not three tokens. The column is a
+        // hint rather than a rule in an auto-layout table, so a wider neighbour
+        // could break the record across two lines — which silently made every
+        // row on that board taller than the same row on another one.
+        <span className="font-mono text-xs whitespace-nowrap text-muted-foreground tabular-nums">
           <span className="text-positive">{r.wins ?? "—"}</span>
           <span className="px-1 opacity-60">–</span>
           <span className="text-negative">{r.losses ?? "—"}</span>
