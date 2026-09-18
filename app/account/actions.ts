@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { getClaimedBrawlhallaId } from "@/lib/sync/claims"
 import { getProfile, setFavoriteSkin } from "@/lib/sync/profiles"
 import {
+  getCustomizationRecord,
   setBanner,
   setFlair,
   upsertCustomization,
@@ -90,15 +91,25 @@ export async function saveProfileFieldsAction(
   const owned = await getClaimedBrawlhallaId(userId)
   if (!owned || owned !== brawlhallaId) return { ok: false, error: "forbidden" }
 
-  // Verified pros only, for now. These fields put outbound links on a public
-  // page, so they stay with the accounts we have vetted. The
-  // panel hides them for everyone else; this is the half that actually decides,
-  // since the panel is only the UI.
+  // Favourite legends are open to everyone: a pick from a fixed roster has no
+  // text to moderate and no link to follow. Only the links are gated, and only
+  // to accounts we can hold responsible for what they point at — verified pros
+  // and developers. The panel hides them for everyone else; this is the half
+  // that actually decides, since the panel is only the UI.
+  //
+  // Not entitled means "cannot change these", not "these are now empty".
+  // Writing [] here would let a failed profile read, or a pro whose
+  // verification lapsed, silently destroy links they had already saved — so the
+  // stored value is carried through instead, and the rest of the save lands
+  // normally rather than the whole thing being refused.
   const preview = await getProfile(brawlhallaId)
-  if (!preview?.verified) return { ok: false, error: "forbidden" }
+  const canEditLinks = !!preview?.verified || !!preview?.developer
 
   try {
-    await upsertCustomization(brawlhallaId, input)
+    const socialLinks = canEditLinks
+      ? input.socialLinks
+      : (await getCustomizationRecord(brawlhallaId)).socialLinks
+    await upsertCustomization(brawlhallaId, { ...input, socialLinks })
     revalidatePath(`/player/${brawlhallaId}`)
     return { ok: true }
   } catch (err) {

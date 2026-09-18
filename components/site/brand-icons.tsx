@@ -1,4 +1,3 @@
-import { Globe } from "lucide-react"
 import type { SocialKind } from "@/lib/profile/social"
 
 /**
@@ -66,8 +65,8 @@ export function SteamIcon({ className }: IconProps) {
 /**
  * The mark for a social kind.
  *
- * `website` has no brand, so it takes Lucide's globe — the one case where a
- * generic icon is the honest answer rather than a placeholder.
+ * Every kind is a brand now: the generic `website` kind is gone, because a
+ * glyph that means "somewhere" cannot be checked against where it goes.
  */
 export function SocialIcon({
   kind,
@@ -87,7 +86,5 @@ export function SocialIcon({
       return <DiscordIcon className={className} />
     case "steam":
       return <SteamIcon className={className} />
-    case "website":
-      return <Globe className={className} />
   }
 }

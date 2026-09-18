@@ -8,6 +8,25 @@ import { cn } from "@/lib/utils"
 import { useFlairCatalogue } from "./flair-catalogue"
 import { InfoTip } from "./info-tip"
 
+export interface PreviewSkinValue {
+  src: string
+  name: string
+}
+
+/**
+ * A favourite legend as the header draws it.
+ *
+ * Resolved names and slugs rather than roster ids, and that is the whole point:
+ * whoever holds the ids needs `LEGEND_ROSTER` to turn them into art, and the
+ * customizer already carries it. Passing ids instead would put all seventy
+ * legends into the bundle of every visitor who opens a profile, to serve a
+ * preview only the owner can ever trigger.
+ */
+export interface PreviewLegend {
+  name: string
+  slug: string
+}
+
 /**
  * Live preview of unsaved customizer choices, on the header the choices are
  * about.
@@ -29,8 +48,23 @@ interface PreviewState {
   bannerId: string | null
   /** Pending flair selection, or null for "show the saved one". */
   flairId: string | null
+  /**
+   * Pending favourite skin.
+   *
+   * Three states, not two, and the third is the reason this isn't just
+   * `Value | null`: `undefined` means "nothing pending, show the saved one",
+   * while `null` means "pending: no skin at all". Collapsing them would make
+   * clearing your skin the one change the preview could not show — the card
+   * would keep the old art until you saved and reloaded, which is exactly the
+   * moment you most want to see the result.
+   */
+  skin: PreviewSkinValue | null | undefined
+  /** Pending favourite legends, or null for "show the saved ones". */
+  favoriteLegends: PreviewLegend[] | null
   setBannerId: (id: string | null) => void
   setFlairId: (id: string | null) => void
+  setSkin: (skin: PreviewSkinValue | null | undefined) => void
+  setFavoriteLegends: (legends: PreviewLegend[] | null) => void
   /** Drop every pending value — Cancel, and after a save has landed. */
   reset: () => void
 }
@@ -49,18 +83,30 @@ export function ProfilePreviewProvider({
 }) {
   const [bannerId, setBannerId] = useState<string | null>(null)
   const [flairId, setFlairId] = useState<string | null>(null)
+  const [skin, setSkin] = useState<PreviewSkinValue | null | undefined>(
+    undefined
+  )
+  const [favoriteLegends, setFavoriteLegends] = useState<
+    PreviewLegend[] | null
+  >(null)
   const value = useMemo<PreviewState>(
     () => ({
       bannerId,
       flairId,
+      skin,
+      favoriteLegends,
       setBannerId,
       setFlairId,
+      setSkin,
+      setFavoriteLegends,
       reset: () => {
         setBannerId(null)
         setFlairId(null)
+        setSkin(undefined)
+        setFavoriteLegends(null)
       },
     }),
-    [bannerId, flairId]
+    [bannerId, flairId, skin, favoriteLegends]
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
@@ -87,6 +133,57 @@ export function PreviewBannerWash({ savedId }: { savedId: string | null }) {
         resolveBanner(id).wash
       )}
     />
+  )
+}
+
+/**
+ * The favourite skin behind the name, showing the pending pick when there is
+ * one.
+ *
+ * Anchored to the right half, clear of the name and tags, faded out below its
+ * midpoint so the lower half dissolves into the card instead of ending on a
+ * hard edge, and dropped to a wash so the name and tags keep their contrast.
+ * Hidden on phones, where there is no room beside the content for it to be a
+ * backdrop rather than clutter.
+ *
+ * `unoptimized`, like everything else here — the src is a wiki thumbnail
+ * already sized for this, and routing an unsaved third-party URL through the
+ * optimizer would make a preview depend on a network round-trip through our own
+ * server before it could show you what you just clicked.
+ */
+export function PreviewSkin({ saved }: { saved: PreviewSkinValue | null }) {
+  const preview = useProfilePreview()
+  // `undefined` means nothing pending; `null` means pending-none. Only the
+  // first falls through to the saved value.
+  const skin = preview?.skin === undefined ? saved : preview.skin
+  if (!skin?.src) return null
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 z-0 hidden overflow-hidden rounded-2xl sm:block"
+    >
+      <Image
+        // Keyed by src so swapping skins remounts the element rather than
+        // letting the browser paint the new art into the old one's box.
+        key={skin.src}
+        src={skin.src}
+        alt=""
+        width={364}
+        height={323}
+        unoptimized
+        className="absolute -top-10 right-4 h-[210%] w-auto max-w-none object-contain object-top opacity-[0.22] select-none"
+        style={{
+          // Two masks, intersected: the vertical one dissolves the lower half
+          // into the card, the horizontal one fades the figure out before it
+          // reaches the name and tags on the left. Webkit needs its own
+          // prefixed pair.
+          maskImage: "linear-gradient(to bottom, black 0%, black 34%, transparent 66%), linear-gradient(to left, black 45%, transparent 95%)",
+          maskComposite: "intersect",
+          WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 34%, transparent 66%), linear-gradient(to left, black 45%, transparent 95%)",
+          WebkitMaskComposite: "source-in",
+        }}
+      />
+    </div>
   )
 }
 

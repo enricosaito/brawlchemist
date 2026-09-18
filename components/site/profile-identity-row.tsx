@@ -1,8 +1,10 @@
+"use client"
+
 import Image from "next/image"
-import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import { SOCIAL_META, type SocialLink } from "@/lib/profile/social"
 import { SocialIcon } from "./brand-icons"
 import { InfoTip } from "./info-tip"
+import { useProfilePreview, type PreviewLegend } from "./profile-preview"
 
 /**
  * The mains-and-links row in the profile header.
@@ -18,21 +20,26 @@ import { InfoTip } from "./info-tip"
  * the label moves to the tooltip and the accessible name, which is where a
  * label belongs once the icon is recognisable. Same treatment as the sidebar's
  * own socials, and now literally the same icons.
+ *
+ * A client component only so the legends can show what the owner has picked but
+ * not yet saved. Links deliberately do not preview: they are free-text inputs,
+ * and repainting the header on every keystroke would flicker a row of glyphs
+ * through every half-typed URL. A legend is a discrete choice from a list, so
+ * there is a moment to react to; a URL is not one until you stop typing.
+ *
+ * It takes legends already resolved to name + slug rather than roster ids, so
+ * the roster itself never crosses the boundary — see PreviewLegend.
  */
 export function ProfileIdentityRow({
-  favoriteLegendIds,
+  favoriteLegends,
   socialLinks,
 }: {
-  favoriteLegendIds: number[]
+  favoriteLegends: PreviewLegend[]
   socialLinks: SocialLink[]
 }) {
-  const legends = favoriteLegendIds
-    .map((id) => {
-      const entry = rosterEntryByLegendId(id)
-      const slug = slugForLegendId(id)
-      return entry && slug ? { name: entry.name, slug } : null
-    })
-    .filter((l): l is { name: string; slug: string } => l !== null)
+  const preview = useProfilePreview()
+  // Null means nothing pending, which is the common case and every visitor's.
+  const legends = preview?.favoriteLegends ?? favoriteLegends
 
   if (legends.length === 0 && socialLinks.length === 0) return null
 

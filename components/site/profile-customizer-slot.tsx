@@ -34,6 +34,7 @@ export async function ProfileCustomizerSlot({
   // block swallows render-time errors that belong to an error boundary.
   let custom: Awaited<ReturnType<typeof getCustomization>>
   let isPro = false
+  let isDeveloper = false
   let favoriteSkin: { src: string; name: string } | null = null
   // Entitlement is resolved against the curated catalogue, not the built-in
   // pair, or a hand-granted badge would render on the profile and stay locked
@@ -49,6 +50,8 @@ export async function ProfileCustomizerSlot({
     // is why every surface that already draws a skin needs no change.
     const profile = await getProfile(brawlhallaId)
     isPro = !!profile?.verified
+    // Links only. Every other field in the panel is open to everyone.
+    isDeveloper = !!profile?.developer
     favoriteSkin = profile?.favoriteSkin ?? null
     catalogue = await getFlairCatalogue()
   } catch {
@@ -65,6 +68,7 @@ export async function ProfileCustomizerSlot({
       initialFavoriteLegendIds={custom.favoriteLegendIds}
       initialFavoriteSkin={favoriteSkin}
       isPro={isPro}
+      isDeveloper={isDeveloper}
       inline={inline}
       doneHref={doneHref}
     />
