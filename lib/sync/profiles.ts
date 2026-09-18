@@ -3,6 +3,7 @@ import "server-only"
 import { revalidateTag, unstable_cache } from "next/cache"
 import { desc, eq, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
+import { failOpen } from "@/lib/sync/fail-open"
 import {
   appUsers,
   esportsTitles as esportsTitlesTable,
@@ -253,9 +254,13 @@ const getProfilesObject = unstable_cache(
         ])
       )
     } catch (err) {
-      // Fail open — the UI renders fine without profiles.
+      // Rethrown, NOT swallowed. Returning {} here would be a successful
+      // return as far as unstable_cache is concerned, and it would serve that
+      // empty map as fact for the full hour — which is exactly the outage of
+      // 2026-09-18. The fail-open lives outside the cache now, in
+      // getProfilesMap; see lib/sync/fail-open.ts.
       console.error("[profiles] read failed:", err)
-      return {}
+      throw err
     }
     const [grants, derived] = await Promise.all([grantsPromise, derivedPromise])
     const obj: Record<string, PlayerPreview> = {}
@@ -269,13 +274,18 @@ const getProfilesObject = unstable_cache(
     }
     return obj
   },
-  ["profiles-map"],
+  // Key bumped once, deliberately: the entry under "profiles-map" was poisoned
+  // with {} on 2026-09-18 and the Data Cache survives a deploy, so shipping the
+  // fix alone would have left the outage in place for the rest of its hour.
+  // Changing the key orphans it. Do not bump this again for its own sake — the
+  // tag is how you invalidate; this is how you abandon.
+  ["profiles-map-v2"],
   { tags: [TAG], revalidate: 3600 }
 )
 
 /** All profiles as a Map<brawlhallaId, PlayerPreview> (cached). */
 export async function getProfilesMap(): Promise<Map<number, PlayerPreview>> {
-  const obj = await getProfilesObject()
+  const obj = await failOpen("[profiles]", getProfilesObject, {})
   const map = new Map<number, PlayerPreview>()
   for (const [k, v] of Object.entries(obj)) map.set(Number(k), v)
   return map

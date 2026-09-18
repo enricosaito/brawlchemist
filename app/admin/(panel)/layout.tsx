@@ -15,7 +15,7 @@ export default async function AdminPanelLayout({
   return (
     <div className="min-h-svh">
       <header className="border-b border-border/60 bg-card/40">
-        <div className="mx-auto flex max-w-[960px] items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-[1280px] items-center justify-between px-4 py-3">
           <Link href="/admin" className="font-display text-lg font-semibold">
             Brawlchemist Admin
           </Link>
@@ -38,7 +38,10 @@ export default async function AdminPanelLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-[960px] px-4 py-8">{children}</main>
+      {/* 1280px, the same container every data page on the site uses. The
+          panel was 960 while it was a column of stacked cards; once Users
+          became a table that width clipped its own last column. */}
+      <main className="mx-auto max-w-[1280px] px-4 py-8">{children}</main>
     </div>
   )
 }

@@ -3,6 +3,7 @@ import "server-only"
 import { revalidateTag, unstable_cache } from "next/cache"
 import { eq, isNotNull } from "drizzle-orm"
 import { db } from "@/lib/db"
+import { failOpen } from "@/lib/sync/fail-open"
 import { userCustomizations, type UserCustomizationRow } from "@/lib/db/schema"
 import { rosterEntryByLegendId } from "@/lib/legends-roster"
 import { DEFAULT_BANNER_ID, isValidBannerId } from "@/lib/profile/banners"
@@ -149,23 +150,21 @@ export function normalizeInput(
 export async function getCustomization(
   brawlhallaId: number
 ): Promise<Customization> {
-  return unstable_cache(
+  const read = unstable_cache(
     async (): Promise<Customization> => {
-      try {
-        const [row] = await db()
-          .select()
-          .from(userCustomizations)
-          .where(eq(userCustomizations.brawlhallaId, brawlhallaId))
-          .limit(1)
-        return row ? toCustomization(row) : EMPTY
-      } catch (err) {
-        console.error("[customizations] read failed:", err)
-        return EMPTY
-      }
+      const [row] = await db()
+        .select()
+        .from(userCustomizations)
+        .where(eq(userCustomizations.brawlhallaId, brawlhallaId))
+        .limit(1)
+      return row ? toCustomization(row) : EMPTY
     },
     ["customization", String(brawlhallaId)],
     { tags: [customizationTag(brawlhallaId)], revalidate: 300 }
-  )()
+  )
+  // Note the empty ROW case still caches, and should: "this player has set
+  // nothing" is an answer. Only a failed read escapes the cache.
+  return failOpen(`[customizations ${brawlhallaId}]`, read, EMPTY)
 }
 
 /** Busted whenever anyone's flair changes — see getFlairMap. */
@@ -184,7 +183,6 @@ export const FLAIR_MAP_TAG = "flair-map"
  */
 const getFlairObject = unstable_cache(
   async (): Promise<Record<string, string>> => {
-    try {
       const rows = await db()
         .select({
           brawlhallaId: userCustomizations.brawlhallaId,
@@ -198,10 +196,6 @@ const getFlairObject = unstable_cache(
         if (parsed) out[String(r.brawlhallaId)] = parsed
       }
       return out
-    } catch (err) {
-      console.error("[customizations] flair map read failed:", err)
-      return {}
-    }
   },
   ["flair-map"],
   { tags: [FLAIR_MAP_TAG], revalidate: 300 }
@@ -210,7 +204,7 @@ const getFlairObject = unstable_cache(
 /** `unstable_cache` can't serialize a Map, so it caches an object and we
  * hydrate here (same shape as getProfilesMap). */
 export async function getFlairMap(): Promise<Map<number, string>> {
-  const obj = await getFlairObject()
+  const obj = await failOpen("[customizations] flair map", getFlairObject, {})
   const map = new Map<number, string>()
   for (const [k, v] of Object.entries(obj)) map.set(Number(k), v)
   return map
