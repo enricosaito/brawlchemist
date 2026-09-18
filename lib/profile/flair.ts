@@ -122,9 +122,14 @@ export function toFlairId(raw: string): string {
 /**
  * The catalogue the site ships with, and the floor every read falls back to.
  *
- * These two predate the `flairs` table and are seeded into it from the admin
- * panel; until that happens — and any time the read fails — they are what
- * renders, so a badge never disappears because a query did.
+ * Seeded into the `flairs` table from the admin panel; until that happens —
+ * and any time the read fails — they are what renders, so a badge never
+ * disappears because a query did.
+ *
+ * Adding one here does NOT make it appear on a site whose table is already
+ * seeded: the fallback is only consulted when the read comes back empty or
+ * throws. A new badge needs its row as well, or it exists in the code and
+ * nowhere anyone can see.
  */
 export const BUILTIN_FLAIRS: FlairDef[] = [
   {
@@ -154,6 +159,20 @@ export const BUILTIN_FLAIRS: FlairDef[] = [
     rule: "achievement",
     ruleValue: "world champion",
     sort: 20,
+  },
+  {
+    // Hand-awarded, because there is no fact on a player record that says
+    // "was here early" — the site keeps no history of who visited before what.
+    // `manual` is the rule for exactly that: a badge whose evidence lives in
+    // someone's memory rather than in a column.
+    id: "early-tester",
+    label: "Early Tester",
+    requirement: "Use Brawlchemist while it was still being built",
+    src: "/assets/flairs/flair-tester.png",
+    width: 544,
+    height: 719,
+    rule: "manual",
+    sort: 50,
   },
   {
     // Last, so it never outranks a badge someone had to do something for. It is

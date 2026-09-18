@@ -8,8 +8,8 @@ import { rosterEntryByLegendId } from "@/lib/legends-roster"
 import { DEFAULT_BANNER_ID, isValidBannerId } from "@/lib/profile/banners"
 import { FLAIR_NONE, isFlairIdShape } from "@/lib/profile/flair"
 import {
-  SOCIAL_KINDS,
-  type SocialKind,
+  isAllowedSocialUrl,
+  isSocialKind,
   type SocialLink,
 } from "@/lib/profile/social"
 
@@ -28,6 +28,7 @@ import {
 export {
   SOCIAL_KINDS,
   SOCIAL_META,
+  isAllowedSocialUrl,
   type SocialKind,
   type SocialLink,
 } from "@/lib/profile/social"
@@ -61,14 +62,14 @@ function customizationTag(brawlhallaId: number): string {
   return `customization-${brawlhallaId}`
 }
 
-function isHttpsUrl(value: string): boolean {
-  try {
-    return new URL(value).protocol === "https:"
-  } catch {
-    return false
-  }
-}
-
+/**
+ * Applied on the way OUT as well as in, which is the whole reason the rule can
+ * be tightened without a migration: a row written before the host check existed
+ * — the porn link filed under `website`, and anything else that would fail it
+ * today — simply stops being returned, so it stops rendering the moment this
+ * deploys rather than waiting on a cleanup script. Same shape as repairJson:
+ * validate at the edge you control, on both edges.
+ */
 function parseSocialLinks(value: unknown): SocialLink[] {
   if (!Array.isArray(value)) return []
   const out: SocialLink[] = []
@@ -76,13 +77,12 @@ function parseSocialLinks(value: unknown): SocialLink[] {
     if (!raw || typeof raw !== "object") continue
     const { kind, url } = raw as { kind?: unknown; url?: unknown }
     if (
-      typeof kind === "string" &&
-      (SOCIAL_KINDS as readonly string[]).includes(kind) &&
+      isSocialKind(kind) &&
       typeof url === "string" &&
       url.length <= URL_MAX &&
-      isHttpsUrl(url)
+      isAllowedSocialUrl(kind, url)
     ) {
-      out.push({ kind: kind as SocialKind, url })
+      out.push({ kind, url })
     }
     if (out.length >= MAX_LINKS) break
   }

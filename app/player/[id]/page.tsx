@@ -48,6 +48,7 @@ import { resolveGems } from "@/lib/profile/gems"
 import {
   PreviewBannerWash,
   PreviewFlair,
+  PreviewSkin,
   ProfilePreviewProvider,
 } from "@/components/site/profile-preview"
 import { getSessionUser } from "@/lib/auth/session"
@@ -1472,38 +1473,9 @@ function ProfileHeader({
               tooltips can extend past its edges. */}
           <PreviewBannerWash savedId={bannerId ?? null} />
           {/* Favourite skin as the banner's backdrop rather than a figure
-              standing beside it. Anchored to the right half, clear of the name
-              and tags, faded out below its midpoint
-              so the lower half dissolves into the card instead of ending on a
-              hard edge, and dropped to a wash so the name and tags keep their
-              contrast. Hidden on phones, where there is no room to the side of
-              the content for it to be a backdrop rather than clutter. */}
-          {preview?.favoriteSkin && (
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 z-0 hidden overflow-hidden rounded-2xl sm:block"
-            >
-              <Image
-                src={preview.favoriteSkin.src}
-                alt=""
-                width={364}
-                height={323}
-                className="absolute -top-10 right-4 h-[210%] w-auto max-w-none object-contain object-top opacity-[0.22] select-none"
-                style={{
-                  // Two masks, intersected: the vertical one dissolves the
-                  // lower half into the card, the horizontal one fades the
-                  // figure out before it reaches the name and tags on the
-                  // left. Webkit needs its own prefixed pair.
-                  maskImage:
-                    "linear-gradient(to bottom, black 0%, black 34%, transparent 66%), linear-gradient(to left, black 45%, transparent 95%)",
-                  maskComposite: "intersect",
-                  WebkitMaskImage:
-                    "linear-gradient(to bottom, black 0%, black 34%, transparent 66%), linear-gradient(to left, black 45%, transparent 95%)",
-                  WebkitMaskComposite: "source-in",
-                }}
-              />
-            </div>
-          )}
+              standing beside it. A client component so it can show the pick you
+              have not saved yet — see PreviewSkin. */}
+          <PreviewSkin saved={preview?.favoriteSkin ?? null} />
           {/* Not while editing. The editor below changes this card, so covering
               it with a scrim and a chip hides the one thing you need to see —
               and leaving means Done or Cancel, which the editor owns. */}
@@ -2316,6 +2288,17 @@ export default async function PlayerPage({
     claimed: preview?.claimed,
     smurf: possibleSmurf,
   }
+  // Resolved on the server, because the roster is the biggest thing the header
+  // would otherwise have to send to the browser and only the owner's unsaved
+  // preview ever needs to do this lookup client-side.
+  const favoriteLegends = customization.favoriteLegendIds
+    .map((id) => {
+      const entry = rosterEntryByLegendId(id)
+      const slug = slugForLegendId(id)
+      return entry && slug ? { name: entry.name, slug } : null
+    })
+    .filter((l): l is { name: string; slug: string } => l !== null)
+
   // The name the page titles with — a pro is known by their handle, so the
   // track card shouldn't call them something the heading never did.
   const trackName = preview?.verified?.handle || displayName
@@ -2372,7 +2355,7 @@ export default async function PlayerPage({
             earnedFlair={earnedFlair}
             identity={
               <ProfileIdentityRow
-                favoriteLegendIds={customization.favoriteLegendIds}
+                favoriteLegends={favoriteLegends}
                 socialLinks={customization.socialLinks}
               />
             }

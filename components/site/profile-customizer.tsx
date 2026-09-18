@@ -24,6 +24,8 @@ import { toastAchievement, toastSaved } from "./unlock-toast"
 import { useFlairCatalogue } from "./flair-catalogue"
 import { InfoTip } from "./info-tip"
 import {
+  isAllowedSocialUrl,
+  SOCIAL_HOSTS,
   SOCIAL_KINDS,
   SOCIAL_META,
   type SocialKind,
@@ -40,6 +42,32 @@ const LEGEND_OPTIONS = [...LEGEND_ROSTER].sort((a, b) =>
 )
 
 const FAVORITE_SLOTS = 3
+
+/**
+ * Links, in one canonical order, from the two places that hold them.
+ *
+ * The dirty check compares JSON, so order is meaning: the form emitted links in
+ * SOCIAL_KINDS order while the baseline used whatever order the row was stored
+ * in, and anyone whose stored order differed opened the panel to "Unsaved
+ * changes" and a Cancel button before touching anything. Both sides go through
+ * the same pair of functions now, so they cannot disagree about order again.
+ *
+ * It stopped being a curiosity the moment favourite legends left the pro gate:
+ * most of the accounts holding links are not pros, and every one of them now
+ * has a reason to open this panel.
+ */
+function seedLinks(list: SocialLink[]): Record<SocialKind, string> {
+  const seed = {} as Record<SocialKind, string>
+  for (const kind of SOCIAL_KINDS) seed[kind] = ""
+  for (const l of list) seed[l.kind] = l.url
+  return seed
+}
+
+function linksFromMap(map: Record<SocialKind, string>): SocialLink[] {
+  return SOCIAL_KINDS.map((kind) => ({ kind, url: map[kind].trim() })).filter(
+    (l) => l.url.length > 0
+  )
+}
 
 function errorText(error?: "auth" | "forbidden" | "save"): string {
   return error === "forbidden"
@@ -72,6 +100,7 @@ export function ProfileCustomizer({
   initialFavoriteSkin,
   mainLegendName,
   isPro,
+  isDeveloper = false,
   inline = false,
   doneHref,
 }: {
@@ -86,8 +115,14 @@ export function ProfileCustomizer({
   initialFavoriteSkin: { src: string; name: string } | null
   /** Opens the picker on the legend they actually play. */
   mainLegendName?: string | null
-  /** Verified pro. Gates the outbound-link and favourite-legend fields. */
+  /**
+   * Verified pro. Gates the outbound-link fields, and nothing else now —
+   * favourite legends are a choice from a fixed roster, so there is nothing to
+   * vet and no reason everyone shouldn't have them.
+   */
   isPro: boolean
+  /** Developer role. Links are for people we can hold responsible for them. */
+  isDeveloper?: boolean
   /**
    * Render as a page section instead of a floating panel.
    *
@@ -114,12 +149,9 @@ export function ProfileCustomizer({
   const [flairId, setFlairId] = useState(initialFlairId)
   const [skin, setSkin] = useState(initialFavoriteSkin)
 
-  const [links, setLinks] = useState<Record<SocialKind, string>>(() => {
-    const seed = {} as Record<SocialKind, string>
-    for (const kind of SOCIAL_KINDS) seed[kind] = ""
-    for (const l of initialSocialLinks) seed[l.kind] = l.url
-    return seed
-  })
+  const [links, setLinks] = useState<Record<SocialKind, string>>(() =>
+    seedLinks(initialSocialLinks)
+  )
   const [favorites, setFavorites] = useState<string[]>(() =>
     Array.from({ length: FAVORITE_SLOTS }, (_, i) =>
       String(initialFavoriteLegendIds[i] ?? "")
@@ -165,13 +197,46 @@ export function ProfileCustomizer({
     preview?.setFlairId(id)
   }
 
+  /**
+   * Every control here is local until Save, and every one of them also pushes
+   * its pending value onto the card above. The two go together: holding a
+   * change locally is what makes Cancel possible, and showing it on the header
+   * is what makes the change judgeable. A skin you cannot see until you commit
+   * to it is a setting you tune by saving four times.
+   *
+   * `null` is a real pending value for a skin (cleared), which is why the
+   * preview's skin slot is tri-state — see ProfilePreviewProvider.
+   */
+  function pickSkin(next: { src: string; name: string } | null) {
+    if (pending) return
+    setError(null)
+    setSaved(false)
+    setSkin(next)
+    preview?.setSkin(next)
+  }
+
+  function pickFavorites(next: string[]) {
+    if (pending) return
+    setError(null)
+    setSaved(false)
+    setFavorites(next)
+    // Resolved here, not in the header: this component already carries the
+    // roster for its own <select>, and the header would otherwise have to ship
+    // all seventy legends to every visitor to serve a preview only the owner
+    // can trigger. An empty slot is an empty string, and an id naming nothing
+    // is dropped rather than rendered as a hole.
+    preview?.setFavoriteLegends(
+      next
+        .map((v) => LEGEND_OPTIONS.find((o) => String(o.legendId) === v))
+        .filter((o) => !!o)
+        .map((o) => ({ name: o.name, slug: o.slug }))
+    )
+  }
+
   /** The form as the server wants it. */
   function currentFields() {
     return {
-      socialLinks: SOCIAL_KINDS.map((kind) => ({
-        kind,
-        url: links[kind].trim(),
-      })).filter((l) => l.url.length > 0),
+      socialLinks: linksFromMap(links),
       favoriteLegendIds: favorites
         .map((v) => Number.parseInt(v, 10))
         .filter((n) => Number.isInteger(n) && n > 0),
@@ -186,9 +251,7 @@ export function ProfileCustomizer({
   const fieldsDirty =
     JSON.stringify(currentFields()) !==
     JSON.stringify({
-      socialLinks: initialSocialLinks
-        .map((l) => ({ kind: l.kind, url: l.url.trim() }))
-        .filter((l) => l.url.length > 0),
+      socialLinks: linksFromMap(seedLinks(initialSocialLinks)),
       favoriteLegendIds: initialFavoriteLegendIds.filter(
         (n) => Number.isInteger(n) && n > 0
       ),
@@ -256,21 +319,37 @@ export function ProfileCustomizer({
       toastSaved("Profile saved")
       // First time this profile has been customized at all — the moment the
       // achievement is earned, announced from the click that earned it.
+      let unlocked = false
       if (!wasCustomized) {
         const def = ACHIEVEMENTS.find((a) => a.id === "customize-profile")
-        if (def) toastAchievement(def, brawlhallaId)
+        if (def) {
+          toastAchievement(def, brawlhallaId)
+          unlocked = true
+        }
       }
       // Deliberately NOT preview.reset() here. The preview holds exactly what
       // was just written, and the server hasn't re-rendered yet — dropping it
-      // now flashes the header back to the old banner for the length of a
-      // refresh before it snaps to the new one. Leaving it means the two agree
-      // the whole way through, and once the refresh lands the preview and the
-      // saved value are the same value. Cancel still resets, because there the
-      // preview and the server genuinely disagree.
-      router.refresh()
-      // Back to the profile: you have been watching the result the whole time,
-      // so there is nothing left to stay for.
-      if (inline && doneHref) router.push(doneHref)
+      // now flashes the header back to the old value for the length of a
+      // reload before it snaps to the new one. Leaving it means the two agree
+      // the whole way through, and the navigation below replaces the tree
+      // anyway. Cancel still resets, because there the preview and the server
+      // genuinely disagree.
+      //
+      // A full document load, not router.refresh() + router.push(): those two
+      // go through the client router, which serves the profile out of its own
+      // RSC cache for the entry it already had, so a save could land and the
+      // page you arrived back on still showed the old skin. Reloading is the
+      // one thing that cannot disagree with the server, and it costs a page
+      // load exactly once per save.
+      // ...but not instantly. A document load tears down the toast layer with
+      // everything else, and the unlock toast is the one thing on this page
+      // that only exists for a moment — announced at the click that earned it,
+      // never re-derived on a later render. Navigating the frame after it lands
+      // is the difference between an achievement being announced and being
+      // silently swallowed by the reload that followed it. The unlock fires
+      // once per account ever, so it gets the longer pause.
+      const href = inline && doneHref ? doneHref : window.location.href
+      window.setTimeout(() => window.location.assign(href), unlocked ? 2600 : 900)
     })
   }
 
@@ -285,10 +364,7 @@ export function ProfileCustomizer({
     setBannerId(initialBannerId ?? DEFAULT_BANNER_ID)
     setFlairId(initialFlairId)
     setSkin(initialFavoriteSkin)
-    const seed = {} as Record<SocialKind, string>
-    for (const kind of SOCIAL_KINDS) seed[kind] = ""
-    for (const l of initialSocialLinks) seed[l.kind] = l.url
-    setLinks(seed)
+    setLinks(seedLinks(initialSocialLinks))
     setFavorites(
       Array.from({ length: FAVORITE_SLOTS }, (_, i) =>
         String(initialFavoriteLegendIds[i] ?? "")
@@ -301,6 +377,20 @@ export function ProfileCustomizer({
   // disagreeing with the badge visible behind it.
   const shownFlairId =
     flairId ?? autoFlairId(earnedFlairIds, catalogue) ?? FLAIR_NONE
+
+  const canEditLinks = isPro || isDeveloper
+
+  /**
+   * Links that would not survive the write, named.
+   *
+   * `parseSocialLinks` drops anything pointing somewhere the kind doesn't
+   * name, and a link that vanishes on save with no explanation is how a rule
+   * gets read as a bug. Saying it here costs one derived array and turns a
+   * silent drop into an instruction.
+   */
+  const badLinks = SOCIAL_KINDS.filter(
+    (kind) => links[kind].trim() && !isAllowedSocialUrl(kind, links[kind].trim())
+  )
 
   const trigger = (
     <button
@@ -401,50 +491,50 @@ export function ProfileCustomizer({
         label="Favorite skin"
         hint="Shows behind your name. Pick a legend, then a skin."
       >
-        <SkinPicker
-          value={skin}
-          onChange={(next) => {
-            setError(null)
-            setSaved(false)
-            setSkin(next)
-          }}
-          defaultLegend={mainLegendName}
-        />
+        <SkinPicker value={skin} onChange={pickSkin} defaultLegend={mainLegendName} />
       </Section>
 
-      {/* Verified pros only, for now: outbound links on a public page stay
-            with the accounts we have vetted. The server action refuses these
-            for everyone else regardless of what the panel shows — this is the
-            UI half. */}
-      {isPro ? (
-        <>
-          <Section label="Favorite legends">
-            <div className="grid grid-cols-3 gap-2">
-              {favorites.map((value, i) => (
-                <select
-                  key={i}
-                  value={value}
-                  onChange={(e) => {
-                    const next = [...favorites]
-                    next[i] = e.target.value
-                    setFavorites(next)
-                  }}
-                  className="min-w-0 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs transition-colors outline-none focus:border-pink/60"
-                >
-                  <option value="">—</option>
-                  {LEGEND_OPTIONS.map((o) => (
-                    <option key={o.legendId} value={o.legendId}>
-                      {o.name}
-                    </option>
-                  ))}
-                </select>
+      {/* Everyone. A favourite legend is a pick from a fixed roster — there is
+            no text to moderate and no link to follow, so there was never
+            anything for the pro gate to be protecting. It sat inside that gate
+            only because it happened to share a save action with the links. */}
+      <Section label="Favorite legends" hint="Up to three">
+        <div className="grid grid-cols-3 gap-2">
+          {favorites.map((value, i) => (
+            <select
+              key={i}
+              value={value}
+              onChange={(e) => {
+                const next = [...favorites]
+                next[i] = e.target.value
+                pickFavorites(next)
+              }}
+              aria-label={`Favourite legend ${i + 1}`}
+              className="min-w-0 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs transition-colors outline-none focus:border-pink/60"
+            >
+              <option value="">—</option>
+              {LEGEND_OPTIONS.map((o) => (
+                <option key={o.legendId} value={o.legendId}>
+                  {o.name}
+                </option>
               ))}
-            </div>
-          </Section>
+            </select>
+          ))}
+        </div>
+      </Section>
 
-          <Section label="Links" hint="https only">
-            <div className="space-y-1.5">
-              {SOCIAL_KINDS.map((kind) => (
+      {/* Links are the one thing here that puts an outbound URL on a public
+            page, so they stay with accounts we can hold responsible for them:
+            verified pros and developers. The server action drops them for
+            everyone else regardless of what this panel shows — that is the
+            half that decides; this is only the UI. */}
+      {canEditLinks ? (
+        <Section label="Links" hint="the real thing only">
+          <div className="space-y-1.5">
+            {SOCIAL_KINDS.map((kind) => {
+              const value = links[kind].trim()
+              const bad = !!value && !isAllowedSocialUrl(kind, value)
+              return (
                 <div key={kind} className="flex items-center gap-2">
                   <span className="w-20 shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
                     {SOCIAL_META[kind].label}
@@ -455,21 +545,34 @@ export function ProfileCustomizer({
                     onChange={(e) =>
                       setLinks({ ...links, [kind]: e.target.value })
                     }
+                    aria-invalid={bad}
                     placeholder={SOCIAL_META[kind].placeholder}
-                    className="min-w-0 flex-1 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs transition-colors outline-none focus:border-pink/60"
+                    className={cn(
+                      "min-w-0 flex-1 rounded-md border bg-background/60 px-2 py-1.5 text-xs transition-colors outline-none",
+                      bad
+                        ? "border-negative/60 focus:border-negative"
+                        : "border-border/60 focus:border-pink/60"
+                    )}
                   />
                 </div>
-              ))}
-            </div>
-          </Section>
-        </>
+              )
+            })}
+          </div>
+          {badLinks.length > 0 && (
+            <p className="mt-2 text-[11px] leading-relaxed text-negative">
+              {badLinks.length === 1
+                ? `Your ${SOCIAL_META[badLinks[0]].label} link has to point at ${SOCIAL_HOSTS[badLinks[0]].join(" or ")}.`
+                : "Each link has to point at the site it names — they won't be saved otherwise."}
+            </p>
+          )}
+        </Section>
       ) : (
-        <Section label="Legends and links">
+        <Section label="Links">
           <Soon
             label="Pro only"
             icon={<BadgeCheck className="size-3 shrink-0 text-mystic" />}
           >
-            Available to verified pro players for now.
+            Available to verified pro players.
           </Soon>
         </Section>
       )}
