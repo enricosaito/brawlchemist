@@ -11,11 +11,19 @@ import type { PrRegion } from "./brawltools-api"
  * played. So the views are split by how often they are asked for, not by how
  * they are stored:
  *
- *   TYPE   the three people come here for
- *   OTHER  everything else, one click away rather than one row away
+ *   TYPE   the three people come here for, as a tablist
+ *   OTHER  everything else, behind one dropdown
  *
  * They are one mutually exclusive choice across two groups — picking from
  * OTHER clears TYPE and vice versa. Two groups, one selection.
+ *
+ * OTHER is a dropdown rather than a tablist because it holds more than the
+ * three views listed here: the leaderboard page appends every legend's mains
+ * board to it (see OtherFilter). A mains board is another slice of the same
+ * ladder, so it belongs in the same picker — but seventy-three of anything is
+ * not a row, and that is the only reason the two groups render differently.
+ * The views below are the ones that need a definition; a legend's board is
+ * derived from LEGEND_ROSTER and needs none.
  *
  * The pages behind them are NOT merged, and should not be. The ladder comes
  * from the Brawlhalla API keyed by brawlhalla_id; the power rankings come from
@@ -69,12 +77,18 @@ export const VIEWS: Record<ViewId, ViewDef> = {
   pr: { id: "pr", label: "Power Rankings", group: "type", board: "pr" },
   "solo-2v2": {
     id: "solo-2v2",
-    label: "Solo 2v2",
+    label: "Ranked Solo 2v2",
     group: "other",
     board: "ladder",
     mode: "solo_2v2",
   },
-  "3v3": { id: "3v3", label: "3v3", group: "other", board: "ladder", mode: "3v3" },
+  "3v3": {
+    id: "3v3",
+    label: "Ranked 3v3",
+    group: "other",
+    board: "ladder",
+    mode: "3v3",
+  },
   pros: {
     id: "pros",
     label: "Pros only",

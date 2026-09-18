@@ -32,8 +32,13 @@ export function ViewSwitch({
   group: ViewGroup
   /** Shown before the tabs. "Type", or whatever the group is called here. */
   label: string
-  /** The active view, which may belong to the *other* group — then nothing lights. */
-  current: ViewId
+  /**
+   * The active view. It may belong to the *other* group, or be null when the
+   * selection is something this vocabulary has no id for — a legend's mains
+   * board. Either way nothing here lights, which is the point: two groups,
+   * one selection.
+   */
+  current: ViewId | null
   /** The current region, in whichever vocabulary the current page speaks. */
   region: string
   /** The mode currently shown, so Power Rankings can carry 1v1 vs 2v2 across. */
@@ -41,9 +46,9 @@ export function ViewSwitch({
   className?: string
 }) {
   // Normalise once, so each link can be built in its target's own terms.
-  const onPr = VIEWS_IN_GROUP.type.concat(VIEWS_IN_GROUP.other).some(
-    (v) => v.id === current && v.board === "pr"
-  )
+  const onPr = VIEWS_IN_GROUP.type
+    .concat(VIEWS_IN_GROUP.other)
+    .some((v) => v.id === current && v.board === "pr")
   const apiRegion = onPr ? prToApiRegion(region) : region
   const prRegion = onPr ? region : apiToPrRegion(region)
 
@@ -77,7 +82,11 @@ export function ViewSwitch({
             aria-selected={current === view.id}
             href={hrefFor(view)}
             className={cn(
-              "rounded-md px-2 py-1 font-mono text-xs tracking-wider whitespace-nowrap uppercase transition-colors",
+              // Roomier than the pickers beside it on purpose. These three
+              // are the boards the site is for, and giving each tab its own
+              // space is the cheapest way to say so in a row where everything
+              // else is a compact control.
+              "rounded-md px-3 py-1 font-mono text-xs tracking-wider whitespace-nowrap uppercase transition-colors",
               current === view.id
                 ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
                 : "text-muted-foreground hover:text-foreground"

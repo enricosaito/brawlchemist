@@ -17,14 +17,13 @@ import { cn } from "@/lib/utils"
  *
  * Navigation stays URL-driven (Link hrefs) so deep links and back/forward work
  * and the server re-renders the board, and no function props cross the boundary
- * — same contract as LegendFilter.
+ * — same contract as OtherFilter.
  *
  * The menu is always in the DOM and merely `hidden` when closed, which is the
- * one place this departs from LegendFilter. Rendering it conditionally would
- * take ten internal links per leaderboard out of the HTML, and the crawlers
- * that reach these boards are ones we want indexing them (cardinal constraint
- * #3). Ten list items is nothing; seventy legends would be, which is why the
- * legend picker still mounts on open.
+ * one place this departs from a mount-on-open menu. Rendering it conditionally
+ * would take ten internal links per leaderboard out of the HTML, and the
+ * crawlers that reach these boards are ones we want indexing them (cardinal
+ * constraint #3). OtherFilter makes the same call for the same reason.
  */
 export function RegionFilter({
   regions,

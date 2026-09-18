@@ -368,6 +368,10 @@ export function selectableFlairs(
  * are flying, so it is appended rather than competing for the slot. A linked
  * account that has earned nothing else shows it alone, because the badge it
  * would otherwise fly *is* the membership badge and one is enough.
+ *
+ * It is also the one badge "None" cannot take away, for the same reason: None
+ * is a choice about what you fly, and membership is not one of the things you
+ * are choosing between.
  */
 export function resolveFlair(
   selectedId: string | null | undefined,
@@ -403,10 +407,16 @@ export function resolveEarnedFlairs(
   earned: FlairId[],
   catalogue: FlairDef[] = BUILTIN_FLAIRS
 ): FlairDef[] {
-  // An explicit None means none — including the membership badge. It is the one
-  // setting that says "draw nothing next to my name", and a badge that ignored
-  // it would make the setting a lie.
-  if (selectedId === FLAIR_NONE) return []
+  // An explicit None drops the badge you chose to fly. It does not drop the
+  // one that says you have an account here — that is not a flair you picked,
+  // it is what a linked profile *is*, derived on every render from
+  // profiles.userId and never stored as a selection. Letting None clear it made
+  // membership look optional and made two different states ("no account" and
+  // "account, badge off") render identically next to a name.
+  if (selectedId === FLAIR_NONE) {
+    const only = memberFlair(catalogue)
+    return only && earned.includes(only.id) ? [only] : []
+  }
   if (earned.length === 0) return []
 
   const chosen =

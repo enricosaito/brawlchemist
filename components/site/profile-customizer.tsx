@@ -16,6 +16,7 @@ import { BANNER_PRESETS, DEFAULT_BANNER_ID } from "@/lib/profile/banners"
 import {
   autoFlairId,
   FLAIR_NONE,
+  memberFlair,
   selectableFlairs,
   type FlairId,
 } from "@/lib/profile/flair"
@@ -349,7 +350,10 @@ export function ProfileCustomizer({
       // silently swallowed by the reload that followed it. The unlock fires
       // once per account ever, so it gets the longer pause.
       const href = inline && doneHref ? doneHref : window.location.href
-      window.setTimeout(() => window.location.assign(href), unlocked ? 2600 : 900)
+      window.setTimeout(
+        () => window.location.assign(href),
+        unlocked ? 2600 : 900
+      )
     })
   }
 
@@ -389,7 +393,8 @@ export function ProfileCustomizer({
    * silent drop into an instruction.
    */
   const badLinks = SOCIAL_KINDS.filter(
-    (kind) => links[kind].trim() && !isAllowedSocialUrl(kind, links[kind].trim())
+    (kind) =>
+      links[kind].trim() && !isAllowedSocialUrl(kind, links[kind].trim())
   )
 
   const trigger = (
@@ -449,10 +454,20 @@ export function ProfileCustomizer({
         hint="Earned, not chosen — pick which one you fly."
       >
         <div className="grid grid-cols-3 gap-1.5">
+          {/* None turns off the badge you *chose*. It cannot turn off the
+            membership badge, which is not a choice — it says this profile
+            belongs to an account here. Saying so on the tile is the difference
+            between a setting that looks broken and one that is understood. */}
           <FlairTile
             selected={shownFlairId === FLAIR_NONE}
             onSelect={() => pickFlair(FLAIR_NONE)}
             label="None"
+            sub={
+              memberFlair(catalogue) &&
+              earnedFlairIds.includes(memberFlair(catalogue)!.id)
+                ? "Keeps your member badge"
+                : undefined
+            }
           />
           {/* Not the whole catalogue: a badge that follows a role or a linked
             account is derived, so offering it asks a question with one answer
@@ -491,7 +506,11 @@ export function ProfileCustomizer({
         label="Favorite skin"
         hint="Shows behind your name. Pick a legend, then a skin."
       >
-        <SkinPicker value={skin} onChange={pickSkin} defaultLegend={mainLegendName} />
+        <SkinPicker
+          value={skin}
+          onChange={pickSkin}
+          defaultLegend={mainLegendName}
+        />
       </Section>
 
       {/* Everyone. A favourite legend is a pick from a fixed roster — there is
