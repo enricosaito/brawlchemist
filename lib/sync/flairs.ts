@@ -3,6 +3,7 @@ import "server-only"
 import { revalidateTag, unstable_cache } from "next/cache"
 import { and, asc, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
+import { failOpen } from "@/lib/sync/fail-open"
 import { flairGrants, flairs, profiles, type FlairRow } from "@/lib/db/schema"
 import {
   BUILTIN_FLAIRS,
@@ -76,38 +77,37 @@ function toRecord(row: FlairRow): FlairRecord {
  */
 const getFlairCatalogueCached = unstable_cache(
   async (): Promise<FlairDef[]> => {
-    try {
-      const rows = await db()
-        .select()
-        .from(flairs)
-        .where(eq(flairs.enabled, true))
-        .orderBy(asc(flairs.sort))
-      if (rows.length === 0) return BUILTIN_FLAIRS
-      // Projected narrow, not `toRecord`: this list is serialised into the RSC
-      // payload of every page that renders a badge, so it carries what the
-      // renderer needs and nothing the admin screen happens to want.
-      return rows.map((r) => ({
-        id: r.id,
-        label: r.label,
-        requirement: r.requirement,
-        src: r.src,
-        width: r.width,
-        height: r.height,
-        rule: parseFlairRule(r.rule),
-        ruleValue: r.ruleValue,
-        sort: r.sort,
-      }))
-    } catch (err) {
-      console.error("[flairs] catalogue read failed:", err)
-      return BUILTIN_FLAIRS
-    }
+    const rows = await db()
+      .select()
+      .from(flairs)
+      .where(eq(flairs.enabled, true))
+      .orderBy(asc(flairs.sort))
+    if (rows.length === 0) return BUILTIN_FLAIRS
+    // Projected narrow, not `toRecord`: this list is serialised into the RSC
+    // payload of every page that renders a badge, so it carries what the
+    // renderer needs and nothing the admin screen happens to want.
+    return rows.map((r) => ({
+      id: r.id,
+      label: r.label,
+      requirement: r.requirement,
+      src: r.src,
+      width: r.width,
+      height: r.height,
+      rule: parseFlairRule(r.rule),
+      ruleValue: r.ruleValue,
+      sort: r.sort,
+    }))
   },
   ["flair-catalogue"],
   { tags: [FLAIR_CATALOGUE_TAG], revalidate: 3600 },
 )
 
 export async function getFlairCatalogue(): Promise<FlairDef[]> {
-  return getFlairCatalogueCached()
+  // The empty-TABLE fallback stays inside the cache — "nobody has seeded this
+  // yet" is a real answer worth caching. Only a failed READ falls back out
+  // here, so a blip can't freeze the built-in pair in for an hour and hide
+  // every badge an operator has created since.
+  return failOpen("[flairs] catalogue", getFlairCatalogueCached, BUILTIN_FLAIRS)
 }
 
 /**
@@ -120,23 +120,18 @@ export async function getFlairCatalogue(): Promise<FlairDef[]> {
  */
 const getFlairGrantsObject = unstable_cache(
   async (): Promise<Record<string, string[]>> => {
-    try {
-      const rows = await db()
-        .select({
-          brawlhallaId: flairGrants.brawlhallaId,
-          flairId: flairGrants.flairId,
-        })
-        .from(flairGrants)
-      const out: Record<string, string[]> = {}
-      for (const r of rows) {
-        const key = String(r.brawlhallaId)
-        ;(out[key] ??= []).push(r.flairId)
-      }
-      return out
-    } catch (err) {
-      console.error("[flairs] grants read failed:", err)
-      return {}
+    const rows = await db()
+      .select({
+        brawlhallaId: flairGrants.brawlhallaId,
+        flairId: flairGrants.flairId,
+      })
+      .from(flairGrants)
+    const out: Record<string, string[]> = {}
+    for (const r of rows) {
+      const key = String(r.brawlhallaId)
+      ;(out[key] ??= []).push(r.flairId)
     }
+    return out
   },
   ["flair-grants"],
   { tags: [FLAIR_GRANTS_TAG], revalidate: 3600 },
@@ -144,7 +139,7 @@ const getFlairGrantsObject = unstable_cache(
 
 /** `unstable_cache` can't serialize a Map, so hydrate here (as getProfilesMap does). */
 export async function getFlairGrantsMap(): Promise<Map<number, string[]>> {
-  const obj = await getFlairGrantsObject()
+  const obj = await failOpen("[flairs] grants", getFlairGrantsObject, {})
   const map = new Map<number, string[]>()
   for (const [k, v] of Object.entries(obj)) map.set(Number(k), v)
   return map

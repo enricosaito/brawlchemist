@@ -3,6 +3,7 @@ import "server-only"
 import { and, eq, gte, lte } from "drizzle-orm"
 import { unstable_cache } from "next/cache"
 import { db } from "@/lib/db"
+import { failOpen } from "@/lib/sync/fail-open"
 import { players } from "@/lib/db/schema"
 import {
   SMURF_MAX_LEVEL,
@@ -34,8 +35,7 @@ export const SMURF_SET_TAG = "smurf-set"
 
 const getSmurfIdList = unstable_cache(
   async (): Promise<number[]> => {
-    try {
-      const rows = await db()
+    const rows = await db()
         .select({ brawlhallaId: players.brawlhallaId })
         .from(players)
         .where(
@@ -44,19 +44,15 @@ const getSmurfIdList = unstable_cache(
             lte(players.level, SMURF_MAX_LEVEL),
             lte(players.playtimeSeconds, SMURF_MAX_PLAYTIME_SECONDS)
           )
-        )
-      return rows.map((r) => r.brawlhallaId)
-    } catch (err) {
-      console.error("[smurf] id set read failed:", err)
-      return []
-    }
+      )
+    return rows.map((r) => r.brawlhallaId)
   },
   ["smurf-set"],
   { tags: [SMURF_SET_TAG], revalidate: 300 }
 )
 
 export async function getSmurfIds(): Promise<Set<number>> {
-  return new Set(await getSmurfIdList())
+  return new Set(await failOpen("[smurf] id set", getSmurfIdList, []))
 }
 
 /**

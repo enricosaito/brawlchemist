@@ -3,6 +3,7 @@ import "server-only"
 import { revalidateTag, unstable_cache } from "next/cache"
 import { eq } from "drizzle-orm"
 import { db } from "@/lib/db"
+import { failOpen } from "@/lib/sync/fail-open"
 import { appUsers } from "@/lib/db/schema"
 
 /**
@@ -55,20 +56,16 @@ async function readPrefs(userId: string): Promise<Prefs> {
   return row?.prefs && typeof row.prefs === "object" ? (row.prefs as Prefs) : {}
 }
 
-/** Cached favorite ids (newest first). Never throws — fails open to []. */
+/** Cached favorite ids (newest first). Never throws — fails open to [], and
+ * does so outside the cache so a blip can't cache "you have no favourites"
+ * (see lib/sync/fail-open.ts). */
 export async function getFavoriteIds(userId: string): Promise<number[]> {
-  return unstable_cache(
-    async (): Promise<number[]> => {
-      try {
-        return parseIds(await readPrefs(userId))
-      } catch (err) {
-        console.error("[favorites] read failed:", err)
-        return []
-      }
-    },
+  const read = unstable_cache(
+    async (): Promise<number[]> => parseIds(await readPrefs(userId)),
     ["favorites", userId],
     { tags: [favoritesTag(userId)], revalidate: 300 },
-  )()
+  )
+  return failOpen("[favorites]", read, [])
 }
 
 export async function isFavorited(

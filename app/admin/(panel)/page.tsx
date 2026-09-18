@@ -18,11 +18,18 @@ import { UsersTab } from "./users-tab"
  * Tab state is a searchParam and the tabs are Links, so the whole thing stays
  * server-rendered and each tab loads only its own data (the People tab never
  * reads the fetch log; the System tab never joins three tables for names).
+ * That is also the performance story here: every query on this screen answers
+ * in under 2ms, so what an operator waits on is the number of round trips to
+ * us-west-1 — not how much work any one of them does.
+ *
+ * Users leads. It is the list of everyone who has an account, which is the
+ * superset: People is keyed by brawlhalla_id, so an account that never claimed
+ * a player does not appear there at all.
  */
 
 const TABS = [
-  { id: "people", label: "People" },
   { id: "users", label: "Users" },
+  { id: "people", label: "People" },
   { id: "flairs", label: "Flairs" },
   { id: "combos", label: "Combos" },
   { id: "system", label: "System" },
@@ -40,6 +47,7 @@ export default async function AdminPage({
   searchParams: Promise<{
     tab?: string
     edit?: string
+    edituser?: string
     editflair?: string
     editcombo?: string
     linked?: string
@@ -63,10 +71,11 @@ export default async function AdminPage({
   }>
 }) {
   const sp = await searchParams
-  // People is the default: it is what the panel is mostly for, and every
-  // person-shaped redirect (?saved, ?deleted, ?edit) lands back on it without
-  // having to carry a tab.
-  const tab: TabId = isTab(sp.tab) ? sp.tab : "people"
+  // Users is the default: it is the widest list the panel holds — every account,
+  // linked or not — so it is the one that answers "who is out there" before you
+  // know which person you are looking for. The person-shaped redirects
+  // (?saved, ?deleted, ?edit) still name People explicitly.
+  const tab: TabId = isTab(sp.tab) ? sp.tab : sp.edit ? "people" : "users"
   const editId = sp.edit ? Number(sp.edit) : null
 
   const notice = noticeFor(sp)
@@ -104,10 +113,10 @@ export default async function AdminPage({
         </div>
       )}
 
-      {tab === "people" ? (
+      {tab === "users" ? (
+        <UsersTab editId={sp.edituser ?? null} />
+      ) : tab === "people" ? (
         <PeopleTab editId={editId} />
-      ) : tab === "users" ? (
-        <UsersTab />
       ) : tab === "flairs" ? (
         <FlairsTab editId={sp.editflair ?? null} />
       ) : tab === "combos" ? (
