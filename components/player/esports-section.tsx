@@ -1,5 +1,6 @@
 import { Trophy } from "lucide-react"
-import { PlayerLink } from "@/components/site/primitives"
+import { LegendChip, PlayerLink } from "@/components/site/primitives"
+import { rosterEntryBySlug } from "@/lib/legends-roster"
 import { InfoTip } from "@/components/site/info-tip"
 import type { EsportsMatch } from "@/lib/sync/esports-matches"
 import { cn } from "@/lib/utils"
@@ -64,6 +65,41 @@ function toRuns(matches: EsportsMatch[]): Run[] {
     })
   }
   return runs.sort((a, b) => b.latest - a.latest)
+}
+
+/**
+ * The picks, with repeats collapsed.
+ *
+ * Playing Lin Fei four times is one decision, not four, so four identical chips
+ * would be noise — but "Lucien, Lucien, Lucien, Diana, Diana" is a counterpick
+ * that won a set, and flattening it to a set would throw the story away. So
+ * consecutive repeats collapse and order survives.
+ */
+function collapse(slugs: string[]): string[] {
+  const out: string[] = []
+  for (const slug of slugs)
+    if (slug && slug !== out[out.length - 1]) out.push(slug)
+  return out
+}
+
+function LegendRun({ slugs }: { slugs: string[] }) {
+  const run = collapse(slugs)
+  if (run.length === 0) return null
+  return (
+    <span className="inline-flex shrink-0 items-center gap-0.5">
+      {run.map((slug, i) => (
+        // The roster name on a wrapper rather than a new LegendChip prop: the
+        // chip already owns one title, for the unknown fallback, and two would
+        // fight over the same attribute.
+        <span
+          key={`${slug}-${i}`}
+          title={rosterEntryBySlug(slug)?.name ?? slug}
+        >
+          <LegendChip legendId={slug} size="sm" showName={false} />
+        </span>
+      ))}
+    </span>
+  )
 }
 
 function fmtDate(d: Date | null): string {
@@ -163,10 +199,16 @@ export function EsportsSection({
                   {m.roundTitle ?? m.bracket ?? "—"}
                 </span>
 
-                <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+                <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                  {/* The matchup reads left to right: what they played, against
+                      what. Both sides are absent together on the ~65% of rounds
+                      nobody reported, and the row then looks exactly as it did
+                      before this existed — no gap, no placeholder. */}
+                  <LegendRun slugs={m.legends} />
                   <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground/60 uppercase">
                     vs
                   </span>
+                  <LegendRun slugs={m.opponentLegends} />
                   {/* Linked only when we confirmed who that was. Most bracket
                       entrants are not tracked competitors, so an unlinked name
                       is the normal case, not a degraded one. */}
@@ -194,14 +236,22 @@ export function EsportsSection({
                   </InfoTip>
                 )}
 
-                {/* A bo1 scoreline is always 1–0, which is the result already
-                    shown on the left. Only a series has a score worth printing. */}
-                {(m.bestOf ?? 1) > 1 && m.scoreFor != null && (
-                  <span className="shrink-0 font-mono text-xs tabular-nums">
-                    {m.scoreFor}
-                    <span className="px-0.5 text-muted-foreground/60">–</span>
-                    {m.scoreAgainst ?? 0}
-                  </span>
+                {/* How long the set actually ran, which is the number bestOf
+                    was lying about — Challengermode reports every one of these
+                    as bo1, including a final that went four games. Not turned
+                    into a score: see the games_played note on the column. */}
+                {(m.gamesPlayed ?? 0) > 1 && (
+                  <InfoTip
+                    label={
+                      m.durationSeconds
+                        ? `${m.gamesPlayed} games, ${Math.round(m.durationSeconds / 60)} minutes`
+                        : `${m.gamesPlayed} games`
+                    }
+                  >
+                    <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground uppercase tabular-nums">
+                      {m.gamesPlayed}g
+                    </span>
+                  </InfoTip>
                 )}
 
                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground/60 tabular-nums">

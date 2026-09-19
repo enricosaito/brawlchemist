@@ -45,6 +45,12 @@ export interface EsportsMatch {
   opponentName: string | null
   opponentIds: number[]
   teammateName: string | null
+  /** Roster slugs, in game order, for this player and the other side. */
+  legends: string[]
+  opponentLegends: string[]
+  /** How many games the set actually went — see the column note. */
+  gamesPlayed: number | null
+  durationSeconds: number | null
 }
 
 const readMatches = unstable_cache(
@@ -67,11 +73,20 @@ const readMatches = unstable_cache(
         opponentName: esportsMatches.opponentName,
         opponentIds: esportsMatches.opponentIds,
         teammateName: esportsMatches.teammateName,
+        legends: esportsMatches.legends,
+        opponentLegends: esportsMatches.opponentLegends,
+        gamesPlayed: esportsMatches.gamesPlayed,
+        durationSeconds: esportsMatches.durationSeconds,
       })
       .from(esportsMatches)
       .where(eq(esportsMatches.brawlhallaId, brawlhallaId))
       .orderBy(desc(esportsMatches.startedAt))
-    return rows.map((r) => ({ ...r, opponentIds: r.opponentIds ?? [] }))
+    return rows.map((r) => ({
+      ...r,
+      opponentIds: r.opponentIds ?? [],
+      legends: r.legends ?? [],
+      opponentLegends: r.opponentLegends ?? [],
+    }))
   },
   ["esports-matches-v1"],
   { tags: [ESPORTS_MATCHES_TAG], revalidate: CACHE_SECONDS }

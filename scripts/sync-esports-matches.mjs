@@ -64,6 +64,7 @@
 // updates in place. Completed tournaments never change, so re-walking one is
 // wasted work rather than wrong work.
 
+import fs from "node:fs"
 import postgres from "postgres"
 import { config } from "dotenv"
 
@@ -161,7 +162,11 @@ async function cmQuery(query, variables, retried = false) {
 const SERIES_FIELDS = `
   id title bestOf state startedAt
   results { final draw lineupResults { lineupNumber placement score formattedScore } }
-  lineups { name seed members { user { id username } } }`
+  lineups { name seed members { user { id username } } }
+  matches(includeFailed: true) {
+    gameSession { durationInMilliseconds }
+    lineups { members { user { id } statistics(first: 10) { nodes { name formattedValue } } } }
+  }`
 
 const BRACKET_QUERY = `query($id: UUID!) {
   tournament(tournamentId: $id) {
@@ -343,6 +348,89 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 // ── Shaping a row ────────────────────────────────────────────────────────────
 
 /**
+ * Challengermode's legend spelling, as a roster slug.
+ *
+ * It writes display names ("Bödvar", "LinFei", "Mordex"), and dropping case and
+ * everything that is not a letter or digit lands all 64 values it uses on a
+ * roster entry — verified across two full tournaments with zero unmatched. A
+ * value that does not map returns null rather than being stored raw, because a
+ * slug nothing can draw is worse than an absence the renderer already handles.
+ */
+const ROSTER_BY_KEY = (() => {
+  const src = fs.readFileSync(
+    new URL("../lib/legends-roster.ts", import.meta.url),
+    "utf8"
+  )
+  const map = new Map()
+  for (const m of src.matchAll(/slug: "([a-z0-9-]+)", name: "([^"]+)"/g)) {
+    const [, slug, name] = m
+    map.set(key(slug), slug)
+    map.set(key(name), slug)
+  }
+  return map
+})()
+
+function key(v) {
+  return String(v)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+}
+
+function legendSlug(value) {
+  if (!value || value === "NA") return null
+  return ROSTER_BY_KEY.get(key(value)) ?? null
+}
+
+/**
+ * Per-game legend picks and set length, pulled out of the statistics.
+ *
+ * Keyed by Challengermode user id, which is the same id the series lineups use,
+ * so the two halves of a match series join without trusting lineup ordering.
+ *
+ * The slots are named Game1_Legend..Game5_Legend and sort lexically in the order
+ * they were played, which only holds while there are fewer than ten of them —
+ * true today and asserted by the padStart below rather than assumed.
+ */
+function detailFor(series) {
+  const byUser = new Map()
+  let durationMs = 0
+  for (const m of series.matches ?? []) {
+    const ms = m.gameSession?.durationInMilliseconds
+    if (typeof ms === "number" && ms > durationMs) durationMs = ms
+    for (const l of m.lineups ?? []) {
+      for (const mem of l.members ?? []) {
+        const id = mem.user?.id
+        if (!id) continue
+        const picks = (mem.statistics?.nodes ?? [])
+          .filter((n) => /^Game\d+_Legend$/i.test(n.name ?? ""))
+          .sort((a, b) =>
+            String(a.name).padStart(16, "0") < String(b.name).padStart(16, "0")
+              ? -1
+              : 1
+          )
+          .map((n) => legendSlug(n.formattedValue))
+        // Trailing "NA"s mean games that were never played; a null in the middle
+        // is a value we could not map and is dropped the same way. Either way
+        // the count of real picks is the number of games reported.
+        const played = picks.filter(Boolean)
+        if (played.length) byUser.set(id, played)
+      }
+    }
+  }
+  // A series is as long as the longer report: one player filling this in and the
+  // other not is the common case outside the officiated rounds.
+  let gamesPlayed = 0
+  for (const picks of byUser.values()) {
+    if (picks.length > gamesPlayed) gamesPlayed = picks.length
+  }
+  return {
+    byUser,
+    gamesPlayed: gamesPlayed || null,
+    durationSeconds: durationMs ? Math.round(durationMs / 1000) : null,
+  }
+}
+
+/**
  * One match, from one tracked player's point of view.
  *
  * `lineupNumber` indexes into `lineups` (verified against a real final: lineups
@@ -360,6 +448,8 @@ function rowsFor(series, ev, bridge) {
     results.find((r) => r.lineupNumber === i)?.placement ?? null
   const scoreOf = (i) =>
     results.find((r) => r.lineupNumber === i)?.score ?? null
+
+  const detail = detailFor(series)
 
   const out = []
   for (const [i, lineup] of lineups.entries()) {
@@ -389,6 +479,12 @@ function rowsFor(series, ev, bridge) {
     const opponentIds = others
       .flatMap((o) => (o.members ?? []).map((m) => bridge.get(m.user?.id)))
       .filter((v) => typeof v === "number")
+    // Everything the other side picked, in game order. Flattened across a 2v2
+    // lineup because the row is about the matchup, not about who on the other
+    // team picked what.
+    const opponentLegends = others.flatMap((o) =>
+      (o.members ?? []).flatMap((m) => detail.byUser.get(m.user?.id) ?? [])
+    )
 
     const mine = placementOf(i)
     const theirs =
@@ -429,6 +525,10 @@ function rowsFor(series, ev, bridge) {
         opponent_name: opponentName,
         opponent_ids: opponentIds,
         teammate_name: partner || null,
+        legends: detail.byUser.get(t.cm) ?? [],
+        opponent_legends: opponentLegends,
+        games_played: detail.gamesPlayed,
+        duration_seconds: detail.durationSeconds,
       })
     }
   }
@@ -523,6 +623,10 @@ async function main() {
               score_against = excluded.score_against,
               opponent_name = excluded.opponent_name,
               opponent_ids = excluded.opponent_ids,
+              legends = excluded.legends,
+              opponent_legends = excluded.opponent_legends,
+              games_played = excluded.games_played,
+              duration_seconds = excluded.duration_seconds,
               started_at = excluded.started_at,
               round_title = excluded.round_title,
               bracket = excluded.bracket`
