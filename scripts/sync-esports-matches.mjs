@@ -1,7 +1,10 @@
 // Derive a pro's tournament match history from Challengermode brackets.
 //
 // Usage: node scripts/sync-esports-matches.mjs [--years 2022,...] [--dry]
-//                                              [--limit N] [--tournament <id>]
+//                    [--limit N] [--tournament <id>] [--resume]
+//
+// --resume skips tournaments already walked with the current field set, which
+// is what makes a killed run cost nothing to pick back up.
 //
 // The companion to sync-esports-titles.mjs: that script asks who won an event,
 // this one asks how they got there. Same three APIs and the same
@@ -85,6 +88,21 @@ const YEARS = (flag("--years") ?? "2022,2023,2024,2025,2026")
   .map(Number)
 const LIMIT = Number(flag("--limit") ?? 0) || Infinity
 const ONLY_TOURNAMENT = flag("--tournament")
+/**
+ * Skip tournaments already walked with the current field set.
+ *
+ * A completed tournament never changes, so re-walking one is wasted work — but
+ * until now it was wasted work the script did every single run, and a full pass
+ * takes long enough that two of them were killed part-way and lost everything
+ * after the point they stopped. Resumability is what makes an interruption cost
+ * nothing rather than an hour.
+ *
+ * "Already walked" is `games_played is not null`, not merely "has rows": rows
+ * written before the per-game statistics landed have no set length, and those
+ * are exactly the ones a re-run exists to fill in. Off by default so a plain
+ * run is still a full refresh.
+ */
+const RESUME = args.includes("--resume")
 
 // ── Challengermode ───────────────────────────────────────────────────────────
 
@@ -580,6 +598,17 @@ async function main() {
       }
       const seen = new Set()
       events = events.filter((e) => !seen.has(e.id) && seen.add(e.id))
+    }
+    if (RESUME) {
+      const done = await sql`
+        select distinct tournament_id from esports_matches
+        where games_played is not null`
+      const doneIds = new Set(done.map((r) => r.tournament_id))
+      const before = events.length
+      events = events.filter((e) => !doneIds.has(e.id))
+      console.log(
+        `  --resume: skipping ${before - events.length} already detailed, ${events.length} to go`
+      )
     }
     events = events.slice(0, LIMIT)
     console.log(
