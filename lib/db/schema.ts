@@ -529,8 +529,10 @@ export type EsportsTitleRow = typeof esportsTitles.$inferSelect
  *   bracket, but `Tournament.stages` is an INTERFACE, so a plain selection
  *   returns index/format/lineupCount and looks empty. The matches are behind
  *   `... on TournamentEliminationStage { brackets { rounds { matchSeriesPage`.
- *   Only CM-hosted events have brackets: 77 of 240 official events, so history
- *   starts ~2022 and the SGG era has none, the same boundary esports_titles has.
+ *   Only CM-hosted events have brackets: 77 of 240 official events, and they
+ *   are all 2025-2026. Measured — 2021 through 2024 are 100% SGG-hosted (221
+ *   events, no brackets at all), 2025 is 36 CM against 14 SGG, and 2026 is
+ *   wholly CM. So match history begins in 2025, not the ~2022 first assumed.
  *
  * The join is proved, never matched on a name: Challengermode gives a member's
  * `user.id` and brawltools stores that same UUID as `cmPlayerId` (verified —
