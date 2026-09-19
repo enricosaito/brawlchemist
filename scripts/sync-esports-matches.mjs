@@ -97,10 +97,15 @@ const ONLY_TOURNAMENT = flag("--tournament")
  * after the point they stopped. Resumability is what makes an interruption cost
  * nothing rather than an hour.
  *
- * "Already walked" is `games_played is not null`, not merely "has rows": rows
- * written before the per-game statistics landed have no set length, and those
- * are exactly the ones a re-run exists to fill in. Off by default so a plain
- * run is still a full refresh.
+ * "Already walked" means carrying everything the CURRENT field set produces,
+ * not merely "has rows" — and that test has to move every time the script
+ * learns to read something new. It was `games_played is not null`, which was
+ * right until placements were added: events walked before that have a set
+ * length and no finish, so a resume skipped exactly the rows it should have
+ * been filling. Every field added here needs its own clause, or the flag
+ * quietly stops resuming and starts pretending.
+ *
+ * Off by default, so a plain run is still a full refresh.
  */
 const RESUME = args.includes("--resume")
 
@@ -654,8 +659,9 @@ async function main() {
     }
     if (RESUME) {
       const done = await sql`
-        select distinct tournament_id from esports_matches
-        where games_played is not null`
+        select tournament_id from esports_matches
+        group by tournament_id
+        having count(games_played) > 0 and count(placement_rank) > 0`
       const doneIds = new Set(done.map((r) => r.tournament_id))
       const before = events.length
       events = events.filter((e) => !doneIds.has(e.id))
