@@ -592,6 +592,45 @@ export const esportsMatches = pgTable(
     /** The partner in 2v2, display form. Null in 1v1. */
     teammateName: text("teammate_name"),
 
+    /**
+     * Legends this player picked, in game order, as roster slugs.
+     *
+     * Challengermode records them as per-game statistics named Game1_Legend
+     * through Game5_Legend, with "NA" for a game that never happened. All 64
+     * values it uses map cleanly onto LEGEND_ROSTER once punctuation and case
+     * are dropped ("Bodvar" and "LinFei" being the two that look like they
+     * would not), so these are stored as slugs and render as LegendChips.
+     *
+     * The sequence is kept rather than a set: playing LinFei four times and
+     * switching to Diana for the decider are different stories, and collapsing
+     * to distinct is a display decision the renderer can make. Empty when
+     * nobody reported, which is most matches outside the deep rounds.
+     */
+    legends: text("legends").array(),
+    /** The same for the other side, so a row can say who beat whom with what. */
+    opponentLegends: text("opponent_legends").array(),
+    /**
+     * How many games the series actually went.
+     *
+     * The number `bestOf` should have told us and does not: Challengermode
+     * reports **every** match in these events as `bestOf: 1`, including a
+     * championship final that ran five slots and used four. Derived by counting
+     * the legend slots that are not "NA", taking the higher of the two sides —
+     * one player reporting and the other not is common, and a series is as long
+     * as the longer report.
+     *
+     * Deliberately NOT turned into a score. The winner takes ceil(bestOf/2), so
+     * games-played would give "3–1" if the format were known — but finals are
+     * Bo5 and early rounds Bo3 by a per-event convention the API never states,
+     * and a three-game series is 2–1 or 3–0 depending which. There are no
+     * per-game result nodes to settle it: Challengermode models the whole set as
+     * one Match and the games exist only in these statistics. So this stores a
+     * fact and leaves the inference alone.
+     */
+    gamesPlayed: integer("games_played"),
+    /** Wall-clock length of the set, from the game session. */
+    durationSeconds: integer("duration_seconds"),
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
