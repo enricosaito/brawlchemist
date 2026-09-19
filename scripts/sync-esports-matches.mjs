@@ -184,9 +184,10 @@ async function cmQuery(query, variables, retried = false) {
 /** What a match series looks like, wherever it hangs in the bracket. */
 const SERIES_FIELDS = `
   id title bestOf state startedAt
-  results { final draw lineupResults { lineupNumber placement score formattedScore } }
+  results { final draw lineupResults { lineupNumber placement score } }
   lineups { name seed members { user { id username } } }
   matches(includeFailed: true) {
+    results { lineupResults { lineupNumber score } }
     gameSession { durationInMilliseconds }
     lineups { members { user { id } statistics(first: 10) { nodes { name formattedValue } } } }
   }`
@@ -198,15 +199,15 @@ const BRACKET_QUERY = `query($id: UUID!) {
       index format
       ... on TournamentEliminationStage {
         brackets { rounds { roundNumber title
-          matchSeriesPage(first: 200) { pageInfo { hasNextPage endCursor } nodes { ${SERIES_FIELDS} } } } }
+          matchSeriesPage(first: 100) { pageInfo { hasNextPage endCursor } nodes { ${SERIES_FIELDS} } } } }
       }
       ... on TournamentGroupStage {
         groups { title
-          matchSeriesPage(first: 200) { pageInfo { hasNextPage endCursor } nodes { ${SERIES_FIELDS} } } }
+          matchSeriesPage(first: 100) { pageInfo { hasNextPage endCursor } nodes { ${SERIES_FIELDS} } } }
       }
       ... on TournamentSwissStage {
         rounds { roundNumber title
-          matchSeriesPage(first: 200) { pageInfo { hasNextPage endCursor } nodes { ${SERIES_FIELDS} } } }
+          matchSeriesPage(first: 100) { pageInfo { hasNextPage endCursor } nodes { ${SERIES_FIELDS} } } }
       }
     }
   }
@@ -267,7 +268,7 @@ async function placementsFor(tournamentId) {
 const MORE_QUERY = `query($id: UUID!, $after: String!) {
   tournament(tournamentId: $id) { stages {
     ... on TournamentEliminationStage { brackets { rounds {
-      matchSeriesPage(first: 200, after: $after) { pageInfo { hasNextPage endCursor } nodes { ${SERIES_FIELDS} } } } } }
+      matchSeriesPage(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { ${SERIES_FIELDS} } } } } }
   } }
 }`
 
@@ -522,8 +523,37 @@ function rowsFor(series, ev, bridge, placements) {
   const results = series.results?.lineupResults ?? []
   const placementOf = (i) =>
     results.find((r) => r.lineupNumber === i)?.placement ?? null
+
+  // **The real score is on the INNER match, not on the series.** Challengermode
+  // models a set as a MatchSeries reporting `bestOf: 1` whose own
+  // `lineupResults.score` is 1-0 — meaning "won the set", not a game count —
+  // wrapping one Match that carries the actual games, e.g. 2-1. We walked past
+  // it for months and inferred the score from the per-game legend picks
+  // instead, which are self-reported and cover barely a third of matches; the
+  // inner result covers ~93% and is measured rather than derived.
+  //
+  // It rides inside the bracket walk we already make, so it costs no extra
+  // request and no Brawlhalla budget.
+  const inner = (series.matches ?? []).filter(
+    (m) => (m.results?.lineupResults ?? []).length > 0
+  )
+  const gameScoreOf = (i) => {
+    let best = null
+    for (const m of inner) {
+      const v = (m.results.lineupResults ?? []).find(
+        (r) => r.lineupNumber === i
+      )?.score
+      if (typeof v === "number" && (best === null || v > best)) best = v
+    }
+    return best
+  }
+  // A set both sides show as 0 was never played out — a walkover recorded as a
+  // result. Treated as unknown rather than printed as 0-0.
+  const anyGames = lineups.some((_, i) => (gameScoreOf(i) ?? 0) > 0)
   const scoreOf = (i) =>
-    results.find((r) => r.lineupNumber === i)?.score ?? null
+    anyGames
+      ? gameScoreOf(i)
+      : (results.find((r) => r.lineupNumber === i)?.score ?? null)
 
   const detail = detailFor(series)
 
@@ -669,7 +699,12 @@ async function main() {
       const done = await sql`
         select tournament_id from esports_matches
         group by tournament_id
-        having count(games_played) > 0 and count(placement_rank) > 0`
+        having count(games_played) > 0 and count(placement_rank) > 0
+           -- Real game scores (max >= 2) landed after the first backfill; a
+           -- tournament holding only the 1-0 series placeholders was walked
+           -- before that and must be walked again. Every new field needs its
+           -- own clause here or the skip goes silently wrong.
+           and max(greatest(score_for, score_against)) >= 2`
       const doneIds = new Set(done.map((r) => r.tournament_id))
       const before = events.length
       events = events.filter((e) => !doneIds.has(e.id))

@@ -30,6 +30,7 @@ import { isPossibleSmurf } from "@/lib/profile/smurf"
 import { getSmurfIds, recordPlayerStats } from "@/lib/sync/smurf"
 import { esportsRecord, getEsportsMatches } from "@/lib/sync/esports-matches"
 import { EsportsSection } from "@/components/player/esports-section"
+import { getCmTournaments } from "@/lib/challengermode-api"
 import { InfoTip } from "@/components/site/info-tip"
 import { RankedStatsCard } from "@/components/player/ranked-stats-card"
 import { CURRENT_SEASON } from "@/lib/mock-data"
@@ -2235,6 +2236,20 @@ export default async function PlayerPage({
       ? tab
       : "overview"
 
+  // Tournament art for the run headers. esports_matches.tournament_id IS the
+  // Challengermode id, so these are the same cached entries /tournaments warms
+  // — and only fetched for the tab that shows them. Fails open to no art, which
+  // renders as the plain card it was before.
+  const esportsArt =
+    tab === "esports" && esportsMatches.length > 0
+      ? await getCmTournaments([
+          ...new Set(esportsMatches.map((m) => m.tournamentId)),
+        ]).catch((err) => {
+          console.error("[player] tournament art failed:", err)
+          return new Map()
+        })
+      : new Map()
+
   // Owner-chosen header banner (cached, fails open to the default wash). The
   // panel that sets it is gated to the owner inside ProfileCustomizerSlot.
   const { bannerId } = customization
@@ -2456,10 +2471,10 @@ export default async function PlayerPage({
         {tab === "esports" && (
           <div className="mt-6">
             <EsportsSection
+              art={esportsArt}
               matches={esportsMatches}
               esports={esports}
               previews={overrides}
-              flairs={flairMap}
             />
           </div>
         )}
