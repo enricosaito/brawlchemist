@@ -422,6 +422,25 @@ export async function upsertProfile(input: ProfileInput): Promise<void> {
   revalidateTag(TAG, "max")
 }
 
+/**
+ * Record which Challengermode competitor a pro is, or clear it.
+ *
+ * Writes nothing else on the row, so it cannot disturb a handle or a pro flag
+ * — the same reason saveProfileFieldsAction carries links through rather than
+ * rewriting them. Busts the profiles tag because the map is what every surface
+ * reads a handle from.
+ */
+export async function setCmPlayerId(
+  brawlhallaId: number,
+  cmPlayerId: string | null
+): Promise<void> {
+  await db()
+    .update(profiles)
+    .set({ cmPlayerId, updatedAt: new Date() })
+    .where(eq(profiles.brawlhallaId, brawlhallaId))
+  revalidateTag(TAG, "max")
+}
+
 export async function deleteProfile(brawlhallaId: number): Promise<void> {
   await db().delete(profiles).where(eq(profiles.brawlhallaId, brawlhallaId))
   revalidateTag(TAG, "max")
