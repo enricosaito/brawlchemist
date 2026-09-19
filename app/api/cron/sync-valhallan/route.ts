@@ -7,6 +7,7 @@ import {
   discoverAllValhallanIds,
   getStaleValhallanIds,
   refreshValhallanMembers,
+  refreshValhallanStats,
 } from "@/lib/sync/valhallan"
 import { isCronPaused } from "@/lib/sync/cron-controls"
 
@@ -86,6 +87,29 @@ export async function GET(req: Request) {
     console.error("[sync-valhallan] member refresh failed:", err)
   }
 
+  // Precompute the meta aggregations into valhallan_stats, so no visitor's
+  // request ever runs one. It goes here, right after the member refresh, for
+  // the same reason the snapshot prune does: this is the job that owns the
+  // Valhallan pool, and the stats are a function of it. ~50 aggregations at
+  // roughly half a second each — which only became cron-shaped after the
+  // indexed-rating fix took them from 16-31s.
+  let stats = { written: 0, failed: 0 }
+  try {
+    stats = await refreshValhallanStats()
+  } catch (err) {
+    console.error("[sync-valhallan] stats refresh failed:", err)
+  }
+
+  // statsOnly=1 stops here. The rest of this job walks the leaderboard API and
+  // syncs players, which spends the 180/15min budget (cardinal constraint #1) —
+  // so "recompute the meta" and "refresh the pool" need to be separable. It is
+  // what you want after a deploy that changes an aggregation, and the only way
+  // to repopulate valhallan_stats without paying for a pool refresh nobody
+  // asked for.
+  if (new URL(req.url).searchParams.get("statsOnly") === "1") {
+    return NextResponse.json({ statsOnly: true, stats })
+  }
+
   const discovered = await discoverAllValhallanIds()
   const stale = force
     ? Array.from(discovered)
@@ -106,8 +130,8 @@ export async function GET(req: Request) {
       .where(
         lt(
           rankedSnapshots.takenAt,
-          new Date(Date.now() - SNAPSHOT_RETENTION_MS),
-        ),
+          new Date(Date.now() - SNAPSHOT_RETENTION_MS)
+        )
       )
     pruned = res.count ?? 0
   } catch (err) {
@@ -160,8 +184,8 @@ export async function GET(req: Request) {
       .where(
         lt(
           queueActivity.bucket,
-          new Date(Date.now() - QUEUE_ACTIVITY_RETENTION_MS),
-        ),
+          new Date(Date.now() - QUEUE_ACTIVITY_RETENTION_MS)
+        )
       )
     activityPruned = res.count ?? 0
   } catch (err) {
@@ -169,6 +193,7 @@ export async function GET(req: Request) {
   }
 
   const summary = {
+    stats,
     // Per-ladder membership. `skipped` names any ladder whose walk came back
     // incomplete (almost always a 429) and therefore kept its previous row —
     // worth seeing, since a ladder that skips every day is silently stale.
