@@ -10,7 +10,11 @@ import { unstable_cache } from "next/cache"
  * so enrichment is a direct lookup.
  *
  * Auth: a refresh key (env CHALLENGERMODE_REFRESH_KEY) is exchanged for a
- * ~1h bearer token. The token is memoized module-level with single-flight so
+ * bearer token that lasts **20 minutes**, not the hour this once said —
+ * measured: minted 03:32, expiresAt 03:52. The margin below still covers it,
+ * but anything that holds one token across a long job has to refresh, which is
+ * what scripts/sync-esports-matches.mjs learned by failing its last seventeen
+ * tournaments in a row. The token is memoized module-level with single-flight so
  * a cold page render with 40 parallel enrichments doesn't hammer the auth
  * endpoint. GraphQL goes over POST, which Next's fetch cache won't store —
  * results are cached via unstable_cache instead.
@@ -19,7 +23,8 @@ import { unstable_cache } from "next/cache"
 const AUTH_URL = "https://publicapi.challengermode.com/mk1/v1/auth/access_keys"
 const GRAPHQL_URL = "https://publicapi.challengermode.com/graphql"
 
-/** Refresh the token 5 minutes before it actually expires. */
+/** Refresh 5 minutes early. Comfortable against a 20-minute token; it is a
+ * margin on the real `expiresAt`, not a guess at the lifetime. */
 const TOKEN_MARGIN_MS = 5 * 60 * 1000
 /** Completed tournaments never change; upcoming ones only move slowly. */
 const TOURNAMENT_TTL_SECONDS = 6 * 60 * 60
