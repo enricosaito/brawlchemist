@@ -51,6 +51,12 @@ export interface EsportsMatch {
   /** How many games the set actually went — see the column note. */
   gamesPlayed: number | null
   durationSeconds: number | null
+  /** The partner's ids, so a 2v2 row can link both halves of the team. */
+  teammateIds: number[]
+  /** Where this player finished the tournament: 1, 2, 3, 5, 7, 9, 13… */
+  placementRank: number | null
+  /** Challengermode's own string, which may be a range ("5 - 6"). */
+  placementDisplay: string | null
 }
 
 const readMatches = unstable_cache(
@@ -77,6 +83,9 @@ const readMatches = unstable_cache(
         opponentLegends: esportsMatches.opponentLegends,
         gamesPlayed: esportsMatches.gamesPlayed,
         durationSeconds: esportsMatches.durationSeconds,
+        teammateIds: esportsMatches.teammateIds,
+        placementRank: esportsMatches.placementRank,
+        placementDisplay: esportsMatches.placementDisplay,
       })
       .from(esportsMatches)
       .where(eq(esportsMatches.brawlhallaId, brawlhallaId))
@@ -86,6 +95,7 @@ const readMatches = unstable_cache(
       opponentIds: r.opponentIds ?? [],
       legends: r.legends ?? [],
       opponentLegends: r.opponentLegends ?? [],
+      teammateIds: r.teammateIds ?? [],
     }))
   },
   ["esports-matches-v1"],
