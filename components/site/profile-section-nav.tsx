@@ -2,12 +2,17 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 
 /**
- * The profile's own navigation: Ranked · Achievements · Gems.
+ * The profile's own navigation: Ranked · Esports · Achievements · Gems.
  *
  * It sits where the accolade strip used to, and it replaces the strip rather
- * than joining it. Three sections of one page, not three pages — which is why
- * there is no "back to profile" anywhere below it. You were never anywhere
- * else; the header above never moves, and the body beneath swaps.
+ * than joining it. Sections of one page, not pages — which is why there is no
+ * "back to profile" anywhere below it. You were never anywhere else; the header
+ * above never moves, and the body beneath swaps.
+ *
+ * The column count follows the sections rather than being fixed, because not
+ * every profile has the same ones: Esports appears only for a competitor with
+ * matches on record, and a four-column grid holding three tabs leaves a gap
+ * where the fourth would be.
  *
  * Server-rendered Links over a searchParam, the same shape as the filter tabs
  * on /tournaments and /power-rankings, so the whole thing stays static and a
@@ -48,7 +53,14 @@ export function ProfileSectionNav({
           the thing that chooses it. */}
       <nav
         aria-label="Profile sections"
-        className="mx-auto grid max-w-[1280px] grid-cols-3 gap-2 rounded-2xl border border-border/60 bg-card/50 p-2 backdrop-blur-sm"
+        className={cn(
+          "mx-auto grid max-w-[1280px] gap-2 rounded-2xl border border-border/60 bg-card/50 p-2 backdrop-blur-sm",
+          sections.length >= 4
+            ? "grid-cols-2 sm:grid-cols-4"
+            : sections.length === 3
+              ? "grid-cols-3"
+              : "grid-cols-2"
+        )}
       >
         {sections.map((s) => {
           const current = s.id === active
@@ -63,10 +75,10 @@ export function ProfileSectionNav({
                 "flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-3 py-3 text-center transition-colors",
                 current
                   ? "border-pink/50 bg-pink/10 text-foreground"
-                  : "border-transparent text-muted-foreground hover:border-border/60 hover:bg-card/60 hover:text-foreground",
+                  : "border-transparent text-muted-foreground hover:border-border/60 hover:bg-card/60 hover:text-foreground"
               )}
             >
-              <span className="truncate font-mono text-[11px] font-medium uppercase tracking-wider">
+              <span className="truncate font-mono text-[11px] font-medium tracking-wider uppercase">
                 {s.label}
               </span>
               {/* The second line is the reason to click: "Achievements 1/3" is
@@ -75,7 +87,7 @@ export function ProfileSectionNav({
               <span
                 className={cn(
                   "font-mono text-[10px] tabular-nums",
-                  current ? "text-muted-foreground" : "text-muted-foreground/60",
+                  current ? "text-muted-foreground" : "text-muted-foreground/60"
                 )}
               >
                 {s.sub ?? " "}

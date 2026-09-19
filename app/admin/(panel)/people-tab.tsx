@@ -69,7 +69,6 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
 
   return (
     <div className="flex flex-col gap-10">
-
       <section>
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="font-display text-lg font-semibold">
@@ -103,7 +102,7 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
                   className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border/60 bg-card/40 px-4 py-3"
                 >
                   <span className="font-medium">{name}</span>
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
                     ID {p.brawlhallaId}
                   </span>
                   {p.rating != null ? (
@@ -119,11 +118,15 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
 
                   {/* Curation */}
                   {p.isPro ? (
-                    <span className={`${tagCls} border-mystic/50 bg-mystic/15 text-mystic`}>
+                    <span
+                      className={`${tagCls} border-mystic/50 bg-mystic/15 text-mystic`}
+                    >
                       Pro{p.handle ? ` · ${p.handle}` : ""}
                     </span>
                   ) : (
-                    <span className={`${tagCls} border-border/60 text-muted-foreground/60`}>
+                    <span
+                      className={`${tagCls} border-border/60 text-muted-foreground/60`}
+                    >
                       not pro
                     </span>
                   )}
@@ -146,14 +149,18 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
                       Linked{p.email ? ` · ${p.email}` : ""}
                     </span>
                   ) : (
-                    <span className={`${tagCls} border-border/60 text-muted-foreground/60`}>
+                    <span
+                      className={`${tagCls} border-border/60 text-muted-foreground/60`}
+                    >
                       unclaimed
                     </span>
                   )}
 
                   {/* Flair is a selection; null means "show my best". */}
                   {flair && (
-                    <span className={`${tagCls} border-pink/40 bg-pink/10 text-pink`}>
+                    <span
+                      className={`${tagCls} border-pink/40 bg-pink/10 text-pink`}
+                    >
                       Flair · {flair.label}
                     </span>
                   )}
@@ -174,23 +181,44 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
                     </Link>
                     {flair && (
                       <form action={clearFlairAction}>
-                        <input type="hidden" name="brawlhallaId" value={p.brawlhallaId} />
-                        <button type="submit" className={`${actionCls} text-pink hover:opacity-80`}>
+                        <input
+                          type="hidden"
+                          name="brawlhallaId"
+                          value={p.brawlhallaId}
+                        />
+                        <button
+                          type="submit"
+                          className={`${actionCls} text-pink hover:opacity-80`}
+                        >
                           Clear flair
                         </button>
                       </form>
                     )}
                     {p.userId && (
                       <form action={unlinkProfileAction}>
-                        <input type="hidden" name="brawlhallaId" value={p.brawlhallaId} />
-                        <button type="submit" className={`${actionCls} text-negative hover:opacity-80`}>
+                        <input
+                          type="hidden"
+                          name="brawlhallaId"
+                          value={p.brawlhallaId}
+                        />
+                        <button
+                          type="submit"
+                          className={`${actionCls} text-negative hover:opacity-80`}
+                        >
                           Unlink
                         </button>
                       </form>
                     )}
                     <form action={deleteProfileAction}>
-                      <input type="hidden" name="brawlhallaId" value={p.brawlhallaId} />
-                      <button type="submit" className={`${actionCls} text-negative hover:opacity-80`}>
+                      <input
+                        type="hidden"
+                        name="brawlhallaId"
+                        value={p.brawlhallaId}
+                      />
+                      <button
+                        type="submit"
+                        className={`${actionCls} text-negative hover:opacity-80`}
+                      >
                         Delete
                       </button>
                     </form>
@@ -269,6 +297,28 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
             />
           </div>
 
+          {/* Ten of our pros register for tournaments on a second account, so
+              their bracket results carry a different Brawlhalla id than the one
+              above. Leave it blank when they are the same — which is the usual
+              case, and the field says so rather than inviting a guess. */}
+          <div className="sm:col-span-2">
+            <label className={labelCls} htmlFor="esportsBrawlhallaId">
+              Esports account ID (only if they compete on a different account)
+            </label>
+            <input
+              id="esportsBrawlhallaId"
+              name="esportsBrawlhallaId"
+              type="number"
+              defaultValue={editing?.esportsBrawlhallaId ?? ""}
+              placeholder="blank = same as above"
+              className={inputCls}
+            />
+            <p className="mt-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+              Links their tournament match history. Verify on brawltools before
+              entering — a wrong id files someone else&apos;s matches here.
+            </p>
+          </div>
+
           <div className="flex items-center gap-3 sm:col-span-2">
             <button
               type="submit"
@@ -279,7 +329,7 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
             {editing && (
               <Link
                 href="/admin"
-                className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                className="font-mono text-[11px] tracking-wider text-muted-foreground uppercase transition-colors hover:text-foreground"
               >
                 Cancel
               </Link>
@@ -507,7 +557,6 @@ function OwnerFields({
           </button>
         </div>
       </form>
-
     </div>
   )
 }
@@ -586,7 +635,9 @@ function TitlesCard({
                 <input type="hidden" name="titleId" value={t.id} />
                 <button
                   type="submit"
-                  className={actionCls + " text-negative hover:text-negative/80"}
+                  className={
+                    actionCls + " text-negative hover:text-negative/80"
+                  }
                 >
                   Remove
                 </button>

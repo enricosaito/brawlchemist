@@ -28,6 +28,8 @@ import { BrawlchemistUserBadge } from "@/components/site/brawlchemist-user-badge
 import { SmurfMark, SmurfTag } from "@/components/site/smurf-mark"
 import { isPossibleSmurf } from "@/lib/profile/smurf"
 import { getSmurfIds, recordPlayerStats } from "@/lib/sync/smurf"
+import { esportsRecord, getEsportsMatches } from "@/lib/sync/esports-matches"
+import { EsportsSection } from "@/components/player/esports-section"
 import { InfoTip } from "@/components/site/info-tip"
 import { RankedStatsCard } from "@/components/player/ranked-stats-card"
 import { CURRENT_SEASON } from "@/lib/mock-data"
@@ -1879,6 +1881,7 @@ export default async function PlayerPage({
     ladderPos,
     customization,
     smurfIds,
+    esportsMatches,
   ] = await Promise.all([
     skipUpstream ? API_SKIPPED : loadStats(numId),
     loadStaticLegends(),
@@ -1894,6 +1897,11 @@ export default async function PlayerPage({
       console.error("[player] smurf ids failed:", err)
       return new Set<number>()
     }),
+    // One indexed read, cached six hours, and empty for everyone who has never
+    // entered a tournament — which is almost everyone. It rides this block
+    // rather than a round trip of its own because the tab bar below needs to
+    // know whether it exists before it can decide to offer it.
+    getEsportsMatches(numId),
   ])
 
   // The player's guild shows in the Account section; persist it so a profile
@@ -2191,9 +2199,16 @@ export default async function PlayerPage({
   // the card you clicked stays put and the body beneath it swaps.
   const profileHref = `/player/${numId}`
   const customizeHref = `${profileHref}?tab=customize`
+  // Two counters over an array the page already holds; no query, no pass over
+  // anything the section will not render anyway.
+  const esportsWL = esportsRecord(esportsMatches)
   const reachableTabs = [
     ...(playedLegends.length > 0 ? ["legends"] : []),
     ...(teamViews.length > 0 ? ["teams"] : []),
+    // Only for a competitor we actually hold matches for. Most profiles are
+    // not pros, and a tab that opens on "nothing on record" is a promise the
+    // page cannot keep.
+    ...(esportsMatches.length > 0 ? ["esports"] : []),
     "achievements",
     // Gems are always reachable; the lifetime tables under them are what needs
     // the payload, and LifetimeStatsSection says so itself when it is missing.
@@ -2212,7 +2227,10 @@ export default async function PlayerPage({
   // Which of the three section tabs is lit. Everything that is not one of them
   // — legends, teams, customize — is reached from inside Ranked, so it keeps
   // Ranked lit rather than lighting nothing.
-  const navSection = tab === "achievements" || tab === "gems" ? tab : "overview"
+  const navSection =
+    tab === "achievements" || tab === "gems" || tab === "esports"
+      ? tab
+      : "overview"
 
   // Owner-chosen header banner (cached, fails open to the default wash). The
   // panel that sets it is gated to the owner inside ProfileCustomizerSlot.
@@ -2269,6 +2287,21 @@ export default async function PlayerPage({
       // RankedStatsCard prints, from the same constant, so they cannot drift.
       sub: `Season ${CURRENT_SEASON}`,
     },
+    // Between Ranked and Achievements on purpose: Ranked and Esports are both
+    // records of matches played, and the two derived shelves belong together
+    // after them.
+    ...(esportsMatches.length > 0
+      ? [
+          {
+            id: "esports",
+            label: "Esports",
+            href: `${profileHref}?tab=esports`,
+            // The career record, which is the number a match list otherwise
+            // makes you count.
+            sub: `${esportsWL.wins}–${esportsWL.losses}`,
+          },
+        ]
+      : []),
     {
       id: "achievements",
       label: "Achievements",
@@ -2416,6 +2449,15 @@ export default async function PlayerPage({
         {/* Three sections of one page, not three pages — so nothing below needs a
           way "back". The header above never moves; only the body swaps. */}
         <ProfileSectionNav sections={sections} active={navSection} />
+
+        {tab === "esports" && (
+          <div className="mt-6">
+            <EsportsSection
+              matches={esportsMatches}
+              displayName={preview?.verified?.handle || data.name}
+            />
+          </div>
+        )}
 
         {tab === "achievements" && (
           <AchievementSection context={achievementContext} />
