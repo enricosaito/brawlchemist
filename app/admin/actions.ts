@@ -2,6 +2,9 @@
 
 import { redirect } from "next/navigation"
 import { revalidateTag } from "next/cache"
+import { ESPORTS_MATCHES_TAG } from "@/lib/sync/esports-matches"
+import { SMURF_SET_TAG } from "@/lib/sync/smurf"
+import { TRUE_COMBOS_TAG } from "@/lib/sync/true-combos"
 import { put } from "@vercel/blob"
 import { adminActorId, requireAdmin } from "@/lib/admin-auth"
 import {
@@ -223,6 +226,16 @@ export async function refreshCachesAction() {
   // unseen behind an hour-old cache.
   revalidateTag(FLAIR_CATALOGUE_TAG, "max")
   revalidateTag(FLAIR_GRANTS_TAG, "max")
+  // The three written by scripts rather than by this app, which is the case
+  // this button is most needed for: nothing in a request can bust a tag when
+  // the write came from a terminal. Esports matches matter most of the three —
+  // a six-hour window meant a profile could show half a career for the rest of
+  // the afternoon after a sync. The smurf set and the combos self-heal sooner,
+  // and belong here for the same reason the flair pair does: the list is only
+  // complete if every cached read is on it.
+  revalidateTag(ESPORTS_MATCHES_TAG, "max")
+  revalidateTag(SMURF_SET_TAG, "max")
+  revalidateTag(TRUE_COMBOS_TAG, "max")
   redirect("/admin?tab=system&refreshed=caches")
 }
 
