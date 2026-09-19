@@ -40,6 +40,11 @@ export interface EsportsMatch {
   bestOf: number | null
   startedAt: Date | null
   won: boolean | null
+  /**
+   * Games won and lost in the series, from Challengermode's inner Match — the
+   * real thing, not the MatchSeries' own 1-0 "won the set" placeholder, which
+   * is what a maximum of 1 across the pair still means.
+   */
   scoreFor: number | null
   scoreAgainst: number | null
   opponentName: string | null
@@ -98,7 +103,11 @@ const readMatches = unstable_cache(
       teammateIds: r.teammateIds ?? [],
     }))
   },
-  ["esports-matches-v1"],
+  // v2: score_for/score_against changed meaning — they held the series-level
+  // 1-0 "won the set" placeholder and now hold the real games off the inner
+  // Match. Rows cached under v1 would keep serving the placeholder for six
+  // hours after a deploy, so the key moves with the semantics.
+  ["esports-matches-v2"],
   { tags: [ESPORTS_MATCHES_TAG], revalidate: CACHE_SECONDS }
 )
 
