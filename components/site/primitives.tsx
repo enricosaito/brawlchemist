@@ -156,9 +156,17 @@ const RANK_ICON_SRC: Partial<Record<Tier, string>> = {
  */
 const RANK_HELM: Record<Tier, { src: string; width: number; height: number }> =
   {
-    Valhallan: { src: "/assets/ranks/valhallan-helm.png", width: 192, height: 153 },
+    Valhallan: {
+      src: "/assets/ranks/valhallan-helm.png",
+      width: 192,
+      height: 153,
+    },
     Diamond: { src: "/assets/ranks/diamond-helm.png", width: 192, height: 168 },
-    Platinum: { src: "/assets/ranks/platinum-helm.png", width: 192, height: 122 },
+    Platinum: {
+      src: "/assets/ranks/platinum-helm.png",
+      width: 192,
+      height: 122,
+    },
     Gold: { src: "/assets/ranks/gold-helm.png", width: 192, height: 169 },
     Silver: { src: "/assets/ranks/silver-helm.png", width: 192, height: 140 },
     Bronze: { src: "/assets/ranks/bronze-helm.png", width: 192, height: 150 },
@@ -304,9 +312,19 @@ const AVATAR_SIZE_PX: Record<"sm" | "md" | "lg", number> = {
   lg: 36,
 }
 
+/** Drawn when we have no legend to draw — see LegendChip. */
+const UNKNOWN_LEGEND_SRC = "/assets/legends/unknown.png"
+
 /**
- * LegendChip — legend portrait when a `Legend.imageUrl` is set, otherwise a
- * neutral gradient placeholder ready to receive the asset later.
+ * LegendChip — a legend portrait, and it always draws one.
+ *
+ * `legendId` is nullable and the fallback lives HERE, the same contract
+ * `RankHelm` and `RankIcon` already have: never guard a call site with
+ * `{slug && <LegendChip …>}` or a dash, because that is exactly what leaves a
+ * hole in a column where every other row has a picture. A missing main is not
+ * missing art, it is a player whose /ranked payload we have not read a legend
+ * out of yet — so it gets the art for "not known", not an em dash that reads
+ * like a broken cell in a grid of portraits.
  */
 export function LegendChip({
   legendId,
@@ -314,17 +332,21 @@ export function LegendChip({
   size = "md",
   className,
 }: {
-  legendId: string
+  legendId: string | null | undefined
   showName?: boolean
   size?: "sm" | "md" | "lg"
   className?: string
 }) {
-  const legend = getLegend(legendId)
+  const legend = legendId ? getLegend(legendId) : undefined
+  const src = legend?.imageUrl ?? UNKNOWN_LEGEND_SRC
   const avatarSize =
     size === "sm" ? "size-5" : size === "lg" ? "size-9" : "size-7"
   const px = AVATAR_SIZE_PX[size]
   return (
-    <span className={cn("inline-flex items-center gap-2", className)}>
+    <span
+      className={cn("inline-flex items-center gap-2", className)}
+      title={legend ? undefined : "Main legend not known yet"}
+    >
       <span
         aria-hidden
         className={cn(
@@ -332,18 +354,16 @@ export function LegendChip({
           avatarSize
         )}
       >
-        {legend?.imageUrl ? (
-          <Image
-            src={legend.imageUrl}
-            alt=""
-            width={px}
-            height={px}
-            className="absolute inset-0 size-full object-cover"
-          />
-        ) : null}
+        <Image
+          src={src}
+          alt=""
+          width={px}
+          height={px}
+          className="absolute inset-0 size-full object-cover"
+        />
       </span>
-      {showName && legend && (
-        <span className="truncate text-sm">{legend.name}</span>
+      {showName && (
+        <span className="truncate text-sm">{legend?.name ?? "Unknown"}</span>
       )}
     </span>
   )

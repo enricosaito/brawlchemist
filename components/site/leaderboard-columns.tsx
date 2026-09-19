@@ -171,23 +171,16 @@ export function buildLeaderboardColumns(
       // table rather than the same one with a partner in it.
       render: (r) => (
         <div className="flex items-center justify-center gap-1">
+          {/* No dash for a player we have no main for. LegendChip owns that
+              fallback now, so the column is a grid of portraits all the way
+              down rather than one with holes punched in it — and the hole was
+              never "no legend", it was "we have not read one yet". */}
           {r.players.map((p) => {
             const lid = playersMap.get(p.id)?.topLegendId
-            const slug = lid ? slugForLegendId(lid) : null
-            if (!slug) {
-              return (
-                <span
-                  key={p.id}
-                  className="font-mono text-[10px] text-muted-foreground/60"
-                >
-                  —
-                </span>
-              )
-            }
             return (
               <LegendChip
                 key={p.id}
-                legendId={slug}
+                legendId={lid ? slugForLegendId(lid) : null}
                 size="md"
                 showName={false}
               />
