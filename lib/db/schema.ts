@@ -141,25 +141,37 @@ export const profiles = pgTable("profiles", {
   /** Favorite skin shape: { src, name } | null. */
   favoriteSkin: jsonb("favorite_skin"),
   /**
-   * The Brawlhalla account this pro *competes* on, when it is not the one they
-   * ladder on.
+   * DEAD — replaced by `cmPlayerId`, and still declared only so the previously
+   * running build can keep selecting it. Droppable on the deploy after this
+   * one, the same two-step `profiles.achievements` took.
    *
-   * Ten of our verified pros register for tournaments on a different account
-   * than the one this profile curates — measured, and it includes Ahmet, who is
-   * top of the EU board: profile 45653969, esports 119319655. Without this,
-   * their match history would be filed against an id nobody visits while their
-   * real profile showed nothing, and the failure would be silent.
-   *
-   * Curated, never derived. The only evidence tying the two accounts together
-   * is a handle, and a name match is exactly what this codebase refuses to
-   * trust for identity — the esports-titles bridge confirms by UUID for the
-   * same reason. So an operator records it, with the candidate shown to them.
-   *
-   * Used only by scripts/sync-esports-matches.mjs, to find the pro's
-   * Challengermode id. Match rows are always written under the profile's
-   * canonical brawlhalla_id, so nothing at render time knows this exists.
+   * It stored the Brawlhalla account a pro competes on, which turned out to be
+   * the wrong key: the bridge only ever wanted a Challengermode id and used
+   * this to look one up. brawltools holds a `cmPlayerId` for almost every
+   * competitor but a `brawlhallaId` for very few — measured across the 38 pros
+   * with no match history, only 6 had one — so keying on the Brawlhalla id made
+   * the majority unlinkable for no reason. It never held a value.
    */
   esportsBrawlhallaId: integer("esports_brawlhalla_id"),
+  /**
+   * This pro's Challengermode identity, when we cannot derive it.
+   *
+   * The bridge in scripts/sync-esports-matches.mjs maps `cmPlayerId ->
+   * brawlhalla_id`, and normally gets the CM id by asking brawltools about the
+   * account this profile already names. That fails for 38 of 122 verified pros:
+   * some compete on a second account (Ahmet — profile 45653969, in-game
+   * "HaciTCH"), and most simply have no `brawlhallaId` on their brawltools
+   * record at all. Either way the profile shows no matches, silently.
+   *
+   * Curated, never derived. Two independent sources agreeing on a name is
+   * strong evidence and still not proof — Brawlhalla names are not unique, and
+   * a wrong link puts someone else's career on a pro's profile. So /admin
+   * gathers the evidence and grades it, and an operator asserts the link.
+   *
+   * Match rows are always written under the profile's canonical
+   * `brawlhalla_id`, so this never leaks past the sync script.
+   */
+  cmPlayerId: text("cm_player_id"),
   /**
    * Esports titles as a string[] (jsonb), e.g. ["2v2 World Champion '24"].
    *

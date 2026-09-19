@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { CombosTab } from "./combos-tab"
+import { EsportsLinksTab } from "./esports-links-tab"
 import { FlairsTab } from "./flairs-tab"
 import { PeopleTab } from "./people-tab"
 import { SystemTab } from "./system-tab"
@@ -32,6 +33,7 @@ const TABS = [
   { id: "people", label: "People" },
   { id: "flairs", label: "Flairs" },
   { id: "combos", label: "Combos" },
+  { id: "esports-links", label: "Esports links" },
   { id: "system", label: "System" },
 ] as const
 
@@ -121,6 +123,8 @@ export default async function AdminPage({
         <PeopleTab editId={editId} />
       ) : tab === "flairs" ? (
         <FlairsTab editId={sp.editflair ?? null} />
+      ) : tab === "esports-links" ? (
+        <EsportsLinksTab />
       ) : tab === "combos" ? (
         <CombosTab editId={sp.editcombo ?? null} />
       ) : (
@@ -157,55 +161,61 @@ function noticeFor(sp: {
     return {
       tone: "error",
       text:
-        sp.error === "upload"
-          ? "Upload failed — is Vercel Blob set up (BLOB_READ_WRITE_TOKEN)?"
-          : sp.error === "flair-too-large"
-            ? "That art is over 128 KB. Flair renders on every leaderboard row, so the file size lands fifty times on one screen — export it around 192px."
-            : sp.error === "flair-not-png"
-              ? "That file isn’t a PNG. Dimensions are read out of the PNG header, so the format is the check."
-              : sp.error === "flair-image"
-                ? "A flair needs art — upload a PNG."
-                : sp.error === "flair-id"
-                  ? "That isn’t a usable id. Lowercase letters, digits and dashes."
-                  : sp.error === "flair-label"
-                    ? "A flair needs a label — it’s the tooltip players see."
-                    : sp.error === "flair-exists"
-                      ? "A flair with that id already exists. Edit it instead, or pick another id."
-                      : sp.error === "flair-not-found"
-                        ? "No such flair — it may have been deleted since this page loaded."
-                        : sp.error === "link-id"
-            ? "That isn’t a Brawlhalla id."
-          : sp.error === "link-already-claimed"
-            ? "That player already belongs to another account. Unlink it there first — moving a player between accounts is two decisions, not one."
-          : sp.error === "link-owns-another"
-            ? "That account already owns a player. An account can hold one profile, so unlink the current one first."
-          : sp.error === "link-no-account"
-            ? "No such account — it may have been removed since this page loaded."
-          : sp.error === "blob-unconfigured"
-                          ? "No Blob store is connected to this project, so there is nowhere to put the file. Connect one in the Vercel dashboard — BLOB_READ_WRITE_TOKEN is injected automatically once you do."
-                          : sp.error === "clip-too-large"
-                            ? "That clip is over 4 MB. Encode it at 480p/30fps with no audio — a 3-second combo should land near 250 KB."
-                            : sp.error === "clip-type"
-                              ? "Clips must be mp4 or webm; posters webp, jpeg or png."
-                              : sp.error === "combo-weapon"
-                                ? "That isn’t a weapon we know."
-                                : sp.error === "combo-notation"
-                                  ? "A clip needs its notation — it’s the caption under the video."
-                                  : sp.error === "combo-clip"
-                                    ? "A new clip needs a video file."
-                                    : sp.error === "combo-id"
-                                      ? "That notation doesn’t reduce to a usable id. Give the clip an explicit one."
-                                      : sp.error === "skin-src"
-                                        ? "That skin path can’t be fetched. Use an https:// URL or a path starting with / (e.g. /assets/my-skin.png) — a bare filename stores fine and then renders nothing."
-                                        : sp.error === "skin-too-large"
-                                          ? "That skin is over 3 MB. An animated GIF is served whole on every profile view — trim the frames or the dimensions and try again."
-                                          : sp.error === "account-self"
-                                            ? "You can’t change your own role. Ask another Developer, or use ADMIN_BOOTSTRAP_EMAILS."
-                                            : sp.error === "account-not-found"
-                                              ? "No such account — it may have been removed since this page loaded."
-                                              : sp.error === "account-invalid"
-                                                ? "That isn’t a role or plan we recognise."
-                                                : "Couldn’t save — check the Brawlhalla ID.",
+        sp.error === "bad-cm-id"
+          ? "That doesn't look like a Challengermode id — it should be a UUID."
+          : sp.error === "upload"
+            ? "Upload failed — is Vercel Blob set up (BLOB_READ_WRITE_TOKEN)?"
+            : sp.error === "flair-too-large"
+              ? "That art is over 128 KB. Flair renders on every leaderboard row, so the file size lands fifty times on one screen — export it around 192px."
+              : sp.error === "flair-not-png"
+                ? "That file isn’t a PNG. Dimensions are read out of the PNG header, so the format is the check."
+                : sp.error === "flair-image"
+                  ? "A flair needs art — upload a PNG."
+                  : sp.error === "flair-id"
+                    ? "That isn’t a usable id. Lowercase letters, digits and dashes."
+                    : sp.error === "flair-label"
+                      ? "A flair needs a label — it’s the tooltip players see."
+                      : sp.error === "flair-exists"
+                        ? "A flair with that id already exists. Edit it instead, or pick another id."
+                        : sp.error === "flair-not-found"
+                          ? "No such flair — it may have been deleted since this page loaded."
+                          : sp.error === "link-id"
+                            ? "That isn’t a Brawlhalla id."
+                            : sp.error === "link-already-claimed"
+                              ? "That player already belongs to another account. Unlink it there first — moving a player between accounts is two decisions, not one."
+                              : sp.error === "link-owns-another"
+                                ? "That account already owns a player. An account can hold one profile, so unlink the current one first."
+                                : sp.error === "link-no-account"
+                                  ? "No such account — it may have been removed since this page loaded."
+                                  : sp.error === "blob-unconfigured"
+                                    ? "No Blob store is connected to this project, so there is nowhere to put the file. Connect one in the Vercel dashboard — BLOB_READ_WRITE_TOKEN is injected automatically once you do."
+                                    : sp.error === "clip-too-large"
+                                      ? "That clip is over 4 MB. Encode it at 480p/30fps with no audio — a 3-second combo should land near 250 KB."
+                                      : sp.error === "clip-type"
+                                        ? "Clips must be mp4 or webm; posters webp, jpeg or png."
+                                        : sp.error === "combo-weapon"
+                                          ? "That isn’t a weapon we know."
+                                          : sp.error === "combo-notation"
+                                            ? "A clip needs its notation — it’s the caption under the video."
+                                            : sp.error === "combo-clip"
+                                              ? "A new clip needs a video file."
+                                              : sp.error === "combo-id"
+                                                ? "That notation doesn’t reduce to a usable id. Give the clip an explicit one."
+                                                : sp.error === "skin-src"
+                                                  ? "That skin path can’t be fetched. Use an https:// URL or a path starting with / (e.g. /assets/my-skin.png) — a bare filename stores fine and then renders nothing."
+                                                  : sp.error ===
+                                                      "skin-too-large"
+                                                    ? "That skin is over 3 MB. An animated GIF is served whole on every profile view — trim the frames or the dimensions and try again."
+                                                    : sp.error ===
+                                                        "account-self"
+                                                      ? "You can’t change your own role. Ask another Developer, or use ADMIN_BOOTSTRAP_EMAILS."
+                                                      : sp.error ===
+                                                          "account-not-found"
+                                                        ? "No such account — it may have been removed since this page loaded."
+                                                        : sp.error ===
+                                                            "account-invalid"
+                                                          ? "That isn’t a role or plan we recognise."
+                                                          : "Couldn’t save — check the Brawlhalla ID.",
     }
   }
   if (sp.accountsaved) {
@@ -304,6 +314,12 @@ function noticeFor(sp: {
           ? ` ${remaining} stale remaining — click again to continue.`
           : ""
       }${sp.failed ? ` (${sp.failed} failed — likely rate-limited.)` : ""}`,
+    }
+  }
+  if (sp.saved === "cm-link") {
+    return {
+      tone: "ok",
+      text: "Link recorded. Run scripts/sync-esports-matches.mjs --resume to pull their matches, then Refresh caches.",
     }
   }
   if (sp.saved) {

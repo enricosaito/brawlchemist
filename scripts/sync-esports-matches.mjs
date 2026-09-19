@@ -385,20 +385,28 @@ async function officialEvents(year, gameMode) {
  */
 async function buildBridge(sql) {
   const rows = await sql`
-    select brawlhalla_id, esports_brawlhalla_id, handle
+    select brawlhalla_id, cm_player_id, handle
     from profiles where is_pro = true`
   const map = new Map()
-  let aliased = 0
+  let asserted = 0
   const unresolved = []
   for (const r of rows) {
-    const lookupId = r.esports_brawlhalla_id ?? r.brawlhalla_id
+    // An operator-asserted Challengermode id wins, and costs no call: it is the
+    // answer the lookup below is trying to reach. 38 of 122 pros cannot be
+    // reached any other way — most have no brawlhallaId on their brawltools
+    // record at all — so without this they simply have no history (see
+    // /admin -> Esports links).
+    if (r.cm_player_id) {
+      map.set(r.cm_player_id, r.brawlhalla_id)
+      asserted++
+      continue
+    }
     try {
-      const res = await fetch(`${BT}/v2/player/bhId/${lookupId}`)
+      const res = await fetch(`${BT}/v2/player/bhId/${r.brawlhalla_id}`)
       if (res.ok) {
         const cm = (await res.json())?.player?.cmPlayerId
         if (cm) {
           map.set(cm, r.brawlhalla_id)
-          if (r.esports_brawlhalla_id) aliased++
           continue
         }
       }
@@ -408,7 +416,7 @@ async function buildBridge(sql) {
     unresolved.push(r.handle ?? String(r.brawlhalla_id))
     await sleep(40)
   }
-  return { map, aliased, unresolved, total: rows.length }
+  return { map, asserted, unresolved, total: rows.length }
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))

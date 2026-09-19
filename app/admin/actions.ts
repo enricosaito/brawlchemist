@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation"
 import { revalidateTag } from "next/cache"
+import { setCmPlayerId } from "@/lib/sync/profiles"
 import { ESPORTS_MATCHES_TAG } from "@/lib/sync/esports-matches"
 import { SMURF_SET_TAG } from "@/lib/sync/smurf"
 import { TRUE_COMBOS_TAG } from "@/lib/sync/true-combos"
@@ -212,6 +213,30 @@ export async function clearFetchLogAction() {
  * **Every new cached read belongs in this list.** One left out is a value the
  * panel cannot fix, and nothing will tell you it is missing.
  */
+/**
+ * Assert (or clear) which Challengermode competitor a pro is.
+ *
+ * The one link in this feature that no API can derive — see
+ * lib/sync/esports-link.ts. An empty value unlinks, which is the important
+ * half: a wrong assertion has to be as cheap to take back as it was to make,
+ * or nobody will risk making the right ones either.
+ *
+ * Shape-checked only. A UUID that names no competitor simply never matches a
+ * bracket member, so the bridge ignores it — the same way a flair id naming
+ * nothing falls back rather than being rejected on write.
+ */
+export async function setCmPlayerIdAction(formData: FormData) {
+  await requireAdmin()
+  const id = Number(formData.get("brawlhallaId"))
+  if (!Number.isInteger(id) || id <= 0) redirect("/admin?error=bad-id")
+  const raw = String(formData.get("cmPlayerId") ?? "").trim()
+  if (raw && !/^[0-9a-f-]{32,40}$/i.test(raw)) {
+    redirect("/admin?tab=esports-links&error=bad-cm-id")
+  }
+  await setCmPlayerId(id, raw || null)
+  redirect("/admin?tab=esports-links&saved=cm-link")
+}
+
 export async function refreshCachesAction() {
   await requireAdmin()
   revalidateTag(PROFILES_TAG, "max")
