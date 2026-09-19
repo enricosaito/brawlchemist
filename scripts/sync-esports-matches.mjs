@@ -208,6 +208,51 @@ const BRACKET_QUERY = `query($id: UUID!) {
 }`
 
 /**
+ * Where everyone finished.
+ *
+ * A second query per tournament rather than part of the bracket walk, because
+ * placement hangs off the roster and not off any match — Challengermode knows
+ * you came 5th without any single match saying so. One extra call on top of the
+ * two or three the bracket costs, and it is the same roster read
+ * sync-esports-titles.mjs already makes for winners.
+ *
+ * Keyed by Challengermode user id so it joins the same way everything else here
+ * does. A 2v2 lineup puts both members on the lineup's placement, which is
+ * correct: a team places, not a person.
+ */
+const PLACEMENT_QUERY = `query($id: UUID!) {
+  tournament(tournamentId: $id) {
+    attendance { roster { lineups(limit: 600) {
+      placement { bestPlacement worstPlacement displayPlacement }
+      members { user { id } }
+    } } }
+  }
+}`
+
+async function placementsFor(tournamentId) {
+  const byUser = new Map()
+  try {
+    const data = await cmQuery(PLACEMENT_QUERY, { id: tournamentId })
+    for (const l of data?.tournament?.attendance?.roster?.lineups ?? []) {
+      const rank = l.placement?.bestPlacement
+      if (!rank) continue
+      for (const m of l.members ?? []) {
+        if (m.user?.id) {
+          byUser.set(m.user.id, {
+            rank,
+            display: l.placement.displayPlacement ?? String(rank),
+          })
+        }
+      }
+    }
+  } catch {
+    // A tournament whose roster will not load still has usable matches; the
+    // run keeps its results and simply has no finish to show.
+  }
+  return byUser
+}
+
+/**
  * The few pages `first: 200` does not cover.
  *
  * A round-one page of a 512-lineup bracket holds 256 matches, so exactly one
@@ -458,7 +503,7 @@ function detailFor(series) {
  * Byes are not matches. A series with fewer than two lineups is skipped rather
  * than stored as a win nobody played for.
  */
-function rowsFor(series, ev, bridge) {
+function rowsFor(series, ev, bridge, placements) {
   const lineups = series.lineups ?? []
   if (lineups.length < 2) return []
   const results = series.results?.lineupResults ?? []
@@ -503,6 +548,11 @@ function rowsFor(series, ev, bridge) {
     const opponentLegends = others.flatMap((o) =>
       (o.members ?? []).flatMap((m) => detail.byUser.get(m.user?.id) ?? [])
     )
+    // The partner's side of the same lookup opponents get, so a 2v2 row can
+    // link both halves of the team rather than only naming them.
+    const lineupIds = members
+      .map((m) => bridge.get(m.user?.id))
+      .filter((v) => typeof v === "number")
 
     const mine = placementOf(i)
     const theirs =
@@ -543,6 +593,9 @@ function rowsFor(series, ev, bridge) {
         opponent_name: opponentName,
         opponent_ids: opponentIds,
         teammate_name: partner || null,
+        teammate_ids: lineupIds.filter((v) => v !== t.bh),
+        placement_rank: placements?.get(t.cm)?.rank ?? null,
+        placement_display: placements?.get(t.cm)?.display ?? null,
         legends: detail.byUser.get(t.cm) ?? [],
         opponent_legends: opponentLegends,
         games_played: detail.gamesPlayed,
@@ -631,7 +684,10 @@ async function main() {
         )
         continue
       }
-      const rows = walked.series.flatMap((s) => rowsFor(s, ev, bridge.map))
+      const placements = await placementsFor(ev.id)
+      const rows = walked.series.flatMap((s) =>
+        rowsFor(s, ev, bridge.map, placements)
+      )
       matched += walked.series.length
       if (rows.length === 0) {
         skipped++
@@ -656,6 +712,9 @@ async function main() {
               opponent_legends = excluded.opponent_legends,
               games_played = excluded.games_played,
               duration_seconds = excluded.duration_seconds,
+              teammate_ids = excluded.teammate_ids,
+              placement_rank = excluded.placement_rank,
+              placement_display = excluded.placement_display,
               started_at = excluded.started_at,
               round_title = excluded.round_title,
               bracket = excluded.bracket`

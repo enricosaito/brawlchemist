@@ -631,6 +631,33 @@ export const esportsMatches = pgTable(
     /** Wall-clock length of the set, from the game session. */
     durationSeconds: integer("duration_seconds"),
 
+    /**
+     * The partner's Brawlhalla ids, so a 2v2 row can link to them.
+     *
+     * The sibling of opponentIds and empty for the same reason: most entrants
+     * are not tracked competitors. Null in 1v1, where there is no partner.
+     */
+    teammateIds: integer("teammate_ids").array(),
+
+    /**
+     * Where this player finished in the tournament.
+     *
+     * A fact about the *run*, denormalised onto every row of it, because the
+     * alternative is a second table holding one number per (tournament, player)
+     * and a join on a page that is otherwise one indexed scan. Challengermode
+     * gives it on the roster, and gives it completely: 315 of 315 lineups
+     * carried one on the event this was built against.
+     *
+     * Two columns, because a bracket does not produce a single number.
+     * placementRank is bestPlacement — 1, 2, 3, 4, 5, 7, 9, 13 and so on, which
+     * is what an ordinal is rendered from. placementDisplay keeps
+     * Challengermode's own string ("5 - 6", "9 - 12"), because finishing
+     * joint-fifth is not the same claim as finishing fifth and the tooltip
+     * should be able to say which it was.
+     */
+    placementRank: integer("placement_rank"),
+    placementDisplay: text("placement_display"),
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -1882,6 +1882,8 @@ export default async function PlayerPage({
     customization,
     smurfIds,
     esportsMatches,
+    overrides,
+    flairMap,
   ] = await Promise.all([
     skipUpstream ? API_SKIPPED : loadStats(numId),
     loadStaticLegends(),
@@ -1902,6 +1904,18 @@ export default async function PlayerPage({
     // rather than a round trip of its own because the tab bar below needs to
     // know whether it exists before it can decide to offer it.
     getEsportsMatches(numId),
+    // Both shared app-wide and cached, so these are hits rather than reads: the
+    // esports rows name opponents by Challengermode username, and turning
+    // "lopesbrawlhalla" back into Lopes needs the same curated map every
+    // leaderboard row already uses.
+    getProfilesMap().catch((err) => {
+      console.error("[player] profiles map failed:", err)
+      return new Map<number, PlayerPreview>()
+    }),
+    getFlairMap().catch((err) => {
+      console.error("[player] flair map failed:", err)
+      return new Map<number, string>()
+    }),
   ])
 
   // The player's guild shows in the Account section; persist it so a profile
@@ -2048,22 +2062,11 @@ export default async function PlayerPage({
   // names them the way every other surface does. Both maps are cached app-wide
   // (getProfile above already warmed the profiles one), so this adds no query
   // per teammate, and both fail open to the plain in-game name.
-  let teamProfiles = new Map<number, PlayerPreview>()
-  let teamFlairs = new Map<number, string>()
-  if (teams.length > 0) {
-    const [pm, fm] = await Promise.all([
-      getProfilesMap().catch((err) => {
-        console.error("[player] team profiles lookup failed:", err)
-        return new Map<number, PlayerPreview>()
-      }),
-      getFlairMap().catch((err) => {
-        console.error("[player] team flair lookup failed:", err)
-        return new Map<number, string>()
-      }),
-    ])
-    teamProfiles = pm
-    teamFlairs = fm
-  }
+  // The same two cached maps the page already loaded, reused rather than
+  // re-read: they were fetched a second time here, which only looked free
+  // because the cache absorbed it and left two places to update.
+  const teamProfiles = overrides
+  const teamFlairs = flairMap
 
   const teamViews: TeamView[] = teams.map((t) => {
     const teammateId = teammateIdFor(t)
@@ -2454,7 +2457,9 @@ export default async function PlayerPage({
           <div className="mt-6">
             <EsportsSection
               matches={esportsMatches}
-              displayName={preview?.verified?.handle || data.name}
+              esports={esports}
+              previews={overrides}
+              flairs={flairMap}
             />
           </div>
         )}
