@@ -73,7 +73,25 @@ const ONLY_TOURNAMENT = flag("--tournament")
 
 // ── Challengermode ───────────────────────────────────────────────────────────
 
-async function cmToken() {
+/**
+ * A Challengermode bearer, refreshed before it dies.
+ *
+ * **The token lasts 20 minutes, not an hour.** Measured: a token minted at
+ * 03:32 reported expiresAt 03:52. A full backfill takes well over that, and
+ * fetching once at startup is why a run failed its last 17 tournaments in a row
+ * with "The current user is not authorized to access this resource" — an error
+ * that reads like the tournaments are private when in fact the token had simply
+ * expired. Seventeen consecutive failures at the tail of a run is the shape of
+ * an expiry, never of a permission.
+ *
+ * Refreshed two minutes early, so a long walk mid-request cannot straddle the
+ * boundary.
+ */
+let cachedToken = null
+let cachedUntil = 0
+
+async function cmToken(force = false) {
+  if (!force && cachedToken && Date.now() < cachedUntil) return cachedToken
   const res = await fetch(CM_AUTH, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -84,22 +102,44 @@ async function cmToken() {
   if (!res.ok) throw new Error(`CM auth ${res.status}`)
   // The field is `value`, not `accessToken` — reading the wrong one yields a
   // token of `undefined` and every query answers AUTH_NOT_AUTHENTICATED.
-  const { value } = await res.json()
+  const { value, expiresAt } = await res.json()
   if (!value) throw new Error("CM auth returned no value")
+  cachedToken = value
+  const parsed = Date.parse(expiresAt)
+  cachedUntil =
+    (Number.isFinite(parsed) ? parsed : Date.now() + 20 * 60_000) - 120_000
   return value
 }
 
-async function cmQuery(token, query, variables) {
+/**
+ * Query, and retry once on an auth failure with a forced-fresh token.
+ *
+ * The proactive refresh above covers the expected case; this covers the clock
+ * being wrong or the server retiring a token early. One retry, never a loop —
+ * a key that is actually invalid should fail the run rather than hammer the
+ * auth endpoint.
+ */
+async function cmQuery(query, variables, retried = false) {
   const res = await fetch(CM_GQL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${await cmToken()}`,
     },
     body: JSON.stringify({ query, variables }),
   })
   const json = await res.json()
-  if (json.errors) throw new Error(json.errors[0]?.message ?? "CM error")
+  if (json.errors) {
+    const message = json.errors[0]?.message ?? "CM error"
+    if (
+      !retried &&
+      /not authorized|AUTH_NOT_AUTHENTICATED|unauthenti/i.test(message)
+    ) {
+      await cmToken(true)
+      return cmQuery(query, variables, true)
+    }
+    throw new Error(message)
+  }
   return json.data
 }
 
@@ -152,8 +192,8 @@ const MORE_QUERY = `query($id: UUID!, $after: String!) {
  * semi-final from a lower one — so it is kept alongside the round title rather
  * than flattened into it.
  */
-async function walkTournament(token, tournamentId) {
-  const data = await cmQuery(token, BRACKET_QUERY, { id: tournamentId })
+async function walkTournament(tournamentId) {
+  const data = await cmQuery(BRACKET_QUERY, { id: tournamentId })
   const t = data?.tournament
   if (!t) return { name: null, state: null, series: [] }
   const series = []
@@ -191,7 +231,7 @@ async function walkTournament(token, tournamentId) {
   for (let pass = 0; pass < 4 && spill.length; pass++) {
     const next = []
     for (const s of spill) {
-      const more = await cmQuery(token, MORE_QUERY, {
+      const more = await cmQuery(MORE_QUERY, {
         id: tournamentId,
         after: s.after,
       })
@@ -408,8 +448,6 @@ async function main() {
         "no pros resolved — refusing to walk brackets for nothing"
       )
 
-    const token = await cmToken()
-
     let events = []
     if (ONLY_TOURNAMENT) {
       events = [
@@ -442,7 +480,7 @@ async function main() {
       const label = ev.tournamentName ?? ev.eventName ?? ev.id
       let walked
       try {
-        walked = await walkTournament(token, ev.id)
+        walked = await walkTournament(ev.id)
       } catch (err) {
         failed++
         console.log(

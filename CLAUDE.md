@@ -94,7 +94,7 @@ Brawlhalla stats platform (dpm.lol / op.gg style). Next.js 16 App Router, React 
 - No per-tournament placements/details endpoint (placements are per-player only)
 
 ### Challengermode GraphQL (lib/challengermode-api.ts) — key: CHALLENGERMODE_REFRESH_KEY
-- Auth: POST `/mk1/v1/auth/access_keys` {refreshKey} → ~1h bearer; single-flight memoized
+- Auth: POST `/mk1/v1/auth/access_keys` {refreshKey} → a **20-minute** bearer (measured: minted 03:32, `expiresAt` 03:52 — it is not the hour this used to claim); single-flight memoized. Anything holding one token across a long job must refresh: a backfill that fetched once at startup failed its **last 17 tournaments consecutively** with "The current user is not authorized to access this resource", which reads like a permissions problem and is an expiry. Seventeen failures in a row at the tail of a run is the shape of a dead token, never of a private resource.
 - Endpoint `https://publicapi.challengermode.com/graphql`; scalar is `UUID!` (not `Uuid!`)
 - **brawltools event id == CM tournamentId for host "CM" events** (SGG-era ≤2021 history is not on CM)
 - `tournament(tournamentId:){ links { overviewUrl banner(size: MEDIUM){url} thumbnail(size: MEDIUM){url} } attendance { confirmedLineupCount } state }` — image fields REQUIRE the size arg
