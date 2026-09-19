@@ -26,49 +26,51 @@ import {
  * Lifetime stats (from /player/{id}/stats) will land in a sibling column /
  * table once player profile pages need them.
  */
-export const players = pgTable("players", {
-  brawlhallaId: integer("brawlhalla_id").primaryKey(),
-  username: text("username").notNull(),
-  /** Single legend with the most games played in the current ranked season. */
-  topLegendId: integer("top_legend_id"),
-  rankedJson: jsonb("ranked_json"),
-  /**
-   * Season 1v1 rating, lifted out of ranked_json by upsertPlayerRanked.
-   *
-   * Exists so ordering never has to touch the blob: sorting on a ranked_json
-   * expression detoasts the whole ~200MB column and measured 95s on the
-   * username search. A `ladder_rating` column was meant to serve this role and
-   * never did — only an unreferenced harvest wrote it, so it was null for all
-   * 97,325 rows and left search results in physical order. It is gone.
-   */
-  rating: integer("rating"),
-  /**
-   * Account level and lifetime seconds in matches, from GetPlayerStats.
-   *
-   * The only two facts on this row that /ranked does not carry, and the two the
-   * "possible smurf" reading needs (see lib/profile/smurf.ts). They live here
-   * rather than in a table of their own because the question is asked per row
-   * across a whole leaderboard, and a second table would mean a join or a
-   * second read on every list view.
-   *
-   * Written wherever a fresh /stats payload already exists — a profile view, or
-   * the backfill script — never by a call made for this. Null means nobody has
-   * looked yet, which is why the predicate treats unknown as "no" rather than
-   * as zero. `statsSynced` is how the backfill knows what it can skip.
-   */
-  level: integer("level"),
-  playtimeSeconds: integer("playtime_seconds"),
-  statsSynced: timestamp("stats_synced", { withTimezone: true }),
-  /** The player's guild, discovered via GetPlayerGuild. `guildId` is null when
-   * they have no guild; `guildCheckedAt` records the last lookup so the guild
-   * discovery cron can skip recently-checked players. */
-  guildId: integer("guild_id"),
-  guildName: text("guild_name"),
-  guildCheckedAt: timestamp("guild_checked_at", { withTimezone: true }),
-  lastSynced: timestamp("last_synced", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-},
+export const players = pgTable(
+  "players",
+  {
+    brawlhallaId: integer("brawlhalla_id").primaryKey(),
+    username: text("username").notNull(),
+    /** Single legend with the most games played in the current ranked season. */
+    topLegendId: integer("top_legend_id"),
+    rankedJson: jsonb("ranked_json"),
+    /**
+     * Season 1v1 rating, lifted out of ranked_json by upsertPlayerRanked.
+     *
+     * Exists so ordering never has to touch the blob: sorting on a ranked_json
+     * expression detoasts the whole ~200MB column and measured 95s on the
+     * username search. A `ladder_rating` column was meant to serve this role and
+     * never did — only an unreferenced harvest wrote it, so it was null for all
+     * 97,325 rows and left search results in physical order. It is gone.
+     */
+    rating: integer("rating"),
+    /**
+     * Account level and lifetime seconds in matches, from GetPlayerStats.
+     *
+     * The only two facts on this row that /ranked does not carry, and the two the
+     * "possible smurf" reading needs (see lib/profile/smurf.ts). They live here
+     * rather than in a table of their own because the question is asked per row
+     * across a whole leaderboard, and a second table would mean a join or a
+     * second read on every list view.
+     *
+     * Written wherever a fresh /stats payload already exists — a profile view, or
+     * the backfill script — never by a call made for this. Null means nobody has
+     * looked yet, which is why the predicate treats unknown as "no" rather than
+     * as zero. `statsSynced` is how the backfill knows what it can skip.
+     */
+    level: integer("level"),
+    playtimeSeconds: integer("playtime_seconds"),
+    statsSynced: timestamp("stats_synced", { withTimezone: true }),
+    /** The player's guild, discovered via GetPlayerGuild. `guildId` is null when
+     * they have no guild; `guildCheckedAt` records the last lookup so the guild
+     * discovery cron can skip recently-checked players. */
+    guildId: integer("guild_id"),
+    guildName: text("guild_name"),
+    guildCheckedAt: timestamp("guild_checked_at", { withTimezone: true }),
+    lastSynced: timestamp("last_synced", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
   (t) => [
     // DECLARED HERE ON PURPOSE. These are performance indexes, not schema
     // decoration, and drizzle-kit push reconciles the database down to this
@@ -81,7 +83,7 @@ export const players = pgTable("players", {
     // pg_trgm extension (see db/perf-indexes.sql).
     index("players_username_trgm_idx").using(
       "gin",
-      sql`${t.username} gin_trgm_ops`,
+      sql`${t.username} gin_trgm_ops`
     ),
     // Search orders by this; see the column comment.
     index("players_rating_idx").on(t.rating.desc().nullsLast()),
@@ -95,9 +97,9 @@ export const players = pgTable("players", {
     // means walking the whole rating index for a rare main.
     index("players_top_legend_rating_idx").on(
       t.topLegendId,
-      t.rating.desc().nullsLast(),
+      t.rating.desc().nullsLast()
     ),
-  ],
+  ]
 )
 
 /**
@@ -138,6 +140,26 @@ export const profiles = pgTable("profiles", {
   handle: text("handle"),
   /** Favorite skin shape: { src, name } | null. */
   favoriteSkin: jsonb("favorite_skin"),
+  /**
+   * The Brawlhalla account this pro *competes* on, when it is not the one they
+   * ladder on.
+   *
+   * Ten of our verified pros register for tournaments on a different account
+   * than the one this profile curates — measured, and it includes Ahmet, who is
+   * top of the EU board: profile 45653969, esports 119319655. Without this,
+   * their match history would be filed against an id nobody visits while their
+   * real profile showed nothing, and the failure would be silent.
+   *
+   * Curated, never derived. The only evidence tying the two accounts together
+   * is a handle, and a name match is exactly what this codebase refuses to
+   * trust for identity — the esports-titles bridge confirms by UUID for the
+   * same reason. So an operator records it, with the candidate shown to them.
+   *
+   * Used only by scripts/sync-esports-matches.mjs, to find the pro's
+   * Challengermode id. Match rows are always written under the profile's
+   * canonical brawlhalla_id, so nothing at render time knows this exists.
+   */
+  esportsBrawlhallaId: integer("esports_brawlhalla_id"),
   /**
    * Esports titles as a string[] (jsonb), e.g. ["2v2 World Champion '24"].
    *
@@ -218,7 +240,7 @@ export const profileClaims = pgTable(
     uniqueIndex("profile_claims_one_verified_idx")
       .on(t.brawlhallaId)
       .where(sql`${t.status} = 'verified'`),
-  ],
+  ]
 )
 
 export type ProfileClaimRow = typeof profileClaims.$inferSelect
@@ -412,7 +434,7 @@ export const trueCombos = pgTable(
   // Declared here and nowhere else: `drizzle-kit push` reconciles the database
   // down to this file and drops any index it cannot see (it silently removed
   // all four perf indexes once). The read is always "one weapon, in order".
-  (t) => [index("true_combos_weapon_sort_idx").on(t.weaponId, t.sort)],
+  (t) => [index("true_combos_weapon_sort_idx").on(t.weaponId, t.sort)]
 )
 
 export type TrueComboRow = typeof trueCombos.$inferSelect
@@ -478,10 +500,115 @@ export const esportsTitles = pgTable(
   // Declared here and nowhere else: `drizzle-kit push` reconciles the database
   // down to this file and drops any index it cannot see. The read is always
   // "every title, grouped by player", so the id column is what it walks.
-  (t) => [index("esports_titles_player_idx").on(t.brawlhallaId)],
+  (t) => [index("esports_titles_player_idx").on(t.brawlhallaId)]
 )
 
 export type EsportsTitleRow = typeof esportsTitles.$inferSelect
+
+/**
+ * esports_matches — a pro's tournament results, match by match.
+ *
+ * The companion to esports_titles: that table says a player won an event, this
+ * one says how they got there and who they had to beat. Both are derived from
+ * Challengermode and neither can be typed by hand, because a bracket is not
+ * something an operator can reconstruct from memory.
+ *
+ * **One row per (match, tracked player)**, not per match — the same shape
+ * esports_titles uses, and for the same reason: every read is "this player's
+ * matches", so `brawlhalla_id` is the column it walks and one indexed scan
+ * answers it. A match between two tracked pros therefore stores two rows, one
+ * from each side. That duplication is the point: each row is already the answer
+ * to the question the profile asks, so nothing has to be joined or flipped at
+ * render time.
+ *
+ * Reaching this data at all is the interesting part, and it is written down
+ * because nothing about it is guessable:
+ *
+ *   brawltools has NO match endpoint — placements only (measured: /v2/match,
+ *   /v2/player/{id}/matches and friends all 404). Challengermode has the full
+ *   bracket, but `Tournament.stages` is an INTERFACE, so a plain selection
+ *   returns index/format/lineupCount and looks empty. The matches are behind
+ *   `... on TournamentEliminationStage { brackets { rounds { matchSeriesPage`.
+ *   Only CM-hosted events have brackets: 77 of 240 official events, so history
+ *   starts ~2022 and the SGG era has none, the same boundary esports_titles has.
+ *
+ * The join is proved, never matched on a name: Challengermode gives a member's
+ * `user.id` and brawltools stores that same UUID as `cmPlayerId` (verified —
+ * megD, brawlhalla 33116656, is 6c92f7c2-e989-404e-a83b-5ed975302322 on both
+ * sides). A participant we cannot confirm is stored as a display name with a
+ * null id rather than guessed at.
+ *
+ * Costs no Brawlhalla API budget at all (cardinal constraint #1): every byte
+ * here comes from Challengermode and brawltools.
+ */
+export const esportsMatches = pgTable(
+  "esports_matches",
+  {
+    /** `${matchSeriesId}:${brawlhallaId}` — a function of its inputs, so a
+     * re-run updates in place rather than duplicating a result. */
+    id: text("id").primaryKey(),
+    /** The Challengermode match series. Shared by the two rows of one match,
+     * which is what makes a head-to-head answerable later. */
+    matchId: text("match_id").notNull(),
+    /** The tracked player this row is about. Every read starts here. */
+    brawlhallaId: integer("brawlhalla_id").notNull(),
+
+    tournamentId: text("tournament_id").notNull(),
+    tournamentName: text("tournament_name"),
+    year: integer("year"),
+    /** "1v1" | "2v2" — the event's mode, not the match's. */
+    mode: text("mode"),
+
+    /** "Upper" | "Lower" | "Finals" | a group's title. */
+    bracket: text("bracket"),
+    /** The round as Challengermode titles it, e.g. "Upper Semi finals". */
+    roundTitle: text("round_title"),
+    roundNumber: integer("round_number"),
+    bestOf: integer("best_of"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+
+    /**
+     * Did this player's side win.
+     *
+     * Nullable on purpose: a bye, a draw and a match whose result never became
+     * final are all "not a loss", and storing false for them would invent a
+     * defeat that never happened. The profile renders those as neither.
+     */
+    won: boolean("won"),
+    scoreFor: integer("score_for"),
+    scoreAgainst: integer("score_against"),
+
+    /** Display form of the other side — a handle in 1v1, a lineup in 2v2. */
+    opponentName: text("opponent_name"),
+    /**
+     * Whichever opponents resolved to a Brawlhalla account, so the row can link
+     * to a profile. An `integer[]` and not jsonb: it is one or two ints and
+     * constraint #2 is about blobs, not arrays. Empty when nobody resolved,
+     * which is normal — most bracket entrants are not tracked competitors.
+     */
+    opponentIds: integer("opponent_ids").array(),
+    /** The partner in 2v2, display form. Null in 1v1. */
+    teammateName: text("teammate_name"),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  // Declared here and nowhere else: `drizzle-kit push` reconciles the database
+  // down to this file and drops any index it cannot see. The profile read is
+  // "this player's matches, newest first", so the index carries the sort too —
+  // and NULLS LAST to match the query, because an index whose null ordering
+  // disagrees with the ORDER BY does not get used (see cardinal constraint #8).
+  (t) => [
+    index("esports_matches_player_idx").on(
+      t.brawlhallaId,
+      t.startedAt.desc().nullsLast()
+    ),
+    index("esports_matches_match_idx").on(t.matchId),
+  ]
+)
+
+export type EsportsMatchRow = typeof esportsMatches.$inferSelect
 
 /**
  * flair_grants — who holds a `rule='manual'` flair.
@@ -504,7 +631,7 @@ export const flairGrants = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.brawlhallaId, t.flairId] })],
+  (t) => [primaryKey({ columns: [t.brawlhallaId, t.flairId] })]
 )
 
 export type FlairGrantRow = typeof flairGrants.$inferSelect
@@ -519,32 +646,34 @@ export type FlairGrantRow = typeof flairGrants.$inferSelect
  * live stats only. xp values use bigint — a large guild's lifetime XP can
  * exceed the int4 ceiling.
  */
-export const guilds = pgTable("guilds", {
-  guildId: integer("guild_id").primaryKey(),
-  name: text("name").notNull(),
-  /** Official global guild rank (lower is better). Null when unranked. */
-  rank: integer("rank"),
-  xp: bigint("xp", { mode: "number" }),
-  legacyXp: bigint("legacy_xp", { mode: "number" }),
-  /** Weekly guild points (resets weekly). */
-  guildPoints: bigint("guild_points", { mode: "number" }),
-  memberCount: integer("member_count"),
-  /** Guild creation date — UNIX seconds. */
-  createDate: integer("create_date"),
-  /** Tags as a string[] (jsonb). */
-  tags: jsonb("tags"),
-  isRecruiting: boolean("is_recruiting"),
-  notice: text("notice"),
-  discordInviteCode: text("discord_invite_code"),
-  /** Full GetGuildStats payload. */
-  statsJson: jsonb("stats_json"),
-  lastSynced: timestamp("last_synced", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-},
+export const guilds = pgTable(
+  "guilds",
+  {
+    guildId: integer("guild_id").primaryKey(),
+    name: text("name").notNull(),
+    /** Official global guild rank (lower is better). Null when unranked. */
+    rank: integer("rank"),
+    xp: bigint("xp", { mode: "number" }),
+    legacyXp: bigint("legacy_xp", { mode: "number" }),
+    /** Weekly guild points (resets weekly). */
+    guildPoints: bigint("guild_points", { mode: "number" }),
+    memberCount: integer("member_count"),
+    /** Guild creation date — UNIX seconds. */
+    createDate: integer("create_date"),
+    /** Tags as a string[] (jsonb). */
+    tags: jsonb("tags"),
+    isRecruiting: boolean("is_recruiting"),
+    notice: text("notice"),
+    discordInviteCode: text("discord_invite_code"),
+    /** Full GetGuildStats payload. */
+    statsJson: jsonb("stats_json"),
+    lastSynced: timestamp("last_synced", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
   // Matches getGuildLeaderboard ORDER BY exactly. Without it /guilds sorted
   // 18.5k rows unaided and once failed the production build outright.
-  (t) => [index("guilds_rank_xp_idx").on(t.rank.asc().nullsLast(), t.xp.desc())],
+  (t) => [index("guilds_rank_xp_idx").on(t.rank.asc().nullsLast(), t.xp.desc())]
 )
 
 export type GuildRow = typeof guilds.$inferSelect
@@ -558,7 +687,6 @@ export type GuildInsert = typeof guilds.$inferInsert
  * re-runs on every cache refresh, so the blob was a large chunk of our egress.
  */
 export type GuildListRow = Omit<GuildRow, "statsJson">
-
 
 /**
  * cron_controls — admin pause switches for the scheduled sync jobs. Each cron
@@ -584,36 +712,38 @@ export type CronControlRow = typeof cronControls.$inferSelect
  * user-agent and referer so /admin can see who is hitting which profiles and
  * why rows appear in the pool. Pruned manually via the "Clear log" button.
  */
-export const fetchLog = pgTable("fetch_log", {
-  id: serial("id").primaryKey(),
-  brawlhallaId: integer("brawlhalla_id").notNull(),
-  /** Where the fetch happened: "page-view" | "og-image" | "admin-save". */
-  source: text("source").notNull(),
-  /** Outcome: "cached" (read-through hit, no API), "synced" (API ok, upserted),
-   *  "failed" (API errored — `apiStatus` carries the HTTP status). */
-  result: text("result").notNull(),
-  apiStatus: integer("api_status"),
-  /**
-   * Short client label from clientLabel() — "bingbot", "googlebot", "human", …
-   *
-   * Replaced storing the raw User-Agent, which at ~125 bytes was 79% of every
-   * row and drove this table to 362 MB (59% of the 500 MB quota) for data only
-   * ever read as "which crawler is this".
-   *
-   * The `user_agent` column is gone. It stopped being written on 2026-09-11,
-   * but the rows already holding one kept ~47 MB alive until the retention
-   * window rolled over — a dead column is only free once the table is
-   * rewritten, so it was dropped and the table VACUUM FULL'd rather than left
-   * to age out (see db/reclaim-space.sql).
-   */
-  client: text("client"),
-  referer: text("referer"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-},
+export const fetchLog = pgTable(
+  "fetch_log",
+  {
+    id: serial("id").primaryKey(),
+    brawlhallaId: integer("brawlhalla_id").notNull(),
+    /** Where the fetch happened: "page-view" | "og-image" | "admin-save". */
+    source: text("source").notNull(),
+    /** Outcome: "cached" (read-through hit, no API), "synced" (API ok, upserted),
+     *  "failed" (API errored — `apiStatus` carries the HTTP status). */
+    result: text("result").notNull(),
+    apiStatus: integer("api_status"),
+    /**
+     * Short client label from clientLabel() — "bingbot", "googlebot", "human", …
+     *
+     * Replaced storing the raw User-Agent, which at ~125 bytes was 79% of every
+     * row and drove this table to 362 MB (59% of the 500 MB quota) for data only
+     * ever read as "which crawler is this".
+     *
+     * The `user_agent` column is gone. It stopped being written on 2026-09-11,
+     * but the rows already holding one kept ~47 MB alive until the retention
+     * window rolled over — a dead column is only free once the table is
+     * rewritten, so it was dropped and the table VACUUM FULL'd rather than left
+     * to age out (see db/reclaim-space.sql).
+     */
+    client: text("client"),
+    referer: text("referer"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
   // Serves the rolling retention prune in the sync-valhallan cron.
-  (t) => [index("fetch_log_created_at_idx").on(t.createdAt.desc())],
+  (t) => [index("fetch_log_created_at_idx").on(t.createdAt.desc())]
 )
 
 export type FetchLogRow = typeof fetchLog.$inferSelect
@@ -654,7 +784,7 @@ export const liveRanked = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("live_ranked_queue_active_idx").on(t.queue, t.lastActiveAt)],
+  (t) => [index("live_ranked_queue_active_idx").on(t.queue, t.lastActiveAt)]
 )
 
 export type LiveRankedRow = typeof liveRanked.$inferSelect
@@ -696,7 +826,7 @@ export const valhallanMembers = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.queue, t.region] })],
+  (t) => [primaryKey({ columns: [t.queue, t.region] })]
 )
 
 export type ValhallanMemberRow = typeof valhallanMembers.$inferSelect
@@ -749,7 +879,7 @@ export const queueActivity = pgTable(
     /** Matches played (sum of game-count deltas) across those polls. */
     matches: integer("matches").notNull().default(0),
   },
-  (t) => [primaryKey({ columns: [t.queue, t.region, t.bucket] })],
+  (t) => [primaryKey({ columns: [t.queue, t.region, t.bucket] })]
 )
 
 export type QueueActivityRow = typeof queueActivity.$inferSelect
@@ -765,7 +895,7 @@ export const rankedSnapshots = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.brawlhallaId, t.takenAt] })],
+  (t) => [primaryKey({ columns: [t.brawlhallaId, t.takenAt] })]
 )
 
 export type RankedSnapshotRow = typeof rankedSnapshots.$inferSelect

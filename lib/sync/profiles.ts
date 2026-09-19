@@ -43,6 +43,8 @@ export interface ProfileRecord {
   isPro: boolean
   handle: string | null
   favoriteSkin: FavoriteSkin | null
+  /** Their competing account, when it is not the one they ladder on. */
+  esportsBrawlhallaId: number | null
   updatedAt: Date
 }
 
@@ -58,6 +60,12 @@ export interface ProfileInput {
   brawlhallaId: number
   isPro: boolean
   handle: string | null
+  /**
+   * The account this pro competes on, when it differs from the one they ladder
+   * on. Curated because nothing can derive it — see the column note in
+   * lib/db/schema.ts. Null clears it.
+   */
+  esportsBrawlhallaId: number | null
 }
 
 /**
@@ -104,6 +112,7 @@ function toRecord(row: ProfileRow): ProfileRecord {
     isPro: row.isPro,
     handle: row.handle,
     favoriteSkin: parseSkin(row.favoriteSkin),
+    esportsBrawlhallaId: row.esportsBrawlhallaId,
     updatedAt: row.updatedAt,
   }
 }
@@ -395,6 +404,7 @@ export async function upsertProfile(input: ProfileInput): Promise<void> {
     brawlhallaId: input.brawlhallaId,
     isPro: input.isPro,
     handle: input.handle,
+    esportsBrawlhallaId: input.esportsBrawlhallaId,
     updatedAt: new Date(),
   }
   await db()
@@ -405,6 +415,7 @@ export async function upsertProfile(input: ProfileInput): Promise<void> {
       set: {
         isPro: values.isPro,
         handle: values.handle,
+        esportsBrawlhallaId: values.esportsBrawlhallaId,
         updatedAt: values.updatedAt,
       },
     })

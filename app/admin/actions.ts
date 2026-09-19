@@ -83,10 +83,19 @@ export async function saveProfileAction(formData: FormData) {
   const id = Number(formData.get("brawlhallaId"))
   if (!Number.isInteger(id) || id <= 0) redirect("/admin?error=bad-id")
 
+  const rawEsports = String(formData.get("esportsBrawlhallaId") ?? "").trim()
+  const esportsId = rawEsports ? Number(rawEsports) : null
+  if (esportsId !== null && (!Number.isInteger(esportsId) || esportsId <= 0)) {
+    redirect("/admin?error=bad-esports-id")
+  }
+
   const input: ProfileInput = {
     brawlhallaId: id,
     isPro: formData.get("isPro") === "on",
     handle: String(formData.get("handle") ?? "").trim() || null,
+    // Same id means no alias: storing it would be a second copy of a fact the
+    // row already carries, and one of them would eventually be stale.
+    esportsBrawlhallaId: esportsId === id ? null : esportsId,
   }
 
   await upsertProfile(input)
@@ -266,7 +275,9 @@ export async function unlinkProfileAction(formData: FormData) {
   // People is keyed by brawlhalla_id and Users by account, and both can unlink.
   // Returning the operator to the tab they were on beats guessing.
   const from = String(formData.get("from") ?? "")
-  redirect(from === "users" ? "/admin?tab=users&unlinked=1" : "/admin?unlinked=1")
+  redirect(
+    from === "users" ? "/admin?tab=users&unlinked=1" : "/admin?unlinked=1"
+  )
 }
 
 /**
@@ -398,7 +409,8 @@ export async function addTitleAction(formData: FormData) {
   await requireAdmin()
   const playerId = Number(formData.get("brawlhallaId"))
   const title = String(formData.get("title") ?? "").trim()
-  if (!Number.isInteger(playerId) || playerId <= 0) redirect("/admin?error=bad-id")
+  if (!Number.isInteger(playerId) || playerId <= 0)
+    redirect("/admin?error=bad-id")
   if (!title) redirect(`/admin?tab=people&edit=${playerId}&error=title-empty`)
   await addManualTitle(playerId, title)
   redirect(`/admin?tab=people&edit=${playerId}&titleadded=1`)
