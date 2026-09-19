@@ -513,8 +513,19 @@ function buildRail(
  * nobody showed" look identical — so the partial score assumes the match was
  * played, which is the commoner case.
  */
-function bestOfFor(rung: number | null, bracket: string | null): number | null {
-  if (rung === null) return null
+/**
+ * A round we cannot place on a ladder — a group stage, or a tournament where
+ * Challengermode gives no lineup count — is assumed to be a Bo3.
+ *
+ * Group play is short in these events, and the rounds this catches are the
+ * shallow ones either way, so 2-0 is both the likeliest result and the least
+ * that can be wrong. It renders dimmed like every other inferred score, which
+ * is what keeps it from being read as a measured one. ~350 matches.
+ */
+const UNPLACEABLE_BEST_OF = 3
+
+function bestOfFor(rung: number | null, bracket: string | null): number {
+  if (rung === null) return UNPLACEABLE_BEST_OF
   // The grand final and the whole losers bracket run long; on the winners side
   // the switch happens at Top 16.
   if (bracket === "Lower" || rung === -1) return 5
@@ -555,7 +566,6 @@ function seriesScore(m: EsportsMatch, rung: number | null): Score | null {
     // shown as 0 rather than "?": a clean scoreline reads, and the sweep is
     // both the commonest result and the smallest thing we could be wrong by.
     // It stays dimmed, which is what separates it from a measured score.
-    if (!bestOf) return null
     const need = Math.ceil(bestOf / 2)
     return {
       text: m.won ? `${need}-0` : `0-${need}`,
@@ -572,7 +582,6 @@ function seriesScore(m: EsportsMatch, rung: number | null): Score | null {
   if (m.gamesPlayed === 1)
     return { text: "W.O", bestOf: null, walkover: true, exact: true }
 
-  if (!bestOf) return null
   const won = Math.min(m.gamesPlayed, Math.ceil(bestOf / 2))
   const lost = m.gamesPlayed - won
   if (lost < 0) return null
@@ -580,7 +589,9 @@ function seriesScore(m: EsportsMatch, rung: number | null): Score | null {
     text: m.won ? `${won}-${lost}` : `${lost}-${won}`,
     bestOf,
     walkover: false,
-    exact: true,
+    // Derived from a game count and a format, not read off the match. Only a
+    // stored score is exact.
+    exact: false,
   }
 }
 /**
