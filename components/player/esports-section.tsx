@@ -1,4 +1,4 @@
-import { Medal, Trophy } from "lucide-react"
+import { ChevronDown, Medal, Trophy } from "lucide-react"
 import { LegendChip, PlayerLink } from "@/components/site/primitives"
 import { VerifiedMark } from "@/components/site/pro-badge"
 import { FlairMark } from "@/components/site/flair-mark"
@@ -203,6 +203,40 @@ function Participant({
   )
 }
 
+/** SEP / 20 / 2025, stacked — the same date block /tournaments uses. */
+function dateParts(d: Date | null): {
+  month: string
+  day: string
+  year: string
+} {
+  if (!d) return { month: "—", day: "", year: "" }
+  const dt = new Date(d)
+  return {
+    month: dt.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+    day: dt.toLocaleDateString("en-US", { day: "numeric" }),
+    year: String(dt.getFullYear()),
+  }
+}
+
+function Chip({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wider uppercase",
+        className
+      )}
+    >
+      {children}
+    </span>
+  )
+}
+
 function fmtDate(d: Date | null): string {
   if (!d) return ""
   return new Date(d).toLocaleDateString(undefined, {
@@ -249,7 +283,7 @@ export function EsportsSection({
   }
 
   return (
-    <div className="mx-auto max-w-[1280px] space-y-4 px-4 sm:px-6">
+    <div className="mx-auto max-w-[1280px] space-y-2 px-4 sm:px-6">
       {/* The career, in one card: what they have won, where they are ranked,
           what it paid, and the record underneath all of it. The record alone
           was the number a match list makes you count; the rest is the context
@@ -333,131 +367,157 @@ export function EsportsSection({
         </span>
       </div>
 
-      {runs.map((run) => (
-        <section
-          key={run.tournamentId}
-          className="overflow-hidden rounded-2xl border border-border/60 bg-card/50 backdrop-blur-sm"
-        >
-          <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border/60 px-5 py-3">
-            {/* The finish leads, because it is what the run was for. */}
-            {run.placementRank !== null && (
-              <InfoTip
-                label={
-                  run.placementDisplay && run.placementDisplay.includes("-")
-                    ? `Finished ${run.placementDisplay} — the bracket does not separate them`
-                    : `Finished ${ordinal(run.placementRank)}`
-                }
-              >
-                <span
-                  className={cn(
-                    "inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wider uppercase tabular-nums",
-                    placementTone(run.placementRank)
-                  )}
-                >
-                  {ordinal(run.placementRank)}
+      {runs.map((run, i) => {
+        const when = dateParts(
+          run.matches[run.matches.length - 1]?.startedAt ?? null
+        )
+        return (
+          // Native <details>, so the open/closed state is the browser's and the
+          // whole section stays a server component — no hydration for a
+          // disclosure. The most recent run is open because that is the one
+          // someone came to see; everything older is one click away rather than
+          // a wall of sixty rows they have to scroll past to reach it.
+          <details
+            key={run.tournamentId}
+            open={i === 0}
+            className="group/run overflow-hidden rounded-xl border border-border/60 bg-card/40 transition-colors open:bg-card/50 hover:border-tier-valhallan/40"
+          >
+            {/* The card /tournaments uses, made into the disclosure control:
+                date block, name, and the chips that say what the run was. */}
+            <summary className="flex cursor-pointer list-none items-center gap-4 p-3 sm:p-4 [&::-webkit-details-marker]:hidden">
+              <span className="flex w-14 shrink-0 flex-col items-center rounded-lg border border-border/60 bg-muted/30 py-2">
+                <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+                  {when.month}
                 </span>
-              </InfoTip>
-            )}
-            <h3 className="min-w-0 font-display text-base font-semibold">
-              {run.name}
-            </h3>
-            {run.mode && (
-              <span className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-                {run.mode}
+                <span className="font-display text-xl leading-none font-bold">
+                  {when.day}
+                </span>
+                <span className="font-mono text-[9px] text-muted-foreground">
+                  {when.year}
+                </span>
               </span>
-            )}
-            {/* Once per run, not once per row — a tournament happens on a day. */}
-            <span className="font-mono text-[10px] text-muted-foreground/60 tabular-nums">
-              {fmtDate(run.matches[run.matches.length - 1]?.startedAt ?? null)}
-            </span>
-            <span className="ml-auto font-mono text-xs tabular-nums">
-              <span className="text-positive">{run.wins}</span>
-              <span className="px-1 text-muted-foreground/60">–</span>
-              <span className="text-negative">{run.losses}</span>
-            </span>
-          </header>
 
-          <ul className="divide-y divide-border/40">
-            {run.matches.map((m) => (
-              <li
-                key={m.id}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2.5"
-              >
-                {/* W / L / — as one fixed-width glyph, so the column reads as a
-                    result strip down the left rather than as prose. */}
-                <span
-                  className={cn(
-                    "inline-flex size-5 shrink-0 items-center justify-center rounded font-mono text-[11px] font-semibold",
-                    m.won === true
-                      ? "bg-positive/15 text-positive"
-                      : m.won === false
-                        ? "bg-negative/15 text-negative"
-                        : "bg-muted/40 text-muted-foreground"
+              <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <span className="min-w-0 truncate text-sm leading-tight font-medium">
+                  {run.name}
+                </span>
+                <span className="flex flex-wrap items-center gap-1.5">
+                  {/* The finish leads the chips, because it is what the run was
+                      for. Podium colours only — painting 9th gold-adjacent
+                      would make every card shout. */}
+                  {run.placementRank !== null && (
+                    <Chip className={placementTone(run.placementRank)}>
+                      <Trophy className="size-2.5" />
+                      {ordinal(run.placementRank)}
+                      {run.placementDisplay?.includes("-") && (
+                        <span className="opacity-60">
+                          ({run.placementDisplay})
+                        </span>
+                      )}
+                    </Chip>
                   )}
+                  {run.mode && (
+                    <Chip className="border-border/60 bg-muted/40 text-muted-foreground">
+                      {run.mode}
+                    </Chip>
+                  )}
+                  <Chip className="border-border/60 bg-muted/40 tabular-nums">
+                    <span className="text-positive">{run.wins}</span>
+                    <span className="text-muted-foreground/60">–</span>
+                    <span className="text-negative">{run.losses}</span>
+                  </Chip>
+                  <Chip className="border-border/60 bg-muted/40 text-muted-foreground">
+                    {run.matches.length}{" "}
+                    {run.matches.length === 1 ? "match" : "matches"}
+                  </Chip>
+                </span>
+              </span>
+
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open/run:rotate-180" />
+            </summary>
+
+            <ul className="divide-y divide-border/40 border-t border-border/60">
+              {run.matches.map((m) => (
+                <li
+                  key={m.id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2.5"
                 >
-                  {m.won === true ? "W" : m.won === false ? "L" : "–"}
-                </span>
-
-                <span className="w-[132px] shrink-0 truncate font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-                  {m.roundTitle ?? m.bracket ?? "—"}
-                </span>
-
-                {/* The partner, ahead of the "vs", because in a 2v2 the row is
-                    about a pair before it is about an opponent. */}
-                {(m.teammateIds.length > 0 || m.teammateName) && (
-                  <span className="inline-flex min-w-0 shrink-0 items-center gap-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-                    <span aria-hidden>+</span>
-                    <Participant
-                      ids={m.teammateIds}
-                      fallbackName={m.teammateName}
-                      previews={previews}
-                      flairs={flairs}
-                      className="text-xs normal-case"
-                    />
+                  {/* W / L / — as one fixed-width glyph, so the column reads as a
+                    result strip down the left rather than as prose. */}
+                  <span
+                    className={cn(
+                      "inline-flex size-5 shrink-0 items-center justify-center rounded font-mono text-[11px] font-semibold",
+                      m.won === true
+                        ? "bg-positive/15 text-positive"
+                        : m.won === false
+                          ? "bg-negative/15 text-negative"
+                          : "bg-muted/40 text-muted-foreground"
+                    )}
+                  >
+                    {m.won === true ? "W" : m.won === false ? "L" : "–"}
                   </span>
-                )}
 
-                <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                  {/* The matchup reads left to right: what they played, against
+                  <span className="w-[132px] shrink-0 truncate font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+                    {m.roundTitle ?? m.bracket ?? "—"}
+                  </span>
+
+                  {/* The partner, ahead of the "vs", because in a 2v2 the row is
+                    about a pair before it is about an opponent. */}
+                  {(m.teammateIds.length > 0 || m.teammateName) && (
+                    <span className="inline-flex min-w-0 shrink-0 items-center gap-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+                      <span aria-hidden>+</span>
+                      <Participant
+                        ids={m.teammateIds}
+                        fallbackName={m.teammateName}
+                        previews={previews}
+                        flairs={flairs}
+                        className="text-xs normal-case"
+                      />
+                    </span>
+                  )}
+
+                  <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                    {/* The matchup reads left to right: what they played, against
                       what. Both sides are absent together on the rounds nobody
                       reported, and the row then looks exactly as it did before
                       this existed — no gap, no placeholder. */}
-                  <LegendRun slugs={m.legends} />
-                  <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground/60 uppercase">
-                    vs
+                    <LegendRun slugs={m.legends} />
+                    <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground/60 uppercase">
+                      vs
+                    </span>
+                    <LegendRun slugs={m.opponentLegends} />
+                    <Participant
+                      ids={m.opponentIds}
+                      fallbackName={m.opponentName}
+                      previews={previews}
+                      flairs={flairs}
+                      className="text-sm font-medium"
+                    />
                   </span>
-                  <LegendRun slugs={m.opponentLegends} />
-                  <Participant
-                    ids={m.opponentIds}
-                    fallbackName={m.opponentName}
-                    previews={previews}
-                    flairs={flairs}
-                    className="text-sm font-medium"
-                  />
-                </span>
 
-                {/* How long the set actually ran, which is the number bestOf was
+                  {/* How long the set actually ran, which is the number bestOf was
                     lying about — Challengermode reports every one of these as
                     bo1, including a final that went four games. Not turned into
                     a score: see the games_played note on the column. */}
-                {(m.gamesPlayed ?? 0) > 1 && (
-                  <InfoTip
-                    label={
-                      m.durationSeconds
-                        ? `${m.gamesPlayed} games, ${Math.round(m.durationSeconds / 60)} minutes`
-                        : `${m.gamesPlayed} games`
-                    }
-                  >
-                    <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground uppercase tabular-nums">
-                      {m.gamesPlayed}g
-                    </span>
-                  </InfoTip>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+                  {(m.gamesPlayed ?? 0) > 1 && (
+                    <InfoTip
+                      label={
+                        m.durationSeconds
+                          ? `${m.gamesPlayed} games, ${Math.round(m.durationSeconds / 60)} minutes`
+                          : `${m.gamesPlayed} games`
+                      }
+                    >
+                      <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground uppercase tabular-nums">
+                        {m.gamesPlayed}g
+                      </span>
+                    </InfoTip>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )
+      })}
     </div>
   )
 }
