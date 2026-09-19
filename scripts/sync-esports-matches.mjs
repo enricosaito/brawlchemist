@@ -4,10 +4,24 @@
 //                                              [--limit N] [--tournament <id>]
 //
 // The companion to sync-esports-titles.mjs: that script asks who won an event,
-// this one asks how they got there. Same three APIs, same proof-not-match rule
-// for identity, and the same year boundary — only Challengermode-hosted events
-// have brackets (77 of 240 official events), so history starts around 2022 and
-// the SGG era has none.
+// this one asks how they got there. Same three APIs and the same
+// proof-not-match rule for identity.
+//
+// Only Challengermode-hosted events have brackets, and the era boundary is
+// later than anyone here assumed. Measured across brawltools' official events:
+//
+//   2021  60 events — all SGG
+//   2022  57 events — all SGG
+//   2023  52 events — all SGG
+//   2024  52 events — all SGG
+//   2025  50 events — 36 CM, 14 SGG
+//   2026  41 events — all CM
+//
+// So match history begins in **2025**, and even 2025 is partial: the 14 SGG
+// events that year have no bracket to read. The default --years still reaches
+// back to 2022 on purpose — those years cost a handful of list calls and return
+// nothing today, but they would pick up anything Challengermode backfills later
+// rather than needing someone to remember to widen it.
 //
 // ── Why the query looks like that ────────────────────────────────────────────
 //
