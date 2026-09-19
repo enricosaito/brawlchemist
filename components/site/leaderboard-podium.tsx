@@ -8,7 +8,8 @@ import type {
   PlayerRankedLegend,
   RankedEntry,
 } from "@/lib/brawlhalla-api"
-import { slugForLegendId } from "@/lib/legends-roster"
+import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
+import { placeholderSkinFor, skinArtUrl } from "@/lib/skins"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { LegendChip, REGION_COLOR, TIER_TEXT_COLOR } from "./primitives"
 import { VerifiedMark } from "./pro-badge"
@@ -72,7 +73,30 @@ function PodiumCard({
   // id. The skin belongs to the primary player; the pro badge shows if either
   // teammate is verified.
   const primaryPreview = player ? previews.get(player.id) : undefined
-  const skin = primaryPreview?.favoriteSkin
+
+  // The art slot, filled from the best thing we know about this player.
+  //
+  // A curated favorite wins — it is a deliberate choice about someone we have
+  // verified. Failing that, a skin for the legend they actually main, which is
+  // a fact we already hold: topLegendId is denormalised onto the player row, so
+  // this costs no query and no API call. Before, the slot filled only for the
+  // handful of curated players and the top three read as three different
+  // components rather than three of the same card.
+  //
+  // It is decoration, not a claim: 12% opacity, aria-hidden, no tooltip. We are
+  // not saying this is the skin they play — the card says who they are in text,
+  // and this is the texture behind it.
+  const mainLegendId = player ? playersMap.get(player.id)?.topLegendId : null
+  const mainLegendName = mainLegendId
+    ? rosterEntryByLegendId(mainLegendId)?.name
+    : null
+  const placeholder =
+    !primaryPreview?.favoriteSkin && mainLegendName && player
+      ? placeholderSkinFor(mainLegendName, player.id)
+      : null
+  const skinSrc =
+    primaryPreview?.favoriteSkin?.src ??
+    (placeholder ? skinArtUrl(placeholder, 400) : null)
   const handle = primaryPreview?.verified?.handle
   const verified = entry.players.some((p) => previews.get(p.id)?.verified)
 
@@ -87,20 +111,23 @@ function PodiumCard({
 
   const body = (
     <>
-      {/* Favorite skin — faint character art bleeding in from the right as a
-          backdrop. Cropped by overflow-hidden; masked so it fades into the card
-          rather than hard-cutting across the stats. */}
-      {skin && (
+      {/* Skin art — faint character art bleeding in from the right as a
+          backdrop. The curated favorite when there is one, otherwise a skin of
+          their main legend (see the note above). Cropped by overflow-hidden;
+          masked so it fades into the card rather than hard-cutting across the
+          stats. */}
+      {skinSrc && (
         <Image
-          src={skin.src}
+          src={skinSrc}
           alt=""
           aria-hidden
           width={364}
           height={323}
-          className="pointer-events-none absolute -right-6 top-1/2 h-[150%] w-auto max-w-none -translate-y-1/2 select-none object-contain opacity-[0.12]"
+          className="pointer-events-none absolute top-1/2 -right-6 h-[150%] w-auto max-w-none -translate-y-1/2 object-contain opacity-[0.12] select-none"
           style={{
             maskImage: "linear-gradient(to left, black 35%, transparent 95%)",
-            WebkitMaskImage: "linear-gradient(to left, black 35%, transparent 95%)",
+            WebkitMaskImage:
+              "linear-gradient(to left, black 35%, transparent 95%)",
           }}
         />
       )}
@@ -112,7 +139,7 @@ function PodiumCard({
           alt={`${tier} rank banner`}
           width={182}
           height={330}
-          className="relative h-28 w-auto shrink-0 select-none object-contain drop-shadow-md sm:h-32"
+          className="relative h-28 w-auto shrink-0 object-contain drop-shadow-md select-none sm:h-32"
         />
       )}
 
@@ -127,7 +154,7 @@ function PodiumCard({
               competing with it — the mark says the same thing as a mark on the
               name, which is what verification is. */}
           <span className="flex min-w-0 flex-1 items-center gap-1.5">
-            <span className="min-w-0 truncate text-base font-semibold leading-tight">
+            <span className="min-w-0 truncate text-base leading-tight font-semibold">
               {(entry.players.length === 1 && player && handle
                 ? handle
                 : username) || "—"}
@@ -147,17 +174,17 @@ function PodiumCard({
         </div>
 
         <div className="flex items-baseline gap-1.5">
-          <span className="font-mono text-3xl font-bold tabular-nums text-foreground">
+          <span className="font-mono text-3xl font-bold text-foreground tabular-nums">
             {entry.rating != null ? formatElo(entry.rating) : "—"}
           </span>
           {entry.rating != null && (
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
               ELO
             </span>
           )}
         </div>
 
-        <span className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider">
+        <span className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tracking-wider uppercase">
           {tier && (
             <span className="inline-flex items-center gap-1.5">
               <span className={TIER_TEXT_COLOR[tier]}>{entry.tier}</span>

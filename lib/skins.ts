@@ -91,3 +91,46 @@ export function skinIconUrl(skin: SkinEntry, width = 64): string {
 export function skinArtUrl(skin: SkinEntry, width = 400): string {
   return wikiThumb(skin.art ?? skin.icon, width)
 }
+
+/** The skin every player already owns, and therefore the one that says nothing. */
+const DEFAULT_SKIN_NAME = "Classic"
+
+/**
+ * A skin to stand in for a player who has not had one curated.
+ *
+ * The podium reserves a slot for character art bleeding in from the right, and
+ * before this only the handful of players an admin had picked a favorite for
+ * filled it — so the top three looked like three different components rather
+ * than three of the same card. This fills it from something we already know:
+ * their main legend.
+ *
+ * Three rules, in order:
+ *
+ *  - **Never Classic.** It is the default everyone has, so it is the one skin
+ *    that carries no information about the player at all, and it is also the
+ *    art already showing in the LegendChip beside it.
+ *  - **Posed art first.** `art` is the full-body render and it is what the slot
+ *    was designed around; the icon is a square portrait and reads as a sticker.
+ *    63 of 69 legends have at least one, and the other four with skins fall
+ *    back to the icon rather than rendering nothing — at 12% opacity behind
+ *    stats, a cropped portrait is texture either way.
+ *  - **Deterministic.** Keyed off the player's id, so a given player always
+ *    draws the same skin. A random pick would change the card on every
+ *    revalidate, which is motion with no meaning behind it.
+ *
+ * Returns null for the two legends whose only skin is Classic, and for any
+ * legend the catalogue has not caught up with (Aurus today) — the slot then
+ * stays empty exactly as it does now.
+ */
+export function placeholderSkinFor(
+  legend: string,
+  seed: number
+): SkinEntry | null {
+  const candidates = skinsForLegend(legend).filter(
+    (s) => s.name !== DEFAULT_SKIN_NAME
+  )
+  if (candidates.length === 0) return null
+  const posed = candidates.filter((s) => s.art)
+  const pool = posed.length > 0 ? posed : candidates
+  return pool[Math.abs(Math.trunc(seed)) % pool.length] ?? null
+}
