@@ -979,3 +979,35 @@ export const rankedSnapshots = pgTable(
 )
 
 export type RankedSnapshotRow = typeof rankedSnapshots.$inferSelect
+
+/**
+ * valhallan_stats — the meta aggregations, precomputed.
+ *
+ * The four Valhallan aggregations are the heaviest queries the site runs, and
+ * they were on the render path: `unstable_cache` only helps on a HIT, so every
+ * cold key made a visitor's request do the work. The key includes region and
+ * method, so it was never one entry that warms once — it was ~60 that miss
+ * independently, and a miss cost 16–31s before the filter fix and ~0.5–2s
+ * after.
+ *
+ * So the cache is now a cache of a TABLE rather than of a computation. The
+ * daily cron writes every variant; readers do one primary-key lookup and, when
+ * a row is missing, return empty rather than computing. That is the whole
+ * point: a page can be stale, it must not be slow, and "compute it now" on a
+ * request is how four connections become zero.
+ *
+ * `id` is `${kind}:${region}:${method}` — a function of the arguments, so a
+ * re-run updates in place. The payload is the reader's own shape, stored whole:
+ * these are ~70 legends or ~13 weapons of small numbers, so the entire table is
+ * a few hundred KB and reading one row costs nothing (constraint #2 is about
+ * scanning blobs across a table, not about fetching one small one by key).
+ */
+export const valhallanStats = pgTable("valhallan_stats", {
+  id: text("id").primaryKey(),
+  payload: jsonb("payload").notNull(),
+  computedAt: timestamp("computed_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export type ValhallanStatsRow = typeof valhallanStats.$inferSelect

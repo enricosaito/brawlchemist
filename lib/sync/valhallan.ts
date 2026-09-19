@@ -9,7 +9,8 @@ import {
   getRankedLeaderboard,
 } from "@/lib/brawlhalla-api"
 import { db } from "@/lib/db"
-import { players, valhallanMembers } from "@/lib/db/schema"
+import { players, valhallanMembers, valhallanStats } from "@/lib/db/schema"
+import { failOpen } from "@/lib/sync/fail-open"
 
 const QUEUES: ApiGameMode[] = ["1v1", "2v2"]
 
@@ -711,36 +712,123 @@ async function computeValhallanWeaponStats(
 export const VALHALLAN_STATS_TAG = "valhallan-stats"
 const STATS_TTL_SECONDS = 6 * 60 * 60
 
-const cachedLegendStats = unstable_cache(
-  computeValhallanLegendStats,
-  ["valhallan-legend-stats"],
-  { tags: [VALHALLAN_STATS_TAG], revalidate: STATS_TTL_SECONDS }
-)
+/**
+ * Every variant the site can ask for.
+ *
+ * Bounded on purpose: the reader takes options, so without a fixed list the
+ * refresher could not know what to precompute. `minGames` is not free — it is
+ * a function of (method, hasRegion), the same one /meta-picks applies — so it
+ * is derived here rather than enumerated, which is what keeps the homepage's
+ * { popular, ALL, 100 } and /meta-picks' default the SAME row instead of two.
+ *
+ * Mainers are stored once at perLegend 5 and sliced by the reader, because the
+ * top three are a prefix of the top five. Ten fewer aggregations for free.
+ */
+const STATS_REGIONS: (string | null)[] = [
+  null,
+  ...(["US-E", "US-W", "EU", "BRZ", "SEA", "AUS", "SA", "JPN", "ME"] as const),
+]
+const STATS_METHODS: AggregationMethod[] = ["pooled", "avg", "popular"]
+const MAINERS_DEPTH = 5
 
-const cachedWeaponStats = unstable_cache(
-  computeValhallanWeaponStats,
-  ["valhallan-weapon-stats"],
-  { tags: [VALHALLAN_STATS_TAG], revalidate: STATS_TTL_SECONDS }
-)
+export function minGamesFor(
+  method: AggregationMethod,
+  region: string | null
+): number {
+  return method === "avg" ? (region ? 20 : 30) : region ? 20 : 100
+}
 
-const cachedTopMainers = unstable_cache(
-  computeTopValhallanMainers,
-  ["valhallan-top-mainers"],
-  { tags: [VALHALLAN_STATS_TAG], revalidate: STATS_TTL_SECONDS }
-)
-
-const cachedMainerCounts = unstable_cache(
-  computeValhallanMainerCounts,
-  ["valhallan-mainer-counts"],
-  { tags: [VALHALLAN_STATS_TAG], revalidate: STATS_TTL_SECONDS }
-)
+const statId = (parts: (string | number | null)[]) =>
+  parts.map((v) => (v == null ? "ALL" : String(v))).join(":")
 
 /**
- * unstable_cache keys on JSON.stringify of the argument list, so `{ region,
- * method }` and `{ method, region }` would be two different cache entries for
- * the same query. Every wrapper below normalises its options into one canonical
- * shape first.
+ * Read one precomputed variant. Never computes.
+ *
+ * That is the whole design: the aggregations are the heaviest queries the site
+ * runs, and `unstable_cache` only helps on a hit — a cold key made a visitor's
+ * request do the work, and there are ~50 keys that miss independently. A
+ * missing row now means "the cron has not written this yet", which renders as
+ * an empty section rather than as four connections held for seconds.
+ *
+ * Fails open outside the cache (constraint #5) and is cached briefly on top of
+ * the table read, so a burst of requests for the same board is one lookup.
  */
+const cachedStatRow = unstable_cache(
+  async (id: string): Promise<unknown | null> => {
+    const [row] = await db()
+      .select({ payload: valhallanStats.payload })
+      .from(valhallanStats)
+      .where(eq(valhallanStats.id, id))
+      .limit(1)
+    return row?.payload ?? null
+  },
+  ["valhallan-stat-row"],
+  { tags: [VALHALLAN_STATS_TAG], revalidate: STATS_TTL_SECONDS }
+)
+
+async function readStat<T>(id: string, fallback: T): Promise<T> {
+  const payload = await failOpen(
+    `[valhallan-stats ${id}]`,
+    () => cachedStatRow(id),
+    null
+  )
+  return (payload as T) ?? fallback
+}
+
+/**
+ * Compute every variant and store it. Cron only.
+ *
+ * ~50 aggregations at roughly half a second each after the indexed-rating fix
+ * (they were 16-31s before it, which is why this could not have been a cron
+ * job then). Each is written as it finishes, so a run that dies part-way leaves
+ * the variants it got rather than nothing.
+ */
+export async function refreshValhallanStats(): Promise<{
+  written: number
+  failed: number
+}> {
+  let written = 0
+  let failed = 0
+  const put = async (id: string, compute: () => Promise<unknown>) => {
+    try {
+      const payload = await compute()
+      await db()
+        .insert(valhallanStats)
+        .values({ id, payload, computedAt: new Date() })
+        .onConflictDoUpdate({
+          target: valhallanStats.id,
+          set: { payload, computedAt: new Date() },
+        })
+      written++
+    } catch (err) {
+      failed++
+      console.error(`[valhallan-stats] ${id} failed:`, err)
+    }
+  }
+
+  for (const region of STATS_REGIONS) {
+    for (const method of STATS_METHODS) {
+      await put(statId(["legend", region, method]), () =>
+        computeValhallanLegendStats({
+          region,
+          method,
+          minGames: minGamesFor(method, region),
+        })
+      )
+    }
+    await put(statId(["weapon", region]), () =>
+      computeValhallanWeaponStats({ region })
+    )
+    await put(statId(["mainers", region]), () =>
+      computeTopValhallanMainers({ region, perLegend: MAINERS_DEPTH })
+    )
+    await put(statId(["counts", region]), () =>
+      computeValhallanMainerCounts({ region })
+    )
+  }
+  return { written, failed }
+}
+
 function normalizeStatsOpts(opts: {
   minGames?: number
   region?: string | null
@@ -761,11 +849,11 @@ export function getValhallanLegendStats(
     method?: AggregationMethod
   } = {}
 ): Promise<ValhallanAggregation> {
-  const { region, method, minGames } = normalizeStatsOpts(opts)
-  return cachedLegendStats({
-    region,
+  const { region, method } = normalizeStatsOpts(opts)
+  return readStat<ValhallanAggregation>(statId(["legend", region, method]), {
+    legends: [],
+    sampleSize: 0,
     method,
-    ...(minGames != null ? { minGames } : {}),
   })
 }
 
@@ -773,7 +861,10 @@ export function getValhallanLegendStats(
 export function getValhallanWeaponStats(
   opts: { region?: string | null } = {}
 ): Promise<{ weapons: WeaponStat[]; sampleSize: number }> {
-  return cachedWeaponStats({ region: opts.region ?? null })
+  return readStat<{ weapons: WeaponStat[]; sampleSize: number }>(
+    statId(["weapon", opts.region ?? null]),
+    { weapons: [], sampleSize: 0 }
+  )
 }
 
 /**
@@ -783,12 +874,15 @@ export function getValhallanWeaponStats(
 export async function getTopValhallanMainers(
   opts: { region?: string | null; perLegend?: number } = {}
 ): Promise<Map<number, TopMainer[]>> {
-  const rows = await cachedTopMainers({
-    region: opts.region ?? null,
-    perLegend: opts.perLegend ?? 3,
-  })
+  // Stored once at MAINERS_DEPTH; the top three are a prefix of the top five.
+  const perLegend = opts.perLegend ?? 3
+  const rows = await readStat<MainerRow[]>(
+    statId(["mainers", opts.region ?? null]),
+    []
+  )
   const map = new Map<number, TopMainer[]>()
   for (const row of rows) {
+    if ((map.get(row.top_legend_id)?.length ?? 0) >= perLegend) continue
     const list = map.get(row.top_legend_id) ?? []
     list.push({
       brawlhallaId: row.brawlhalla_id,
@@ -818,7 +912,10 @@ export async function getTopValhallanMainers(
 export async function getValhallanMainerCounts(
   opts: { region?: string | null } = {}
 ): Promise<Map<number, number>> {
-  const rows = await cachedMainerCounts({ region: opts.region ?? null })
+  const rows = await readStat<{ top_legend_id: number; players: number }[]>(
+    statId(["counts", opts.region ?? null]),
+    []
+  )
   const map = new Map<number, number>()
   for (const row of rows) map.set(row.top_legend_id, row.players)
   return map
