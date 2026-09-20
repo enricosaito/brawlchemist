@@ -779,6 +779,16 @@ export const cronControls = pgTable("cron_controls", {
   /** Matches the route segment under app/api/cron/<key>. */
   key: text("key").primaryKey(),
   paused: boolean("paused").notNull().default(false),
+  /**
+   * Free-form JSON scratch for a job that has to resume where it stopped.
+   *
+   * Only harvest-search uses it today, to remember which (mode, region, page)
+   * the ladder walk reached — a sweep of every Platinum ladder is ~3,500 pages
+   * and cannot run in one invocation, so the progress has to outlive the
+   * request. It lives here rather than in its own table because it is one
+   * short string per job, and a table for that is a join nobody wanted.
+   */
+  cursor: text("cursor"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
