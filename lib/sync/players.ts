@@ -405,3 +405,30 @@ export async function getPlayerSuggestionsByIds(
     .where(inArray(players.brawlhallaId, ids))
     .orderBy(sql`${players.rating} desc nulls last`)
 }
+
+/**
+ * Whether we already hold a ranked payload for this player.
+ *
+ * One primary-key lookup, projecting a boolean rather than the blob — the
+ * point is to answer "is there anything to show" without detoasting
+ * `ranked_json` (cardinal constraint #2).
+ *
+ * Exists so the admin save can tell a *new* curation from an edit. Fetching on
+ * every save spent an API request to learn nothing and, worse, held the
+ * serverless invocation open on a write to this table; see the note in
+ * saveProfileAction. Fails open to `true`, which is the safe direction here:
+ * an unreadable row means "don't start an upstream fetch", never "fetch again".
+ */
+export async function hasCachedStanding(brawlhallaId: number): Promise<boolean> {
+  try {
+    const [row] = await db()
+      .select({ has: sql<boolean>`${players.rankedJson} is not null` })
+      .from(players)
+      .where(eq(players.brawlhallaId, brawlhallaId))
+      .limit(1)
+    return row ? !!row.has : false
+  } catch (err) {
+    console.error("[players] hasCachedStanding failed:", err)
+    return true
+  }
+}

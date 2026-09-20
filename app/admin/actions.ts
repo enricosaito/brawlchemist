@@ -42,7 +42,11 @@ import { after } from "next/server"
 import type { ActionResult } from "@/lib/admin-action-result"
 import { checkCmUser, parseCmUserId } from "@/lib/sync/esports-link"
 import { clearFetchLog, recordFetch } from "@/lib/sync/fetch-log"
-import { syncManyPlayers, syncPlayer } from "@/lib/sync/players"
+import {
+  hasCachedStanding,
+  syncManyPlayers,
+  syncPlayer,
+} from "@/lib/sync/players"
 import {
   discoverValhallanIds,
   getStaleValhallanIds,
@@ -79,16 +83,21 @@ function isUsableSkinSrc(src: string): boolean {
  * every curation save rewrote the player's choice. It moved to
  * saveOwnerFieldsAction with the rest of what they author.
  */
-export async function saveProfileAction(formData: FormData) {
+export async function saveProfileAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
   await requireAdmin()
 
   const id = Number(formData.get("brawlhallaId"))
-  if (!Number.isInteger(id) || id <= 0) redirect("/admin?error=bad-id")
+  if (!Number.isInteger(id) || id <= 0) {
+    return { ok: false, message: "That isn’t a Brawlhalla id." }
+  }
 
   const rawEsports = String(formData.get("esportsBrawlhallaId") ?? "").trim()
   const esportsId = rawEsports ? Number(rawEsports) : null
   if (esportsId !== null && (!Number.isInteger(esportsId) || esportsId <= 0)) {
-    redirect("/admin?error=bad-esports-id")
+    return { ok: false, message: "That isn’t an esports account id." }
   }
 
   const input: ProfileInput = {
@@ -100,37 +109,55 @@ export async function saveProfileAction(formData: FormData) {
     esportsBrawlhallaId: esportsId === id ? null : esportsId,
   }
 
+  const existed = await hasCachedStanding(id)
   await upsertProfile(input)
   revalidateTag(ADMIN_OVERVIEW_TAG, "max")
 
-  // The ranked pull still happens — it is what puts a newly curated pro on the
-  // board without waiting for a visit — but no longer between the click and
-  // the response. It is an upstream call against a shared, rate-limited API
-  // with no guarantee of answering quickly, and awaiting it here meant every
-  // Save on this screen paid for a network hop it did not need before it
-  // could say "saved". after() runs it once the response is out, the same
-  // way the profile page defers its stats write. Fails open either way.
-  after(async () => {
-    try {
-      const outcome = await syncPlayer(id, { force: true })
-      await recordFetch({
-        brawlhallaId: id,
-        source: "admin-save",
-        result: outcome.status === "synced" ? "synced" : "failed",
-        client: "admin",
-      })
-    } catch (err) {
-      console.error("[admin] pro sync on save failed:", err)
-      await recordFetch({
-        brawlhallaId: id,
-        source: "admin-save",
-        result: "failed",
-        client: "admin",
-      })
-    }
-  })
+  // The ranked pull is what puts a *newly* curated pro on the board without
+  // waiting for someone to visit them — so it runs only when there is nothing
+  // to show yet, and never again.
+  //
+  // It used to run on every save, deferred into after(). That is the shape
+  // that made this screen feel frozen, and the production logs say so: a
+  // `POST /admin 303` that had already sent its redirect, then died on
+  // "Vercel Runtime Timeout Error: Task timed out after 300 seconds". The
+  // deferred work keeps the invocation alive, and it holds this instance's
+  // database connections while it calls an external API and writes to the
+  // 200MB `players` table. When the pooler is contended that write blocks,
+  // the function is killed at 300s mid-query, and the backend is left in
+  // `ClientRead` with a transaction open — a lock on `players` and a parked
+  // Supavisor slot, which makes the next save slower still. The reaper's own
+  // log shows the ages of what it collects clustering at 288s, 295s, 303s,
+  // 341s: these are killed functions, and this action was minting them.
+  //
+  // Editing an existing pro's standing changes no fact the Brawlhalla API
+  // holds, so the common case now costs exactly one write.
+  if (!existed) {
+    after(async () => {
+      try {
+        const outcome = await syncPlayer(id, { force: true })
+        await recordFetch({
+          brawlhallaId: id,
+          source: "admin-save",
+          result: outcome.status === "synced" ? "synced" : "failed",
+          client: "admin",
+        })
+      } catch (err) {
+        console.error("[admin] pro sync on save failed:", err)
+      }
+    })
+  }
 
-  redirect(`/admin?tab=people&edit=${id}&saved=${id}`)
+  // The action's own response carries the re-rendered page, so the table and
+  // the badge update without a second request.
+  revalidatePath("/admin")
+  return {
+    ok: true,
+    message: existed ? "Saved." : "Saved — fetching their standing…",
+    // A create lands on the editor for the row it just made; an edit is
+    // already there, and revalidatePath has refreshed it underneath.
+    href: existed ? undefined : `/admin?tab=people&edit=${id}`,
+  }
 }
 
 
