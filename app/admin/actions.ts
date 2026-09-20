@@ -42,6 +42,7 @@ import {
   SOCIAL_KINDS,
   type SocialLink,
 } from "@/lib/sync/customizations"
+import { checkCmUser, parseCmUserId } from "@/lib/sync/esports-link"
 import { clearFetchLog, recordFetch } from "@/lib/sync/fetch-log"
 import { syncManyPlayers, syncPlayer } from "@/lib/sync/players"
 import {
@@ -221,20 +222,49 @@ export async function clearFetchLogAction() {
  * half: a wrong assertion has to be as cheap to take back as it was to make,
  * or nobody will risk making the right ones either.
  *
- * Shape-checked only. A UUID that names no competitor simply never matches a
- * bracket member, so the bridge ignores it — the same way a flair id naming
- * nothing falls back rather than being rejected on write.
+ * **Takes a profile link as readily as an id.** `/users/<uuid>` is how
+ * Challengermode addresses a person — the API hands back that exact URL as
+ * `profileUrl` — so the quickest honest way to assert this is to open the
+ * competitor's profile and paste the address bar. `parseCmUserId` pulls the
+ * uuid out of whatever arrives.
+ *
+ * The id is then **checked against Challengermode**, which the bare-uuid form
+ * never was. A typo used to save silently and simply never match a bracket
+ * member, which looks identical to a pro who has not competed — the exact
+ * failure this screen exists to end. Only a definitive "no such user" is
+ * refused: a lookup we could not make is our problem, not the operator's, so
+ * an unreachable API still saves. One call, on an admin action, off any render
+ * path.
  */
 export async function setCmPlayerIdAction(formData: FormData) {
   await requireAdmin()
   const id = Number(formData.get("brawlhallaId"))
   if (!Number.isInteger(id) || id <= 0) redirect("/admin?error=bad-id")
+
   const raw = String(formData.get("cmPlayerId") ?? "").trim()
-  if (raw && !/^[0-9a-f-]{32,40}$/i.test(raw)) {
-    redirect("/admin?tab=esports-links&error=bad-cm-id")
+  if (!raw) {
+    // Unlinking. Always allowed, and never checked — taking back a wrong
+    // assertion has to stay cheaper than making it.
+    await setCmPlayerId(id, null)
+    redirect("/admin?tab=esports-links&saved=cm-unlink")
   }
-  await setCmPlayerId(id, raw || null)
-  redirect("/admin?tab=esports-links&saved=cm-link")
+
+  const cmId = parseCmUserId(raw)
+  if (!cmId) redirect("/admin?tab=esports-links&error=bad-cm-id")
+
+  const check = await checkCmUser(cmId)
+  if (!check.ok && check.reason === "not-found") {
+    redirect("/admin?tab=esports-links&error=cm-no-user")
+  }
+
+  await setCmPlayerId(id, cmId)
+  redirect(
+    `/admin?tab=esports-links&saved=cm-link${
+      check.ok && check.username
+        ? `&cm=${encodeURIComponent(check.username)}`
+        : ""
+    }`
+  )
 }
 
 export async function refreshCachesAction() {

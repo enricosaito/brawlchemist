@@ -140,6 +140,100 @@ async function cmGameName(
   }
 }
 
+/**
+ * A Challengermode user id out of whatever an operator pasted.
+ *
+ * The id we store IS the one in the profile URL: `/users/<uuid>` is how
+ * Challengermode addresses a person, and the API confirms it — `UserProfile`
+ * returns its own `profileUrl` in exactly that form. So the fastest honest way
+ * to link a pro is to open their Challengermode profile and paste the address
+ * bar, and this accepts that as readily as a bare UUID.
+ *
+ * There is no other way in: `user(userId: UUID)` is the only user lookup the
+ * schema exposes — no lookup by name — and `/users/<username>` 404s on the
+ * site itself. A pasted handle therefore cannot be resolved, which is why this
+ * returns null rather than guessing at one.
+ */
+export function parseCmUserId(input: string): string | null {
+  const raw = input.trim()
+  if (!raw) return null
+  // Any challengermode.com URL carrying a uuid, with or without scheme, www,
+  // query string or trailing slash — and a bare uuid, which is what the
+  // gathered candidates hand over.
+  const uuid = raw.match(
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+  )?.[0]
+  return uuid ? uuid.toLowerCase() : null
+}
+
+/**
+ * What a Challengermode id actually points at.
+ *
+ * Three outcomes, and the difference between the last two matters: a user that
+ * does not exist is a typo worth refusing, while a lookup we could not make is
+ * our problem and must not block a correct assertion. So "unreachable" saves.
+ */
+export type CmUserCheck =
+  | { ok: true; username: string | null; gameName: string | null }
+  | { ok: false; reason: "not-found" }
+  | { ok: false; reason: "unreachable" }
+
+export async function checkCmUser(cmPlayerId: string): Promise<CmUserCheck> {
+  const token = await cmToken()
+  if (!token) return { ok: false, reason: "unreachable" }
+  try {
+    const res = await fetch(CM_GQL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        query: `query($id: UUID!) { user(userId: $id) {
+          username
+          gameAccounts(first: 5) { nodes { displayName gameTitle { slug } } }
+        } }`,
+        variables: { id: cmPlayerId },
+      }),
+      cache: "no-store",
+    })
+    if (!res.ok) return { ok: false, reason: "unreachable" }
+    const json = (await res.json()) as {
+      data?: {
+        user?: {
+          username?: string
+          gameAccounts?: {
+            nodes?: { displayName?: string; gameTitle?: { slug?: string } }[]
+          }
+        } | null
+      }
+      errors?: { extensions?: { code?: string; errorCode?: number } }[]
+    }
+    // **A missing user is an error, not a null.** Challengermode answers an id
+    // that names nobody with `data: null` and a GraphQL error carrying code
+    // 404 — so "did this resolve" cannot be read off `data.user`, and treating
+    // every error as unreachable would save exactly the typos this check
+    // exists to catch. Only that code is definitive: a malformed uuid comes
+    // back as a generic internal error instead, which says nothing about
+    // whether the person exists and therefore must not refuse the write.
+    const notFound = json.errors?.some(
+      (e) => e.extensions?.code === "404" || e.extensions?.errorCode === 404
+    )
+    if (notFound) return { ok: false, reason: "not-found" }
+    if (json.errors?.length) return { ok: false, reason: "unreachable" }
+    if (!json.data?.user) return { ok: false, reason: "unreachable" }
+    const nodes = json.data.user.gameAccounts?.nodes ?? []
+    return {
+      ok: true,
+      username: json.data.user.username ?? null,
+      gameName:
+        nodes.find((n) => n.gameTitle?.slug === "brawlhalla")?.displayName ??
+        null,
+    }
+  } catch {
+    return { ok: false, reason: "unreachable" }
+  }
+}
 interface BtHit {
   name?: string
   cmPlayerId?: string | null

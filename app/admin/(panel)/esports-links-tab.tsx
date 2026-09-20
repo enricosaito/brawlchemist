@@ -1,4 +1,4 @@
-import { Check, TriangleAlert, X } from "lucide-react"
+import { Check, Link as LinkIcon, TriangleAlert, X } from "lucide-react"
 import { gatherLinkCandidates, type LinkGrade } from "@/lib/sync/esports-link"
 import { setCmPlayerIdAction } from "@/app/admin/actions"
 import { cn } from "@/lib/utils"
@@ -89,6 +89,7 @@ export async function EsportsLinksTab() {
               <th className={headCls}>Competitor</th>
               <th className={headCls}>Grade</th>
               <th className={headCls}>Action</th>
+              <th className={headCls}>Link by profile URL</th>
             </tr>
           </thead>
           <tbody>
@@ -186,10 +187,35 @@ export async function EsportsLinksTab() {
                         Confirm
                       </button>
                     </form>
-                  ) : (
-                    <span className="font-mono text-[10px] tracking-wider text-muted-foreground/60 uppercase">
-                      No candidate
-                    </span>
+                  ) : null}
+                </td>
+                <td className={cellCls}>
+                  {!c.linked && (
+                    // The way in when the evidence chain finds nothing, and the
+                    // override when it finds the wrong person. Open the
+                    // competitor's Challengermode profile and paste the address
+                    // bar: `/users/<uuid>` is how Challengermode addresses
+                    // someone, so the URL already carries the id we store.
+                    <form action={setCmPlayerIdAction} className="flex gap-1">
+                      <input
+                        type="hidden"
+                        name="brawlhallaId"
+                        value={c.brawlhallaId}
+                      />
+                      <input
+                        name="cmPlayerId"
+                        placeholder="challengermode.com/users/…"
+                        aria-label={`Challengermode profile link for ${c.handle}`}
+                        className="w-56 rounded-md border border-border/60 bg-background/60 px-2 py-1 font-mono text-[10px] text-foreground placeholder:text-muted-foreground/50 focus:border-pink/50 focus:outline-none"
+                      />
+                      <button
+                        type="submit"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 px-2 py-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase transition-colors hover:border-pink/50 hover:text-foreground"
+                      >
+                        <LinkIcon className="size-3" />
+                        Link
+                      </button>
+                    </form>
                   )}
                 </td>
               </tr>
