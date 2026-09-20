@@ -329,7 +329,14 @@ function noticeFor(sp: {
       // Naming who it resolved to is the receipt. The id is a uuid nobody can
       // eyeball, so reading the name back is the only way to see that a paste
       // went to the person you meant.
-      text: `Linked${sp.cm ? ` to ${sp.cm} on Challengermode` : ""}. Run scripts/sync-esports-matches.mjs --resume to pull their matches, then Refresh caches.`,
+      //
+      // **Without --resume, and that is not a detail.** The resume clause skips
+      // any tournament already walked with the current field set — which, after
+      // a backfill, is all of them. A pro linked today has no rows in those
+      // tournaments, so a resumed run skips every event they played, writes
+      // nothing for them and reports success. This notice used to say --resume
+      // and was therefore wrong in exactly the situation it appears in.
+      text: `Linked${sp.cm ? ` to ${sp.cm} on Challengermode` : ""}. Run scripts/sync-esports-matches.mjs — without --resume, which would skip every event they played — then Refresh caches.`,
     }
   }
   if (sp.saved) {
