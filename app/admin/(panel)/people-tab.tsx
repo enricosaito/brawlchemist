@@ -1,11 +1,18 @@
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { Plus } from "lucide-react"
+import type { ListQuery } from "@/lib/admin-list"
 import {
   getProfileRecord,
   listTitles,
   type EsportsTitle,
 } from "@/lib/sync/profiles"
-import { listAdminPeople } from "@/lib/sync/admin-people"
+import {
+  getAdminPerson,
+  listAdminPeople,
+  PEOPLE_FILTERS,
+  type AdminPerson,
+} from "@/lib/sync/admin-people"
 import { flairById, FLAIR_NONE, selectableFlairs } from "@/lib/profile/flair"
 import { getFlairCatalogue } from "@/lib/sync/flairs"
 import {
@@ -24,8 +31,22 @@ import {
   saveProfileAction,
   unlinkProfileFormAction,
 } from "../actions"
-import { AdminPeopleSearch } from "./people-search"
 import { ActionForm } from "./action-form"
+import { AdminSearch } from "./admin-search"
+import {
+  adminHref,
+  BUTTON,
+  CONTROL,
+  Empty,
+  FilterChips,
+  ListHeader,
+  NoRows,
+  Pager,
+  ROW_ACTION,
+  TAG,
+  TD,
+  TH,
+} from "./list-chrome"
 
 /** Alphabetical: a picker is a lookup, and roster order is release order. */
 const LEGEND_OPTIONS = [...LEGEND_ROSTER].sort((a, b) =>
@@ -36,12 +57,7 @@ const labelCls =
   "font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
 const inputCls =
   "mt-1 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm outline-none focus:border-pink"
-
-const tagCls =
-  "rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider"
-
-const actionCls =
-  "font-mono text-[11px] uppercase tracking-wider transition-colors"
+const hintCls = "mt-1 text-[11px] text-muted-foreground"
 
 /**
  * The People tab: everyone we hold a profile row for, curated or claimed.
@@ -51,328 +67,404 @@ const actionCls =
  * badge", "who owns this profile", "is this the pro or an impostor" are all
  * about the same row. Curation and ownership stay separate *actions*, so
  * unlinking an account never quietly demotes a pro and vice versa.
+ *
+ * The table is the scan; `?edit=` opens one editor above it, and `?add=1`
+ * opens the same editor empty. The destructive controls live on the editor's
+ * header, where the name they act on is the title — not on a row you are
+ * scrolling past.
  */
-export async function PeopleTab({ editId }: { editId: number | null }) {
+export async function PeopleTab({
+  editId,
+  add,
+  query,
+}: {
+  editId: number | null
+  add: boolean
+  query: ListQuery
+}) {
   const valid = !!editId && Number.isInteger(editId)
   // One fan-out for everything — on this screen the cost is round trips, not
-  // queries. This used to be a fan-out of three followed by two more awaits in
-  // series, which on a cross-region database was two extra trips of pure wait
-  // before the list could render. The catalogue is resolved against the
-  // curated table, not the built-in pair, or this list would show a raw id for
-  // every badge minted since the last deploy.
-  const [editing, custom, titles, people, catalogue] = await Promise.all([
-    valid ? getProfileRecord(editId) : Promise.resolve(null),
-    valid ? getCustomizationRecord(editId) : Promise.resolve(null),
-    valid ? listTitles(editId) : Promise.resolve([]),
-    listAdminPeople(),
-    getFlairCatalogue(),
-  ])
-  const pros = people.filter((p) => p.isPro).length
-  const linked = people.filter((p) => p.userId).length
+  // queries. The catalogue is resolved against the curated table, not the
+  // built-in pair, or this list would show a raw id for every badge minted
+  // since the last deploy.
+  const [editing, editingRow, custom, titles, list, catalogue] =
+    await Promise.all([
+      valid ? getProfileRecord(editId) : Promise.resolve(null),
+      valid ? getAdminPerson(editId) : Promise.resolve(null),
+      valid ? getCustomizationRecord(editId) : Promise.resolve(null),
+      valid ? listTitles(editId) : Promise.resolve([]),
+      listAdminPeople(query),
+      getFlairCatalogue(),
+    ])
+  const showEditor = add || !!editing || (valid && !editing)
 
   return (
-    <div className="flex flex-col gap-10">
-      <section>
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="font-display text-lg font-semibold">
-            People{" "}
-            <span className="font-mono text-sm font-normal text-muted-foreground">
-              ({people.length} · {pros} pro · {linked} linked)
-            </span>
-          </h2>
-          <AdminPeopleSearch />
+    <div className="flex flex-col gap-4">
+      <ListHeader title="People" total={list.total}>
+        <AdminSearch placeholder="Handle, name, email or ID…" />
+        <FilterChips tab="people" query={query} filters={PEOPLE_FILTERS} />
+        <Link
+          href={adminHref("people", query, { add: 1 })}
+          prefetch={false}
+          scroll={false}
+          className={cn(
+            BUTTON,
+            "border-pink/50 bg-pink/15 text-pink hover:bg-pink/25"
+          )}
+        >
+          <Plus className="size-3.5" aria-hidden />
+          Add pro
+        </Link>
+      </ListHeader>
+
+      {showEditor && (
+        <Editor
+          editing={editing}
+          editId={valid ? editId : null}
+          row={editingRow ?? undefined}
+          custom={custom}
+          titles={titles}
+          catalogue={catalogue}
+          closeHref={adminHref("people", query)}
+        />
+      )}
+
+      {list.rows.length === 0 ? (
+        <NoRows query={query} />
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-border/60 bg-card/50 backdrop-blur-sm">
+          <table className="w-full min-w-[820px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-border/60">
+                <th className={TH}>Player</th>
+                <th className={TH}>Ladder</th>
+                <th className={TH}>Curation</th>
+                <th className={TH}>Titles</th>
+                <th className={TH}>Account</th>
+                <th className={TH}>Flair</th>
+                <th className={cn(TH, "text-right")}>Manage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.rows.map((p) => {
+                const flair = flairById(p.flairId, catalogue)
+                const name = p.handle || p.username || `#${p.brawlhallaId}`
+                const open = editing?.brawlhallaId === p.brawlhallaId
+                return (
+                  <tr
+                    key={p.brawlhallaId}
+                    className={cn(
+                      "border-b border-border/40 transition-colors last:border-0 hover:bg-muted/30",
+                      open && "bg-pink/5"
+                    )}
+                  >
+                    <td className={cn(TD, "max-w-[260px]")}>
+                      <div className="flex flex-col">
+                        <Link
+                          href={`/player/${p.brawlhallaId}`}
+                          prefetch={false}
+                          className="truncate font-medium underline-offset-2 hover:text-pink hover:underline"
+                        >
+                          {name}
+                        </Link>
+                        <span className="font-mono text-[10px] tracking-wider text-muted-foreground">
+                          #{p.brawlhallaId}
+                          {p.handle && p.username && p.username !== p.handle
+                            ? ` · ${p.username}`
+                            : ""}
+                        </span>
+                      </div>
+                    </td>
+                    <td
+                      className={cn(
+                        TD,
+                        "font-mono text-xs whitespace-nowrap tabular-nums"
+                      )}
+                    >
+                      {p.rating != null ? (
+                        <>
+                          {p.region && (
+                            <span className="text-muted-foreground">
+                              {p.region} ·{" "}
+                            </span>
+                          )}
+                          {p.rating.toLocaleString()}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground/60">
+                          not synced
+                        </span>
+                      )}
+                    </td>
+                    <td className={TD}>
+                      {p.isPro ? (
+                        <span
+                          className={cn(
+                            TAG,
+                            "border-mystic/50 bg-mystic/15 text-mystic"
+                          )}
+                        >
+                          Pro
+                        </span>
+                      ) : (
+                        <Empty />
+                      )}
+                    </td>
+                    <td className={cn(TD, "font-mono text-xs tabular-nums")}>
+                      {p.titleCount > 0 ? (
+                        <span className="text-tier-gold">{p.titleCount}</span>
+                      ) : (
+                        <Empty />
+                      )}
+                    </td>
+                    <td className={cn(TD, "max-w-[240px]")}>
+                      {p.userId ? (
+                        <span
+                          className="block truncate font-mono text-xs text-positive"
+                          title={`Claimed ${p.claimedAt ? p.claimedAt.toISOString().slice(0, 10) : "?"} via ${p.claimMethod ?? "?"}`}
+                        >
+                          {p.email ?? "linked"}
+                        </span>
+                      ) : (
+                        <Empty />
+                      )}
+                    </td>
+                    <td className={cn(TD, "font-mono text-xs")}>
+                      {flair ? (
+                        <span className="text-pink">{flair.label}</span>
+                      ) : (
+                        <Empty />
+                      )}
+                    </td>
+                    <td className={cn(TD, "text-right whitespace-nowrap")}>
+                      <Link
+                        href={
+                          open
+                            ? adminHref("people", query)
+                            : adminHref("people", query, {
+                                edit: p.brawlhallaId,
+                              })
+                        }
+                        prefetch={false}
+                        scroll={false}
+                        className={cn(
+                          ROW_ACTION,
+                          "text-muted-foreground hover:text-pink"
+                        )}
+                      >
+                        {open ? "Close" : "Edit"}
+                      </Link>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Everyone with a profile row — pros you curated and accounts that
-          claimed themselves. Editing one is three cards, split by who is making
-          the claim: what we assert about them (pro, handle), their titles, and
-          what they chose for themselves.
-        </p>
+      )}
 
-        {people.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Nobody yet. Add a pro below.
-          </p>
-        ) : (
-          <ul className="mt-4 flex flex-col gap-2">
-            {people.map((p) => {
-              const flair = flairById(p.flairId, catalogue)
-              const name = p.handle || p.username || `#${p.brawlhallaId}`
-              return (
-                <li
-                  key={p.brawlhallaId}
-                  data-admin-search={`${name} ${p.username ?? ""} ${p.handle ?? ""} ${p.email ?? ""} ${p.brawlhallaId}`.toLowerCase()}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border/60 bg-card/40 px-4 py-3"
-                >
-                  <span className="font-medium">{name}</span>
-                  <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-                    ID {p.brawlhallaId}
-                  </span>
-                  {p.rating != null ? (
-                    <span className="font-mono text-[10px] text-muted-foreground">
-                      {p.region ? `${p.region} · ` : ""}
-                      {p.rating.toLocaleString()} ELO
-                    </span>
-                  ) : (
-                    <span className="font-mono text-[10px] text-muted-foreground/60">
-                      not synced
-                    </span>
-                  )}
-
-                  {/* Curation */}
-                  {p.isPro ? (
-                    <span
-                      className={`${tagCls} border-mystic/50 bg-mystic/15 text-mystic`}
-                    >
-                      Pro{p.handle ? ` · ${p.handle}` : ""}
-                    </span>
-                  ) : (
-                    <span
-                      className={`${tagCls} border-border/60 text-muted-foreground/60`}
-                    >
-                      not pro
-                    </span>
-                  )}
-                  {p.titleCount > 0 && (
-                    <span
-                      className={`${tagCls} border-tier-gold/40 bg-tier-gold/10 text-tier-gold`}
-                      title="Championship titles, hand-typed and derived"
-                    >
-                      {p.titleCount} title
-                      {p.titleCount === 1 ? "" : "s"}
-                    </span>
-                  )}
-
-                  {/* Ownership — the player's, not ours. */}
-                  {p.userId ? (
-                    <span
-                      className={`${tagCls} border-positive/40 bg-positive/10 text-positive`}
-                      title={`Claimed ${p.claimedAt ? p.claimedAt.toISOString().slice(0, 10) : "?"} via ${p.claimMethod ?? "?"}`}
-                    >
-                      Linked{p.email ? ` · ${p.email}` : ""}
-                    </span>
-                  ) : (
-                    <span
-                      className={`${tagCls} border-border/60 text-muted-foreground/60`}
-                    >
-                      unclaimed
-                    </span>
-                  )}
-
-                  {/* Flair is a selection; null means "show my best". */}
-                  {flair && (
-                    <span
-                      className={`${tagCls} border-pink/40 bg-pink/10 text-pink`}
-                    >
-                      Flair · {flair.label}
-                    </span>
-                  )}
-
-                  <div className="ml-auto flex flex-wrap items-center gap-3">
-                    <Link
-                      href={`/admin?edit=${p.brawlhallaId}#editor`}
-                      className={`${actionCls} text-pink hover:text-foreground`}
-                    >
-                      Edit
-                    </Link>
-                    <Link
-                      href={`/player/${p.brawlhallaId}`}
-                      prefetch={false}
-                      className={`${actionCls} text-muted-foreground hover:text-foreground`}
-                    >
-                      View
-                    </Link>
-                    {flair && (
-                      <ActionForm
-                        action={clearFlairFormAction}
-                        submitLabel="Clear flair"
-                        submitClassName={`${actionCls} border-0 bg-transparent px-0 py-0 text-pink hover:bg-transparent hover:opacity-80`}
-                      >
-                        <input
-                          type="hidden"
-                          name="brawlhallaId"
-                          value={p.brawlhallaId}
-                        />
-                      </ActionForm>
-                    )}
-                    {/* The two destructive controls ask twice. A row is a
-                        thing you scroll past, and these sat a pixel from
-                        Edit with nothing between a stray click and a gone
-                        account. Armed on the first click, sent on the
-                        second, disarmed on their own if you look away. */}
-                    {p.userId && (
-                      <ActionForm
-                        action={unlinkProfileFormAction}
-                        submitLabel="Unlink"
-                        confirm="Confirm unlink"
-                        submitClassName={`${actionCls} border-0 bg-transparent px-0 py-0 text-negative hover:bg-transparent hover:opacity-80`}
-                      >
-                        <input
-                          type="hidden"
-                          name="brawlhallaId"
-                          value={p.brawlhallaId}
-                        />
-                      </ActionForm>
-                    )}
-                    <ActionForm
-                      action={deleteProfileFormAction}
-                      submitLabel="Delete"
-                      confirm="Confirm delete"
-                      submitClassName={`${actionCls} border-0 bg-transparent px-0 py-0 text-negative hover:bg-transparent hover:opacity-80`}
-                    >
-                      <input
-                        type="hidden"
-                        name="brawlhallaId"
-                        value={p.brawlhallaId}
-                      />
-                    </ActionForm>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-        <p
-          id="admin-no-match"
-          hidden
-          className="mt-3 text-sm text-muted-foreground"
-        >
-          Nobody matches that.
-        </p>
-      </section>
-
-      <div id="editor" />
-
-      <section>
-        <h2 className="font-display text-lg font-semibold">
-          {editing ? `Edit pro · ${editing.brawlhallaId}` : "Add a pro player"}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Register a verified pro by Brawlhalla ID — saving pulls their ranked
-          standing onto the pro leaderboard. Find an ID via{" "}
-          <Link href="/search" className="text-pink hover:underline">
-            search
-          </Link>
-          .
-        </p>
-
-        <form
-          action={saveProfileAction}
-          className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-border/60 bg-card/40 p-5 sm:grid-cols-2"
-        >
-          <div className="sm:col-span-1">
-            <label className={labelCls} htmlFor="brawlhallaId">
-              Brawlhalla ID
-            </label>
-            <input
-              id="brawlhallaId"
-              name="brawlhallaId"
-              type="number"
-              required
-              readOnly={!!editing}
-              defaultValue={editing?.brawlhallaId ?? editId ?? ""}
-              className={inputCls}
-            />
-          </div>
-
-          <div className="flex items-end sm:col-span-1">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                name="isPro"
-                type="checkbox"
-                defaultChecked={editing ? editing.isPro : true}
-                className="size-4 accent-mystic"
-              />
-              Verified pro (PRO badge)
-            </label>
-          </div>
-
-          <div className="sm:col-span-2">
-            <label className={labelCls} htmlFor="handle">
-              Handle (shown next to PRO)
-            </label>
-            <input
-              id="handle"
-              name="handle"
-              type="text"
-              defaultValue={editing?.handle ?? ""}
-              placeholder="e.g. Kyna"
-              className={inputCls}
-            />
-          </div>
-
-          {/* Ten of our pros register for tournaments on a second account, so
-              their bracket results carry a different Brawlhalla id than the one
-              above. Leave it blank when they are the same — which is the usual
-              case, and the field says so rather than inviting a guess. */}
-          <div className="sm:col-span-2">
-            <label className={labelCls} htmlFor="esportsBrawlhallaId">
-              Esports account ID (only if they compete on a different account)
-            </label>
-            <input
-              id="esportsBrawlhallaId"
-              name="esportsBrawlhallaId"
-              type="number"
-              defaultValue={editing?.esportsBrawlhallaId ?? ""}
-              placeholder="blank = same as above"
-              className={inputCls}
-            />
-            <p className="mt-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-              Links their tournament match history. Verify on brawltools before
-              entering — a wrong id files someone else&apos;s matches here.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 sm:col-span-2">
-            <button
-              type="submit"
-              className="rounded-md bg-pink px-4 py-2 text-sm font-semibold text-background transition-colors hover:bg-pink/90"
-            >
-              {editing ? "Save changes" : "Add pro"}
-            </button>
-            {editing && (
-              <Link
-                href="/admin"
-                className="font-mono text-[11px] tracking-wider text-muted-foreground uppercase transition-colors hover:text-foreground"
-              >
-                Cancel
-              </Link>
-            )}
-          </div>
-        </form>
-
-        {editing && (
-          <>
-            <TitlesCard brawlhallaId={editing.brawlhallaId} titles={titles} />
-            <OwnerFields
-              brawlhallaId={editing.brawlhallaId}
-              custom={custom}
-              favoriteSkin={editing.favoriteSkin}
-              catalogue={catalogue}
-            />
-          </>
-        )}
-      </section>
+      <Pager
+        tab="people"
+        query={query}
+        total={list.total}
+        pageSize={list.pageSize}
+      />
     </div>
   )
 }
 
 /**
- * Everything the *owner* set, editable by an operator.
- *
- * A separate card and a separate action from the curation form above, for the
- * reason the rest of this tab already works that way: curation and the player's
- * own choices are different claims, and an operator fixing a bad link should
- * not be able to un-verify a pro with the same submit.
- *
- * Until now these were the one category of content on the site nobody could
- * moderate. That is not hypothetical — a profile used its link field to point
- * at a porn site from a page with our name on it, and removing it took raw SQL
- * because no screen could see it. An admin panel that can edit a pro's handle
- * but not the URL they point at the world has the wrong half of the problem.
- *
- * Every field writes through the same function the owner's customizer uses, so
- * the rules are identical: this is reach, not a bypass.
+ * The editor: curation (what we assert), titles, and the owner-set fields —
+ * three forms, split by who is making the claim, so an operator fixing a bad
+ * link cannot un-verify a pro with the same submit.
+ */
+function Editor({
+  editing,
+  editId,
+  row,
+  custom,
+  titles,
+  catalogue,
+  closeHref,
+}: {
+  editing: Awaited<ReturnType<typeof getProfileRecord>>
+  editId: number | null
+  row: AdminPerson | undefined
+  custom: Customization | null
+  titles: EsportsTitle[]
+  catalogue: Awaited<ReturnType<typeof getFlairCatalogue>>
+  closeHref: string
+}) {
+  const name = editing
+    ? (editing.handle ?? row?.username ?? `#${editing.brawlhallaId}`)
+    : null
+  const dangerCls = "text-negative"
+  return (
+    <section
+      id="editor"
+      className="rounded-2xl border border-pink/40 bg-card/60 p-4 backdrop-blur-sm"
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate font-display text-base font-semibold">
+            {editing ? name : "New pro"}
+          </h3>
+          {editing && (
+            <p className="font-mono text-[10px] tracking-wider text-muted-foreground">
+              #{editing.brawlhallaId}
+              {row?.email ? ` · ${row.email}` : ""}
+            </p>
+          )}
+        </div>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {editing && (
+            <>
+              <Link
+                href={`/player/${editing.brawlhallaId}`}
+                prefetch={false}
+                className={cn(BUTTON, "text-muted-foreground")}
+              >
+                View profile
+              </Link>
+              {row?.flairId && (
+                <ActionForm
+                  action={clearFlairFormAction}
+                  submitLabel="Clear flair"
+                >
+                  <input
+                    type="hidden"
+                    name="brawlhallaId"
+                    value={editing.brawlhallaId}
+                  />
+                </ActionForm>
+              )}
+              {row?.userId && (
+                <ActionForm
+                  action={unlinkProfileFormAction}
+                  submitLabel="Unlink"
+                  confirm="Confirm unlink"
+                  submitClassName={dangerCls}
+                >
+                  <input
+                    type="hidden"
+                    name="brawlhallaId"
+                    value={editing.brawlhallaId}
+                  />
+                </ActionForm>
+              )}
+              <ActionForm
+                action={deleteProfileFormAction}
+                submitLabel="Delete"
+                confirm="Confirm delete"
+                submitClassName={dangerCls}
+              >
+                <input
+                  type="hidden"
+                  name="brawlhallaId"
+                  value={editing.brawlhallaId}
+                />
+              </ActionForm>
+            </>
+          )}
+          <Link
+            href={closeHref}
+            prefetch={false}
+            scroll={false}
+            className={cn(
+              ROW_ACTION,
+              "px-2 text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Close
+          </Link>
+        </div>
+      </div>
+
+      {/* Curation. Saving pulls their ranked standing in the background. */}
+      <form
+        action={saveProfileAction}
+        className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[160px_1fr_1fr_auto] sm:items-end"
+      >
+        <div>
+          <label className={labelCls} htmlFor="brawlhallaId">
+            Brawlhalla ID
+          </label>
+          <input
+            id="brawlhallaId"
+            name="brawlhallaId"
+            type="number"
+            required
+            readOnly={!!editing}
+            defaultValue={editing?.brawlhallaId ?? editId ?? ""}
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls} htmlFor="handle">
+            Handle
+          </label>
+          <input
+            id="handle"
+            name="handle"
+            type="text"
+            defaultValue={editing?.handle ?? ""}
+            placeholder="Shown beside the Pro badge"
+            className={inputCls}
+          />
+        </div>
+        {/* Ten of our pros compete on a second account. Blank means "same
+            as above", which is the usual case. */}
+        <div>
+          <label className={labelCls} htmlFor="esportsBrawlhallaId">
+            Esports account ID
+          </label>
+          <input
+            id="esportsBrawlhallaId"
+            name="esportsBrawlhallaId"
+            type="number"
+            defaultValue={editing?.esportsBrawlhallaId ?? ""}
+            placeholder="Blank = same account"
+            className={inputCls}
+          />
+        </div>
+        <div className="flex items-center gap-4 pb-2 sm:pb-0">
+          <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+            <input
+              name="isPro"
+              type="checkbox"
+              defaultChecked={editing ? editing.isPro : true}
+              className="size-4 accent-mystic"
+            />
+            Verified pro
+          </label>
+          <button
+            type="submit"
+            className="h-9 rounded-md bg-pink px-4 text-sm font-semibold text-background transition-colors hover:bg-pink/90"
+          >
+            {editing ? "Save" : "Add pro"}
+          </button>
+        </div>
+      </form>
+
+      {editing && (
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <TitlesCard brawlhallaId={editing.brawlhallaId} titles={titles} />
+          <OwnerFields
+            brawlhallaId={editing.brawlhallaId}
+            custom={custom}
+            favoriteSkin={editing.favoriteSkin}
+            catalogue={catalogue}
+          />
+        </div>
+      )}
+    </section>
+  )
+}
+
+/**
+ * Everything the *owner* set, editable by an operator so it can be moderated.
+ * Every field writes through the same function the owner's customizer uses,
+ * so the rules are identical: this is reach, not a bypass.
  */
 function OwnerFields({
   brawlhallaId,
@@ -382,42 +474,30 @@ function OwnerFields({
 }: {
   brawlhallaId: number
   custom: Customization | null
-  /**
-   * Lives on `profiles` rather than `user_customizations` — the one owner-set
-   * field that does, for historical reasons not worth a migration. Which table
-   * it sits in is our problem; the operator's question is "did the player
-   * choose this", and the answer is yes, so it belongs in this card.
-   */
+  /** Lives on `profiles` for historical reasons; the operator's question is
+   * "did the player choose this", and the answer is yes. */
   favoriteSkin: { src: string; name: string } | null
   catalogue: Awaited<ReturnType<typeof getFlairCatalogue>>
 }) {
   const links = new Map(custom?.socialLinks.map((l) => [l.kind, l.url]) ?? [])
   const legends = custom?.favoriteLegendIds ?? []
-  const selectCls =
-    "rounded-md border border-border/60 bg-background px-2 py-1.5 text-xs outline-none focus:border-pink"
 
   return (
-    <div className="mt-6 rounded-xl border border-mystic/30 bg-card/40 p-5">
-      <h3 className="font-display text-base font-semibold">Owner-set</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        What this player chose for themselves. Editable here so it can be
-        moderated — the same validation runs either way, so a link that
-        doesn&apos;t point at the site its icon names is dropped on save.
-      </p>
-
+    <div className="rounded-xl border border-mystic/30 bg-card/40 p-4">
+      <h4 className="font-display text-sm font-semibold">Owner-set</h4>
       <form
         action={saveOwnerFieldsAction}
-        className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2"
+        className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2"
       >
         <input type="hidden" name="brawlhallaId" value={brawlhallaId} />
 
         <div className="sm:col-span-2">
-          <span className={labelCls}>Links — must point at the real site</span>
-          <div className="mt-1 flex flex-col gap-1.5">
+          <span className={labelCls}>Links</span>
+          <div className="mt-1 grid gap-1.5 sm:grid-cols-2">
             {SOCIAL_KINDS.map((kind) => (
               <div key={kind} className="flex items-center gap-2">
                 <label
-                  className={labelCls + " w-20 shrink-0"}
+                  className={cn(labelCls, "w-16 shrink-0")}
                   htmlFor={"link-" + kind}
                 >
                   {SOCIAL_META[kind].label}
@@ -428,17 +508,18 @@ function OwnerFields({
                   type="url"
                   defaultValue={links.get(kind) ?? ""}
                   placeholder={SOCIAL_HOSTS[kind].join(" / ")}
-                  className={"min-w-0 flex-1 " + selectCls}
+                  className={cn("min-w-0 flex-1", CONTROL)}
                 />
               </div>
             ))}
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Clear a field to remove that link.
+          <p className={hintCls}>
+            A link that does not point at the site its icon names is dropped
+            on save. Clear a field to remove it.
           </p>
         </div>
 
-        <div className="sm:col-span-1">
+        <div>
           <span className={labelCls}>Favorite legends</span>
           <div className="mt-1 grid grid-cols-3 gap-2">
             {[0, 1, 2].map((i) => (
@@ -447,7 +528,7 @@ function OwnerFields({
                 name={"legend-" + i}
                 defaultValue={legends[i] ?? ""}
                 aria-label={"Favourite legend " + (i + 1)}
-                className={"min-w-0 " + selectCls}
+                className={cn("min-w-0", CONTROL)}
               >
                 <option value="">—</option>
                 {LEGEND_OPTIONS.map((o) => (
@@ -460,7 +541,7 @@ function OwnerFields({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:col-span-1">
+        <div className="grid grid-cols-2 gap-2">
           <div>
             <label className={labelCls} htmlFor="bannerId">
               Banner
@@ -469,7 +550,7 @@ function OwnerFields({
               id="bannerId"
               name="bannerId"
               defaultValue={custom?.bannerId ?? DEFAULT_BANNER_ID}
-              className={"mt-1 w-full " + selectCls}
+              className={cn("mt-1 w-full", CONTROL)}
             >
               {BANNER_PRESETS.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -482,14 +563,13 @@ function OwnerFields({
             <label className={labelCls} htmlFor="flairId">
               Flair shown
             </label>
-            {/* Three states, not two: empty means "their best earned", which is
-                what an untouched profile does. Setting one they have not earned
-                renders nothing — entitlement is re-derived on every view. */}
+            {/* Three states: empty is "their best earned"; one they have not
+                earned renders nothing, since entitlement is re-derived. */}
             <select
               id="flairId"
               name="flairId"
               defaultValue={custom?.flairId ?? ""}
-              className={"mt-1 w-full " + selectCls}
+              className={cn("mt-1 w-full", CONTROL)}
             >
               <option value="">Automatic (best earned)</option>
               <option value={FLAIR_NONE}>None</option>
@@ -504,38 +584,25 @@ function OwnerFields({
 
         <div className="sm:col-span-2">
           <span className={labelCls}>Favorite skin</span>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            The player picks theirs from the wiki catalogue; you can point this
-            anywhere or upload art, which is how a pro gets a skin the catalogue
-            doesn&apos;t have. An upload replaces the path on save.
-          </p>
-          <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
-            <div>
-              <label className="sr-only" htmlFor="skinSrc">
-                Favorite skin image path
-              </label>
-              <input
-                id="skinSrc"
-                name="skinSrc"
-                type="text"
-                defaultValue={favoriteSkin?.src ?? ""}
-                placeholder="https://… or /assets/SKIN_File.png"
-                className={"w-full " + selectCls}
-              />
-            </div>
-            <div>
-              <label className="sr-only" htmlFor="skinName">
-                Favorite skin display name
-              </label>
-              <input
-                id="skinName"
-                name="skinName"
-                type="text"
-                defaultValue={favoriteSkin?.name ?? ""}
-                placeholder="e.g. Fallen Prince Teros"
-                className={"w-full " + selectCls}
-              />
-            </div>
+          <div className="mt-1 grid gap-2 sm:grid-cols-2">
+            <input
+              id="skinSrc"
+              name="skinSrc"
+              type="text"
+              aria-label="Favorite skin image path"
+              defaultValue={favoriteSkin?.src ?? ""}
+              placeholder="https://… or /assets/SKIN_File.png"
+              className={cn("w-full", CONTROL)}
+            />
+            <input
+              id="skinName"
+              name="skinName"
+              type="text"
+              aria-label="Favorite skin display name"
+              defaultValue={favoriteSkin?.name ?? ""}
+              placeholder="e.g. Fallen Prince Teros"
+              className={cn("w-full", CONTROL)}
+            />
           </div>
           <input
             id="skinFile"
@@ -545,10 +612,10 @@ function OwnerFields({
             aria-label="Upload a skin image"
             className="mt-2 block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-pink file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-background hover:file:bg-pink/90"
           />
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Animated GIFs work and are served whole — every profile view pays
-            the full file. Hard limit 3&nbsp;MB; a static skin should be well
-            under ~500&nbsp;KB. Clear the path to remove the skin.
+          <p className={hintCls}>
+            Upload replaces the path. Max 3&nbsp;MB, served whole on every
+            view — keep a static skin under ~500&nbsp;KB. Clear the path to
+            remove.
           </p>
         </div>
 
@@ -557,7 +624,7 @@ function OwnerFields({
             type="submit"
             className="rounded-md border border-mystic/50 bg-mystic/10 px-4 py-2 text-sm font-semibold text-mystic transition-colors hover:bg-mystic/20"
           >
-            Save owner-set fields
+            Save owner-set
           </button>
         </div>
       </form>
@@ -566,20 +633,9 @@ function OwnerFields({
 }
 
 /**
- * Every championship title on one profile, in one editable list.
- *
- * There were two homes for these: a textarea writing a jsonb column, and the
- * `esports_titles` table, written by scripts/sync-esports-titles.mjs off
- * Challengermode placements. They were never redundant — the typed ones are the
- * pre-Challengermode history the script structurally cannot reach (BCX '21, the
- * SGG-era worlds), the derived ones are 2025 onward — but keeping them apart
- * meant an operator could edit half of someone's honours and not the other
- * half, and meant the profile merged them at render time by comparing strings.
- * A derivation phrased "World Champion 2v2 '23" against a typed "2v2 World
- * Champion '23" would have shown the same win twice.
- *
- * One list now, with the source named on each row so it is obvious which ones
- * the script will recreate if it runs again.
+ * Every championship title on one profile, in one editable list. Derived rows
+ * come off Challengermode placements and return if the sync script runs
+ * again; manual rows are the only way to record anything it never hosted.
  */
 function TitlesCard({
   brawlhallaId,
@@ -589,19 +645,13 @@ function TitlesCard({
   titles: EsportsTitle[]
 }) {
   return (
-    <div className="mt-6 rounded-xl border border-tier-gold/30 bg-card/40 p-5">
-      <h3 className="font-display text-base font-semibold">
-        Esports titles ({titles.length})
-      </h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Shown as gold tags under the player&apos;s name.{" "}
-        <span className="font-medium text-foreground">Derived</span> ones are
-        read off Challengermode placements and come back if the sync script runs
-        again — a consistently wrong one belongs in that script&apos;s
-        allow-list. <span className="font-medium text-foreground">Manual</span>{" "}
-        ones are typed here, and are the only way to record anything
-        Challengermode never hosted.
-      </p>
+    <div className="rounded-xl border border-tier-gold/30 bg-card/40 p-4">
+      <h4 className="font-display text-sm font-semibold">
+        Esports titles{" "}
+        <span className="font-mono text-xs font-normal text-muted-foreground tabular-nums">
+          {titles.length}
+        </span>
+      </h4>
 
       {titles.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">
@@ -620,11 +670,16 @@ function TitlesCard({
                 </span>
                 <span
                   className={cn(
-                    tagCls,
+                    TAG,
                     t.source === "manual"
                       ? "border-mystic/40 bg-mystic/10 text-mystic"
                       : "border-border/60 bg-muted/40 text-muted-foreground"
                   )}
+                  title={
+                    t.source === "manual"
+                      ? "Typed here"
+                      : "Derived from Challengermode — the sync script recreates it"
+                  }
                 >
                   {t.source}
                 </span>
@@ -639,9 +694,10 @@ function TitlesCard({
                 <input type="hidden" name="titleId" value={t.id} />
                 <button
                   type="submit"
-                  className={
-                    actionCls + " text-negative hover:text-negative/80"
-                  }
+                  className={cn(
+                    ROW_ACTION,
+                    "text-negative hover:text-negative/80"
+                  )}
                 >
                   Remove
                 </button>
@@ -661,7 +717,7 @@ function TitlesCard({
           name="title"
           type="text"
           placeholder="e.g. BCX Champion '21"
-          className="min-w-0 flex-1 rounded-md border border-border/60 bg-background px-2 py-1.5 text-xs outline-none focus:border-pink"
+          className={cn("min-w-0 flex-1", CONTROL)}
         />
         <button
           type="submit"

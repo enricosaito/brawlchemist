@@ -1,7 +1,13 @@
 import Image from "next/image"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { listAdminUsers, type AdminUser } from "@/lib/sync/admin-users"
+import type { ListQuery } from "@/lib/admin-list"
+import {
+  getAdminUser,
+  listAdminUsers,
+  USER_FILTERS,
+  type AdminUser,
+} from "@/lib/sync/admin-users"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairCatalogue } from "@/lib/sync/flairs"
 import {
@@ -13,7 +19,6 @@ import {
 import {
   ASSIGNABLE_PLANS,
   ASSIGNABLE_ROLES,
-  LINKED_ROLE,
   PLANS,
   ROLES,
   type AccountPlan,
@@ -27,6 +32,20 @@ import {
   unlinkProfileFormAction,
 } from "../actions"
 import { ActionForm } from "./action-form"
+import { AdminSearch } from "./admin-search"
+import {
+  adminHref,
+  CONTROL,
+  Empty,
+  FilterChips,
+  ListHeader,
+  NoRows,
+  Pager,
+  ROW_ACTION,
+  TAG,
+  TD,
+  TH,
+} from "./list-chrome"
 
 /**
  * Accents. Developer is the only thing on this screen that carries power today,
@@ -40,35 +59,29 @@ const ROLE_CLASS: Record<AccountRole, string> = {
   user: "border-border/60 bg-muted/40 text-muted-foreground",
 }
 
-const TAG =
-  "inline-flex shrink-0 items-center whitespace-nowrap rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider"
-
-const TH =
-  "px-3 py-2 text-left font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
-const TD = "px-3 py-2 align-middle"
-
-const selectCls =
-  "rounded-md border border-border/60 bg-background px-2 py-1.5 font-mono text-xs outline-none focus:border-pink"
-
+/** What the tag means rides on the tag, not in a paragraph above the table. */
 function RoleTag({ role }: { role: AccountRole }) {
-  return <span className={cn(TAG, ROLE_CLASS[role])}>{ROLES[role].label}</span>
-}
-
-/** Free is the absence of a subscription, so it gets no tag at all. */
-function PlanTag({ plan }: { plan: AccountPlan }) {
-  if (plan === "free") return null
   return (
     <span
-      className={cn(TAG, "border-tier-gold/40 bg-tier-gold/10 text-tier-gold")}
+      className={cn(TAG, ROLE_CLASS[role])}
+      title={ROLES[role].description}
     >
-      {PLANS[plan].label}
+      {ROLES[role].label}
     </span>
   )
 }
 
-/** An em dash, so an empty cell reads as "nothing here" rather than "broken". */
-function Empty() {
-  return <span className="font-mono text-xs text-muted-foreground/60">—</span>
+/** Free is the absence of a subscription, so it gets no tag at all. */
+function PlanTag({ plan }: { plan: AccountPlan }) {
+  if (plan === "free") return <Empty />
+  return (
+    <span
+      className={cn(TAG, "border-tier-gold/40 bg-tier-gold/10 text-tier-gold")}
+      title={PLANS[plan].description}
+    >
+      {PLANS[plan].label}
+    </span>
+  )
 }
 
 /**
@@ -76,35 +89,33 @@ function Empty() {
  *
  * A table, because the question this screen answers is a comparison — who is
  * linked, who is a pro, who is flying what — and a comparison wants columns.
- * It used to be a stack of cards with three forms in each, which meant every
- * account was a paragraph tall and you scrolled past the controls for fifty
- * people to check one fact about one of them.
+ * The table is the scan and carries no controls; acting on a row opens it as
+ * `?edituser=`, which renders the forms once, above, with that account's name
+ * on them. Same idiom People uses for `?edit=`.
  *
- * So the table is the scan and it carries no controls at all; acting on a row
- * opens it as `?edituser=`, which renders the forms once, above, with that
- * account's name on them. Same idiom the People tab already uses for `?edit=`,
- * and it is what lets the row stay one line high.
- *
- * Separate from People because People is keyed by brawlhalla_id: it lists
- * profiles, so an account that never claimed a player had no row there and was
- * invisible to the panel. Role and plan belong to the account, so they need the
- * list that is about accounts.
+ * Separate from People because People is keyed by brawlhalla_id: an account
+ * that never claimed a player has no row there. Role and plan belong to the
+ * account, so they need the list that is about accounts.
  */
-export async function UsersTab({ editId }: { editId: string | null }) {
-  // Three reads, one of which actually costs anything. `listAdminUsers` is a
-  // single round trip; the profiles map and the flair catalogue are the same
-  // app-wide caches every public page already warms, so on a live site they are
-  // free — and they are the only way to answer "what badge is this account
-  // flying" without re-deriving entitlement here and letting it drift from the
-  // rule the site renders.
-  const [users, actorId, previews, catalogue] = await Promise.all([
-    listAdminUsers(),
+export async function UsersTab({
+  editId,
+  query,
+}: {
+  editId: string | null
+  query: ListQuery
+}) {
+  // One fan-out. The list is a single round trip; the edit card is its own
+  // read because the account being edited need not be on the page shown; the
+  // profiles map and the flair catalogue are the same app-wide caches every
+  // public page already warms, and the only way to say what badge an account
+  // is flying without re-deriving entitlement here.
+  const [list, editing, actorId, previews, catalogue] = await Promise.all([
+    listAdminUsers(query),
+    editId ? getAdminUser(editId) : Promise.resolve(null),
     adminActorId(),
     getProfilesMap(),
     getFlairCatalogue(),
   ])
-
-  const editing = editId ? users.find((u) => u.id === editId) : undefined
 
   /** What this account's name actually shows, run through the site's own rule. */
   function flairsFor(u: AdminUser): FlairDef[] {
@@ -118,29 +129,22 @@ export async function UsersTab({ editId }: { editId: string | null }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <section>
-        <h2 className="font-display text-lg font-semibold">Accounts</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Two independent axes.{" "}
-          <span className="font-medium text-foreground">Role</span> is
-          permission — Developer reaches this panel, Partner is reserved.{" "}
-          <span className="font-medium text-foreground">Plan</span> is
-          subscription, and carries no permissions, so a lapsed payment can
-          never cost someone their access.{" "}
-          <span className="font-medium text-foreground">Linked User</span> is
-          not a setting: it is what a regular account becomes once it claims a
-          Brawlhalla profile — normally by passing the ELO challenge, and from
-          here by an operator vouching instead.
-        </p>
-      </section>
+    <div className="flex flex-col gap-4">
+      <ListHeader title="Accounts" total={list.total}>
+        <AdminSearch placeholder="Email, handle, name or ID…" />
+        <FilterChips tab="users" query={query} filters={USER_FILTERS} />
+      </ListHeader>
 
-      {editing && <EditCard user={editing} isSelf={actorId === editing.id} />}
+      {editing && (
+        <EditCard
+          user={editing}
+          isSelf={actorId === editing.id}
+          closeHref={adminHref("users", query)}
+        />
+      )}
 
-      {users.length === 0 ? (
-        <p className="rounded-xl border border-border/60 bg-card/40 p-6 text-sm text-muted-foreground">
-          No accounts yet.
-        </p>
+      {list.rows.length === 0 ? (
+        <NoRows query={query} />
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-border/60 bg-card/50 backdrop-blur-sm">
           <table className="w-full min-w-[780px] border-collapse text-sm">
@@ -157,22 +161,19 @@ export async function UsersTab({ editId }: { editId: string | null }) {
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => {
+              {list.rows.map((u) => {
                 const isSelf = !!actorId && actorId === u.id
                 const flairs = flairsFor(u)
+                const open = editId === u.id
                 return (
                   <tr
                     key={u.id}
                     className={cn(
                       "border-b border-border/40 transition-colors last:border-0 hover:bg-muted/30",
-                      editId === u.id && "bg-pink/5"
+                      open && "bg-pink/5"
                     )}
                   >
-                    {/* Email only. The account UUID used to sit under it and
-                        it cost ~200px of a table that then clipped its own
-                        last column — and nobody scans a list of people by
-                        UUID. It is still one click away, in the card that
-                        actually acts on the row. */}
+                    {/* Email only. The UUID is one click away, on the card. */}
                     <td className={cn(TD, "max-w-[300px]")}>
                       <div className="flex items-center gap-2">
                         <span className="truncate font-medium">
@@ -194,11 +195,7 @@ export async function UsersTab({ editId }: { editId: string | null }) {
                       <RoleTag role={u.role} />
                     </td>
                     <td className={TD}>
-                      {u.plan === "free" ? (
-                        <Empty />
-                      ) : (
-                        <PlanTag plan={u.plan} />
-                      )}
+                      <PlanTag plan={u.plan} />
                     </td>
                     <td className={TD}>
                       {u.brawlhallaId == null ? (
@@ -244,8 +241,6 @@ export async function UsersTab({ editId }: { editId: string | null }) {
                               className="h-5 w-auto object-contain select-none"
                             />
                           ))}
-                          {/* Named as well as drawn: an operator is reading
-                              this to answer "which badge", and the art is 20px. */}
                           <span className="truncate font-mono text-[10px] tracking-wider text-muted-foreground">
                             {flairs[0].label}
                           </span>
@@ -262,15 +257,19 @@ export async function UsersTab({ editId }: { editId: string | null }) {
                     </td>
                     <td className={cn(TD, "text-right whitespace-nowrap")}>
                       <Link
-                        href={
-                          editId === u.id
-                            ? "/admin?tab=users"
-                            : `/admin?tab=users&edituser=${u.id}`
-                        }
+                        href={adminHref(
+                          "users",
+                          query,
+                          open ? {} : { edituser: u.id }
+                        )}
+                        prefetch={false}
                         scroll={false}
-                        className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase transition-colors hover:text-pink"
+                        className={cn(
+                          ROW_ACTION,
+                          "text-muted-foreground hover:text-pink"
+                        )}
                       >
-                        {editId === u.id ? "Close" : "Manage"}
+                        {open ? "Close" : "Manage"}
                       </Link>
                     </td>
                   </tr>
@@ -281,19 +280,30 @@ export async function UsersTab({ editId }: { editId: string | null }) {
         </div>
       )}
 
-      <Legend />
+      <Pager
+        tab="users"
+        query={query}
+        total={list.total}
+        pageSize={list.pageSize}
+      />
     </div>
   )
 }
 
 /**
- * The controls for one account, rendered once instead of once per row.
- *
- * Every form here was previously inline in the list. Pulled out, the table gets
- * to be a table, and the destructive one (Unlink) stops sitting in a row you
- * are only scrolling past.
+ * The controls for one account, rendered once instead of once per row. Every
+ * form here returns its verdict in place (ActionForm); the destructive one
+ * asks twice.
  */
-function EditCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
+function EditCard({
+  user,
+  isSelf,
+  closeHref,
+}: {
+  user: AdminUser
+  isSelf: boolean
+  closeHref: string
+}) {
   return (
     <section className="rounded-2xl border border-pink/40 bg-card/60 p-4 backdrop-blur-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -306,9 +316,13 @@ function EditCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
           </p>
         </div>
         <Link
-          href="/admin?tab=users"
+          href={closeHref}
+          prefetch={false}
           scroll={false}
-          className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase transition-colors hover:text-foreground"
+          className={cn(
+            ROW_ACTION,
+            "text-muted-foreground hover:text-foreground"
+          )}
         >
           Close
         </Link>
@@ -317,9 +331,9 @@ function EditCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
       <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-4">
         {/* Linking by hand skips the ELO challenge, which exists to prove
             ownership to us — an operator who already knows whose account this
-            is has nothing to prove. The refusals still apply: one player per
-            account, and a player already owned by someone else has to be
-            unlinked there first. */}
+            is has nothing to prove. The refusals still apply and are named
+            inline: one player per account, and a player already owned by
+            someone else has to be unlinked there first. */}
         <Field label="Linked player">
           {user.brawlhallaId == null ? (
             <ActionForm action={linkProfileFormAction} submitLabel="Link">
@@ -332,13 +346,10 @@ function EditCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
                 name="brawlhallaId"
                 inputMode="numeric"
                 placeholder="Brawlhalla ID"
-                className={cn(selectCls, "w-[132px]")}
+                className={cn(CONTROL, "w-[132px]")}
               />
             </ActionForm>
           ) : (
-            // Unlinking is the one destructive control on this card, so it is
-            // the one that asks twice — armed on the first click, sent on the
-            // second, disarmed if you look away.
             <ActionForm
               action={unlinkProfileFormAction}
               submitLabel="Unlink"
@@ -350,16 +361,20 @@ function EditCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
                 name="brawlhallaId"
                 value={user.brawlhallaId}
               />
-              <span className="font-mono text-xs">
+              <Link
+                href={`/player/${user.brawlhallaId}`}
+                prefetch={false}
+                className="font-mono text-xs text-pink underline-offset-2 hover:underline"
+              >
                 {user.handle ?? user.username ?? `#${user.brawlhallaId}`}
-              </span>
+              </Link>
             </ActionForm>
           )}
         </Field>
 
         {/* Changing your own role is refused server-side as well — see
-            setAccountRole. Hiding the control here only spares the operator a
-            submit that was always going to bounce. */}
+            setAccountRole. Hiding the control only spares a submit that was
+            always going to bounce. */}
         <Field label="Role">
           {isSelf ? (
             <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
@@ -375,7 +390,7 @@ function EditCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
                 id={`role-${user.id}`}
                 name="role"
                 defaultValue={user.storedRole}
-                className={selectCls}
+                className={CONTROL}
               >
                 {ASSIGNABLE_ROLES.map((id) => (
                   <option key={id} value={id}>
@@ -398,7 +413,7 @@ function EditCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
               id={`plan-${user.id}`}
               name="plan"
               defaultValue={user.plan}
-              className={selectCls}
+              className={CONTROL}
             >
               {ASSIGNABLE_PLANS.map((id) => (
                 <option key={id} value={id}>
@@ -428,63 +443,5 @@ function Field({
       </span>
       {children}
     </div>
-  )
-}
-
-/** What the two axes mean, kept below the data rather than above it. */
-function Legend() {
-  return (
-    <section className="grid gap-6 sm:grid-cols-2">
-      <div>
-        <h2 className="font-display text-base font-semibold">
-          Roles — permission
-        </h2>
-        <ul className="mt-2 flex flex-col gap-1.5">
-          {Object.values(ROLES)
-            .sort((a, b) => a.order - b.order)
-            .map((def) => (
-              <li
-                key={def.id}
-                className="flex flex-wrap items-center gap-2 text-sm"
-              >
-                <RoleTag role={def.id} />
-                <span className="text-muted-foreground">{def.description}</span>
-                {def.id === LINKED_ROLE && (
-                  <span className="font-mono text-[10px] tracking-wider text-muted-foreground/70 uppercase">
-                    derived
-                  </span>
-                )}
-              </li>
-            ))}
-        </ul>
-      </div>
-      <div>
-        <h2 className="font-display text-base font-semibold">
-          Plans — subscription
-        </h2>
-        <ul className="mt-2 flex flex-col gap-1.5">
-          {Object.values(PLANS)
-            .sort((a, b) => a.order - b.order)
-            .map((def) => (
-              <li
-                key={def.id}
-                className="flex flex-wrap items-center gap-2 text-sm"
-              >
-                <span
-                  className={cn(
-                    TAG,
-                    def.paid
-                      ? "border-tier-gold/40 bg-tier-gold/10 text-tier-gold"
-                      : "border-border/60 bg-muted/40 text-muted-foreground"
-                  )}
-                >
-                  {def.label}
-                </span>
-                <span className="text-muted-foreground">{def.description}</span>
-              </li>
-            ))}
-        </ul>
-      </div>
-    </section>
   )
 }
