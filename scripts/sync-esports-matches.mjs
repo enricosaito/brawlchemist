@@ -6,6 +6,11 @@
 // --resume skips tournaments already walked with the current field set, which
 // is what makes a killed run cost nothing to pick back up.
 //
+// DO NOT use --resume after linking a pro in /admin. The skip is per
+// TOURNAMENT, not per player: once a backfill has run, every event looks done,
+// so a resumed run skips all of them, writes nothing for the newly linked pro
+// and still reports success. A new link needs a full walk.
+//
 // The companion to sync-esports-titles.mjs: that script asks who won an event,
 // this one asks how they got there. Same three APIs and the same
 // proof-not-match rule for identity.
@@ -678,14 +683,11 @@ async function main() {
 
     let events = []
     if (ONLY_TOURNAMENT) {
-      events = [
-        {
-          id: ONLY_TOURNAMENT,
-          tournamentName: null,
-          year: null,
-          isTwos: false,
-        },
-      ]
+      // Everything but the id is filled in after the walk, from Challengermode's
+      // own answer — see the `--tournament` note below. Hardcoding nulls here
+      // is what wrote 62 rows with no event name, no year, and 2v2 events
+      // recorded as 1v1.
+      events = [{ id: ONLY_TOURNAMENT }]
     } else {
       for (const year of YEARS) {
         for (const gameMode of [1, 2]) {
@@ -733,6 +735,26 @@ async function main() {
         )
         continue
       }
+      // **`--tournament` knows only an id, and the walk is what knows the
+      // rest.** The listing path gets name, year and mode from brawltools; the
+      // targeted path skips that listing entirely, so those three used to be
+      // written as null, null and "1v1" — silently mislabelling every 2v2 event
+      // walked this way and leaving the run card reading "Unknown event".
+      // Challengermode returns the name from the same request the bracket came
+      // from, and the rest follows from it, so the targeted path costs nothing
+      // extra to get right.
+      if (ev.tournamentName == null && walked.name) {
+        ev.tournamentName = walked.name
+        ev.isTwos = /\b(2v2|3v3|doubles)\b/i.test(walked.name)
+      }
+      if (ev.year == null) {
+        const first = walked.series.find((s) => s.startedAt)?.startedAt
+        const fromName = walked.name?.match(/\b(20\d{2})\b/)?.[1]
+        ev.year =
+          fromName ??
+          (first ? String(new Date(first).getUTCFullYear()) : null)
+      }
+
       const placements = await placementsFor(ev.id)
       const rows = walked.series.flatMap((s) =>
         rowsFor(s, ev, bridge.map, placements)
