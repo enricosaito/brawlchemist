@@ -2409,6 +2409,7 @@ export default async function PlayerPage({
           handle={preview?.verified?.handle || null}
           tier={headerTier}
           flairId={customization.flairId}
+          claimed={!!preview?.claimed}
           esportsTitles={preview?.esportsTitles}
         />
         {hasOneVOne ? (

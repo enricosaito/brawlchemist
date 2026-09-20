@@ -50,6 +50,16 @@ export interface RecentVisit {
    */
   flairId?: string | null
   esportsTitles?: string[]
+  /**
+   * Their profile is linked to a Brawlchemist account.
+   *
+   * Gates every flair (see earnedFlairIds), so without it a remembered player
+   * renders no badge while the same player shows one everywhere else. Optional
+   * because these crumbs live in the visitor's own localStorage: entries
+   * written before this existed simply show no flair until that player is
+   * visited again, which is the honest answer — we did not record it.
+   */
+  claimed?: boolean
   /** Owning account has the Developer role — drives the Brawlchemist flair. */
   developer?: boolean
   /**

@@ -32,6 +32,9 @@ interface PlayerHit {
    * entitlement rule as the profile rather than trusting a resolved flair. */
   flairId?: string | null
   esportsTitles?: string[]
+  /** Gates every flair — see earnedFlairIds. */
+  claimed?: boolean
+  flairGrants?: string[]
   developer?: boolean
   /**
    * Their record reads as a possible smurf (see lib/profile/smurf.ts). Derived

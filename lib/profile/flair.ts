@@ -269,6 +269,10 @@ export interface FlairContext {
    * Derived from `profiles.userId` like everything else here, so the badge
    * appears the moment a claim lands — verifyClaim already busts the profiles
    * tag this preview is read from — and leaves again if the link is removed.
+   *
+   * **It now gates every flair, not just the membership one** (see
+   * `earnedFlairIds`), which makes it the single most important field on this
+   * type to remember when building a context by hand.
    */
   claimed?: boolean
   /**
@@ -369,10 +373,32 @@ function byRarity(catalogue: FlairDef[]): FlairDef[] {
   return [...catalogue].sort((a, b) => a.sort - b.sort)
 }
 
+/**
+ * Every flair this player is entitled to, rarest first.
+ *
+ * **No linked account, no flair — any badge, any surface.** A flair is
+ * something a person chose to fly, and someone who has never signed up has
+ * chosen nothing; deriving a badge for them puts our decoration on a stranger's
+ * name. It also declutters the lists it most needed to: the leaderboards were
+ * showing accolade and earnings badges beside every curated pro, claimed or
+ * not, which is most of the ladder.
+ *
+ * Gated here rather than at the call sites because this is the one function
+ * every path resolves through — `resolveFlairs` for `FlairMark`, and the
+ * profile page's `earned` list for `PreviewFlair`. One gate cannot be half
+ * applied.
+ *
+ * The cost of that is a sharp edge: `FlairContext` is a **structural** type, so
+ * a hand-built context that forgets `claimed` now loses every badge rather than
+ * just the membership one. Both such contexts — the team member on a profile
+ * and the two search dropdowns — carry it deliberately. Anything new that
+ * builds a context by hand has to as well.
+ */
 export function earnedFlairIds(
   ctx: FlairContext,
   catalogue: FlairDef[] = BUILTIN_FLAIRS
 ): FlairId[] {
+  if (!ctx.claimed) return []
   return byRarity(catalogue)
     .filter((f) => f.enabled !== false && holds(f, ctx))
     .map((f) => f.id)
