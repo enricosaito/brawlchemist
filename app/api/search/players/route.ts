@@ -146,6 +146,11 @@ export async function GET(req: Request) {
       flairId: flairs.get(p.id) ?? null,
       esportsTitles: profiles.get(p.id)?.esportsTitles,
       developer: profiles.get(p.id)?.developer,
+      // Required, not decorative: flair is gated on a linked account, so a
+      // dropdown row that omitted this would quietly render no badge at all
+      // while every other surface showed one.
+      claimed: profiles.get(p.id)?.claimed,
+      flairGrants: profiles.get(p.id)?.flairGrants,
       // Omitted rather than false for everyone else — this is a handful of
       // players out of ~90k, and the payload is a keystroke's worth of JSON.
       smurf: smurfs.has(p.id) || undefined,
