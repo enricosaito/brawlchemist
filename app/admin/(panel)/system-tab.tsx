@@ -1,17 +1,28 @@
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { listCronControls } from "@/lib/sync/cron-controls"
-import { getPlayerPoolStats } from "@/lib/sync/admin-stats"
+import { getAdminOverview, getPlayerPoolStats } from "@/lib/sync/admin-stats"
 import { getRecentFetches } from "@/lib/sync/fetch-log"
 import {
-  backfillValhallansAction,
-  clearFetchLogAction,
-  refreshCachesAction,
-  toggleCronAction,
+  backfillValhallansFormAction,
+  clearFetchLogFormAction,
+  refreshCachesFormAction,
+  toggleCronFormAction,
 } from "../actions"
+import { ActionForm } from "./action-form"
+import { TAG, TD, TH } from "./list-chrome"
 
-// Tier accent colors for the player-pool breakdown (Tin/Unranked have no token).
-const TIER_COLOR: Record<string, string> = {
+// Tier accents for the pool breakdown. Tin has no token of its own.
+const TIER_BAR: Record<string, string> = {
+  Valhallan: "bg-tier-valhallan",
+  Diamond: "bg-tier-diamond",
+  Platinum: "bg-tier-platinum",
+  Gold: "bg-tier-gold",
+  Silver: "bg-tier-silver",
+  Bronze: "bg-tier-bronze",
+  Tin: "bg-muted-foreground/50",
+}
+const TIER_TEXT: Record<string, string> = {
   Valhallan: "text-tier-valhallan",
   Diamond: "text-tier-diamond",
   Platinum: "text-tier-platinum",
@@ -19,217 +30,378 @@ const TIER_COLOR: Record<string, string> = {
   Silver: "text-tier-silver",
   Bronze: "text-tier-bronze",
   Tin: "text-muted-foreground",
-  Unranked: "text-muted-foreground/60",
 }
 
 function timeAgo(d: Date): string {
   const s = Math.round((Date.now() - d.getTime()) / 1000)
-  if (s < 60) return `${s}s ago`
-  if (s < 3600) return `${Math.round(s / 60)}m ago`
-  if (s < 86400) return `${Math.round(s / 3600)}h ago`
-  return `${Math.round(s / 86400)}d ago`
+  if (s < 60) return `${s}s`
+  if (s < 3600) return `${Math.round(s / 60)}m`
+  if (s < 86400) return `${Math.round(s / 3600)}h`
+  return `${Math.round(s / 86400)}d`
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function Stat({
+  label,
+  value,
+  className,
+}: {
+  label: string
+  value: number
+  className?: string
+}) {
   return (
     <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3">
-      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      <div className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
         {label}
       </div>
-      <div className="mt-0.5 font-display text-2xl font-semibold tabular-nums">
+      <div
+        className={cn(
+          "mt-0.5 font-display text-2xl font-semibold tabular-nums",
+          className
+        )}
+      >
         {value.toLocaleString()}
       </div>
     </div>
   )
 }
 
+function Card({
+  title,
+  children,
+  className,
+}: {
+  title: React.ReactNode
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <section
+      className={cn(
+        "rounded-2xl border border-border/60 bg-card/50 p-4 backdrop-blur-sm",
+        className
+      )}
+    >
+      <h2 className="font-display text-base font-semibold">{title}</h2>
+      {children}
+    </section>
+  )
+}
+
 /**
  * The System tab: the pool we have cached, the crons that fill it, what they
- * have been fetching, and the manual backfill. Everything here is about the
- * machine rather than about a person, which is the split the two tabs draw.
+ * have been fetching, and the manual levers. Everything here is about the
+ * machine rather than about a person, which is the split the tabs draw.
+ *
+ * It was unreachable for a while: the pool breakdown was a 29s sequential scan
+ * of `ranked_json` against a 30s statement timeout, so the tab either crawled
+ * or failed open after half a minute. The reader now buckets the indexed
+ * `rating` column and is cached (see admin-stats.ts).
  */
 export async function SystemTab() {
-  const [poolStats, crons, fetches] = await Promise.all([
+  const [pool, overview, crons, fetches] = await Promise.all([
     getPlayerPoolStats(),
+    getAdminOverview(),
     listCronControls(),
-    getRecentFetches(50),
+    getRecentFetches(30),
   ])
+  const f = overview.fetches24h
+  const fetchTotal = f.cached + f.synced + f.failed
 
   return (
-    <div className="flex flex-col gap-10">
-      {/* Player pool stats */}
-      <section>
-        <h2 className="font-display text-lg font-semibold">Player pool</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          How much of each tier we&apos;ve fetched into the players table.
-          Valhallan is the Diamond-tier population rated 2,300+ (the ranked API
-          never labels Valhallan). Name-only rows are ladder-harvested and not
-          yet fully fetched.
-        </p>
-
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Total players" value={poolStats.total} />
-          <StatCard label="Fully fetched" value={poolStats.fetched} />
-          <StatCard label="Name-only (ladder)" value={poolStats.nameOnly} />
-          <StatCard label="Guilds" value={poolStats.guilds} />
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      {/* Player pool */}
+      <Card title="Player pool">
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat label="Players" value={pool.total} />
+          <Stat label="Rated" value={pool.rated} />
+          <Stat
+            label="No rating yet"
+            value={pool.unrated}
+            className="text-muted-foreground"
+          />
+          <Stat label="Guilds" value={pool.guilds} />
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-          {poolStats.tiers.map((t) => (
+        {pool.rated > 0 && (
+          <>
+            {/* One bar, not seven cards: the question is "what shape is the
+                pool", and a share is read off a bar in one glance. */}
             <div
-              key={t.tier}
-              className="rounded-xl border border-border/60 bg-card/40 px-3 py-2.5"
+              className="mt-4 flex h-3 w-full overflow-hidden rounded-full bg-muted/40"
+              role="img"
+              aria-label={pool.tiers
+                .map((t) => `${t.tier} ${t.count.toLocaleString()}`)
+                .join(", ")}
             >
-              <div
+              {pool.tiers.map((t) =>
+                t.count > 0 ? (
+                  <div
+                    key={t.tier}
+                    className={cn("h-full", TIER_BAR[t.tier])}
+                    style={{ width: `${(t.count / pool.rated) * 100}%` }}
+                    title={`${t.tier} · ${t.count.toLocaleString()} · ${((t.count / pool.rated) * 100).toFixed(1)}%`}
+                  />
+                ) : null
+              )}
+            </div>
+            <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4">
+              {pool.tiers.map((t) => (
+                <li
+                  key={t.tier}
+                  className="flex items-baseline justify-between gap-2 font-mono text-xs tabular-nums"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className={cn(
+                        "inline-block size-2 rounded-full",
+                        TIER_BAR[t.tier]
+                      )}
+                      aria-hidden
+                    />
+                    <span
+                      className={cn(
+                        "text-[10px] tracking-wider uppercase",
+                        TIER_TEXT[t.tier]
+                      )}
+                    >
+                      {t.tier}
+                    </span>
+                  </span>
+                  <span>
+                    {t.count.toLocaleString()}
+                    <span className="ml-1 text-muted-foreground">
+                      {((t.count / pool.rated) * 100).toFixed(1)}%
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </Card>
+
+      {/* Levers */}
+      <Card title="Actions">
+        <ul className="mt-3 flex flex-col divide-y divide-border/40">
+          <li className="flex flex-wrap items-center gap-3 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">Refresh caches</div>
+              <p className="text-[11px] text-muted-foreground">
+                Drops the shared read caches so the next render reads Postgres.
+                For rows changed outside the app. Deletes nothing.
+              </p>
+            </div>
+            <ActionForm
+              action={refreshCachesFormAction}
+              submitLabel="Refresh"
+              submitClassName="border-mystic/40 bg-mystic/15 text-mystic hover:bg-mystic/25"
+            />
+          </li>
+          <li className="flex flex-wrap items-center gap-3 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">Backfill Valhallans</div>
+              <p className="text-[11px] text-muted-foreground">
+                Walks the 1v1 + 2v2 ALL ladders and fetches up to 40 stale
+                Valhallans per click. Spends API budget; re-click to drain.
+              </p>
+            </div>
+            <ActionForm
+              action={backfillValhallansFormAction}
+              submitLabel="Backfill"
+              submitClassName="border-positive/40 bg-positive/15 text-positive hover:bg-positive/25"
+            />
+          </li>
+          <li className="flex flex-wrap items-center gap-3 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">Clear fetch log</div>
+              <p className="text-[11px] text-muted-foreground">
+                Empties the diagnostic log below. It prunes itself at 14 days.
+              </p>
+            </div>
+            <ActionForm
+              action={clearFetchLogFormAction}
+              submitLabel="Clear"
+              confirm="Confirm clear"
+              submitClassName="text-negative"
+            />
+          </li>
+        </ul>
+      </Card>
+
+      {/* Crons */}
+      <Card title="Cron jobs">
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          A paused job still fires on schedule and exits without touching the
+          API.
+        </p>
+        <ul className="mt-3 flex flex-col divide-y divide-border/40">
+          {crons.map((c) => (
+            <li
+              key={c.key}
+              className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium" title={c.description}>
+                    {c.label}
+                  </span>
+                  <code className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                    {c.schedule}
+                  </code>
+                </div>
+              </div>
+              <span
                 className={cn(
-                  "font-mono text-[10px] uppercase tracking-wider",
-                  TIER_COLOR[t.tier] ?? "text-muted-foreground",
+                  TAG,
+                  c.paused
+                    ? "border-pink/50 bg-pink/15 text-pink"
+                    : "border-positive/50 bg-positive/15 text-positive"
                 )}
               >
-                {t.tier}
-              </div>
-              <div className="mt-0.5 font-display text-xl font-semibold tabular-nums">
-                {t.count.toLocaleString()}
-              </div>
-            </div>
+                {c.paused ? "Paused" : "Active"}
+              </span>
+              <ActionForm
+                action={toggleCronFormAction}
+                submitLabel={c.paused ? "Resume" : "Pause"}
+                submitClassName={
+                  c.paused ? "text-positive" : "text-muted-foreground"
+                }
+              >
+                <input type="hidden" name="key" value={c.key} />
+                <input
+                  type="hidden"
+                  name="paused"
+                  value={c.paused ? "false" : "true"}
+                />
+              </ActionForm>
+            </li>
           ))}
-        </div>
-      </section>
+        </ul>
+      </Card>
 
-      {/* Manual Valhallan backfill */}
-      <section>
-        <h2 className="font-display text-lg font-semibold">
-          Backfill Valhallans
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Walks both the{" "}
-          <span className="font-mono text-foreground">1v1</span> and{" "}
-          <span className="font-mono text-foreground">2v2</span> region=ALL
-          leaderboards, fetches each Valhallan&apos;s full ranked payload, and
-          upserts. Throttled (~5s/sync, ~40 players per click); re-click to
-          drain the rest. Idempotent — already-fresh rows are skipped.
-        </p>
-        <form action={backfillValhallansAction} className="mt-3">
-          <button
-            type="submit"
-            className="rounded-md border border-positive/40 bg-positive/15 px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-wider text-positive transition-colors hover:bg-positive/25"
-          >
-            Backfill Valhallans (1v1 + 2v2 ALL)
-          </button>
-        </form>
-      </section>
-
-      {/* Cache refresh */}
-      <section>
-        <h2 className="font-display text-lg font-semibold">Refresh caches</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Drops the shared read caches — verified pros and accolades, flair
-          selections, and the Valhallan aggregations — so the next render reads
-          Postgres. Saving a profile here already does this for you; press this
-          when a row was changed <em>outside</em> the app (a SQL-editor repair,
-          a manual seed), which otherwise keeps serving the old value for up to
-          an hour, and inconsistently — the cache is regional, so one visitor
-          sees the change and the next doesn&apos;t. Safe to press: it discards
-          cached values, it deletes nothing.
-        </p>
-        <form action={refreshCachesAction} className="mt-3">
-          <button
-            type="submit"
-            className="rounded-md border border-mystic/40 bg-mystic/15 px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-wider text-mystic transition-colors hover:bg-mystic/25"
-          >
-            Refresh caches
-          </button>
-        </form>
-      </section>
-
-      {/* Recent fetches log */}
-      <section>
-        <h2 className="font-display text-lg font-semibold">Recent fetches</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Every <span className="font-mono text-foreground">/ranked</span> call
-          the profile page or OG-image route considered, plus admin saves. The
-          requesting client is bucketed (bingbot, googlebot, human, …) so
-          you can spot crawlers vs. organic traffic without storing a full
-          user-agent per row. Showing the latest {fetches.length} entries.
-        </p>
-
-        {fetches.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            No fetches recorded yet.
-          </p>
+      {/* Fetch log */}
+      <Card
+        title={
+          <span className="flex items-baseline gap-2">
+            Fetch log
+            <span className="font-mono text-xs font-normal text-muted-foreground">
+              last 24h
+            </span>
+          </span>
+        }
+      >
+        {fetchTotal > 0 ? (
+          <>
+            <div
+              className="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-muted/40"
+              role="img"
+              aria-label={`${f.cached} cached, ${f.synced} synced, ${f.failed} failed`}
+            >
+              <div
+                className="h-full bg-positive"
+                style={{ width: `${(f.cached / fetchTotal) * 100}%` }}
+              />
+              <div
+                className="h-full bg-mystic"
+                style={{ width: `${(f.synced / fetchTotal) * 100}%` }}
+              />
+              <div
+                className="h-full bg-negative"
+                style={{ width: `${(f.failed / fetchTotal) * 100}%` }}
+              />
+            </div>
+            <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs tabular-nums">
+              <li>
+                <span className="text-positive">cached</span>{" "}
+                {f.cached.toLocaleString()}
+              </li>
+              <li>
+                <span className="text-mystic">synced</span>{" "}
+                {f.synced.toLocaleString()}
+              </li>
+              <li>
+                <span className="text-negative">failed</span>{" "}
+                {f.failed.toLocaleString()}
+              </li>
+              <li className="text-muted-foreground">
+                {fetchTotal.toLocaleString()} total
+              </li>
+            </ul>
+          </>
         ) : (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Nothing recorded in the last day.
+          </p>
+        )}
+
+        {fetches.length > 0 && (
           <div className="mt-3 overflow-x-auto rounded-xl border border-border/60 bg-card/40">
             <table className="min-w-full text-xs">
-              <thead className="bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium">When</th>
-                  <th className="px-3 py-2 text-left font-medium">Source</th>
-                  <th className="px-3 py-2 text-left font-medium">Player</th>
-                  <th className="px-3 py-2 text-left font-medium">Result</th>
-                  <th className="px-3 py-2 text-left font-medium">
-                    Client
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium">Referer</th>
+              <thead>
+                <tr className="border-b border-border/60">
+                  <th className={TH}>Age</th>
+                  <th className={TH}>Player</th>
+                  <th className={TH}>Source</th>
+                  <th className={TH}>Result</th>
+                  <th className={TH}>Client</th>
                 </tr>
               </thead>
               <tbody>
-                {fetches.map((f) => (
-                  <tr key={f.id} className="border-t border-border/40">
+                {fetches.map((r) => (
+                  <tr
+                    key={r.id}
+                    className="border-b border-border/40 last:border-0"
+                  >
                     <td
-                      className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-muted-foreground"
-                      title={f.createdAt.toISOString()}
+                      className={cn(
+                        TD,
+                        "py-1.5 font-mono whitespace-nowrap text-muted-foreground tabular-nums"
+                      )}
+                      title={r.createdAt.toISOString()}
                     >
-                      {timeAgo(f.createdAt)}
+                      {timeAgo(r.createdAt)}
                     </td>
-                    <td className="px-3 py-1.5">
-                      <span
-                        className={cn(
-                          "rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider",
-                          f.source === "page-view"
-                            ? "border-mystic/40 text-mystic"
-                            : f.source === "og-image"
-                              ? "border-pink/40 text-pink"
-                              : "border-positive/40 text-positive",
-                        )}
-                      >
-                        {f.source}
-                      </span>
-                    </td>
-                    <td className="px-3 py-1.5">
+                    <td className={cn(TD, "py-1.5")}>
                       <Link
-                        href={`/player/${f.brawlhallaId}`}
+                        href={`/player/${r.brawlhallaId}`}
                         prefetch={false}
-                        className="font-mono text-foreground hover:underline"
+                        className="font-mono hover:underline"
                       >
-                        #{f.brawlhallaId}
+                        #{r.brawlhallaId}
                       </Link>
                     </td>
-                    <td className="px-3 py-1.5">
+                    <td
+                      className={cn(
+                        TD,
+                        "py-1.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase"
+                      )}
+                    >
+                      {r.source}
+                    </td>
+                    <td className={cn(TD, "py-1.5")}>
                       <span
                         className={cn(
-                          "rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider",
-                          f.result === "cached"
-                            ? "border-positive/40 text-positive"
-                            : f.result === "synced"
-                              ? "border-mystic/40 text-mystic"
-                              : "border-negative/40 text-negative",
+                          "font-mono text-[10px] tracking-wider uppercase",
+                          r.result === "cached"
+                            ? "text-positive"
+                            : r.result === "synced"
+                              ? "text-mystic"
+                              : "text-negative"
                         )}
                       >
-                        {f.result}
-                        {f.apiStatus ? ` ${f.apiStatus}` : ""}
+                        {r.result}
+                        {r.apiStatus ? ` ${r.apiStatus}` : ""}
                       </span>
                     </td>
                     <td
-                      className="max-w-[280px] truncate px-3 py-1.5 text-muted-foreground"
-                      title={f.client ?? ""}
+                      className={cn(
+                        TD,
+                        "max-w-[160px] truncate py-1.5 text-muted-foreground"
+                      )}
+                      title={r.referer ?? ""}
                     >
-                      {f.client ?? "—"}
-                    </td>
-                    <td
-                      className="max-w-[200px] truncate px-3 py-1.5 text-muted-foreground"
-                      title={f.referer ?? ""}
-                    >
-                      {f.referer ?? "—"}
+                      {r.client ?? "—"}
                     </td>
                   </tr>
                 ))}
@@ -237,78 +409,7 @@ export async function SystemTab() {
             </table>
           </div>
         )}
-
-        <form action={clearFetchLogAction} className="mt-3">
-          <button
-            type="submit"
-            className="rounded-md border border-negative/40 bg-negative/15 px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-wider text-negative transition-colors hover:bg-negative/25"
-          >
-            Clear log
-          </button>
-        </form>
-      </section>
-
-      {/* Cron controls */}
-      <section id="crons">
-        <h2 className="font-display text-lg font-semibold">Cron jobs</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Pause a sync job if it&apos;s eating the Brawlhalla API rate limit and
-          blocking live profile fetches. A paused job still triggers on schedule
-          but exits immediately without touching the API. The live leaderboard
-          is the heaviest — pause it first.
-        </p>
-
-        <ul className="mt-4 flex flex-col gap-2">
-          {crons.map((c) => (
-            <li
-              key={c.key}
-              className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border/60 bg-card/40 px-4 py-3"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{c.label}</span>
-                  <code className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                    {c.schedule}
-                  </code>
-                </div>
-                <p className="mt-0.5 text-[12px] text-muted-foreground">
-                  {c.description}
-                </p>
-              </div>
-              <span
-                className={cn(
-                  "rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider",
-                  c.paused
-                    ? "border-pink/50 bg-pink/15 text-pink"
-                    : "border-positive/50 bg-positive/15 text-positive",
-                )}
-              >
-                {c.paused ? "Paused" : "Active"}
-              </span>
-              <form action={toggleCronAction}>
-                <input type="hidden" name="key" value={c.key} />
-                <input
-                  type="hidden"
-                  name="paused"
-                  value={c.paused ? "false" : "true"}
-                />
-                <button
-                  type="submit"
-                  className={cn(
-                    "rounded-md px-3 py-1.5 text-sm font-semibold text-background transition-colors",
-                    c.paused
-                      ? "bg-positive hover:bg-positive/90"
-                      : "bg-pink hover:bg-pink/90",
-                  )}
-                >
-                  {c.paused ? "Resume" : "Pause"}
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
-      </section>
-
+      </Card>
     </div>
   )
 }

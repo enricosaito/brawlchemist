@@ -36,6 +36,7 @@ import {
   type SocialLink,
 } from "@/lib/sync/customizations"
 import { REFRESHABLE_TAGS } from "@/lib/sync/cache-tags"
+import { ADMIN_OVERVIEW_TAG } from "@/lib/sync/admin-stats"
 import { after } from "next/server"
 import type { ActionResult } from "@/lib/admin-action-result"
 import { checkCmUser, parseCmUserId } from "@/lib/sync/esports-link"
@@ -99,6 +100,7 @@ export async function saveProfileAction(formData: FormData) {
   }
 
   await upsertProfile(input)
+  revalidateTag(ADMIN_OVERVIEW_TAG, "max")
 
   // The ranked pull still happens — it is what puts a newly curated pro on the
   // board without waiting for a visit — but no longer between the click and
@@ -127,66 +129,10 @@ export async function saveProfileAction(formData: FormData) {
     }
   })
 
-  redirect(`/admin?saved=${id}`)
+  redirect(`/admin?tab=people&edit=${id}&saved=${id}`)
 }
 
-export async function toggleCronAction(formData: FormData) {
-  await requireAdmin()
-  const key = String(formData.get("key") ?? "")
-  // The form sends the desired next state, so the click is idempotent.
-  const paused = String(formData.get("paused")) === "true"
-  await setCronPaused(key, paused)
-  redirect("/admin?tab=system#crons")
-}
 
-/**
- * Walk both 1v1 and 2v2 region=ALL leaderboards for Valhallan-tier ids and
- * sync each player's full ranked payload. "ALL" is the cheapest discovery —
- * one paginated combo per queue vs nine regions each. The 2v2 walk catches
- * top-team players the 1v1 walk misses (each 2v2 entry contributes both
- * teammates), at the cost of pulling some mid-1v1-tier players (top-2v2
- * mains often Plat/Gold in 1v1).
- *
- * Capped at ~40 players per click so the throttled syncs (5s/call) fit within
- * Vercel's 300s function ceiling. Idempotent (TTL-gated) — re-click to drain.
- */
-export async function backfillValhallansAction() {
-  await requireAdmin()
-
-  const discovered = new Set<number>()
-  for (const queue of ["1v1", "2v2"] as const) {
-    const { ids } = await discoverValhallanIds(queue, "ALL")
-    for (const id of ids) discovered.add(id)
-  }
-  if (discovered.size === 0) {
-    redirect("/admin?tab=system&backfill=none")
-  }
-
-  const stale = await getStaleValhallanIds(discovered)
-  if (stale.length === 0) {
-    redirect("/admin?tab=system&backfill=caughtup")
-  }
-
-  const PER_CLICK = 40
-  const batch = stale.slice(0, PER_CLICK)
-  const outcomes = await syncManyPlayers(batch, {
-    ttlMs: 7 * 24 * 60 * 60 * 1000,
-  })
-  const synced = outcomes.filter((o) => o.status === "synced").length
-  const failed = outcomes.filter((o) => o.status === "failed").length
-  const remaining = Math.max(stale.length - batch.length, 0)
-
-  redirect(
-    `/admin?tab=system&backfill=${synced}&remaining=${remaining}${failed ? `&failed=${failed}` : ""}`
-  )
-}
-
-/** Truncate the fetch_log table (admin maintenance). */
-export async function clearFetchLogAction() {
-  await requireAdmin()
-  await clearFetchLog()
-  redirect("/admin?tab=system&cleared=log")
-}
 
 /**
  * Drop the shared read caches so the next render reads the database.
@@ -259,15 +205,6 @@ export async function setCmPlayerIdAction(formData: FormData) {
         : ""
     }`
   )
-}
-
-export async function refreshCachesAction() {
-  await requireAdmin()
-  // The list lives in lib/sync/cache-tags.ts because the CRON_SECRET endpoint
-  // refreshes the same set, and two copies of it is the bug this button exists
-  // to fix with a second place to forget.
-  for (const tag of REFRESHABLE_TAGS) revalidateTag(tag, "max")
-  redirect("/admin?tab=system&refreshed=caches")
 }
 
 /**
@@ -751,6 +688,7 @@ export async function linkProfileFormAction(
     return { ok: false, message: "That isn’t a Brawlhalla id." }
   }
   const res = await linkProfile(userId, brawlhallaId)
+  revalidateTag(ADMIN_OVERVIEW_TAG, "max")
   if (!res.ok) {
     return {
       ok: false,
@@ -777,6 +715,7 @@ export async function unlinkProfileFormAction(
     return { ok: false, message: "That isn’t a Brawlhalla id." }
   }
   await unlinkProfile(id)
+  revalidateTag(ADMIN_OVERVIEW_TAG, "max")
   revalidatePath("/admin")
   return { ok: true, message: "Unlinked." }
 }
@@ -791,6 +730,7 @@ export async function deleteProfileFormAction(
     return { ok: false, message: "That isn’t a Brawlhalla id." }
   }
   await deleteProfile(id)
+  revalidateTag(ADMIN_OVERVIEW_TAG, "max")
   revalidatePath("/admin")
   return { ok: true, message: "Deleted." }
 }
@@ -808,4 +748,78 @@ export async function clearFlairFormAction(
   await clearFlair(id)
   revalidatePath("/admin")
   return { ok: true, message: "Flair cleared." }
+}
+
+
+// ── System tab levers ────────────────────────────────────────────────────────
+
+export async function toggleCronFormAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireAdmin()
+  const key = String(formData.get("key") ?? "")
+  // The form sends the desired next state, so the click is idempotent.
+  const paused = String(formData.get("paused")) === "true"
+  await setCronPaused(key, paused)
+  revalidatePath("/admin")
+  return { ok: true, message: paused ? "Paused." : "Resumed." }
+}
+
+export async function refreshCachesFormAction(): Promise<ActionResult> {
+  await requireAdmin()
+  // The list lives in lib/sync/cache-tags.ts because the CRON_SECRET endpoint
+  // refreshes the same set, and two copies of it is the bug this button exists
+  // to fix with a second place to forget.
+  for (const tag of REFRESHABLE_TAGS) revalidateTag(tag, "max")
+  revalidateTag(ADMIN_OVERVIEW_TAG, "max")
+  revalidatePath("/admin")
+  return { ok: true, message: `Dropped ${REFRESHABLE_TAGS.length} caches.` }
+}
+
+/**
+ * Walks both region=ALL Valhallan ladders and fetches up to 40 stale members.
+ * Spends API budget, so it is a click and not a cron, and it says what it did
+ * in numbers rather than redirecting to a page that then had to decode them.
+ */
+export async function backfillValhallansFormAction(): Promise<ActionResult> {
+  await requireAdmin()
+
+  const discovered = new Set<number>()
+  for (const queue of ["1v1", "2v2"] as const) {
+    const { ids } = await discoverValhallanIds(queue, "ALL")
+    for (const id of ids) discovered.add(id)
+  }
+  if (discovered.size === 0) {
+    return { ok: false, message: "Leaderboard returned no Valhallans." }
+  }
+
+  const stale = await getStaleValhallanIds(discovered)
+  if (stale.length === 0) {
+    return { ok: true, message: "All Valhallans already fresh." }
+  }
+
+  const PER_CLICK = 40
+  const batch = stale.slice(0, PER_CLICK)
+  const outcomes = await syncManyPlayers(batch, {
+    ttlMs: 7 * 24 * 60 * 60 * 1000,
+  })
+  const synced = outcomes.filter((o) => o.status === "synced").length
+  const failed = outcomes.filter((o) => o.status === "failed").length
+  const remaining = Math.max(stale.length - batch.length, 0)
+  revalidatePath("/admin")
+  return {
+    ok: failed < batch.length,
+    message: `Synced ${synced}${failed ? `, ${failed} failed (rate limit?)` : ""}${
+      remaining ? ` · ${remaining} stale left, click again` : " · caught up"
+    }.`,
+  }
+}
+
+export async function clearFetchLogFormAction(): Promise<ActionResult> {
+  await requireAdmin()
+  await clearFetchLog()
+  revalidateTag(ADMIN_OVERVIEW_TAG, "max")
+  revalidatePath("/admin")
+  return { ok: true, message: "Log cleared." }
 }

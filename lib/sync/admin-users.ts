@@ -1,7 +1,22 @@
 import "server-only"
 
-import { desc, eq } from "drizzle-orm"
+import {
+  and,
+  desc,
+  eq,
+  ilike,
+  isNotNull,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm"
 import { db } from "@/lib/db"
+import {
+  ADMIN_PAGE_SIZE,
+  containsPattern,
+  type ListPage,
+  type ListQuery,
+} from "@/lib/admin-list"
 import {
   appUsers,
   players,
@@ -48,26 +63,105 @@ export interface AdminUser {
   createdAt: Date
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export const USER_FILTERS = [
+  { id: "", label: "All" },
+  { id: "linked", label: "Linked" },
+  { id: "pro", label: "Pro" },
+  { id: "developer", label: "Developer" },
+  { id: "paid", label: "Paid" },
+] as const
+
 /**
  * Uncached: an admin screen, where staleness is worse than a read.
  *
  * ONE round trip, which on this screen is the whole performance story. Every
  * query here answers in under 2ms; what an operator waits on is the number of
- * times the page goes to us-west-1 and back. This used to be two — the join,
- * then a second read for usernames, sequential because it needed the ids the
- * first one returned.
+ * times the page goes to us-west-1 and back. The total for the pager rides in
+ * the same statement as a window function rather than a second COUNT.
  *
- * The username now comes from a fourth join, and the comment it replaces was
- * wrong to fear it: selecting `players.username` does not touch ranked_json,
- * because TOAST is only read when the column is. Measured on the real table —
- * `Index Scan using players_pkey`, 57 loops, 1.08ms for the whole statement.
- * Constraint #2 is about `SELECT *` and jsonb expressions, not about joining a
- * table that happens to own a blob.
+ * Selecting `players.username` does not touch ranked_json: TOAST is only read
+ * when the column is. Measured on the real table — `Index Scan using
+ * players_pkey`, 1.08ms for the whole statement. Constraint #2 is about
+ * `SELECT *` and jsonb expressions, not about joining a table that owns a blob.
  */
-export async function listAdminUsers(limit = 200): Promise<AdminUser[]> {
+export async function listAdminUsers(
+  query: ListQuery
+): Promise<ListPage<AdminUser>> {
+  const conditions = []
+  if (query.q) {
+    const pattern = containsPattern(query.q)
+    const asId = Number(query.q)
+    conditions.push(
+      or(
+        ilike(appUsers.email, pattern),
+        ilike(profiles.handle, pattern),
+        ilike(players.username, pattern),
+        ...(Number.isInteger(asId) && asId > 0
+          ? [eq(profiles.brawlhallaId, asId)]
+          : []),
+        // Only compared when it can be one: the column is a uuid, and
+        // Postgres rejects "enrico" as one rather than not matching it.
+        ...(UUID.test(query.q) ? [eq(appUsers.id, query.q)] : [])
+      )
+    )
+  }
+  switch (query.filter) {
+    case "linked":
+      conditions.push(isNotNull(profiles.brawlhallaId))
+      break
+    case "pro":
+      conditions.push(eq(profiles.isPro, true))
+      break
+    case "developer":
+      conditions.push(eq(appUsers.accountRole, "developer"))
+      break
+    case "paid":
+      conditions.push(ne(appUsers.plan, "free"))
+      break
+  }
+
+  const pageSize = ADMIN_PAGE_SIZE
   // Left joins throughout, so an account with no claim still appears — that is
   // most of them, and the whole reason this list exists.
   const rows = await db()
+    .select({
+      id: appUsers.id,
+      email: appUsers.email,
+      accountRole: appUsers.accountRole,
+      plan: appUsers.plan,
+      createdAt: appUsers.createdAt,
+      brawlhallaId: profiles.brawlhallaId,
+      isPro: profiles.isPro,
+      handle: profiles.handle,
+      username: players.username,
+      flairId: userCustomizations.flairId,
+      total: sql<number>`count(*) over()`,
+    })
+    .from(appUsers)
+    .leftJoin(profiles, eq(profiles.userId, appUsers.id))
+    .leftJoin(players, eq(players.brawlhallaId, profiles.brawlhallaId))
+    .leftJoin(
+      userCustomizations,
+      eq(userCustomizations.brawlhallaId, profiles.brawlhallaId)
+    )
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(appUsers.createdAt))
+    .limit(pageSize)
+    .offset((query.page - 1) * pageSize)
+
+  return {
+    rows: rows.map((r) => toAdminUser(r)),
+    total: Number(rows[0]?.total ?? 0),
+    page: query.page,
+    pageSize,
+  }
+}
+
+/** One account by id, for the edit card — it need not be on the page shown. */
+export async function getAdminUser(id: string): Promise<AdminUser | null> {
+  const [row] = await db()
     .select({
       id: appUsers.id,
       email: appUsers.email,
@@ -85,27 +179,39 @@ export async function listAdminUsers(limit = 200): Promise<AdminUser[]> {
     .leftJoin(players, eq(players.brawlhallaId, profiles.brawlhallaId))
     .leftJoin(
       userCustomizations,
-      eq(userCustomizations.brawlhallaId, profiles.brawlhallaId),
+      eq(userCustomizations.brawlhallaId, profiles.brawlhallaId)
     )
-    .orderBy(desc(appUsers.createdAt))
-    .limit(limit)
+    .where(eq(appUsers.id, id))
+    .limit(1)
+  return row ? toAdminUser(row) : null
+}
 
-  return rows.map((r) => {
-    const storedRole = parseRole(r.accountRole)
-    return {
-      id: r.id,
-      email: r.email,
-      storedRole,
-      role: resolveRole(storedRole, r.brawlhallaId != null),
-      plan: parsePlan(r.plan),
-      brawlhallaId: r.brawlhallaId,
-      username: r.username,
-      isPro: !!r.isPro,
-      handle: r.handle,
-      flairId: r.flairId,
-      createdAt: r.createdAt,
-    }
-  })
+function toAdminUser(r: {
+  id: string
+  email: string | null
+  accountRole: string
+  plan: string
+  createdAt: Date
+  brawlhallaId: number | null
+  isPro: boolean | null
+  handle: string | null
+  username: string | null
+  flairId: string | null
+}): AdminUser {
+  const storedRole = parseRole(r.accountRole)
+  return {
+    id: r.id,
+    email: r.email,
+    storedRole,
+    role: resolveRole(storedRole, r.brawlhallaId != null),
+    plan: parsePlan(r.plan),
+    brawlhallaId: r.brawlhallaId,
+    username: r.username,
+    isPro: !!r.isPro,
+    handle: r.handle,
+    flairId: r.flairId,
+    createdAt: r.createdAt,
+  }
 }
 
 /** One account's stored role, or null when there is no such account. */

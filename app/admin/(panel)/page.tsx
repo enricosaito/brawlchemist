@@ -1,5 +1,7 @@
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { parseListQuery } from "@/lib/admin-list"
+import { getAdminOverview } from "@/lib/sync/admin-stats"
 import { CombosTab } from "./combos-tab"
 import { EsportsLinksTab } from "./esports-links-tab"
 import { FlairsTab } from "./flairs-tab"
@@ -12,20 +14,17 @@ import { UsersTab } from "./users-tab"
  *
  * One tab per question the panel answers: who is this person to us, what is
  * this account allowed to do, what badges exist, and is the machine keeping up.
- * It used to be one column of stacked sections, which meant scrolling past the
- * cron table to reach the pro you came to edit — and put a destructive Delete a
- * few hundred pixels from a Clear fetch log.
- *
  * Tab state is a searchParam and the tabs are Links, so the whole thing stays
- * server-rendered and each tab loads only its own data (the People tab never
- * reads the fetch log; the System tab never joins three tables for names).
- * That is also the performance story here: every query on this screen answers
- * in under 2ms, so what an operator waits on is the number of round trips to
- * us-west-1 — not how much work any one of them does.
+ * server-rendered and each tab loads only its own data. The performance story
+ * is round trips to us-west-1, not query cost — every statement here answers
+ * in milliseconds — which is why lists are one query each and mutations answer
+ * in place (see action-form.tsx).
  *
- * Users leads. It is the list of everyone who has an account, which is the
- * superset: People is keyed by brawlhalla_id, so an account that never claimed
- * a player does not appear there at all.
+ * The overview strip sits above the tabs because its numbers are the ones an
+ * operator opens the panel to glance at; it is one cached statement.
+ *
+ * Users leads: it is the superset — People is keyed by brawlhalla_id, so an
+ * account that never claimed a player does not appear there at all.
  */
 
 const TABS = [
@@ -48,7 +47,11 @@ export default async function AdminPage({
 }: {
   searchParams: Promise<{
     tab?: string
+    q?: string
+    filter?: string
+    page?: string
     edit?: string
+    add?: string
     edituser?: string
     editflair?: string
     editcombo?: string
@@ -60,37 +63,61 @@ export default async function AdminPage({
     flairgranted?: string
     flairrevoked?: string
     saved?: string
-    deleted?: string
     ownersaved?: string
     titleremoved?: string
     error?: string
-    backfill?: string
-    remaining?: string
-    failed?: string
-    cleared?: string
     cm?: string
   }>
 }) {
   const sp = await searchParams
-  // Users is the default: it is the widest list the panel holds — every account,
-  // linked or not — so it is the one that answers "who is out there" before you
-  // know which person you are looking for. The person-shaped redirects
-  // (?saved, ?deleted, ?edit) still name People explicitly.
+  // Users is the default. The person-shaped redirects (?saved, ?edit) still
+  // name People explicitly.
   const tab: TabId = isTab(sp.tab) ? sp.tab : sp.edit ? "people" : "users"
   const editId = sp.edit ? Number(sp.edit) : null
+  const query = parseListQuery(sp)
 
+  const [overview] = await Promise.all([getAdminOverview()])
   const notice = noticeFor(sp)
 
   return (
-    <div className="flex flex-col gap-6">
-      <nav className="flex w-fit items-center gap-1 rounded-md border border-border/60 bg-muted/40 p-1">
+    <div className="flex flex-col gap-5">
+      <Overview
+        items={[
+          { label: "Accounts", value: overview.accounts, tab: "users" },
+          {
+            label: "Linked",
+            value: overview.linked,
+            tab: "users",
+            filter: "linked",
+          },
+          { label: "Pros", value: overview.pros, tab: "people", filter: "pro" },
+          { label: "People", value: overview.people, tab: "people" },
+          {
+            label: "Fetches 24h",
+            value:
+              overview.fetches24h.cached +
+              overview.fetches24h.synced +
+              overview.fetches24h.failed,
+            tab: "system",
+            sub:
+              overview.fetches24h.failed > 0
+                ? `${overview.fetches24h.failed.toLocaleString()} failed`
+                : undefined,
+          },
+        ]}
+      />
+
+      {/* No prefetch: every tab is a dynamic render with its own reads, and a
+          hover over the strip was six of them for nothing. */}
+      <nav className="flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-1">
         {TABS.map((t) => (
           <Link
             key={t.id}
             href={`/admin?tab=${t.id}`}
+            prefetch={false}
             aria-current={tab === t.id ? "page" : undefined}
             className={cn(
-              "rounded px-3 py-1.5 font-mono text-[11px] tracking-wider uppercase transition-colors",
+              "rounded px-3 py-1.5 font-mono text-[11px] tracking-wider whitespace-nowrap uppercase transition-colors",
               tab === t.id
                 ? "bg-card text-foreground shadow-[0_0_0_1px_oklch(1_0_0_/_0.06)]"
                 : "text-muted-foreground hover:text-foreground"
@@ -115,9 +142,9 @@ export default async function AdminPage({
       )}
 
       {tab === "users" ? (
-        <UsersTab editId={sp.edituser ?? null} />
+        <UsersTab editId={sp.edituser ?? null} query={query} />
       ) : tab === "people" ? (
-        <PeopleTab editId={editId} />
+        <PeopleTab editId={editId} add={sp.add === "1"} query={query} />
       ) : tab === "flairs" ? (
         <FlairsTab editId={sp.editflair ?? null} />
       ) : tab === "esports-links" ? (
@@ -131,6 +158,47 @@ export default async function AdminPage({
   )
 }
 
+/** The numbers, each a link to the list that explains it. */
+function Overview({
+  items,
+}: {
+  items: {
+    label: string
+    value: number
+    tab: string
+    filter?: string
+    sub?: string
+  }[]
+}) {
+  return (
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      {items.map((k) => (
+        <li key={k.label}>
+          <Link
+            href={`/admin?tab=${k.tab}${k.filter ? `&filter=${k.filter}` : ""}`}
+            prefetch={false}
+            className="block rounded-xl border border-border/60 bg-card/40 px-4 py-3 transition-colors hover:border-pink/40 hover:bg-card/60"
+          >
+            <div className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+              {k.label}
+            </div>
+            <div className="mt-0.5 flex items-baseline gap-2">
+              <span className="font-display text-2xl font-semibold tabular-nums">
+                {k.value.toLocaleString()}
+              </span>
+              {k.sub && (
+                <span className="font-mono text-[10px] tracking-wider text-negative uppercase">
+                  {k.sub}
+                </span>
+              )}
+            </div>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 /** One place to decide what the last action said, instead of a nested ternary. */
 function noticeFor(sp: {
   saved?: string
@@ -141,14 +209,9 @@ function noticeFor(sp: {
   flairimported?: string
   flairgranted?: string
   flairrevoked?: string
-  deleted?: string
   ownersaved?: string
   titleremoved?: string
   error?: string
-  backfill?: string
-  remaining?: string
-  failed?: string
-  cleared?: string
   cm?: string
 }): { tone: "ok" | "error"; text: string } | null {
   if (sp.error) {
@@ -175,43 +238,25 @@ function noticeFor(sp: {
                           ? "A flair with that id already exists. Edit it instead, or pick another id."
                           : sp.error === "flair-not-found"
                             ? "No such flair — it may have been deleted since this page loaded."
-                            : sp.error === "link-id"
-                              ? "That isn’t a Brawlhalla id."
-                              : sp.error === "link-already-claimed"
-                                ? "That player already belongs to another account. Unlink it there first — moving a player between accounts is two decisions, not one."
-                                : sp.error === "link-owns-another"
-                                  ? "That account already owns a player. An account can hold one profile, so unlink the current one first."
-                                  : sp.error === "link-no-account"
-                                    ? "No such account — it may have been removed since this page loaded."
-                                    : sp.error === "blob-unconfigured"
-                                      ? "No Blob store is connected to this project, so there is nowhere to put the file. Connect one in the Vercel dashboard — BLOB_READ_WRITE_TOKEN is injected automatically once you do."
-                                      : sp.error === "clip-too-large"
-                                        ? "That clip is over 4 MB. Encode it at 480p/30fps with no audio — a 3-second combo should land near 250 KB."
-                                        : sp.error === "clip-type"
-                                          ? "Clips must be mp4 or webm; posters webp, jpeg or png."
-                                          : sp.error === "combo-weapon"
-                                            ? "That isn’t a weapon we know."
-                                            : sp.error === "combo-notation"
-                                              ? "A clip needs its notation — it’s the caption under the video."
-                                              : sp.error === "combo-clip"
-                                                ? "A new clip needs a video file."
-                                                : sp.error === "combo-id"
-                                                  ? "That notation doesn’t reduce to a usable id. Give the clip an explicit one."
-                                                  : sp.error === "skin-src"
-                                                    ? "That skin path can’t be fetched. Use an https:// URL or a path starting with / (e.g. /assets/my-skin.png) — a bare filename stores fine and then renders nothing."
-                                                    : sp.error ===
-                                                        "skin-too-large"
-                                                      ? "That skin is over 3 MB. An animated GIF is served whole on every profile view — trim the frames or the dimensions and try again."
-                                                      : sp.error ===
-                                                          "account-self"
-                                                        ? "You can’t change your own role. Ask another Developer, or use ADMIN_BOOTSTRAP_EMAILS."
-                                                        : sp.error ===
-                                                            "account-not-found"
-                                                          ? "No such account — it may have been removed since this page loaded."
-                                                          : sp.error ===
-                                                              "account-invalid"
-                                                            ? "That isn’t a role or plan we recognise."
-                                                            : "Couldn’t save — check the Brawlhalla ID.",
+                            : sp.error === "blob-unconfigured"
+                              ? "No Blob store is connected to this project, so there is nowhere to put the file. Connect one in the Vercel dashboard — BLOB_READ_WRITE_TOKEN is injected automatically once you do."
+                              : sp.error === "clip-too-large"
+                                ? "That clip is over 4 MB. Encode it at 480p/30fps with no audio — a 3-second combo should land near 250 KB."
+                                : sp.error === "clip-type"
+                                  ? "Clips must be mp4 or webm; posters webp, jpeg or png."
+                                  : sp.error === "combo-weapon"
+                                    ? "That isn’t a weapon we know."
+                                    : sp.error === "combo-notation"
+                                      ? "A clip needs its notation — it’s the caption under the video."
+                                      : sp.error === "combo-clip"
+                                        ? "A new clip needs a video file."
+                                        : sp.error === "combo-id"
+                                          ? "That notation doesn’t reduce to a usable id. Give the clip an explicit one."
+                                          : sp.error === "skin-src"
+                                            ? "That skin path can’t be fetched. Use an https:// URL or a path starting with / (e.g. /assets/my-skin.png) — a bare filename stores fine and then renders nothing."
+                                            : sp.error === "skin-too-large"
+                                              ? "That skin is over 3 MB. An animated GIF is served whole on every profile view — trim the frames or the dimensions and try again."
+                                              : "Couldn’t save — check the Brawlhalla ID.",
     }
   }
   if (sp.combosaved) {
@@ -248,7 +293,6 @@ function noticeFor(sp: {
     }
   }
   if (sp.flairrevoked) return { tone: "ok", text: "Grant revoked." }
-  if (sp.deleted) return { tone: "ok", text: "Profile removed." }
   if (sp.ownersaved) {
     return {
       tone: "ok",
@@ -259,30 +303,6 @@ function noticeFor(sp: {
     return {
       tone: "ok",
       text: "Derived title removed. Re-running the sync script will put it back — fix a consistently wrong one in its allow-list.",
-    }
-  }
-  if (sp.cleared === "log") return { tone: "ok", text: "Fetch log cleared." }
-  if (sp.backfill === "none") {
-    return {
-      tone: "ok",
-      text: "No Valhallans discovered — leaderboard returned empty.",
-    }
-  }
-  if (sp.backfill === "caughtup") {
-    return {
-      tone: "ok",
-      text: "All Valhallans already cached — nothing to backfill.",
-    }
-  }
-  if (sp.backfill) {
-    const remaining = Number(sp.remaining ?? 0)
-    return {
-      tone: "ok",
-      text: `Backfilled ${sp.backfill} Valhallan${sp.backfill === "1" ? "" : "s"}.${
-        remaining > 0
-          ? ` ${remaining} stale remaining — click again to continue.`
-          : ""
-      }${sp.failed ? ` (${sp.failed} failed — likely rate-limited.)` : ""}`,
     }
   }
   if (sp.saved === "cm-unlink") {
@@ -299,8 +319,7 @@ function noticeFor(sp: {
       // any tournament already walked with the current field set — which, after
       // a backfill, is all of them. A pro linked today has no rows in those
       // tournaments, so a resumed run skips every event they played, writes
-      // nothing for them and reports success. This notice used to say --resume
-      // and was therefore wrong in exactly the situation it appears in.
+      // nothing for them and reports success.
       text: `Linked${sp.cm ? ` to ${sp.cm} on Challengermode` : ""}. Run scripts/sync-esports-matches.mjs — without --resume, which would skip every event they played — then Refresh caches.`,
     }
   }
