@@ -393,10 +393,15 @@ function Editor({
         </div>
       </div>
 
-      {/* Curation. Saving pulls their ranked standing in the background. */}
-      <form
+      {/* Curation. Answers in place like every other control on this panel —
+          a redirect here meant a second document load with the profiles cache
+          freshly busted, and the standing pull it used to make on every save
+          is now only made for a pro who has none. */}
+      <ActionForm
         action={saveProfileAction}
-        className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[160px_1fr_1fr_auto] sm:items-end"
+        submitLabel={editing ? "Save" : "Add pro"}
+        submitClassName="h-9 border-pink/50 bg-pink/15 text-pink hover:bg-pink/25"
+        className="mt-4 grid grid-cols-1 items-end gap-4 sm:grid-cols-[150px_1fr_1fr_180px_auto]"
       >
         <div>
           <label className={labelCls} htmlFor="brawlhallaId">
@@ -440,55 +445,47 @@ function Editor({
             className={inputCls}
           />
         </div>
-        <div className="flex items-end gap-3 pb-2 sm:pb-0">
-          <div>
-            <label className={labelCls} htmlFor="proTier">
-              Standing
-            </label>
-            {/* A ladder, not a checkbox: a regional regular and a world
-                champion used to fly the same badge. The picker names what each
-                level asserts, because that is the operator's whole decision —
-                see the evidence line beneath. */}
-            <select
-              id="proTier"
-              name="proTier"
-              defaultValue={editing ? editing.proTier : "pro"}
-              className={cn(inputCls, "w-[180px]")}
-            >
-              {ASSIGNABLE_PRO_TIERS.map((id) => (
-                <option key={id} value={id}>
-                  {PRO_TIER_DEFS[id].label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="submit"
-            className="h-9 rounded-md bg-pink px-4 text-sm font-semibold text-background transition-colors hover:bg-pink/90"
+        <div>
+          <label className={labelCls} htmlFor="proTier">
+            Standing
+          </label>
+          {/* A ladder, not a checkbox: a regional regular and a world
+              champion used to fly the same badge. The picker names what each
+              level asserts, because that is the operator's whole decision —
+              see the evidence line beneath. */}
+          <select
+            id="proTier"
+            name="proTier"
+            defaultValue={editing ? editing.proTier : "pro"}
+            className={inputCls}
           >
-            {editing ? "Save" : "Add pro"}
-          </button>
+            {ASSIGNABLE_PRO_TIERS.map((id) => (
+              <option key={id} value={id}>
+                {PRO_TIER_DEFS[id].label}
+              </option>
+            ))}
+          </select>
         </div>
+      </ActionForm>
 
-        {/* What we hold about their career, so a tier is chosen against
-            something. Evidence, not a rule — nothing here promotes anyone. */}
-        {evidence && (
-          <p className="text-[11px] text-muted-foreground sm:col-span-4">
-            <span className={labelCls}>Evidence</span>{" "}
-            {evidence.events === 0 && evidence.titles === 0 ? (
-              <>No tournament record — Challengermode only covers 2025 onward.</>
-            ) : (
-              <>
-                {evidence.titles} title{evidence.titles === 1 ? "" : "s"} ·{" "}
-                {evidence.events} event{evidence.events === 1 ? "" : "s"}
-                {evidence.bestPlacement != null && (
-                  <> · best finish {ordinal(evidence.bestPlacement)}</>
-                )}
-              </>
-            )}
-          </p>
-        )}
-      </form>
+      {/* What we hold about their career, so a tier is chosen against
+          something. Evidence, not a rule — nothing here promotes anyone. */}
+      {evidence && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          <span className={labelCls}>Evidence</span>{" "}
+          {evidence.events === 0 && evidence.titles === 0 ? (
+            <>No tournament record — Challengermode only covers 2025 onward.</>
+          ) : (
+            <>
+              {evidence.titles} title{evidence.titles === 1 ? "" : "s"} ·{" "}
+              {evidence.events} event{evidence.events === 1 ? "" : "s"}
+              {evidence.bestPlacement != null && (
+                <> · best finish {ordinal(evidence.bestPlacement)}</>
+              )}
+            </>
+          )}
+        </p>
+      )}
 
       {editing && (
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">

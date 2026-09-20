@@ -61,6 +61,10 @@ export interface ProTierDef {
    * verdict — it says "this is a competitor we know of", not "we vouch for
    * their results".
    *
+   * Pro Player keeps `mystic`, the turquoise this check has always been.
+   * `royal` was tried and reads as a heavier blue that competes with the gold
+   * rather than sitting under it.
+   *
    * Amber is untouched: it means caution on this site and nothing else.
    */
   markClass: string
@@ -103,8 +107,8 @@ export const PRO_TIER_DEFS: Record<ProTier, ProTierDef> = {
       "A verified professional who places well consistently. What every curated pro was before tiers existed.",
     order: 1,
     released: true,
-    markClass: "text-royal",
-    tagClass: "border-royal/50 bg-royal/15 text-royal",
+    markClass: "text-mystic",
+    tagClass: "border-mystic/50 bg-mystic/15 text-mystic",
     canEditLinks: true,
   },
   "power-ranked": {

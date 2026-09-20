@@ -592,7 +592,7 @@ export function ProfileCustomizer({
         <Section label="Links">
           <Soon
             label="Pro only"
-            icon={<BadgeCheck className="size-3 shrink-0 text-royal" />}
+            icon={<BadgeCheck className="size-3 shrink-0 text-mystic" />}
           >
             Available to verified pro players and above.
           </Soon>

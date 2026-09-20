@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react"
 import { useFormStatus } from "react-dom"
+import { useRouter } from "next/navigation"
 import { Check, Loader2, TriangleAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ActionResult } from "@/lib/admin-action-result"
@@ -48,8 +49,16 @@ export function ActionForm({
   className?: string
   submitClassName?: string
 }) {
+  const router = useRouter()
   const [result, formAction] = useActionState(action, null)
   const [armed, setArmed] = useState(false)
+
+  // A create says where it landed; `replace` rather than `push` so Back does
+  // not return to a form that would submit the same row again.
+  const href = result?.ok ? result.href : undefined
+  useEffect(() => {
+    if (href) router.replace(href, { scroll: false })
+  }, [href, router])
 
   // An armed control disarms itself if you look away.
   useEffect(() => {
