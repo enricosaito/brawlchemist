@@ -12,7 +12,7 @@ import {
   removeRecentVisit,
   type RecentVisit,
 } from "@/lib/recent-visits"
-import { VerifiedMark } from "./pro-badge"
+import { VerifiedMark } from "./verified-mark"
 import { SmurfMark } from "./smurf-mark"
 import { FlairMark } from "./flair-mark"
 import { flairContextFrom } from "@/lib/profile/flair"
@@ -352,7 +352,7 @@ export function PlayerSearchForm({
                             <span className="min-w-0 truncate text-sm font-medium">
                               {opt.result.handle || opt.result.username}
                             </span>
-                            <VerifiedMark tier={opt.result.proTier ?? "none"} />
+                            <VerifiedMark tier={opt.result.verifiedKind ?? "none"} />
                             <FlairMark
                               selectedId={opt.result.flairId}
                               context={flairContextFrom(opt.result)}

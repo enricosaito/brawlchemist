@@ -16,11 +16,11 @@ import {
   type ProEvidence,
 } from "@/lib/sync/admin-people"
 import {
-  ASSIGNABLE_PRO_TIERS,
-  isCurated,
-  PRO_TIER_DEFS,
-} from "@/lib/profile/pro-tier"
-import { ProTierTag } from "@/components/site/pro-badge"
+  ASSIGNABLE_VERIFIED_KINDS,
+  isVerified,
+  VERIFIED_KIND_DEFS,
+} from "@/lib/profile/verified"
+import { VerifiedTag } from "@/components/site/verified-mark"
 import { flairById, FLAIR_NONE, selectableFlairs } from "@/lib/profile/flair"
 import { getFlairCatalogue } from "@/lib/sync/flairs"
 import {
@@ -122,7 +122,7 @@ export async function PeopleTab({
           )}
         >
           <Plus className="size-3.5" aria-hidden />
-          Add pro
+          Add person
         </Link>
       </ListHeader>
 
@@ -207,8 +207,8 @@ export async function PeopleTab({
                       )}
                     </td>
                     <td className={TD}>
-                      {isCurated(p.proTier) ? (
-                        <ProTierTag tier={p.proTier} />
+                      {isVerified(p.verifiedKind) ? (
+                        <VerifiedTag tier={p.verifiedKind} />
                       ) : (
                         <Empty />
                       )}
@@ -399,7 +399,7 @@ function Editor({
           is now only made for a pro who has none. */}
       <ActionForm
         action={saveProfileAction}
-        submitLabel={editing ? "Save" : "Add pro"}
+        submitLabel={editing ? "Save" : "Add person"}
         submitClassName="h-9 border-pink/50 bg-pink/15 text-pink hover:bg-pink/25"
         className="mt-4 grid grid-cols-1 items-end gap-4 sm:grid-cols-[150px_1fr_1fr_180px_auto]"
       >
@@ -446,22 +446,22 @@ function Editor({
           />
         </div>
         <div>
-          <label className={labelCls} htmlFor="proTier">
-            Standing
+          <label className={labelCls} htmlFor="verifiedKind">
+            Verified as
           </label>
           {/* A ladder, not a checkbox: a regional regular and a world
               champion used to fly the same badge. The picker names what each
               level asserts, because that is the operator's whole decision —
               see the evidence line beneath. */}
           <select
-            id="proTier"
-            name="proTier"
-            defaultValue={editing ? editing.proTier : "pro"}
+            id="verifiedKind"
+            name="verifiedKind"
+            defaultValue={editing ? editing.verifiedKind : "pro"}
             className={inputCls}
           >
-            {ASSIGNABLE_PRO_TIERS.map((id) => (
+            {ASSIGNABLE_VERIFIED_KINDS.map((id) => (
               <option key={id} value={id}>
-                {PRO_TIER_DEFS[id].label}
+                {VERIFIED_KIND_DEFS[id].label}
               </option>
             ))}
           </select>

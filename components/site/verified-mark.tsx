@@ -1,10 +1,10 @@
 import { BadgeCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
-  isCurated,
-  PRO_TIER_DEFS,
-  type ProTier,
-} from "@/lib/profile/pro-tier"
+  isVerified,
+  VERIFIED_KIND_DEFS,
+  type VerifiedKind,
+} from "@/lib/profile/verified"
 import { InfoTip } from "./info-tip"
 
 /**
@@ -34,11 +34,11 @@ export function VerifiedMark({
   tier,
   className = "size-3.5",
 }: {
-  tier: ProTier
+  tier: VerifiedKind
   className?: string
 }) {
-  if (!isCurated(tier)) return null
-  const def = PRO_TIER_DEFS[tier]
+  if (!isVerified(tier)) return null
+  const def = VERIFIED_KIND_DEFS[tier]
   return (
     <InfoTip label={def.markLabel}>
       <span className="inline-flex shrink-0">
@@ -57,15 +57,15 @@ export function VerifiedMark({
  *
  * Renders nothing when there is nothing to say, for the reason above.
  */
-export function ProTierTag({
+export function VerifiedTag({
   tier,
   className,
 }: {
-  tier: ProTier
+  tier: VerifiedKind
   className?: string
 }) {
-  if (!isCurated(tier)) return null
-  const def = PRO_TIER_DEFS[tier]
+  if (!isVerified(tier)) return null
+  const def = VERIFIED_KIND_DEFS[tier]
   return (
     <span
       className={cn(

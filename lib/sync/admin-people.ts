@@ -11,11 +11,11 @@ import {
 } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
-  curatedClause,
-  proTierExpr,
-  proTierRankExpr,
-} from "@/lib/sync/pro-tier-sql"
-import { parseProTier, type ProTier } from "@/lib/profile/pro-tier"
+  verifiedClause,
+  verifiedKindExpr,
+  verifiedOrderExpr,
+} from "@/lib/sync/verified-sql"
+import { parseVerifiedKind, type VerifiedKind } from "@/lib/profile/verified"
 import {
   ADMIN_PAGE_SIZE,
   containsPattern,
@@ -58,7 +58,7 @@ export interface AdminPerson {
   rating: number | null
   region: string | null
   /** Curation — how established a competitor we say they are. */
-  proTier: ProTier
+  verifiedKind: VerifiedKind
   handle: string | null
   /** How many championship titles they hold, of either source. */
   titleCount: number
@@ -74,7 +74,7 @@ export interface AdminPerson {
 
 export const PEOPLE_FILTERS = [
   { id: "", label: "All" },
-  { id: "pro", label: "Pro" },
+  { id: "pro", label: "Verified" },
   { id: "linked", label: "Linked" },
   { id: "unclaimed", label: "Unclaimed" },
   { id: "titled", label: "Titled" },
@@ -87,7 +87,7 @@ export async function getAdminPerson(
   const [row] = await db()
     .select({
       brawlhallaId: profiles.brawlhallaId,
-      proTier: proTierExpr,
+      verifiedKind: verifiedKindExpr,
       handle: profiles.handle,
       titleCount: raw<number>`(
         select count(*)::int from esports_titles e
@@ -115,7 +115,7 @@ export async function getAdminPerson(
   return row
     ? {
         ...row,
-        proTier: parseProTier(row.proTier),
+        verifiedKind: parseVerifiedKind(row.verifiedKind),
         favoriteSkin: parseSkin(row.favoriteSkin),
       }
     : null
@@ -186,7 +186,7 @@ export async function listAdminPeople(
   }
   switch (query.filter) {
     case "pro":
-      conditions.push(curatedClause())
+      conditions.push(verifiedClause())
       break
     case "linked":
       conditions.push(isNotNull(profiles.userId))
@@ -205,7 +205,7 @@ export async function listAdminPeople(
   const rows = await db()
     .select({
       brawlhallaId: profiles.brawlhallaId,
-      proTier: proTierExpr,
+      verifiedKind: verifiedKindExpr,
       handle: profiles.handle,
       // Counted in SQL rather than fetched: this list renders "3 titles", not
       // the titles, and a correlated count over a 106-row table is cheaper than
@@ -245,7 +245,7 @@ export async function listAdminPeople(
       // By standing, through the shared rank expression — a bare
       // `desc(pro_tier)` sorts the column lexically and puts Top Player above
       // Power Ranked above Pro Player, which looks like a working sort.
-      proTierRankExpr,
+      verifiedOrderExpr,
       raw`(${profiles.userId} is not null) desc`,
       raw`${players.rating} desc nulls last`,
       profiles.brawlhallaId
@@ -260,7 +260,7 @@ export async function listAdminPeople(
         username: r.username,
         rating: r.rating,
         region: r.region,
-        proTier: parseProTier(r.proTier),
+        verifiedKind: parseVerifiedKind(r.verifiedKind),
         handle: r.handle,
         titleCount: r.titleCount,
         favoriteSkin: parseSkin(r.favoriteSkin),

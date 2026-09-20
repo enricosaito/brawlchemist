@@ -25,13 +25,13 @@ import { getFlairMap } from "@/lib/sync/customizations"
 import { getSmurfIds } from "@/lib/sync/smurf"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
-import { VerifiedMark } from "@/components/site/pro-badge"
+import { VerifiedMark } from "@/components/site/verified-mark"
 import { SmurfMark } from "@/components/site/smurf-mark"
 import { FlairMark } from "@/components/site/flair-mark"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 import { flairContextFrom } from "@/lib/profile/flair"
-import { previewTier } from "@/lib/player-previews"
-import { PRO_TIER_DEFS } from "@/lib/profile/pro-tier"
+import { previewKind } from "@/lib/player-previews"
+import { VERIFIED_KIND_DEFS } from "@/lib/profile/verified"
 
 const PAGE_SIZE = 50
 // Upper bound on the OTP board depth. The DB only holds Valhallan-discovered
@@ -111,7 +111,7 @@ function buildColumns(
                       </span>
                     </span>
                     <VerifiedMark
-                      tier={previewTier(previews.get(p.brawlhalla_id))}
+                      tier={previewKind(previews.get(p.brawlhalla_id))}
                       className="size-3.5 group-hover/pro:hidden"
                     />
                     <FlairMark
@@ -142,11 +142,11 @@ function buildColumns(
                   <span
                     className={cn(
                       "mt-0.5 font-mono text-[10px] font-medium tracking-wider uppercase group-hover/pro:hidden",
-                      PRO_TIER_DEFS[previewTier(previews.get(p.brawlhalla_id))]
+                      VERIFIED_KIND_DEFS[previewKind(previews.get(p.brawlhalla_id))]
                         .markClass
                     )}
                   >
-                    {PRO_TIER_DEFS[previewTier(previews.get(p.brawlhalla_id))]
+                    {VERIFIED_KIND_DEFS[previewKind(previews.get(p.brawlhalla_id))]
                       .label || "Pro Player"}
                   </span>
                   {tier && (

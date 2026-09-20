@@ -14,7 +14,7 @@ import {
   getValhallanIds,
 } from "@/lib/sync/valhallan-cutoff"
 import { isValhallan } from "@/lib/tier"
-import { isCurated } from "@/lib/profile/pro-tier"
+import { isCompetitive } from "@/lib/profile/verified"
 
 /**
  * Verified pros as leaderboard rows, sorted by current 1v1 rating.
@@ -29,7 +29,11 @@ import { isCurated } from "@/lib/profile/pro-tier"
  */
 async function fetchProLeaderboard(region: ApiRegion): Promise<RankedEntry[]> {
   const overrides = await listProfiles()
-  const proIds = overrides.filter((o) => isCurated(o.proTier)).map((o) => o.brawlhallaId)
+  // Competitors only. "Verified" now covers creators and developers too, and a
+  // streamer has no business on a board that ranks ladder rating.
+  const proIds = overrides
+    .filter((o) => isCompetitive(o.verifiedKind))
+    .map((o) => o.brawlhallaId)
   if (proIds.length === 0) return []
 
   const rowsById = await getPlayersByIds(proIds)

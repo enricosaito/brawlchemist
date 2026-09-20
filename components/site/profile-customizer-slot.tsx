@@ -5,8 +5,8 @@ import { getProfile } from "@/lib/sync/profiles"
 import { earnedFlairIds, type FlairContext } from "@/lib/profile/flair"
 import { getFlairCatalogue } from "@/lib/sync/flairs"
 import { ProfileCustomizer } from "./profile-customizer"
-import { previewTier } from "@/lib/player-previews"
-import { tierCanEditLinks } from "@/lib/profile/pro-tier"
+import { previewKind } from "@/lib/player-previews"
+import { kindCanEditLinks } from "@/lib/profile/verified"
 
 /**
  * Owner gate for the customizer. Renders nothing for everyone else, so the
@@ -51,7 +51,7 @@ export async function ProfileCustomizerSlot({
     // seeds the picker. profiles.favorite_skin is where the choice lands, which
     // is why every surface that already draws a skin needs no change.
     const profile = await getProfile(brawlhallaId)
-    tierAllowsLinks = tierCanEditLinks(previewTier(profile))
+    tierAllowsLinks = kindCanEditLinks(previewKind(profile))
     // Links only. Every other field in the panel is open to everyone.
     isDeveloper = !!profile?.developer
     favoriteSkin = profile?.favoriteSkin ?? null

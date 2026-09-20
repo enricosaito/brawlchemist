@@ -5,7 +5,7 @@
  * (getProfile / getProfilesMap). This module is just the shared type, safe to
  * import from client and server alike.
  */
-import { tierFromVerified, type ProTier } from "@/lib/profile/pro-tier"
+import { kindFromVerified, type VerifiedKind } from "@/lib/profile/verified"
 
 export interface PlayerPreview {
   favoriteSkin?: { src: string; name: string }
@@ -22,15 +22,21 @@ export interface PlayerPreview {
    * `tier` is a string literal union rather than an object because this whole
    * preview round-trips through JSON inside `unstable_cache`.
    *
-   * It is **optional**, and that is about the cache rather than the column.
+   * `tier` is the field's old spelling, kept readable for one cache window:
+   * this object lives for an hour, so the deploy that renames it has live
+   * entries holding the old key. `kindFromVerified` reads `kind` then `tier`,
+   * so nobody loses their check while an entry ages out. Droppable an hour
+   * after that deploy.
+   *
+   * Both are **optional**, and that is about the cache rather than the column.
    * This object is stored for an hour, so any deploy that changes its shape has
    * live entries holding the old one — when tiers shipped those held
    * `{ handle }` alone. A required field would read as `undefined`, resolve to
    * "not curated", and take the check off every pro on the site until the entry
-   * turned over. Read it through `previewTier`, which resolves a curated player
+   * turned over. Read it through `previewKind`, which resolves a curated player
    * with no recorded tier to the Pro Player they were already rendering as.
    */
-  verified?: { handle: string; tier?: ProTier }
+  verified?: { handle: string; kind?: VerifiedKind; tier?: VerifiedKind }
   /**
    * Esports titles — world championships and the like, shown in gold with a
    * trophy in the header. Admin-curated, and nothing to do with the
@@ -96,6 +102,6 @@ export interface PlayerPreview {
  * `{handle && …}` guards: the component owns the fallback, the way `RankHelm`
  * and `LegendChip` do.
  */
-export function previewTier(preview?: PlayerPreview | null): ProTier {
-  return tierFromVerified(preview?.verified)
+export function previewKind(preview?: PlayerPreview | null): VerifiedKind {
+  return kindFromVerified(preview?.verified)
 }

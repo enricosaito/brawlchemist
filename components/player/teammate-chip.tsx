@@ -1,8 +1,8 @@
 "use client"
 
 import { PlayerLink } from "@/components/site/primitives"
-import { VerifiedMark } from "@/components/site/pro-badge"
-import { type ProTier } from "@/lib/profile/pro-tier"
+import { VerifiedMark } from "@/components/site/verified-mark"
+import { type VerifiedKind } from "@/lib/profile/verified"
 
 /**
  * The partner, in the run header, as a link.
@@ -25,7 +25,7 @@ export function TeammateChip({
 }: {
   id: number | null
   name: string
-  tier: ProTier
+  tier: VerifiedKind
 }) {
   return (
     <span

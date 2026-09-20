@@ -11,8 +11,8 @@ import {
   sql,
 } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { curatedClause, proTierExpr } from "@/lib/sync/pro-tier-sql"
-import { parseProTier, type ProTier } from "@/lib/profile/pro-tier"
+import { verifiedClause, verifiedKindExpr } from "@/lib/sync/verified-sql"
+import { parseVerifiedKind, type VerifiedKind } from "@/lib/profile/verified"
 import {
   ADMIN_PAGE_SIZE,
   containsPattern,
@@ -57,7 +57,7 @@ export interface AdminUser {
   brawlhallaId: number | null
   username: string | null
   /** Curation on the claimed profile — a linked account can also be curated. */
-  proTier: ProTier
+  verifiedKind: VerifiedKind
   handle: string | null
   /** Their flair *selection*; entitlement is derived at render from the
    * profiles map, never stored. Null means "show my best earned". */
@@ -70,7 +70,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const USER_FILTERS = [
   { id: "", label: "All" },
   { id: "linked", label: "Linked" },
-  { id: "pro", label: "Pro" },
+  { id: "pro", label: "Verified" },
   { id: "developer", label: "Developer" },
   { id: "paid", label: "Paid" },
 ] as const
@@ -114,7 +114,7 @@ export async function listAdminUsers(
       conditions.push(isNotNull(profiles.brawlhallaId))
       break
     case "pro":
-      conditions.push(curatedClause())
+      conditions.push(verifiedClause())
       break
     case "developer":
       conditions.push(eq(appUsers.accountRole, "developer"))
@@ -135,7 +135,7 @@ export async function listAdminUsers(
       plan: appUsers.plan,
       createdAt: appUsers.createdAt,
       brawlhallaId: profiles.brawlhallaId,
-      proTier: proTierExpr,
+      verifiedKind: verifiedKindExpr,
       handle: profiles.handle,
       username: players.username,
       flairId: userCustomizations.flairId,
@@ -171,7 +171,7 @@ export async function getAdminUser(id: string): Promise<AdminUser | null> {
       plan: appUsers.plan,
       createdAt: appUsers.createdAt,
       brawlhallaId: profiles.brawlhallaId,
-      proTier: proTierExpr,
+      verifiedKind: verifiedKindExpr,
       handle: profiles.handle,
       username: players.username,
       flairId: userCustomizations.flairId,
@@ -195,7 +195,7 @@ function toAdminUser(r: {
   plan: string
   createdAt: Date
   brawlhallaId: number | null
-  proTier: string | null
+  verifiedKind: string | null
   handle: string | null
   username: string | null
   flairId: string | null
@@ -209,7 +209,7 @@ function toAdminUser(r: {
     plan: parsePlan(r.plan),
     brawlhallaId: r.brawlhallaId,
     username: r.username,
-    proTier: parseProTier(r.proTier),
+    verifiedKind: parseVerifiedKind(r.verifiedKind),
     handle: r.handle,
     flairId: r.flairId,
     createdAt: r.createdAt,

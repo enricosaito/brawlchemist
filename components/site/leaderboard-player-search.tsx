@@ -6,13 +6,13 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Loader2, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { VerifiedMark } from "./pro-badge"
+import { VerifiedMark } from "./verified-mark"
 import { SmurfMark } from "./smurf-mark"
 import { FlairMark } from "./flair-mark"
 import { flairContextFrom } from "@/lib/profile/flair"
 import { RankHelm, RegionPill } from "./primitives"
 import type { Tier } from "@/lib/types"
-import { type ProTier } from "@/lib/profile/pro-tier"
+import { type VerifiedKind } from "@/lib/profile/verified"
 
 /** Mirrors a row from /api/search/players — see RecentVisit for the same shape
  * on the home dropdown, which renders these identically. */
@@ -23,7 +23,7 @@ interface PlayerHit {
   rating: number | null
   region: string | null
   /** Which check to draw — see lib/profile/pro-tier.ts. */
-  proTier?: ProTier
+  verifiedKind?: VerifiedKind
   /** Curated handle, when set — the row leads with it. */
   handle?: string | null
   /** Derived server-side: Valhallan is ladder membership, not a rating band. */
@@ -304,7 +304,7 @@ export function LeaderboardPlayerSearch({ className }: { className?: string }) {
                             <span className="min-w-0 truncate text-sm font-medium">
                               {opt.hit.handle || opt.hit.username}
                             </span>
-                            <VerifiedMark tier={opt.hit.proTier ?? "none"} />
+                            <VerifiedMark tier={opt.hit.verifiedKind ?? "none"} />
                             <FlairMark
                               selectedId={opt.hit.flairId}
                               context={flairContextFrom(opt.hit)}

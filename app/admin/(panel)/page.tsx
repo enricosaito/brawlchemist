@@ -90,7 +90,12 @@ export default async function AdminPage({
             tab: "users",
             filter: "linked",
           },
-          { label: "Pros", value: overview.pros, tab: "people", filter: "pro" },
+          {
+            label: "Verified",
+            value: overview.pros,
+            tab: "people",
+            filter: "pro",
+          },
           { label: "People", value: overview.people, tab: "people" },
           {
             label: "Fetches 24h",

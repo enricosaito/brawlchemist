@@ -25,8 +25,8 @@ import {
   type AccountRole,
 } from "@/lib/auth/account"
 import { adminActorId } from "@/lib/admin-auth"
-import { isCurated } from "@/lib/profile/pro-tier"
-import { ProTierTag } from "@/components/site/pro-badge"
+import { isVerified } from "@/lib/profile/verified"
+import { VerifiedTag } from "@/components/site/verified-mark"
 import {
   linkProfileFormAction,
   setAccountPlanFormAction,
@@ -213,8 +213,8 @@ export async function UsersTab({
                       )}
                     </td>
                     <td className={TD}>
-                      {isCurated(u.proTier) ? (
-                        <ProTierTag tier={u.proTier} />
+                      {isVerified(u.verifiedKind) ? (
+                        <VerifiedTag tier={u.verifiedKind} />
                       ) : (
                         <Empty />
                       )}
