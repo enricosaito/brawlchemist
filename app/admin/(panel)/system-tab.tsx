@@ -2,10 +2,12 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { listCronControls } from "@/lib/sync/cron-controls"
 import { getAdminOverview, getPlayerPoolStats } from "@/lib/sync/admin-stats"
+import { listAbandonedSessions } from "@/lib/sync/sessions"
 import { getRecentFetches } from "@/lib/sync/fetch-log"
 import {
   backfillValhallansFormAction,
   clearFetchLogFormAction,
+  reapSessionsFormAction,
   refreshCachesFormAction,
   toggleCronFormAction,
 } from "../actions"
@@ -99,12 +101,14 @@ function Card({
  * `rating` column and is cached (see admin-stats.ts).
  */
 export async function SystemTab() {
-  const [pool, overview, crons, fetches] = await Promise.all([
+  const [pool, overview, crons, fetches, stuck] = await Promise.all([
     getPlayerPoolStats(),
     getAdminOverview(),
     listCronControls(),
     getRecentFetches(30),
+    listAbandonedSessions(),
   ])
+  const oldestStuck = stuck.reduce((m, s) => Math.max(m, s.ageSeconds), 0)
   const f = overview.fetches24h
   const fetchTotal = f.cached + f.synced + f.failed
 
@@ -184,6 +188,50 @@ export async function SystemTab() {
       {/* Levers */}
       <Card title="Actions">
         <ul className="mt-3 flex flex-col divide-y divide-border/40">
+          {/* First, because it is the only one here that fixes a site which is
+              currently down. Two abandoned sessions were measured to be enough
+              to make every page queue on a pooler with nothing to hand out. */}
+          <li className="flex flex-wrap items-center gap-3 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Stuck sessions</span>
+                {stuck.length > 0 ? (
+                  <span
+                    className={cn(
+                      TAG,
+                      "border-negative/50 bg-negative/15 text-negative"
+                    )}
+                  >
+                    {stuck.length} · oldest {oldestStuck}s
+                  </span>
+                ) : (
+                  <span
+                    className={cn(
+                      TAG,
+                      "border-positive/50 bg-positive/15 text-positive"
+                    )}
+                  >
+                    clear
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Transactions held open by serverless instances that died
+                mid-query. Each one pins a pooler connection until something
+                ends it. A cron does this every minute; press if the site feels
+                frozen now.
+              </p>
+            </div>
+            <ActionForm
+              action={reapSessionsFormAction}
+              submitLabel="End them"
+              submitClassName={
+                stuck.length > 0
+                  ? "border-negative/50 bg-negative/15 text-negative hover:bg-negative/25"
+                  : undefined
+              }
+            />
+          </li>
           <li className="flex flex-wrap items-center gap-3 py-3">
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">Refresh caches</div>

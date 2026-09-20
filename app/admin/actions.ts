@@ -42,6 +42,7 @@ import { after } from "next/server"
 import type { ActionResult } from "@/lib/admin-action-result"
 import { checkCmUser, parseCmUserId } from "@/lib/sync/esports-link"
 import { clearFetchLog, recordFetch } from "@/lib/sync/fetch-log"
+import { reapAbandonedSessions } from "@/lib/sync/sessions"
 import {
   hasCachedStanding,
   syncManyPlayers,
@@ -109,8 +110,13 @@ export async function saveProfileAction(
     esportsBrawlhallaId: esportsId === id ? null : esportsId,
   }
 
-  const existed = await hasCachedStanding(id)
-  await upsertProfile(input)
+  // In parallel, not in sequence: the standing lookup does not depend on the
+  // write and the write does not depend on it, and on a cross-region database
+  // each one is ~190ms of pure latency. Two waves became one.
+  const [existed] = await Promise.all([
+    hasCachedStanding(id),
+    upsertProfile(input),
+  ])
   revalidateTag(ADMIN_OVERVIEW_TAG, "max")
 
   // The ranked pull is what puts a *newly* curated pro on the board without
@@ -841,6 +847,27 @@ export async function backfillValhallansFormAction(): Promise<ActionResult> {
     message: `Synced ${synced}${failed ? `, ${failed} failed (rate limit?)` : ""}${
       remaining ? ` · ${remaining} stale left, click again` : " · caught up"
     }.`,
+  }
+}
+
+/**
+ * End database sessions abandoned mid-transaction.
+ *
+ * The same job the cron runs every minute, on a button, because the operator
+ * is the person who notices a freeze first and a minute is a long time to
+ * stare at a spinner. Safe to press at any moment: the filter only matches a
+ * backend with an open transaction that is not executing anything and whose
+ * client has stopped talking, and this app holds no explicit transactions.
+ */
+export async function reapSessionsFormAction(): Promise<ActionResult> {
+  await requireAdmin()
+  const { reaped, oldestSeconds } = await reapAbandonedSessions()
+  revalidatePath("/admin")
+  return {
+    ok: true,
+    message: reaped
+      ? `Ended ${reaped} stuck session${reaped === 1 ? "" : "s"} (oldest ${oldestSeconds}s).`
+      : "Nothing stuck.",
   }
 }
 
