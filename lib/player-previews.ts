@@ -1,14 +1,28 @@
 /**
- * Shape of the per-player presentation data layered onto a player: verified
- * pro status (+ handle), favorite skin, and esports accolades. The values live
- * in the profiles table and are read through lib/sync/profiles (getProfile /
- * getProfilesMap). This module is just the shared type, safe to import from
- * client and server alike.
+ * Shape of the per-player presentation data layered onto a player: curated
+ * competitor standing (+ handle), favorite skin, and esports accolades. The
+ * values live in the profiles table and are read through lib/sync/profiles
+ * (getProfile / getProfilesMap). This module is just the shared type, safe to
+ * import from client and server alike.
  */
+import type { ProTier } from "@/lib/profile/pro-tier"
+
 export interface PlayerPreview {
   favoriteSkin?: { src: string; name: string }
-  /** Verified pro — `handle` is shown in blue next to the PRO tag. */
-  verified?: { handle: string }
+  /**
+   * A curated competitor — `handle` replaces their in-game name, and `tier`
+   * decides which check they fly (see lib/profile/pro-tier.ts).
+   *
+   * Present if and only if the tier is curated at all, which is what lets the
+   * thirty-odd surfaces that only ask "is this a pro" keep testing
+   * `preview.verified` and stay correct. Undefined for the ~99% of rows with
+   * no tier, so the cached object stays small — the same rule every optional
+   * on this type follows.
+   *
+   * `tier` is a string literal union rather than an object because this whole
+   * preview round-trips through JSON inside `unstable_cache`.
+   */
+  verified?: { handle: string; tier: ProTier }
   /**
    * Esports titles — world championships and the like, shown in gold with a
    * trophy in the header. Admin-curated, and nothing to do with the
@@ -62,4 +76,18 @@ export interface PlayerPreview {
    * never crosses the wire (cardinal constraint #2).
    */
   hasFavorites?: boolean
+}
+
+/**
+ * The tier to draw for a player, from whatever we hold about them.
+ *
+ * Every badge site calls this instead of reaching for `verified?.tier` itself,
+ * so "we know nothing about this player" and "this player is not curated"
+ * arrive at `VerifiedMark` as the same value — which is the input it already
+ * knows how to render as nothing. That is what lets the call sites drop their
+ * `{handle && …}` guards: the component owns the fallback, the way `RankHelm`
+ * and `LegendChip` do.
+ */
+export function previewTier(preview?: PlayerPreview | null): ProTier {
+  return preview?.verified?.tier ?? "none"
 }

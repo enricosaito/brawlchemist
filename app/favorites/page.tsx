@@ -22,6 +22,7 @@ import { FlairMark } from "@/components/site/flair-mark"
 import { FavoriteToggleControl } from "@/components/site/favorite-toggle-control"
 import { SuggestedFavorites } from "@/components/site/suggested-favorites"
 import { flairContextFrom } from "@/lib/profile/flair"
+import { previewTier } from "@/lib/player-previews"
 
 export const metadata = { title: "Brawlchemist | Favorites" }
 
@@ -168,7 +169,7 @@ function FavoriteRow({
               <span className="min-w-0 truncate font-medium">
                 {handle ?? username}
               </span>
-              {handle && <VerifiedMark />}
+              <VerifiedMark tier={previewTier(preview)} />
               <FlairMark
                 selectedId={flairId}
                 context={flairContextFrom(preview)}

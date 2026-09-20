@@ -35,6 +35,7 @@ import {
   type LegendStat,
   type TopMainer,
 } from "@/lib/sync/valhallan"
+import { previewTier } from "@/lib/player-previews"
 
 export const metadata: Metadata = {
   title: "Brawlchemist | Meta Picks",
@@ -341,7 +342,7 @@ function MainerRow({
           <span className="min-w-0 truncate text-xs font-medium">
             {handle ?? mainer.username}
           </span>
-          {handle && <VerifiedMark />}
+          <VerifiedMark tier={previewTier(preview)} />
           {smurf && <SmurfMark className="size-3" />}
           <RegionPill region={mainer.region} />
           <span className="ml-auto flex shrink-0 items-center gap-1 pl-1 font-mono text-[11px] tabular-nums">

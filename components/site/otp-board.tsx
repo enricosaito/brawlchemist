@@ -30,6 +30,8 @@ import { SmurfMark } from "@/components/site/smurf-mark"
 import { FlairMark } from "@/components/site/flair-mark"
 import { deriveTier, isValhallan, tierLabel } from "@/lib/tier"
 import { flairContextFrom } from "@/lib/profile/flair"
+import { previewTier } from "@/lib/player-previews"
+import { PRO_TIER_DEFS } from "@/lib/profile/pro-tier"
 
 const PAGE_SIZE = 50
 // Upper bound on the OTP board depth. The DB only holds Valhallan-discovered
@@ -108,7 +110,10 @@ function buildColumns(
                         {p.username}
                       </span>
                     </span>
-                    <VerifiedMark className="size-3.5 group-hover/pro:hidden" />
+                    <VerifiedMark
+                      tier={previewTier(previews.get(p.brawlhalla_id))}
+                      className="size-3.5 group-hover/pro:hidden"
+                    />
                     <FlairMark
                       selectedId={flairs.get(p.brawlhalla_id)}
                       context={flairContextFrom(previews.get(p.brawlhalla_id))}
@@ -134,8 +139,15 @@ function buildColumns(
               </PlayerLink>
               {handle ? (
                 <>
-                  <span className="mt-0.5 font-mono text-[10px] font-medium tracking-wider text-mystic uppercase group-hover/pro:hidden">
-                    Pro Player
+                  <span
+                    className={cn(
+                      "mt-0.5 font-mono text-[10px] font-medium tracking-wider uppercase group-hover/pro:hidden",
+                      PRO_TIER_DEFS[previewTier(previews.get(p.brawlhalla_id))]
+                        .markClass
+                    )}
+                  >
+                    {PRO_TIER_DEFS[previewTier(previews.get(p.brawlhalla_id))]
+                      .label || "Pro Player"}
                   </span>
                   {tier && (
                     <span

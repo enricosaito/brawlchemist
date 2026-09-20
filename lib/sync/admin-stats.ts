@@ -162,7 +162,9 @@ const readOverview = unstable_cache(
       SELECT
         (SELECT COUNT(*)::int FROM app_users) AS accounts,
         (SELECT COUNT(*)::int FROM profiles WHERE user_id IS NOT NULL) AS linked,
-        (SELECT COUNT(*)::int FROM profiles WHERE is_pro) AS pros,
+        (SELECT COUNT(*)::int FROM profiles
+           WHERE coalesce(pro_tier, case when is_pro then 'pro' else 'none' end)
+                 <> 'none') AS pros,
         (SELECT COUNT(*)::int FROM profiles) AS people,
         (SELECT COUNT(*)::int FROM fetch_log
            WHERE created_at > now() - interval '24 hours' AND result = 'cached') AS cached,

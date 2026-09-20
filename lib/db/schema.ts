@@ -134,9 +134,27 @@ export const profiles = pgTable("profiles", {
   /** The Brawlhalla player this profile describes. Natural identity, and every
    * consumer joins on it, so it stays the primary key. */
   brawlhallaId: integer("brawlhalla_id").primaryKey(),
-  /** Verified pro — shows the PRO badge. */
+  /**
+   * LEGACY — superseded by `proTier`, and still declared (and still written)
+   * only so the previously running build can keep selecting it. Droppable on
+   * the deploy after this one, the same two-step `esportsBrawlhallaId` is in.
+   *
+   * It could say "we vouch for this person" and nothing more, so a regional
+   * regular and a world champion rendered the same badge. Reads go through
+   * `resolveProTier`, which treats a legacy `true` as Pro Player — the claim it
+   * was already making — so the migration promotes and demotes nobody.
+   */
   isPro: boolean("is_pro").notNull().default(false),
-  /** Optional handle shown next to the PRO badge (e.g. "Kyna"). */
+  /**
+   * How established a competitor is: 'top' | 'pro' | 'power-ranked' | 'none'.
+   *
+   * A closed allow-list read through `parseProTier` (lib/profile/pro-tier.ts),
+   * so an id we no longer ship degrades to no badge rather than to a claim
+   * nobody can account for. Nullable with no default, which is what keeps
+   * adding it metadata-only, and null means "read the legacy boolean".
+   */
+  proTier: text("pro_tier"),
+  /** Optional handle shown next to the badge (e.g. "Kyna"). */
   handle: text("handle"),
   /** Favorite skin shape: { src, name } | null. */
   favoriteSkin: jsonb("favorite_skin"),

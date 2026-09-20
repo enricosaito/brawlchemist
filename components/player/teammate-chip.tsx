@@ -2,6 +2,7 @@
 
 import { PlayerLink } from "@/components/site/primitives"
 import { VerifiedMark } from "@/components/site/pro-badge"
+import { type ProTier } from "@/lib/profile/pro-tier"
 
 /**
  * The partner, in the run header, as a link.
@@ -20,11 +21,11 @@ import { VerifiedMark } from "@/components/site/pro-badge"
 export function TeammateChip({
   id,
   name,
-  verified,
+  tier,
 }: {
   id: number | null
   name: string
-  verified: boolean
+  tier: ProTier
 }) {
   return (
     <span
@@ -39,7 +40,7 @@ export function TeammateChip({
       >
         {name}
       </PlayerLink>
-      {verified && <VerifiedMark />}
+      <VerifiedMark tier={tier} />
     </span>
   )
 }

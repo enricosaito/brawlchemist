@@ -9,6 +9,7 @@ import { getSmurfIds } from "@/lib/sync/smurf"
 import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import { tierFromRating } from "@/lib/tier"
 import { slugForLegendId } from "@/lib/legends-roster"
+import { type ProTier } from "@/lib/profile/pro-tier"
 
 // Always dynamic — this reads the query string and the live DB.
 export const dynamic = "force-dynamic"
@@ -54,8 +55,10 @@ export async function GET(req: Request) {
     // the searcher wasn't looking for. Those still appear — just in rating
     // order with everyone else.
     const leadIds = new Set<number>()
+    const proTierById = new Map<number, ProTier>()
     for (const [id, profile] of profiles) {
       if (!profile.verified) continue
+      proTierById.set(id, profile.verified.tier)
       // Pro status and having a handle are separate: a verified pro with no
       // handle set still gets the badge, just nothing to match or lead with.
       proIds.add(id)
@@ -125,8 +128,13 @@ export async function GET(req: Request) {
       legendSlug: p.topLegendId ? slugForLegendId(p.topLegendId) : null,
       rating: p.rating,
       region: p.region,
-      pro: proIds.has(p.id),
-      /** Verified pro handle, when there is one — the dropdown leads with it. */
+      /**
+       * Which check to draw, not whether to — the dropdown runs the same
+       * `VerifiedMark` contract as every other surface. `tier` below is the
+       * *ladder* tier and a different question entirely.
+       */
+      proTier: proTierById.get(p.id) ?? "none",
+      /** Curated handle, when there is one — the dropdown leads with it. */
       handle: handleById.get(p.id) ?? null,
       tier: tierFromRating(p.rating, valhallan.has(p.id)),
       /**

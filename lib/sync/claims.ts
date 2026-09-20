@@ -276,7 +276,7 @@ async function finalizeClaim(
   const now = new Date()
   try {
     // Create the profiles row if the player has none (claiming never grants pro
-    // fields — isPro stays false). No-op if a row already exists.
+    // fields — the standing stays "none"). No-op if a row already exists.
     await db()
       .insert(profiles)
       .values({
@@ -353,7 +353,7 @@ export async function getClaimState(
  *
  * Clears the whole ownership set, not just userId — a row left with a
  * claimedAt and a claimMethod but no owner would read as claimed to anyone
- * inspecting the table later. Curation (isPro, handle, titles, skin) is
+ * inspecting the table later. Curation (standing, handle, titles, skin) is
  * deliberately untouched: who owns an account and who we've marked a pro are
  * separate facts, and unlinking shouldn't quietly demote anyone.
  */
@@ -411,7 +411,7 @@ export async function linkProfile(
   const now = new Date()
   try {
     // Creates the row when the player has no profile yet. Claiming never grants
-    // pro fields, so isPro stays false — same as the quiz path.
+    // curation fields, so the standing stays "none" — same as the quiz path.
     await db()
       .insert(profiles)
       .values({

@@ -153,6 +153,8 @@ SELECT
 
 UPDATE user_customizations c
    SET bio = NULL, updated_at = now()
-  FROM (SELECT brawlhalla_id FROM profiles WHERE is_pro) p
+  FROM (SELECT brawlhalla_id FROM profiles
+         WHERE coalesce(pro_tier, case when is_pro then 'pro' else 'none' end)
+               <> 'none') p
  WHERE c.bio IS NOT NULL
    AND c.brawlhalla_id <> p.brawlhalla_id;

@@ -18,6 +18,7 @@ import type { PlayerPreview } from "@/lib/player-previews"
 import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
 import { flairContextFrom } from "@/lib/profile/flair"
+import { previewTier } from "@/lib/player-previews"
 
 /**
  * Pull a steamID64 out of either a bare 17-digit ID or a pasted Steam profile
@@ -83,7 +84,7 @@ function PlayerResultRow({
             <span className="min-w-0 truncate font-medium">
               {handle ?? player.username}
             </span>
-            {handle && <VerifiedMark />}
+            <VerifiedMark tier={previewTier(preview)} />
             <FlairMark
               selectedId={flairId}
               context={flairContextFrom(preview)}

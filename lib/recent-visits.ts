@@ -13,6 +13,7 @@
  */
 
 import type { Tier } from "@/lib/types"
+import { type ProTier } from "@/lib/profile/pro-tier"
 
 export interface RecentVisit {
   id: number
@@ -21,6 +22,15 @@ export interface RecentVisit {
   rating: number | null
   region: string | null
   pro?: boolean
+  /**
+   * Which check to draw for them — see lib/profile/pro-tier.ts.
+   *
+   * Optional because this list lives in the visitor's own localStorage: crumbs
+   * written before tiers existed have no tier, and must keep rendering rather
+   * than being thrown away. They read as `none` until that player is visited
+   * again, which is the honest answer — we did not record one.
+   */
+  proTier?: ProTier
   /**
    * Verified pro handle. Optional because entries stored before this existed
    * are read back from localStorage without it — those just show the in-game

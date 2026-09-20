@@ -11,6 +11,8 @@ import {
   sql,
 } from "drizzle-orm"
 import { db } from "@/lib/db"
+import { curatedClause, proTierExpr } from "@/lib/sync/pro-tier-sql"
+import { parseProTier, type ProTier } from "@/lib/profile/pro-tier"
 import {
   ADMIN_PAGE_SIZE,
   containsPattern,
@@ -54,8 +56,8 @@ export interface AdminUser {
   /** The claimed profile, when there is one. */
   brawlhallaId: number | null
   username: string | null
-  /** Curation on the claimed profile — a linked account can also be a pro. */
-  isPro: boolean
+  /** Curation on the claimed profile — a linked account can also be curated. */
+  proTier: ProTier
   handle: string | null
   /** Their flair *selection*; entitlement is derived at render from the
    * profiles map, never stored. Null means "show my best earned". */
@@ -112,7 +114,7 @@ export async function listAdminUsers(
       conditions.push(isNotNull(profiles.brawlhallaId))
       break
     case "pro":
-      conditions.push(eq(profiles.isPro, true))
+      conditions.push(curatedClause())
       break
     case "developer":
       conditions.push(eq(appUsers.accountRole, "developer"))
@@ -133,7 +135,7 @@ export async function listAdminUsers(
       plan: appUsers.plan,
       createdAt: appUsers.createdAt,
       brawlhallaId: profiles.brawlhallaId,
-      isPro: profiles.isPro,
+      proTier: proTierExpr,
       handle: profiles.handle,
       username: players.username,
       flairId: userCustomizations.flairId,
@@ -169,7 +171,7 @@ export async function getAdminUser(id: string): Promise<AdminUser | null> {
       plan: appUsers.plan,
       createdAt: appUsers.createdAt,
       brawlhallaId: profiles.brawlhallaId,
-      isPro: profiles.isPro,
+      proTier: proTierExpr,
       handle: profiles.handle,
       username: players.username,
       flairId: userCustomizations.flairId,
@@ -193,7 +195,7 @@ function toAdminUser(r: {
   plan: string
   createdAt: Date
   brawlhallaId: number | null
-  isPro: boolean | null
+  proTier: string | null
   handle: string | null
   username: string | null
   flairId: string | null
@@ -207,7 +209,7 @@ function toAdminUser(r: {
     plan: parsePlan(r.plan),
     brawlhallaId: r.brawlhallaId,
     username: r.username,
-    isPro: !!r.isPro,
+    proTier: parseProTier(r.proTier),
     handle: r.handle,
     flairId: r.flairId,
     createdAt: r.createdAt,

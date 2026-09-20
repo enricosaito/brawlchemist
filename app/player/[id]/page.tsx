@@ -102,6 +102,8 @@ import {
 } from "@/lib/legends-roster"
 import type { WeaponId } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { previewTier } from "@/lib/player-previews"
+import { type ProTier } from "@/lib/profile/pro-tier"
 
 // Read-through cache for the profile's /ranked payload.
 //
@@ -772,10 +774,11 @@ function LegendHead({
  */
 interface TeamMember {
   id: number
-  /** Pro handle when there is one, otherwise the in-game name. */
+  /** Curated handle when there is one, otherwise the in-game name. */
   name: string
   slug: string | null
-  pro: boolean
+  /** Which check they fly — see lib/profile/pro-tier.ts. */
+  proTier: ProTier
   flairId?: string
   esportsTitles?: string[]
   /** Owning account has the Developer role. */
@@ -800,7 +803,7 @@ function TeamMemberName({ member }: { member: TeamMember }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-1">
       <span className="truncate">{member.name}</span>
-      {member.pro && <VerifiedMark className="size-3" />}
+      <VerifiedMark tier={member.proTier} className="size-3" />
       <FlairMark
         selectedId={member.flairId}
         context={flairContextFrom(member)}
@@ -1517,7 +1520,10 @@ function ProfileHeader({
                     {/* Verification reads as a mark on the name, not as one
                         more tag in the row — so it sits tight against the
                         title and carries its meaning in a tooltip. */}
-                    {proHandle && <VerifiedMark className="size-5 sm:size-6" />}
+                    <VerifiedMark
+                      tier={previewTier(preview)}
+                      className="size-5 sm:size-6"
+                    />
                     {/* Flair rides the name line. It's the smallest, rarest
                         thing a player can hold and it says nothing in words,
                         so a row of its own left it stranded under a wall of
@@ -1695,7 +1701,10 @@ function FallbackHeader({
                     {proHandle || name}
                   </h1>
                   {/* See ProfileHeader — the mark belongs on the name. */}
-                  {proHandle && <VerifiedMark className="size-5 sm:size-6" />}
+                  <VerifiedMark
+                    tier={previewTier(preview)}
+                    className="size-5 sm:size-6"
+                  />
                   {region && <RegionPill region={region} tone="ice" />}
                   {claimSlot}
                 </div>
@@ -2088,7 +2097,7 @@ export default async function PlayerPage({
         id: teammateId,
         name: mate?.verified?.handle || username,
         slug: row?.topLegendId ? slugForLegendId(row.topLegendId) : null,
-        pro: !!mate?.verified,
+        proTier: previewTier(mate),
         flairId: teamFlairs.get(teammateId),
         esportsTitles: mate?.esportsTitles,
         developer: mate?.developer,
@@ -2340,7 +2349,7 @@ export default async function PlayerPage({
     id: numId,
     name: preview?.verified?.handle || data.name,
     slug: ownerSlug,
-    pro: !!preview?.verified,
+    proTier: previewTier(preview),
     flairId: customization.flairId ?? undefined,
     esportsTitles: preview?.esportsTitles,
     developer: preview?.developer,
@@ -2393,6 +2402,7 @@ export default async function PlayerPage({
           }
           region={data.region || null}
           pro={!!preview?.verified}
+          proTier={previewTier(preview)}
           // Everything the search dropdown renders, recorded as the page already
           // knows it — a recent visit should come back looking exactly like a
           // live suggestion for the same player, badge and helm included.

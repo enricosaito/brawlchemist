@@ -9,10 +9,18 @@ import {
 } from "@/lib/sync/profiles"
 import {
   getAdminPerson,
+  getProEvidence,
   listAdminPeople,
   PEOPLE_FILTERS,
   type AdminPerson,
+  type ProEvidence,
 } from "@/lib/sync/admin-people"
+import {
+  ASSIGNABLE_PRO_TIERS,
+  isCurated,
+  PRO_TIER_DEFS,
+} from "@/lib/profile/pro-tier"
+import { ProTierTag } from "@/components/site/pro-badge"
 import { flairById, FLAIR_NONE, selectableFlairs } from "@/lib/profile/flair"
 import { getFlairCatalogue } from "@/lib/sync/flairs"
 import {
@@ -87,7 +95,7 @@ export async function PeopleTab({
   // queries. The catalogue is resolved against the curated table, not the
   // built-in pair, or this list would show a raw id for every badge minted
   // since the last deploy.
-  const [editing, editingRow, custom, titles, list, catalogue] =
+  const [editing, editingRow, custom, titles, list, catalogue, evidence] =
     await Promise.all([
       valid ? getProfileRecord(editId) : Promise.resolve(null),
       valid ? getAdminPerson(editId) : Promise.resolve(null),
@@ -95,6 +103,7 @@ export async function PeopleTab({
       valid ? listTitles(editId) : Promise.resolve([]),
       listAdminPeople(query),
       getFlairCatalogue(),
+      valid ? getProEvidence(editId) : Promise.resolve(null),
     ])
   const showEditor = add || !!editing || (valid && !editing)
 
@@ -125,6 +134,7 @@ export async function PeopleTab({
           custom={custom}
           titles={titles}
           catalogue={catalogue}
+          evidence={evidence}
           closeHref={adminHref("people", query)}
         />
       )}
@@ -197,15 +207,8 @@ export async function PeopleTab({
                       )}
                     </td>
                     <td className={TD}>
-                      {p.isPro ? (
-                        <span
-                          className={cn(
-                            TAG,
-                            "border-mystic/50 bg-mystic/15 text-mystic"
-                          )}
-                        >
-                          Pro
-                        </span>
+                      {isCurated(p.proTier) ? (
+                        <ProTierTag tier={p.proTier} />
                       ) : (
                         <Empty />
                       )}
@@ -278,6 +281,14 @@ export async function PeopleTab({
  * three forms, split by who is making the claim, so an operator fixing a bad
  * link cannot un-verify a pro with the same submit.
  */
+/** 1 -> 1st, 2 -> 2nd, 3 -> 3rd, 13 -> 13th. */
+function ordinal(n: number): string {
+  const rem100 = n % 100
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`
+  const suffix = { 1: "st", 2: "nd", 3: "rd" }[n % 10] ?? "th"
+  return `${n}${suffix}`
+}
+
 function Editor({
   editing,
   editId,
@@ -285,6 +296,7 @@ function Editor({
   custom,
   titles,
   catalogue,
+  evidence,
   closeHref,
 }: {
   editing: Awaited<ReturnType<typeof getProfileRecord>>
@@ -293,6 +305,7 @@ function Editor({
   custom: Customization | null
   titles: EsportsTitle[]
   catalogue: Awaited<ReturnType<typeof getFlairCatalogue>>
+  evidence: ProEvidence | null
   closeHref: string
 }) {
   const name = editing
@@ -427,16 +440,28 @@ function Editor({
             className={inputCls}
           />
         </div>
-        <div className="flex items-center gap-4 pb-2 sm:pb-0">
-          <label className="flex items-center gap-2 text-sm whitespace-nowrap">
-            <input
-              name="isPro"
-              type="checkbox"
-              defaultChecked={editing ? editing.isPro : true}
-              className="size-4 accent-mystic"
-            />
-            Verified pro
-          </label>
+        <div className="flex items-end gap-3 pb-2 sm:pb-0">
+          <div>
+            <label className={labelCls} htmlFor="proTier">
+              Standing
+            </label>
+            {/* A ladder, not a checkbox: a regional regular and a world
+                champion used to fly the same badge. The picker names what each
+                level asserts, because that is the operator's whole decision —
+                see the evidence line beneath. */}
+            <select
+              id="proTier"
+              name="proTier"
+              defaultValue={editing ? editing.proTier : "pro"}
+              className={cn(inputCls, "w-[180px]")}
+            >
+              {ASSIGNABLE_PRO_TIERS.map((id) => (
+                <option key={id} value={id}>
+                  {PRO_TIER_DEFS[id].label}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
             type="submit"
             className="h-9 rounded-md bg-pink px-4 text-sm font-semibold text-background transition-colors hover:bg-pink/90"
@@ -444,6 +469,25 @@ function Editor({
             {editing ? "Save" : "Add pro"}
           </button>
         </div>
+
+        {/* What we hold about their career, so a tier is chosen against
+            something. Evidence, not a rule — nothing here promotes anyone. */}
+        {evidence && (
+          <p className="text-[11px] text-muted-foreground sm:col-span-4">
+            <span className={labelCls}>Evidence</span>{" "}
+            {evidence.events === 0 && evidence.titles === 0 ? (
+              <>No tournament record — Challengermode only covers 2025 onward.</>
+            ) : (
+              <>
+                {evidence.titles} title{evidence.titles === 1 ? "" : "s"} ·{" "}
+                {evidence.events} event{evidence.events === 1 ? "" : "s"}
+                {evidence.bestPlacement != null && (
+                  <> · best finish {ordinal(evidence.bestPlacement)}</>
+                )}
+              </>
+            )}
+          </p>
+        )}
       </form>
 
       {editing && (

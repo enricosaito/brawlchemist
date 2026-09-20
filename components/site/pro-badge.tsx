@@ -1,44 +1,50 @@
 import { BadgeCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
+import {
+  isCurated,
+  PRO_TIER_DEFS,
+  type ProTier,
+} from "@/lib/profile/pro-tier"
 import { InfoTip } from "./info-tip"
 
-/** Verified pro-player badge. Lightweight (lucide + cn only) so it's cheap to
- * pull into client bundles like the search dropdown. */
-export function ProBadge({ className }: { className?: string }) {
-  return (
-    <InfoTip label="Verified pro player">
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md border border-mystic/50 bg-mystic/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-mystic",
-          className,
-        )}
-      >
-        <BadgeCheck className="size-3" />
-        Pro
-      </span>
-    </InfoTip>
-  )
-}
-
 /**
- * VerifiedMark — the blue check that says "this is really them".
+ * VerifiedMark — the check that says "this is really them, and this is how far".
  *
- * One component because it appeared in seven places and only three of them
- * had the tooltip, so the same mark meant something you could hover to read
- * on a podium and nothing at all in the row directly beneath it. The label is
- * the whole point of the mark: a check on its own is decoration until it says
- * what was verified.
+ * One component because it appeared in seven places and only three of them had
+ * the tooltip, so the same mark meant something you could hover to read on a
+ * podium and nothing at all in the row directly beneath it. The label is the
+ * whole point of the mark: a check on its own is decoration until it says what
+ * was verified.
+ *
+ * `tier` is **required and owns its own fallback** — a `none` renders nothing.
+ * Same contract `RankHelm` and `LegendChip` follow: never guard a call site
+ * with `{tier && <VerifiedMark …>}`, because the component is the one place
+ * that knows what an absent tier should look like. Required rather than
+ * defaulted so adding a tier cannot silently leave a surface drawing the old
+ * blue check for someone we now say something different about.
+ *
+ * One glyph in three colours, never three glyphs: it has to read as the same
+ * kind of claim at 14px, and the tooltip is what distinguishes the levels for
+ * anyone the colour does not.
  *
  * Sized by the caller — it sits beside a 4xl name on a profile and a 15px one
  * in a table row.
  */
-export function VerifiedMark({ className = "size-3.5" }: { className?: string }) {
+export function VerifiedMark({
+  tier,
+  className = "size-3.5",
+}: {
+  tier: ProTier
+  className?: string
+}) {
+  if (!isCurated(tier)) return null
+  const def = PRO_TIER_DEFS[tier]
   return (
-    <InfoTip label="Verified pro player">
+    <InfoTip label={def.markLabel}>
       <span className="inline-flex shrink-0">
         <BadgeCheck
-          className={cn("text-mystic", className)}
-          aria-label="Verified pro player"
+          className={cn(def.markClass, className)}
+          aria-label={def.markLabel}
         />
       </span>
     </InfoTip>
@@ -46,42 +52,29 @@ export function VerifiedMark({ className = "size-3.5" }: { className?: string })
 }
 
 /**
- * PlayerName — for verified pros, shows the PRO badge + clean handle by default.
- * On hover (driven by an ancestor `group/pro`, e.g. the leaderboard row/card)
- * the badge stays and the handle swaps to the in-game username, with the tier
- * revealed to its right when `tier` is provided. CSS-only, so it works in
- * server-rendered tables. Render only when `handle` is set.
+ * The tier as a word, for the places that print a standing beside a name
+ * rather than only marking it (the OTP board, the profile header).
+ *
+ * Renders nothing when there is nothing to say, for the reason above.
  */
-export function PlayerName({
-  username,
-  handle,
+export function ProTierTag({
   tier,
-  tierClassName,
   className,
 }: {
-  username: string
-  handle: string
-  tier?: string | null
-  tierClassName?: string
+  tier: ProTier
   className?: string
 }) {
+  if (!isCurated(tier)) return null
+  const def = PRO_TIER_DEFS[tier]
   return (
-    <span className={cn("inline-flex min-w-0 items-center gap-1.5", className)}>
-      <ProBadge className="shrink-0" />
-      <span className="min-w-0 truncate">
-        <span className="group-hover/pro:hidden">{handle}</span>
-        <span className="hidden group-hover/pro:inline">{username}</span>
-      </span>
-      {tier && (
-        <span
-          className={cn(
-            "hidden shrink-0 font-mono text-[10px] font-medium uppercase tracking-wider group-hover/pro:inline",
-            tierClassName,
-          )}
-        >
-          {tier}
-        </span>
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wider uppercase",
+        def.tagClass,
+        className
       )}
+    >
+      {def.label}
     </span>
   )
 }

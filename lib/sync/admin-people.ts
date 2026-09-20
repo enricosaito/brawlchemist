@@ -2,7 +2,6 @@ import "server-only"
 
 import {
   and,
-  desc,
   eq,
   ilike,
   isNotNull,
@@ -11,6 +10,12 @@ import {
   sql as raw,
 } from "drizzle-orm"
 import { db } from "@/lib/db"
+import {
+  curatedClause,
+  proTierExpr,
+  proTierRankExpr,
+} from "@/lib/sync/pro-tier-sql"
+import { parseProTier, type ProTier } from "@/lib/profile/pro-tier"
 import {
   ADMIN_PAGE_SIZE,
   containsPattern,
@@ -52,8 +57,8 @@ export interface AdminPerson {
   username: string | null
   rating: number | null
   region: string | null
-  /** Curation. */
-  isPro: boolean
+  /** Curation — how established a competitor we say they are. */
+  proTier: ProTier
   handle: string | null
   /** How many championship titles they hold, of either source. */
   titleCount: number
@@ -82,7 +87,7 @@ export async function getAdminPerson(
   const [row] = await db()
     .select({
       brawlhallaId: profiles.brawlhallaId,
-      isPro: profiles.isPro,
+      proTier: proTierExpr,
       handle: profiles.handle,
       titleCount: raw<number>`(
         select count(*)::int from esports_titles e
@@ -107,7 +112,57 @@ export async function getAdminPerson(
     .leftJoin(players, eq(players.brawlhallaId, profiles.brawlhallaId))
     .where(eq(profiles.brawlhallaId, brawlhallaId))
     .limit(1)
-  return row ? { ...row, favoriteSkin: parseSkin(row.favoriteSkin) } : null
+  return row
+    ? {
+        ...row,
+        proTier: parseProTier(row.proTier),
+        favoriteSkin: parseSkin(row.favoriteSkin),
+      }
+    : null
+}
+
+/**
+ * What we can show an operator who is deciding a tier.
+ *
+ * Read only when the editor is open, and never folded into the list: these are
+ * two correlated aggregates over esports_matches, and a page of 25 rows would
+ * pay for them to answer a question only one row is being asked.
+ *
+ * Evidence, never a rule. A tier is a judgement about a career — "places well
+ * consistently" is not a threshold anybody could defend — so this screen does
+ * what the Esports links screen does: it gathers what we hold and lets a human
+ * assert. Nothing here writes, and nothing here promotes.
+ */
+export interface ProEvidence {
+  titles: number
+  /** Best finish ever recorded, as an ordinal rank (1 = won it). */
+  bestPlacement: number | null
+  /** Distinct tournaments they appear in. */
+  events: number
+}
+
+export async function getProEvidence(
+  brawlhallaId: number
+): Promise<ProEvidence> {
+  try {
+    const [row] = await db()
+      .select({
+        titles: raw<number>`(select count(*)::int from esports_titles e
+          where e.brawlhalla_id = ${brawlhallaId})`,
+        bestPlacement: raw<number | null>`(select min(m.placement_rank)::int
+          from esports_matches m where m.brawlhalla_id = ${brawlhallaId})`,
+        events: raw<number>`(select count(distinct m.tournament_id)::int
+          from esports_matches m where m.brawlhalla_id = ${brawlhallaId})`,
+      })
+      .from(profiles)
+      .where(eq(profiles.brawlhallaId, brawlhallaId))
+      .limit(1)
+    return row ?? { titles: 0, bestPlacement: null, events: 0 }
+  } catch (err) {
+    // Decoration on a form that works without it.
+    console.error("[admin] pro evidence failed:", err)
+    return { titles: 0, bestPlacement: null, events: 0 }
+  }
 }
 
 /** Uncached: this is an admin screen, and staleness here is worse than a read. */
@@ -131,7 +186,7 @@ export async function listAdminPeople(
   }
   switch (query.filter) {
     case "pro":
-      conditions.push(eq(profiles.isPro, true))
+      conditions.push(curatedClause())
       break
     case "linked":
       conditions.push(isNotNull(profiles.userId))
@@ -150,7 +205,7 @@ export async function listAdminPeople(
   const rows = await db()
     .select({
       brawlhallaId: profiles.brawlhallaId,
-      isPro: profiles.isPro,
+      proTier: proTierExpr,
       handle: profiles.handle,
       // Counted in SQL rather than fetched: this list renders "3 titles", not
       // the titles, and a correlated count over a 106-row table is cheaper than
@@ -187,7 +242,10 @@ export async function listAdminPeople(
     // scan in to find someone you were about to act on. The id breaks ties so
     // a page boundary is the same boundary on the next request.
     .orderBy(
-      desc(profiles.isPro),
+      // By standing, through the shared rank expression — a bare
+      // `desc(pro_tier)` sorts the column lexically and puts Top Player above
+      // Power Ranked above Pro Player, which looks like a working sort.
+      proTierRankExpr,
       raw`(${profiles.userId} is not null) desc`,
       raw`${players.rating} desc nulls last`,
       profiles.brawlhallaId
@@ -202,7 +260,7 @@ export async function listAdminPeople(
         username: r.username,
         rating: r.rating,
         region: r.region,
-        isPro: r.isPro,
+        proTier: parseProTier(r.proTier),
         handle: r.handle,
         titleCount: r.titleCount,
         favoriteSkin: parseSkin(r.favoriteSkin),
