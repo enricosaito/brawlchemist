@@ -16,6 +16,7 @@ import { FlairMark } from "./flair-mark"
 import { LegendChip, RankHelm, RegionPill } from "./primitives"
 import { VerifiedMark } from "./pro-badge"
 import { SmurfMark } from "./smurf-mark"
+import { previewTier } from "@/lib/player-previews"
 
 /**
  * Suggested Favorites — the bottom of /favorites, for people who have run out
@@ -122,7 +123,7 @@ export async function SuggestedFavorites({
                           <span className="min-w-0 truncate font-medium">
                             {handle ?? player?.username ?? `Player #${id}`}
                           </span>
-                          {handle && <VerifiedMark />}
+                          <VerifiedMark tier={previewTier(preview)} />
                           <FlairMark
                             selectedId={flairs.get(id)}
                             context={flairContextFrom(preview)}

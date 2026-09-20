@@ -23,6 +23,7 @@ import { getPlayersByIds } from "@/lib/sync/players"
 import { getFlairMap } from "@/lib/sync/customizations"
 import { getProfile } from "@/lib/sync/profiles"
 import { cn } from "@/lib/utils"
+import { previewTier } from "@/lib/player-previews"
 
 const fontSans = Geist({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -127,7 +128,7 @@ export default async function RootLayout({
         claimed = {
           id: claimedId,
           name: handle ?? players.get(claimedId)?.username ?? null,
-          isPro: !!handle,
+          proTier: previewTier(profile),
         }
       } catch (err) {
         console.error("[layout] claimed profile lookup failed:", err)

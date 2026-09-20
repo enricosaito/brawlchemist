@@ -11,6 +11,8 @@ import type { PlayerPreview } from "@/lib/player-previews"
 import type { CmTournament } from "@/lib/challengermode-api"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
+import { previewTier } from "@/lib/player-previews"
+import { type ProTier } from "@/lib/profile/pro-tier"
 
 /**
  * A pro's tournament results, grouped by the event that produced them.
@@ -47,7 +49,7 @@ interface Run {
   /** Most-played legend across the whole run, by games rather than by sets. */
   mainLegend: string | null
   /** Their partner. Constant across a run, so it belongs to the run. */
-  teammate: { id: number | null; name: string; verified: boolean } | null
+  teammate: { id: number | null; name: string; tier: ProTier } | null
 }
 
 function toRuns(
@@ -111,7 +113,13 @@ function toRuns(
       const id = withMate.teammateIds[0] ?? null
       const handle = id ? previews.get(id)?.verified?.handle : null
       const name = handle ?? splitSide(withMate.teammateName)[0] ?? null
-      if (name) r.teammate = { id, name, verified: !!handle }
+      if (name) {
+        r.teammate = {
+          id,
+          name,
+          tier: id ? previewTier(previews.get(id)) : "none",
+        }
+      }
     }
   }
   return runs.sort((a, b) => b.latest - a.latest)
@@ -634,7 +642,7 @@ function RailPerson({
           {name}
         </span>
       )}
-      {handle && <VerifiedMark />}
+      <VerifiedMark tier={previewTier(preview)} />
     </span>
   )
 }
@@ -1165,7 +1173,7 @@ export function EsportsSection({
                     <TeammateChip
                       id={run.teammate.id}
                       name={run.teammate.name}
-                      verified={run.teammate.verified}
+                      tier={run.teammate.tier}
                     />
                   )}
                 </span>

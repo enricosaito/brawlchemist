@@ -2,6 +2,7 @@ import "server-only"
 
 import { and, eq, isNotNull, or, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
+import { curatedClause } from "@/lib/sync/pro-tier-sql"
 import { esportsMatches, players, profiles } from "@/lib/db/schema"
 
 /**
@@ -312,7 +313,7 @@ export async function gatherLinkCandidates(): Promise<LinkCandidate[]> {
     // row costs two network calls — a screen that took 55 seconds to say so.
     .where(
       and(
-        eq(profiles.isPro, true),
+        curatedClause(),
         or(
           isNotNull(profiles.cmPlayerId),
           sql`not exists (select 1 from ${esportsMatches} where ${esportsMatches.brawlhallaId} = ${profiles.brawlhallaId})`

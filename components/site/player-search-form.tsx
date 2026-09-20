@@ -352,7 +352,7 @@ export function PlayerSearchForm({
                             <span className="min-w-0 truncate text-sm font-medium">
                               {opt.result.handle || opt.result.username}
                             </span>
-                            {opt.result.pro && <VerifiedMark />}
+                            <VerifiedMark tier={opt.result.proTier ?? "none"} />
                             <FlairMark
                               selectedId={opt.result.flairId}
                               context={flairContextFrom(opt.result)}

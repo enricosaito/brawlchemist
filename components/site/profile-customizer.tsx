@@ -100,7 +100,7 @@ export function ProfileCustomizer({
   initialFavoriteLegendIds,
   initialFavoriteSkin,
   mainLegendName,
-  isPro,
+  tierAllowsLinks,
   isDeveloper = false,
   inline = false,
   doneHref,
@@ -117,11 +117,14 @@ export function ProfileCustomizer({
   /** Opens the picker on the legend they actually play. */
   mainLegendName?: string | null
   /**
-   * Verified pro. Gates the outbound-link fields, and nothing else now —
-   * favourite legends are a choice from a fixed roster, so there is nothing to
-   * vet and no reason everyone shouldn't have them.
+   * Their standing allows outbound links. Gates the link fields and nothing
+   * else — favourite legends are a choice from a fixed roster, so there is
+   * nothing to vet and no reason everyone shouldn't have them.
+   *
+   * Passed as the resolved capability rather than the tier, because the panel
+   * should not be a second place that knows which tiers carry which rights.
    */
-  isPro: boolean
+  tierAllowsLinks: boolean
   /** Developer role. Links are for people we can hold responsible for them. */
   isDeveloper?: boolean
   /**
@@ -382,7 +385,7 @@ export function ProfileCustomizer({
   const shownFlairId =
     flairId ?? autoFlairId(earnedFlairIds, catalogue) ?? FLAIR_NONE
 
-  const canEditLinks = isPro || isDeveloper
+  const canEditLinks = tierAllowsLinks || isDeveloper
 
   /**
    * Links that would not survive the write, named.
@@ -589,9 +592,9 @@ export function ProfileCustomizer({
         <Section label="Links">
           <Soon
             label="Pro only"
-            icon={<BadgeCheck className="size-3 shrink-0 text-mystic" />}
+            icon={<BadgeCheck className="size-3 shrink-0 text-royal" />}
           >
-            Available to verified pro players.
+            Available to verified pro players and above.
           </Soon>
         </Section>
       )}

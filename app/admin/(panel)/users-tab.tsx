@@ -25,6 +25,8 @@ import {
   type AccountRole,
 } from "@/lib/auth/account"
 import { adminActorId } from "@/lib/admin-auth"
+import { isCurated } from "@/lib/profile/pro-tier"
+import { ProTierTag } from "@/components/site/pro-badge"
 import {
   linkProfileFormAction,
   setAccountPlanFormAction,
@@ -211,15 +213,8 @@ export async function UsersTab({
                       )}
                     </td>
                     <td className={TD}>
-                      {u.isPro ? (
-                        <span
-                          className={cn(
-                            TAG,
-                            "border-mystic/40 bg-mystic/10 text-mystic"
-                          )}
-                        >
-                          Pro
-                        </span>
+                      {isCurated(u.proTier) ? (
+                        <ProTierTag tier={u.proTier} />
                       ) : (
                         <Empty />
                       )}

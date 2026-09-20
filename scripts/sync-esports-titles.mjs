@@ -280,11 +280,11 @@ if (DRY) {
     // A title on a player with no profiles row renders nowhere: the cached
     // profiles map iterates that table, so an id missing from it is an id the
     // site never looks up. Same reason grantFlair ensures a row before
-    // recording an award. No pro fields — winning a championship is not the
-    // same claim as being a curated pro.
+    // recording an award. No standing — winning a championship is evidence for
+    // a tier, never the tier itself, and only an operator assigns one.
     await sql`
-      INSERT INTO profiles (brawlhalla_id, is_pro, updated_at)
-      VALUES (${r.brawlhalla_id}, false, now())
+      INSERT INTO profiles (brawlhalla_id, is_pro, pro_tier, updated_at)
+      VALUES (${r.brawlhalla_id}, false, 'none', now())
       ON CONFLICT (brawlhalla_id) DO NOTHING`
     await sql`
       INSERT INTO esports_titles ${sql(r)}

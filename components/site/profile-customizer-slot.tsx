@@ -5,6 +5,8 @@ import { getProfile } from "@/lib/sync/profiles"
 import { earnedFlairIds, type FlairContext } from "@/lib/profile/flair"
 import { getFlairCatalogue } from "@/lib/sync/flairs"
 import { ProfileCustomizer } from "./profile-customizer"
+import { previewTier } from "@/lib/player-previews"
+import { tierCanEditLinks } from "@/lib/profile/pro-tier"
 
 /**
  * Owner gate for the customizer. Renders nothing for everyone else, so the
@@ -33,7 +35,7 @@ export async function ProfileCustomizerSlot({
   // Lookups inside the try, the element outside it: constructing JSX in a try
   // block swallows render-time errors that belong to an error boundary.
   let custom: Awaited<ReturnType<typeof getCustomization>>
-  let isPro = false
+  let tierAllowsLinks = false
   let isDeveloper = false
   let favoriteSkin: { src: string; name: string } | null = null
   // Entitlement is resolved against the curated catalogue, not the built-in
@@ -49,7 +51,7 @@ export async function ProfileCustomizerSlot({
     // seeds the picker. profiles.favorite_skin is where the choice lands, which
     // is why every surface that already draws a skin needs no change.
     const profile = await getProfile(brawlhallaId)
-    isPro = !!profile?.verified
+    tierAllowsLinks = tierCanEditLinks(previewTier(profile))
     // Links only. Every other field in the panel is open to everyone.
     isDeveloper = !!profile?.developer
     favoriteSkin = profile?.favoriteSkin ?? null
@@ -67,7 +69,7 @@ export async function ProfileCustomizerSlot({
       initialSocialLinks={custom.socialLinks}
       initialFavoriteLegendIds={custom.favoriteLegendIds}
       initialFavoriteSkin={favoriteSkin}
-      isPro={isPro}
+      tierAllowsLinks={tierAllowsLinks}
       isDeveloper={isDeveloper}
       inline={inline}
       doneHref={doneHref}

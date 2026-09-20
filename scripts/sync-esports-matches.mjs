@@ -392,7 +392,7 @@ async function officialEvents(year, gameMode) {
 async function buildBridge(sql) {
   const rows = await sql`
     select brawlhalla_id, cm_player_id, handle
-    from profiles where is_pro = true`
+    from profiles where coalesce(pro_tier, case when is_pro then 'pro' else 'none' end) <> 'none'`
   const map = new Map()
   let asserted = 0
   const unresolved = []

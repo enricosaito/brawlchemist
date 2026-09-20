@@ -53,10 +53,11 @@ const pros = [
 
 for (const p of pros) {
   await sql`
-    INSERT INTO profiles (brawlhalla_id, is_pro, handle, favorite_skin, achievements, updated_at)
-    VALUES (${p.id}, true, ${p.handle}, ${JSON.stringify(p.skin)}::jsonb, ${JSON.stringify(p.achievements)}::jsonb, now())
+    INSERT INTO profiles (brawlhalla_id, is_pro, pro_tier, handle, favorite_skin, achievements, updated_at)
+    VALUES (${p.id}, true, 'pro', ${p.handle}, ${JSON.stringify(p.skin)}::jsonb, ${JSON.stringify(p.achievements)}::jsonb, now())
     ON CONFLICT (brawlhalla_id) DO UPDATE SET
       is_pro = excluded.is_pro,
+      pro_tier = excluded.pro_tier,
       handle = excluded.handle,
       favorite_skin = excluded.favorite_skin,
       achievements = excluded.achievements,

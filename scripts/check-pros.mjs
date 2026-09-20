@@ -17,8 +17,9 @@ if (!url || !key) {
 
 const sql = postgres(url, { prepare: false })
 const rows =
-  await sql`SELECT brawlhalla_id, handle, is_pro FROM profiles WHERE is_pro = true ORDER BY handle`
-console.log(`${rows.length} verified pros in DB\n`)
+  await sql`SELECT brawlhalla_id, handle, pro_tier FROM profiles
+             WHERE coalesce(pro_tier, case when is_pro then 'pro' else 'none' end) <> 'none' ORDER BY handle`
+console.log(`${rows.length} curated competitors in DB\n`)
 
 for (const r of rows) {
   try {

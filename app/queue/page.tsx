@@ -47,6 +47,7 @@ import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { flairContextFrom } from "@/lib/profile/flair"
+import { previewTier } from "@/lib/player-previews"
 
 // Time-sensitive + reads "now − 20 min" — never cache the render.
 export const dynamic = "force-dynamic"
@@ -207,7 +208,7 @@ function LiveCard({
             <span className="min-w-0 truncate text-sm font-semibold leading-tight">
               {previews.get(player!.id)?.verified?.handle ?? player?.name ?? "—"}
             </span>
-            {previews.get(player!.id)?.verified?.handle && <VerifiedMark />}
+            <VerifiedMark tier={previewTier(previews.get(player!.id))} />
             {player && (
               <FlairMark
                 selectedId={flairs.get(player.id)}
@@ -230,7 +231,7 @@ function LiveCard({
                 >
                   {handle ?? p.name}
                 </PlayerLink>
-                {handle && <VerifiedMark />}
+                <VerifiedMark tier={previewTier(previews.get(p.id))} />
                 <FlairMark
                   selectedId={flairs.get(p.id)}
                   context={flairContextFrom(previews.get(p.id))}

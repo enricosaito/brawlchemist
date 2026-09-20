@@ -14,6 +14,7 @@ import {
   getValhallanIds,
 } from "@/lib/sync/valhallan-cutoff"
 import { isValhallan } from "@/lib/tier"
+import { isCurated } from "@/lib/profile/pro-tier"
 
 /**
  * Verified pros as leaderboard rows, sorted by current 1v1 rating.
@@ -28,7 +29,7 @@ import { isValhallan } from "@/lib/tier"
  */
 async function fetchProLeaderboard(region: ApiRegion): Promise<RankedEntry[]> {
   const overrides = await listProfiles()
-  const proIds = overrides.filter((o) => o.isPro).map((o) => o.brawlhallaId)
+  const proIds = overrides.filter((o) => isCurated(o.proTier)).map((o) => o.brawlhallaId)
   if (proIds.length === 0) return []
 
   const rowsById = await getPlayersByIds(proIds)

@@ -17,6 +17,8 @@ import { SmurfMark } from "./smurf-mark"
 import { FlairMark } from "./flair-mark"
 import { flairContextFrom } from "@/lib/profile/flair"
 import { toTier } from "@/lib/tier"
+import { previewTier } from "@/lib/player-previews"
+import { bestProTier } from "@/lib/profile/pro-tier"
 
 const TOP_LEGENDS_LIMIT = 5
 
@@ -98,7 +100,11 @@ function PodiumCard({
     primaryPreview?.favoriteSkin?.src ??
     (placeholder ? skinArtUrl(placeholder, 400) : null)
   const handle = primaryPreview?.verified?.handle
-  const verified = entry.players.some((p) => previews.get(p.id)?.verified)
+  // A 2v2 card carries one mark for the pair, so it shows the strongest
+  // standing on it — anything else would under-report the team.
+  const proTier = bestProTier(
+    entry.players.map((p) => previewTier(previews.get(p.id)))
+  )
 
   const href = isSolo && player?.id ? `/player/${player.id}` : null
 
@@ -159,7 +165,7 @@ function PodiumCard({
                 ? handle
                 : username) || "—"}
             </span>
-            {verified && <VerifiedMark className="size-4" />}
+            <VerifiedMark tier={proTier} className="size-4" />
             {entry.players.some((p) => smurfs.has(p.id)) && (
               <SmurfMark className="size-4" />
             )}

@@ -24,6 +24,7 @@ import type { PlayerPreview } from "@/lib/player-previews"
 import type { WeaponId } from "@/lib/types"
 import { flairContextFrom } from "@/lib/profile/flair"
 import { toTier } from "@/lib/tier"
+import { previewTier } from "@/lib/player-previews"
 
 const TOP_LEGENDS_LIMIT = 3
 const TOP_WEAPONS_LIMIT = 2
@@ -226,7 +227,7 @@ export function buildLeaderboardColumns(
                       {handle ? (
                         <span className="inline-flex min-w-0 items-center gap-1">
                           <span className={nameClass}>{handle}</span>
-                          <VerifiedMark />
+                          <VerifiedMark tier={previewTier(previews.get(p.id))} />
                           {flairFor(p.id)}
                           {smurfs.has(p.id) && <SmurfMark />}
                         </span>

@@ -12,6 +12,7 @@ import { FlairMark } from "./flair-mark"
 import { flairContextFrom } from "@/lib/profile/flair"
 import { RankHelm, RegionPill } from "./primitives"
 import type { Tier } from "@/lib/types"
+import { type ProTier } from "@/lib/profile/pro-tier"
 
 /** Mirrors a row from /api/search/players — see RecentVisit for the same shape
  * on the home dropdown, which renders these identically. */
@@ -21,8 +22,9 @@ interface PlayerHit {
   legendSlug: string | null
   rating: number | null
   region: string | null
-  pro: boolean
-  /** Verified pro handle, when set — the row leads with it. */
+  /** Which check to draw — see lib/profile/pro-tier.ts. */
+  proTier?: ProTier
+  /** Curated handle, when set — the row leads with it. */
   handle?: string | null
   /** Derived server-side: Valhallan is ladder membership, not a rating band. */
   tier?: Tier | null
@@ -302,7 +304,7 @@ export function LeaderboardPlayerSearch({ className }: { className?: string }) {
                             <span className="min-w-0 truncate text-sm font-medium">
                               {opt.hit.handle || opt.hit.username}
                             </span>
-                            {opt.hit.pro && <VerifiedMark />}
+                            <VerifiedMark tier={opt.hit.proTier ?? "none"} />
                             <FlairMark
                               selectedId={opt.hit.flairId}
                               context={flairContextFrom(opt.hit)}

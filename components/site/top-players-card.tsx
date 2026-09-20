@@ -17,6 +17,7 @@ import { PreviewCard } from "./preview-card"
 import { LegendChip, PlayerLink, RankHelm } from "./primitives"
 import { flairContextFrom } from "@/lib/profile/flair"
 import { toTier } from "@/lib/tier"
+import { previewTier } from "@/lib/player-previews"
 
 // All API regions (ALL first), shown in the home region dropdown.
 export const HOME_REGIONS = API_REGIONS
@@ -167,7 +168,7 @@ export async function TopPlayersCard({
                   <PlayerLink id={player.id} className="min-w-0 font-semibold">
                     <span className="inline-flex min-w-0 items-center gap-1 text-[15px] leading-tight">
                       <span className="min-w-0 truncate">{name}</span>
-                      <VerifiedMark />
+                      <VerifiedMark tier={previewTier(overrides.get(player.id))} />
                       <FlairMark
                         selectedId={flairs.get(player.id)}
                         context={flairContextFrom(overrides.get(player.id))}
