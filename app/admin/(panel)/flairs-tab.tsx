@@ -41,6 +41,7 @@ const RULE_CLASS: Record<FlairRule, string> = {
   claimed: "border-royal/40 bg-royal/10 text-royal",
   achievement: "border-tier-gold/40 bg-tier-gold/10 text-tier-gold",
   "pro-tier": "border-tier-gold/40 bg-tier-gold/10 text-tier-gold",
+  earnings: "border-positive/40 bg-positive/10 text-positive",
   manual: "border-mystic/40 bg-mystic/10 text-mystic",
 }
 
@@ -379,7 +380,8 @@ function FlairForm({ editing }: { editing: FlairRecord | null }) {
             <span className="font-mono">top</span>,{" "}
             <span className="font-mono">pro</span>,{" "}
             <span className="font-mono">hall-of-famer</span> and so on, matched
-            exactly.
+            exactly. For <em>Earnings at least</em>, a whole-dollar number —{" "}
+            <span className="font-mono">50000</span> — matched as a minimum.
             Left blank, or not one of those, it fires for nobody.
           </span>
         </label>

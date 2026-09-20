@@ -151,6 +151,7 @@ function toPreview(
   const kind = resolveVerifiedKind(row.verifiedKind, row.isPro)
   return {
     favoriteSkin: skin ?? undefined,
+    earnings: row.earnings && row.earnings > 0 ? row.earnings : undefined,
     verified: isVerified(kind) ? { handle: row.handle ?? "", kind } : undefined,
     esportsTitles: esportsTitles.length ? esportsTitles : undefined,
     // undefined rather than false so unclaimed players add no key to the

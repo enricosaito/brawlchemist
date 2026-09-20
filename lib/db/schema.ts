@@ -154,6 +154,17 @@ export const profiles = pgTable("profiles", {
    * adding it metadata-only, and null means "read the legacy boolean".
    */
   verifiedKind: text("pro_tier"),
+  /**
+   * Career tournament prize money in whole USD, from brawltools.
+   *
+   * Stored rather than fetched per render because the flair that reads it is
+   * drawn on fifteen surfaces off the cached profiles map, and a badge that
+   * appeared on a profile and nowhere else would be worse than no badge. Null
+   * means "never looked", which is not the same as zero — scripts/sync-earnings
+   * fills it, and the `earnings` flair rule treats null as not-yet-qualified
+   * rather than as a fact.
+   */
+  earnings: integer("earnings"),
   /** Optional handle shown next to the badge (e.g. "Kyna"). */
   handle: text("handle"),
   /** Favorite skin shape: { src, name } | null. */

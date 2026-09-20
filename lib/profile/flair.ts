@@ -51,6 +51,13 @@ export type FlairId = string
  *   the badge would start appearing on people nobody decided to give it to —
  *   the same trap `ROLES.admin` and `canEditLinks` are named flags to avoid. An
  *   operator who wants two tiers to share a badge makes two flairs.
+ * - `earnings` — career tournament prize money is at least `ruleValue` USD.
+ *   A threshold rather than an exact match, unlike `pro-tier`, because money is
+ *   a quantity and "at least" is the only sensible reading of one; raising the
+ *   bar later narrows the badge instead of silently re-pointing it at a
+ *   different group. Reads `profiles.earnings`, which a script fills from
+ *   brawltools — null means "never looked", and never-looked is not zero, so it
+ *   fires for nobody rather than guessing.
  * - `manual` — awarded per player from /admin, recorded in `flair_grants`. The
  *   only rule available to a badge invented after the fact, and therefore the
  *   thing that makes "create a flair" mean anything.
@@ -60,6 +67,7 @@ export const FLAIR_RULES = [
   "claimed",
   "achievement",
   "pro-tier",
+  "earnings",
   "manual",
 ] as const
 export type FlairRule = (typeof FLAIR_RULES)[number]
@@ -69,6 +77,7 @@ export const FLAIR_RULE_LABELS: Record<FlairRule, string> = {
   claimed: "Linked account",
   achievement: "Accolade matches",
   "pro-tier": "Verified as",
+  earnings: "Earnings at least",
   manual: "Granted by hand",
 }
 
@@ -95,7 +104,8 @@ export interface FlairDef {
   rule: FlairRule
   /**
    * What the rule matches against: an accolade substring for `achievement`, a
-   * tier id for `pro-tier`. Ignored by the rules that read a boolean.
+   * kind id for `pro-tier`, a whole-dollar threshold for `earnings`. Ignored by
+   * the rules that read a boolean.
    */
   ruleValue?: string | null
   /** Rarity rank, ascending — the lowest a player holds is the one they fly. */
@@ -186,12 +196,12 @@ export const BUILTIN_FLAIRS: FlairDef[] = [
     // who is also top-tier keeps flying the championship.
     id: "grand-champion",
     label: "Grand Champion",
-    requirement: "Reach Top Player standing",
+    requirement: "Win $50,000 in tournament prize money",
     src: "/assets/flairs/grand-champion.png",
     width: 201,
     height: 192,
-    rule: "pro-tier",
-    ruleValue: "top",
+    rule: "earnings",
+    ruleValue: "50000",
     sort: 30,
   },
   {
@@ -262,6 +272,13 @@ export interface FlairContext {
    */
   claimed?: boolean
   /**
+   * Career tournament prize money in whole USD, for rule `earnings`.
+   *
+   * Undefined means we have never looked this player up, which is deliberately
+   * not the same as zero: the rule declines rather than guessing.
+   */
+  earnings?: number
+  /**
    * Their curated standing, for rule `pro-tier`.
    *
    * `none` is a real answer rather than a missing one, because the rule has to
@@ -286,6 +303,7 @@ export function flairContextFrom(
         developer?: boolean
         flairGrants?: string[]
         claimed?: boolean
+        earnings?: number
         /** A PlayerPreview carries the standing inside `verified`… */
         verified?: { kind?: VerifiedKind; tier?: VerifiedKind } | null
         /** …a hand-built member object carries it flat. */
@@ -299,6 +317,7 @@ export function flairContextFrom(
     developer: preview?.developer,
     grants: preview?.flairGrants,
     claimed: preview?.claimed,
+    earnings: preview?.earnings,
     // Two shapes, one answer, and both read here rather than at fifteen call
     // sites. This function takes a *structural* type, so an object missing the
     // field is still assignable and quietly reads as "no standing" — the trap
@@ -331,6 +350,14 @@ function holds(flair: FlairDef, ctx: FlairContext): boolean {
       // everyone, and the same failure an empty `achievement` needle has.
       if (!isVerifiedKind(want) || !isVerified(want)) return false
       return ctx.verifiedKind === want
+    }
+    case "earnings": {
+      const threshold = Number((flair.ruleValue ?? "").trim())
+      // A missing or nonsensical threshold fires for nobody, the same as an
+      // empty `achievement` needle — and zero would hand the badge to every
+      // player we have ever looked up, which is the failure worth guarding.
+      if (!Number.isFinite(threshold) || threshold <= 0) return false
+      return (ctx.earnings ?? 0) >= threshold
     }
     case "manual":
       return !!ctx.grants?.includes(flair.id)
@@ -392,6 +419,7 @@ export function autoFlairId(
 export const SELECTABLE_FLAIR_RULES: FlairRule[] = [
   "achievement",
   "pro-tier",
+  "earnings",
   "manual",
 ]
 
