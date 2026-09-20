@@ -18,6 +18,9 @@ import { repairJson } from "@/lib/text"
 
 const ORIGIN = "https://api.brawlhalla.com"
 
+/** Upper bound on any single upstream call. See apiFetch. */
+const API_TIMEOUT_MS = 10_000
+
 export type ApiGameMode = "1v1" | "2v2" | "3v3" | "solo_2v2"
 
 /**
@@ -55,7 +58,7 @@ const REGION_ALIASES: Record<string, ApiRegion> = { JPS: "JPN" }
  * comparing it against `ApiRegion` or using it as a lookup key.
  */
 export function normalizeApiRegion(
-  value: string | null | undefined,
+  value: string | null | undefined
 ): ApiRegion | null {
   if (!value) return null
   const upper = value.toUpperCase()
@@ -157,7 +160,7 @@ function apiKeyOrError<T>(): ApiResult<T> | string {
 async function apiFetch<T>(
   path: string,
   params: Record<string, string | number>,
-  revalidate: number,
+  revalidate: number
 ): Promise<ApiResult<T>> {
   const apiKey = apiKeyOrError<T>()
   if (typeof apiKey !== "string") return apiKey
@@ -169,7 +172,16 @@ async function apiFetch<T>(
   }
 
   try {
-    const res = await fetch(url.toString(), { next: { revalidate } })
+    // **Bounded, because nothing above this had a timeout.** A stalled upstream
+    // used to stall whatever awaited it — and an admin save awaited it, so one
+    // slow Brawlhalla response held a form submit until Vercel killed the
+    // function at 300s. Ten seconds is ~50x a normal answer; past it the caller
+    // gets the same { ok: false } a 5xx would, and every caller already handles
+    // that. The AbortError lands in the catch below.
+    const res = await fetch(url.toString(), {
+      next: { revalidate },
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    })
     if (!res.ok) {
       return {
         ok: false,
@@ -205,13 +217,13 @@ export function getRankedLeaderboard(opts: {
       page: opts.page ?? 1,
       max_results: opts.maxResults ?? 30,
     },
-    300, // 5 min
+    300 // 5 min
   )
 }
 
 export function getPlayerRanked(
   brawlhallaId: number,
-  opts: { revalidate?: number } = {},
+  opts: { revalidate?: number } = {}
 ): Promise<ApiResult<PlayerRanked>> {
   // The sync layer passes nothing → revalidate 0 (uncached): it gates freshness
   // on the DB's last_synced column, not the HTTP layer. On-demand page/OG reads
@@ -221,7 +233,7 @@ export function getPlayerRanked(
   return apiFetch<PlayerRanked>(
     `/player/${brawlhallaId}/ranked`,
     {},
-    opts.revalidate ?? 0,
+    opts.revalidate ?? 0
   )
 }
 
@@ -235,13 +247,13 @@ export interface PlayerSearchResult {
 }
 
 export function searchPlayerBySteamId(
-  steamId: string,
+  steamId: string
 ): Promise<ApiResult<PlayerSearchResult>> {
   // Steam→Brawlhalla mappings are stable; cache for a day to spare the API.
   return apiFetch<PlayerSearchResult>(
     "/search",
     { steamid: steamId },
-    60 * 60 * 24,
+    60 * 60 * 24
   )
 }
 
@@ -297,12 +309,16 @@ export interface PlayerStats {
 }
 
 export function getPlayerStats(
-  brawlhallaId: number,
+  brawlhallaId: number
 ): Promise<ApiResult<PlayerStats>> {
   // Lifetime level, XP, playtime and weapon time. These move glacially — a
   // day's worth of drift is invisible on the page — and this endpoint was
   // costing a third of every profile view's API budget at a 1-hour TTL.
-  return apiFetch<PlayerStats>(`/player/${brawlhallaId}/stats`, {}, 24 * 60 * 60)
+  return apiFetch<PlayerStats>(
+    `/player/${brawlhallaId}/stats`,
+    {},
+    24 * 60 * 60
+  )
 }
 
 /** Static legend metadata, incl. `bio_aka` (the "title", e.g. "The Minotaur"). */
@@ -326,7 +342,7 @@ export async function getStaticLegends(): Promise<ApiResult<StaticLegend[]>> {
   const res = await apiFetch<StaticLegendsResponse>(
     "/v1/static/legends",
     { page: 1, max_results: 100 },
-    60 * 60 * 24 * 7, // 1 week — static data
+    60 * 60 * 24 * 7 // 1 week — static data
   )
   if (!res.ok) return res
   return { ok: true, data: res.data.legends ?? [] }
@@ -402,18 +418,18 @@ export function getGuildStats(guildId: number): Promise<ApiResult<Guild>> {
 }
 
 export function getGuildMembers(
-  guildId: number,
+  guildId: number
 ): Promise<ApiResult<GuildMembersResponse>> {
   return apiFetch<GuildMembersResponse>(
     "/v1/guild/members",
     { guild_id: guildId },
-    300,
+    300
   )
 }
 
 export function getPlayerGuild(
   brawlhallaId: number,
-  opts: { revalidate?: number } = {},
+  opts: { revalidate?: number } = {}
 ): Promise<ApiResult<PlayerGuildResponse>> {
   // Discovery cron passes nothing → uncached (freshness gated by the DB's
   // guild_checked_at). On-demand page reads pass a short revalidate to dedupe
@@ -421,6 +437,6 @@ export function getPlayerGuild(
   return apiFetch<PlayerGuildResponse>(
     "/v1/player/guild",
     { brawlhalla_id: brawlhallaId },
-    opts.revalidate ?? 0,
+    opts.revalidate ?? 0
   )
 }

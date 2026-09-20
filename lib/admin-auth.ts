@@ -1,5 +1,6 @@
 import "server-only"
 
+import { cache } from "react"
 import { redirect } from "next/navigation"
 
 /**
@@ -39,8 +40,20 @@ function bootstrapEmails(): string[] {
     .filter(Boolean)
 }
 
-/** The signed-in identity, or null. Fails open to null. */
-async function actor(): Promise<{ id: string; email: string | null } | null> {
+/**
+ * The signed-in identity, or null. Fails open to null.
+ *
+ * Memoised per request with React `cache`. One admin page render asks this
+ * three times — the layout gate, the tab (for the "You" tag), and the action
+ * on submit — and a mutation used to ask it twice more inside the action.
+ * The JWT check is local, but each call also re-reads cookies and rebuilds a
+ * Supabase client; sharing one answer across the request is free and removes a
+ * class of "the layout thinks you are X, the action thinks you are null".
+ */
+const actor = cache(async function actor(): Promise<{
+  id: string
+  email: string | null
+} | null> {
   try {
     const { getSessionUser } = await import("@/lib/auth/session")
     const user = await getSessionUser()
@@ -48,7 +61,7 @@ async function actor(): Promise<{ id: string; email: string | null } | null> {
   } catch {
     return null
   }
-}
+})
 
 /**
  * The signed-in account id behind this request, when there is one.
@@ -85,4 +98,22 @@ export async function isAdmin(): Promise<boolean> {
 export async function requireAdmin(): Promise<void> {
   if (await isAdmin()) return
   redirect((await actor()) ? "/?admin=denied" : "/login?next=/admin")
+}
+
+/**
+ * The gate and the identity in one call, for mutations.
+ *
+ * Every admin action needs both — pass the gate, then know who is acting so
+ * the self-change guard can fire. They used to be two calls (`requireAdmin`
+ * then `adminActorId`), and with `actor` memoised that is now merely untidy
+ * rather than a second round trip; this exists so an action has one line to
+ * write and one thing to forget.
+ */
+export async function requireAdminActor(): Promise<{ id: string }> {
+  await requireAdmin()
+  const who = await actor()
+  // requireAdmin redirects on a null actor, so this is unreachable — the throw
+  // is for the type, not the runtime.
+  if (!who) throw new Error("requireAdmin passed with no actor")
+  return { id: who.id }
 }

@@ -52,7 +52,6 @@ export default async function AdminPage({
     edituser?: string
     editflair?: string
     editcombo?: string
-    linked?: string
     combosaved?: string
     combodeleted?: string
     flairsaved?: string
@@ -62,8 +61,6 @@ export default async function AdminPage({
     flairrevoked?: string
     saved?: string
     deleted?: string
-    unlinked?: string
-    flaircleared?: string
     ownersaved?: string
     titleremoved?: string
     error?: string
@@ -71,7 +68,6 @@ export default async function AdminPage({
     remaining?: string
     failed?: string
     cleared?: string
-    accountsaved?: string
     cm?: string
   }>
 }) {
@@ -138,7 +134,6 @@ export default async function AdminPage({
 /** One place to decide what the last action said, instead of a nested ternary. */
 function noticeFor(sp: {
   saved?: string
-  linked?: string
   combosaved?: string
   combodeleted?: string
   flairsaved?: string
@@ -147,8 +142,6 @@ function noticeFor(sp: {
   flairgranted?: string
   flairrevoked?: string
   deleted?: string
-  unlinked?: string
-  flaircleared?: string
   ownersaved?: string
   titleremoved?: string
   error?: string
@@ -156,7 +149,6 @@ function noticeFor(sp: {
   remaining?: string
   failed?: string
   cleared?: string
-  accountsaved?: string
   cm?: string
 }): { tone: "ok" | "error"; text: string } | null {
   if (sp.error) {
@@ -222,21 +214,6 @@ function noticeFor(sp: {
                                                             : "Couldn’t save — check the Brawlhalla ID.",
     }
   }
-  if (sp.accountsaved) {
-    return {
-      tone: "ok",
-      text:
-        sp.accountsaved === "plan"
-          ? "Plan updated. Plans carry no permissions."
-          : "Role updated.",
-    }
-  }
-  if (sp.linked) {
-    return {
-      tone: "ok",
-      text: `Linked player #${sp.linked} to that account. It carries the membership badge now, and claim_method records that an operator vouched rather than the player passing the quiz.`,
-    }
-  }
   if (sp.combosaved) {
     return { tone: "ok", text: "Clip saved. Live on The Lab now." }
   }
@@ -272,12 +249,6 @@ function noticeFor(sp: {
   }
   if (sp.flairrevoked) return { tone: "ok", text: "Grant revoked." }
   if (sp.deleted) return { tone: "ok", text: "Profile removed." }
-  if (sp.unlinked) {
-    return {
-      tone: "ok",
-      text: "Account unlinked — the profile can be claimed again. Pro status and titles were left as they were.",
-    }
-  }
   if (sp.ownersaved) {
     return {
       tone: "ok",
@@ -288,12 +259,6 @@ function noticeFor(sp: {
     return {
       tone: "ok",
       text: "Derived title removed. Re-running the sync script will put it back — fix a consistently wrong one in its allow-list.",
-    }
-  }
-  if (sp.flaircleared) {
-    return {
-      tone: "ok",
-      text: "Flair choice cleared — they're back to showing their best earned one.",
     }
   }
   if (sp.cleared === "log") return { tone: "ok", text: "Fetch log cleared." }

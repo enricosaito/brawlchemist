@@ -1,10 +1,10 @@
 "use server"
 
 import { redirect } from "next/navigation"
-import { revalidateTag } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { setCmPlayerId } from "@/lib/sync/profiles"
 import { put } from "@vercel/blob"
-import { adminActorId, requireAdmin } from "@/lib/admin-auth"
+import { requireAdmin, requireAdminActor } from "@/lib/admin-auth"
 import {
   addManualTitle,
   deleteTitle,
@@ -36,6 +36,8 @@ import {
   type SocialLink,
 } from "@/lib/sync/customizations"
 import { REFRESHABLE_TAGS } from "@/lib/sync/cache-tags"
+import { after } from "next/server"
+import type { ActionResult } from "@/lib/admin-action-result"
 import { checkCmUser, parseCmUserId } from "@/lib/sync/esports-link"
 import { clearFetchLog, recordFetch } from "@/lib/sync/fetch-log"
 import { syncManyPlayers, syncPlayer } from "@/lib/sync/players"
@@ -98,35 +100,34 @@ export async function saveProfileAction(formData: FormData) {
 
   await upsertProfile(input)
 
-  // Pull the player's ranked standing now so they appear on the pro board
-  // immediately. Fail open — the read-through cache on the profile page will
-  // re-fetch on the next view if the API is unavailable right now.
-  try {
-    const outcome = await syncPlayer(id, { force: true })
-    await recordFetch({
-      brawlhallaId: id,
-      source: "admin-save",
-      result: outcome.status === "synced" ? "synced" : "failed",
-      client: "admin",
-    })
-  } catch (err) {
-    console.error("[admin] pro sync on save failed:", err)
-    await recordFetch({
-      brawlhallaId: id,
-      source: "admin-save",
-      result: "failed",
-      client: "admin",
-    })
-  }
+  // The ranked pull still happens — it is what puts a newly curated pro on the
+  // board without waiting for a visit — but no longer between the click and
+  // the response. It is an upstream call against a shared, rate-limited API
+  // with no guarantee of answering quickly, and awaiting it here meant every
+  // Save on this screen paid for a network hop it did not need before it
+  // could say "saved". after() runs it once the response is out, the same
+  // way the profile page defers its stats write. Fails open either way.
+  after(async () => {
+    try {
+      const outcome = await syncPlayer(id, { force: true })
+      await recordFetch({
+        brawlhallaId: id,
+        source: "admin-save",
+        result: outcome.status === "synced" ? "synced" : "failed",
+        client: "admin",
+      })
+    } catch (err) {
+      console.error("[admin] pro sync on save failed:", err)
+      await recordFetch({
+        brawlhallaId: id,
+        source: "admin-save",
+        result: "failed",
+        client: "admin",
+      })
+    }
+  })
 
   redirect(`/admin?saved=${id}`)
-}
-
-export async function deleteProfileAction(formData: FormData) {
-  await requireAdmin()
-  const id = Number(formData.get("brawlhallaId"))
-  if (Number.isInteger(id) && id > 0) await deleteProfile(id)
-  redirect("/admin?deleted=1")
 }
 
 export async function toggleCronAction(formData: FormData) {
@@ -270,85 +271,6 @@ export async function refreshCachesAction() {
 }
 
 /**
- * Set an account's role — the permission axis (admin).
- *
- * Validation and the self-change refusal both live in `setAccountRole`, not
- * here, so the rules hold for any future caller and not just this form. There
- * is deliberately no user-facing counterpart: nothing outside this action
- * writes `account_role`, which is what makes self-elevation impossible rather
- * than merely unrendered.
- */
-export async function setAccountRoleAction(formData: FormData) {
-  await requireAdmin()
-  const userId = String(formData.get("userId") ?? "")
-  const role = String(formData.get("role") ?? "")
-  const result = await setAccountRole(userId, role, await adminActorId())
-  redirect(
-    result.ok
-      ? "/admin?tab=users&accountsaved=role"
-      : `/admin?tab=users&error=account-${result.reason}`
-  )
-}
-
-/**
- * Set an account's plan — the subscription axis (admin).
- *
- * Manual for now; when billing exists this is the seam a webhook writes
- * through. No self-guard, because a plan carries no permissions and changing
- * your own is not an escalation — which is precisely why it is a separate
- * column from the role.
- */
-export async function setAccountPlanAction(formData: FormData) {
-  await requireAdmin()
-  const userId = String(formData.get("userId") ?? "")
-  const plan = String(formData.get("plan") ?? "")
-  const result = await setAccountPlan(userId, plan)
-  redirect(
-    result.ok
-      ? "/admin?tab=users&accountsaved=plan"
-      : `/admin?tab=users&error=account-${result.reason}`
-  )
-}
-
-/** Release a profile's ownership (admin). Curation is left intact. */
-export async function unlinkProfileAction(formData: FormData) {
-  await requireAdmin()
-  const id = Number(formData.get("brawlhallaId"))
-  if (Number.isInteger(id) && id > 0) await unlinkProfile(id)
-  // People is keyed by brawlhalla_id and Users by account, and both can unlink.
-  // Returning the operator to the tab they were on beats guessing.
-  const from = String(formData.get("from") ?? "")
-  redirect(
-    from === "users" ? "/admin?tab=users&unlinked=1" : "/admin?unlinked=1"
-  )
-}
-
-/**
- * Link a player to an account by hand.
- *
- * The public path is the ELO challenge, which exists to prove ownership to us.
- * An operator who already knows whose account it is has nothing to prove — so
- * this skips the quiz and records `claim_method = 'admin'`, which is what keeps
- * a vouched-for link distinguishable from a self-verified one afterwards.
- *
- * Every refusal is surfaced rather than swallowed: the constraints that stop a
- * player belonging to two accounts apply to an operator too, and "nothing
- * happened" is the worst possible answer on a panel.
- */
-export async function linkProfileAction(formData: FormData) {
-  await requireAdmin()
-  const userId = String(formData.get("userId") ?? "").trim()
-  const brawlhallaId = Number(formData.get("brawlhallaId"))
-  if (!userId || !Number.isInteger(brawlhallaId) || brawlhallaId <= 0) {
-    redirect("/admin?tab=users&error=link-id")
-  }
-  const res = await linkProfile(userId, brawlhallaId)
-  if (!res.ok) redirect(`/admin?tab=users&error=link-${res.reason}`)
-  redirect(`/admin?tab=users&linked=${brawlhallaId}`)
-}
-
-/** Reset a player's flair choice to the automatic pick (admin). */
-/**
  * Admin edit of everything the *owner* sets: links, favourite legends, banner,
  * flair choice.
  *
@@ -457,13 +379,6 @@ export async function addTitleAction(formData: FormData) {
   if (!title) redirect(`/admin?tab=people&edit=${playerId}&error=title-empty`)
   await addManualTitle(playerId, title)
   redirect(`/admin?tab=people&edit=${playerId}&titleadded=1`)
-}
-
-export async function clearFlairAction(formData: FormData) {
-  await requireAdmin()
-  const id = Number(formData.get("brawlhallaId"))
-  if (Number.isInteger(id) && id > 0) await clearFlair(id)
-  redirect("/admin?flaircleared=1")
 }
 
 // ---- Flair catalogue -------------------------------------------------------
@@ -744,4 +659,153 @@ export async function deleteComboAction(formData: FormData) {
   const id = String(formData.get("id") ?? "")
   if (isFlairIdShape(id)) await deleteCombo(id)
   redirect("/admin?tab=combos&combodeleted=1")
+}
+
+// ── Result-returning actions, for ActionForm ─────────────────────────────────
+//
+// These return a verdict instead of redirecting. The page-level notice and the
+// `?saved=` idiom stay for the flows that still navigate (the People editor,
+// flairs, combos); the rows and the Users edit card use these so a one-row
+// write stays a one-row write — see action-form.tsx for what the redirect was
+// costing. Every message here is the same sentence the redirect used to carry
+// in `?error=`, so an operator reads the same words in both places. Each one
+// ends in `revalidatePath("/admin")`, which is what makes the action's own
+// response carry the re-rendered page — no redirect, no second round trip.
+
+/**
+ * Set an account's role — the permission axis.
+ *
+ * Validation and the self-change refusal both live in `setAccountRole`, not
+ * here, so the rules hold for any future caller and not just this form. There
+ * is deliberately no user-facing counterpart: nothing outside this action
+ * writes `account_role`, which is what makes self-elevation impossible rather
+ * than merely unrendered.
+ */
+export async function setAccountRoleFormAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const actor = await requireAdminActor()
+  const userId = String(formData.get("userId") ?? "")
+  const role = String(formData.get("role") ?? "")
+  const result = await setAccountRole(userId, role, actor.id)
+  if (!result.ok) {
+    return {
+      ok: false,
+      message:
+        result.reason === "self"
+          ? "You cannot change your own role."
+          : result.reason === "not-found"
+            ? "No such account."
+            : "That is not a role.",
+    }
+  }
+  revalidatePath("/admin")
+  return { ok: true, message: "Role saved." }
+}
+
+/**
+ * Set an account's plan — the subscription axis. Manual for now; when billing
+ * exists this is the seam a webhook writes through. No self-guard, because a
+ * plan carries no permissions and changing your own is not an escalation.
+ */
+export async function setAccountPlanFormAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireAdmin()
+  const userId = String(formData.get("userId") ?? "")
+  const plan = String(formData.get("plan") ?? "")
+  const result = await setAccountPlan(userId, plan)
+  if (!result.ok) {
+    return {
+      ok: false,
+      message:
+        result.reason === "not-found"
+          ? "No such account."
+          : "That is not a plan.",
+    }
+  }
+  revalidatePath("/admin")
+  return { ok: true, message: "Plan saved." }
+}
+
+/**
+ * Link a player to an account by hand.
+ *
+ * The public path is the ELO challenge, which exists to prove ownership to us.
+ * An operator who already knows whose account it is has nothing to prove — so
+ * this skips the quiz and records `claim_method = 'admin'`, which keeps a
+ * vouched-for link distinguishable from a self-verified one afterwards. Every
+ * refusal is surfaced: the constraints that stop a player belonging to two
+ * accounts apply to an operator too.
+ */
+export async function linkProfileFormAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireAdmin()
+  const userId = String(formData.get("userId") ?? "").trim()
+  const brawlhallaId = Number(formData.get("brawlhallaId"))
+  if (!userId || !Number.isInteger(brawlhallaId) || brawlhallaId <= 0) {
+    return { ok: false, message: "That isn’t a Brawlhalla id." }
+  }
+  const res = await linkProfile(userId, brawlhallaId)
+  if (!res.ok) {
+    return {
+      ok: false,
+      message:
+        res.reason === "already-claimed"
+          ? "That player already belongs to another account — unlink it there first."
+          : res.reason === "owns-another"
+            ? "This account already owns a player — unlink that one first."
+            : "No such account.",
+    }
+  }
+  revalidatePath("/admin")
+  return { ok: true, message: `Linked #${brawlhallaId}.` }
+}
+
+/** Release a profile's ownership. Curation is left intact. */
+export async function unlinkProfileFormAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireAdmin()
+  const id = Number(formData.get("brawlhallaId"))
+  if (!Number.isInteger(id) || id <= 0) {
+    return { ok: false, message: "That isn’t a Brawlhalla id." }
+  }
+  await unlinkProfile(id)
+  revalidatePath("/admin")
+  return { ok: true, message: "Unlinked." }
+}
+
+export async function deleteProfileFormAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireAdmin()
+  const id = Number(formData.get("brawlhallaId"))
+  if (!Number.isInteger(id) || id <= 0) {
+    return { ok: false, message: "That isn’t a Brawlhalla id." }
+  }
+  await deleteProfile(id)
+  revalidatePath("/admin")
+  return { ok: true, message: "Deleted." }
+}
+
+/** Reset a player's flair choice to the automatic pick. */
+export async function clearFlairFormAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireAdmin()
+  const id = Number(formData.get("brawlhallaId"))
+  if (!Number.isInteger(id) || id <= 0) {
+    return { ok: false, message: "That isn’t a Brawlhalla id." }
+  }
+  await clearFlair(id)
+  revalidatePath("/admin")
+  return { ok: true, message: "Flair cleared." }
 }
