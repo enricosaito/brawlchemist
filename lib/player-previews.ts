@@ -5,7 +5,7 @@
  * (getProfile / getProfilesMap). This module is just the shared type, safe to
  * import from client and server alike.
  */
-import type { ProTier } from "@/lib/profile/pro-tier"
+import { tierFromVerified, type ProTier } from "@/lib/profile/pro-tier"
 
 export interface PlayerPreview {
   favoriteSkin?: { src: string; name: string }
@@ -21,8 +21,16 @@ export interface PlayerPreview {
    *
    * `tier` is a string literal union rather than an object because this whole
    * preview round-trips through JSON inside `unstable_cache`.
+   *
+   * It is **optional**, and that is about the cache rather than the column.
+   * This object is stored for an hour, so any deploy that changes its shape has
+   * live entries holding the old one — when tiers shipped those held
+   * `{ handle }` alone. A required field would read as `undefined`, resolve to
+   * "not curated", and take the check off every pro on the site until the entry
+   * turned over. Read it through `previewTier`, which resolves a curated player
+   * with no recorded tier to the Pro Player they were already rendering as.
    */
-  verified?: { handle: string; tier: ProTier }
+  verified?: { handle: string; tier?: ProTier }
   /**
    * Esports titles — world championships and the like, shown in gold with a
    * trophy in the header. Admin-curated, and nothing to do with the
@@ -89,5 +97,5 @@ export interface PlayerPreview {
  * and `LegendChip` do.
  */
 export function previewTier(preview?: PlayerPreview | null): ProTier {
-  return preview?.verified?.tier ?? "none"
+  return tierFromVerified(preview?.verified)
 }

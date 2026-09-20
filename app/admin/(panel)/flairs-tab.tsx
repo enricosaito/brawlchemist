@@ -40,6 +40,7 @@ const RULE_CLASS: Record<FlairRule, string> = {
   developer: "border-pink/50 bg-pink/15 text-pink",
   claimed: "border-royal/40 bg-royal/10 text-royal",
   achievement: "border-tier-gold/40 bg-tier-gold/10 text-tier-gold",
+  "pro-tier": "border-tier-gold/40 bg-tier-gold/10 text-tier-gold",
   manual: "border-mystic/40 bg-mystic/10 text-mystic",
 }
 
@@ -135,9 +136,7 @@ export async function FlairsTab({ editId }: { editId: string | null }) {
                 <span className={labelCls}>{f.id}</span>
                 <span className={cn(tagCls, RULE_CLASS[f.rule])}>
                   {FLAIR_RULE_LABELS[f.rule]}
-                  {f.rule === "achievement" && f.ruleValue
-                    ? `: ${f.ruleValue}`
-                    : ""}
+                  {f.ruleValue ? `: ${f.ruleValue}` : ""}
                   {f.rule === "manual"
                     ? ` · ${grantsByFlair.get(f.id)?.length ?? 0}`
                     : ""}
@@ -367,7 +366,7 @@ function FlairForm({ editing }: { editing: FlairRecord | null }) {
         </label>
 
         <label className="block">
-          <span className={labelCls}>Accolade contains</span>
+          <span className={labelCls}>Rule value</span>
           <input
             name="ruleValue"
             defaultValue={editing?.ruleValue ?? ""}
@@ -375,8 +374,12 @@ function FlairForm({ editing }: { editing: FlairRecord | null }) {
             className={inputCls}
           />
           <span className="mt-1 block text-[11px] text-muted-foreground">
-            Only for <em>Accolade matches</em>. Case-insensitive, matched against
-            the titles on the People tab. Left blank, it fires for nobody.
+            For <em>Accolade matches</em>, a case-insensitive substring of the
+            titles on the People tab. For <em>Standing is</em>, a tier id —{" "}
+            <span className="font-mono">top</span>,{" "}
+            <span className="font-mono">pro</span> or{" "}
+            <span className="font-mono">power-ranked</span>, matched exactly.
+            Left blank, or not one of those, it fires for nobody.
           </span>
         </label>
 
