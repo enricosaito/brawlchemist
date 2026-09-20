@@ -16,7 +16,9 @@ const TRACKING_MS = 2400
  *
  * - Signed out → a sign-in nudge linking back to the current page.
  * - Add → optimistic fill + a quick pop, and a brief "Tracking" label that
- *   collapses back to just the star after a couple seconds.
+ *   collapses back to just the star after a couple seconds. The fill is the
+ *   whole of the tracked state: no gold frame, no gold tint. Gold on a border
+ *   means "you could press this", so it belongs to hover and nowhere else.
  * - Remove → guarded: hovering a tracked star reveals "Remove?", a first click
  *   arms it ("Remove", red), and only a second click removes — leaving the chip
  *   cancels. No accidental untracks.
@@ -209,26 +211,40 @@ export function FavoriteToggleControl({
 
   const danger = showConfirm || showRemoveHint
 
-  // Shared by both skins, so the chip inside the card says exactly what the
-  // standalone chip would say in the same state.
-  const chipCls = cn(
-    "inline-flex items-center gap-1.5 rounded-md border font-medium transition-all duration-200",
-    showConfirm
-      ? "border-negative/60 bg-negative/15 text-negative"
-      : danger
-        ? "border-negative/40 bg-card/60 text-negative"
-        : fav
-          ? "border-tier-gold/50 bg-tier-gold/10 text-tier-gold"
-          : "border-border/60 bg-card/60 text-muted-foreground",
-  )
+  /**
+   * What the state says, in colour.
+   *
+   * **Gold is a hover affordance, never a resting one.** A tracked player used
+   * to sit in a permanently gold-bordered, gold-tinted box, which on a profile
+   * full of cards read as an alert about something that had already gone
+   * right. Tracked now rests exactly as neutral as untracked; the only gold
+   * left at rest is the filled star, which is the state, not a glow.
+   *
+   * Hovering a tracked control still turns red rather than gold, because there
+   * the affordance is "click to remove" and that has to look like what it is.
+   */
+  // `danger` already covers the armed state, so one branch decides this.
+  const tone = danger ? "text-negative" : "text-muted-foreground"
   const star = (
     <Star
       className={cn(
         "size-3.5 shrink-0 transition-transform duration-300",
-        fav && !danger && "fill-current",
+        // Filled and gold when tracked — the one place the colour survives.
+        fav && !danger && "fill-current text-tier-gold",
         pop && "scale-125",
       )}
     />
+  )
+  /**
+   * Inside the card the star and its word carry no outline of their own. A
+   * bordered pill inside a bordered card is a box in a box, and the card is
+   * already the button — this is content, not a second control. The standalone
+   * chip further down still has an edge, because on its own in a table row it
+   * needs one to read as a control at all.
+   */
+  const cardChipCls = cn(
+    "inline-flex items-center gap-1.5 font-medium transition-colors duration-200 text-[11px]",
+    tone,
   )
 
   if (card) {
@@ -251,9 +267,9 @@ export function FavoriteToggleControl({
             ? "border-negative/60 bg-negative/10"
             : danger
               ? "border-negative/40"
-              : fav
-                ? "border-tier-gold/50 bg-tier-gold/5 hover:border-tier-gold/70"
-                : "border-border/60 hover:border-tier-gold/50 hover:bg-card/70",
+              : // Identical resting frame whether or not they are tracked. The
+                // difference is the star and the word, which is enough.
+                "border-border/60 hover:border-tier-gold/50 hover:bg-card/70",
         )}
       >
         {shell(
@@ -263,7 +279,7 @@ export function FavoriteToggleControl({
             (fav
               ? `${card.name} is in your favorites.`
               : `Keep ${card.name} in your favorites.`),
-          <span className={cn(chipCls, "px-2.5 py-1 text-[11px]")}>
+          <span className={cardChipCls}>
             {star}
             {/* The card always carries a word. A bare star was fine on a chip
                 the size of a star; on something this big it would be a large
@@ -303,9 +319,10 @@ export function FavoriteToggleControl({
           ? "border-negative/60 bg-negative/15 text-negative"
           : danger
             ? "border-negative/40 bg-card/60 text-negative"
-            : fav
-              ? "border-tier-gold/50 bg-tier-gold/10 text-tier-gold hover:border-tier-gold/70"
-              : "border-border/60 bg-card/60 text-muted-foreground hover:border-tier-gold/50 hover:text-foreground",
+            : cn(
+                "border-border/60 bg-card/60 hover:border-tier-gold/50 hover:text-foreground",
+                tone,
+              ),
       )}
     >
       <Star

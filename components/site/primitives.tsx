@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils"
 import { getLegend } from "@/lib/mock-data"
 import type { Stance, Tier, WeaponId } from "@/lib/types"
 import { TIER_FLOOR, tierFromRating } from "@/lib/tier"
-import { InfoTip } from "./info-tip"
 
 // PlayerLink lives in its own client-component file (it carries an interactive
 // right-click context menu). Re-exported here so the existing import path
@@ -602,20 +601,19 @@ export function RegionRankTag({
   tone?: RegionTone
 }) {
   const c = regionTone(region, tone)
+  // No tooltip: "US-E #2" is already the sentence a tooltip would write out.
   return (
-    <InfoTip label={`#${rank.toLocaleString()} in ${region}`}>
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wider uppercase",
-          c?.text ?? "text-muted-foreground",
-          c?.border ?? "border-border/60",
-          c?.bg ?? "bg-muted/40",
-          className
-        )}
-      >
-        {region} #{rank.toLocaleString()}
-      </span>
-    </InfoTip>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wider uppercase",
+        c?.text ?? "text-muted-foreground",
+        c?.border ?? "border-border/60",
+        c?.bg ?? "bg-muted/40",
+        className
+      )}
+    >
+      {region} #{rank.toLocaleString()}
+    </span>
   )
 }
 

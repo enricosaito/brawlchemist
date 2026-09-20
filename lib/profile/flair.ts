@@ -108,7 +108,13 @@ export interface FlairDef {
    * the rules that read a boolean.
    */
   ruleValue?: string | null
-  /** Rarity rank, ascending — the lowest a player holds is the one they fly. */
+  /**
+   * Display precedence, ascending — the lowest a player holds is the one they
+   * fly automatically. Mostly rarity, but not strictly: Grand Champion sits
+   * above World Champion despite being commoner, because that is the one we
+   * want a player who holds both to lead with. A selection always wins over
+   * this, so it decides nothing for anyone who has chosen.
+   */
   sort: number
   /**
    * Off hides the badge everywhere without deleting the row, so an operator can
@@ -190,10 +196,12 @@ export const BUILTIN_FLAIRS: FlairDef[] = [
     sort: 20,
   },
   {
-    // Between the championship and the hand-awarded badge: rarer than Early
-    // Tester, commoner than winning a world championship. Sort is the rarity
-    // ranking and autoFlairId flies the lowest a player holds, so a champion
-    // who is also top-tier keeps flying the championship.
+    // Above World Champion on purpose, and this is where `sort` stops being
+    // pure rarity and becomes display precedence. There are more $50,000
+    // earners (15) than world champions (7), so rarity would put the
+    // championship first — but a player who is both should lead with Grand
+    // Champion, and `autoFlairId` flies the lowest a player holds. World
+    // Champion stays fully selectable for anyone who would rather show it.
     id: "grand-champion",
     label: "Grand Champion",
     requirement: "Win $50,000 in tournament prize money",
@@ -202,7 +210,7 @@ export const BUILTIN_FLAIRS: FlairDef[] = [
     height: 192,
     rule: "earnings",
     ruleValue: "50000",
-    sort: 30,
+    sort: 15,
   },
   {
     // Hand-awarded, because there is no fact on a player record that says
