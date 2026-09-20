@@ -1330,14 +1330,13 @@ function esportsTags(
     if (!entry) continue
     tags.push({
       key: `pr-${mode}`,
+      // No tooltip: "1v1 PR #3" is the whole fact. A hover that repeats the
+      // chip in a longer sentence is furniture. The legend title keeps its
+      // tooltip because "The Traveler" genuinely does not say which legend.
       node: (
-        <InfoTip
-          label={`#${entry.powerRanking} on the ${entry.region} ${mode} power rankings`}
-        >
-          <span className={tagClass}>
-            {mode} PR #{entry.powerRanking}
-          </span>
-        </InfoTip>
+        <span className={tagClass}>
+          {mode} PR #{entry.powerRanking}
+        </span>
       ),
     })
   }
@@ -1345,11 +1344,9 @@ function esportsTags(
     tags.push({
       key: "earnings",
       node: (
-        <InfoTip label="Career tournament earnings">
-          <span className={tagClass}>
-            ${Math.round(esports.earnings).toLocaleString()}
-          </span>
-        </InfoTip>
+        <span className={tagClass}>
+          ${Math.round(esports.earnings).toLocaleString()}
+        </span>
       ),
     })
   }
@@ -1559,13 +1556,9 @@ function ProfileHeader({
                           is a position in the ranked ladder, and the regional
                           tag beside it settles "as opposed to what?". */}
                       {ladderRank && (
-                        <InfoTip
-                          label={`#${ladderRank.n.toLocaleString()} on the global 1v1 ladder`}
-                        >
-                          <span className="inline-flex items-center gap-1 rounded-md border border-ice/40 bg-ice/10 px-1.5 py-0.5 text-ice normal-case">
-                            Ranked #{ladderRank.n.toLocaleString()}
-                          </span>
-                        </InfoTip>
+                        <span className="inline-flex items-center gap-1 rounded-md border border-ice/40 bg-ice/10 px-1.5 py-0.5 text-ice normal-case">
+                          Ranked #{ladderRank.n.toLocaleString()}
+                        </span>
                       )}
                       {data.region &&
                         (ladderRank?.region === data.region.toUpperCase() &&
