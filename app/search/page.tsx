@@ -2,7 +2,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { LegendChip, RankHelm, RegionPill } from "@/components/site/primitives"
 import { PlayerSearchForm } from "@/components/site/player-search-form"
-import { VerifiedMark } from "@/components/site/pro-badge"
+import { VerifiedMark } from "@/components/site/verified-mark"
 import { SmurfMark } from "@/components/site/smurf-mark"
 import { FlairMark } from "@/components/site/flair-mark"
 import { searchPlayerBySteamId, type PlayerRanked } from "@/lib/brawlhalla-api"
@@ -18,7 +18,7 @@ import type { PlayerPreview } from "@/lib/player-previews"
 import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
 import { flairContextFrom } from "@/lib/profile/flair"
-import { previewTier } from "@/lib/player-previews"
+import { previewKind } from "@/lib/player-previews"
 
 /**
  * Pull a steamID64 out of either a bare 17-digit ID or a pasted Steam profile
@@ -84,7 +84,7 @@ function PlayerResultRow({
             <span className="min-w-0 truncate font-medium">
               {handle ?? player.username}
             </span>
-            <VerifiedMark tier={previewTier(preview)} />
+            <VerifiedMark tier={previewKind(preview)} />
             <FlairMark
               selectedId={flairId}
               context={flairContextFrom(preview)}

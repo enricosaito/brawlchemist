@@ -10,7 +10,7 @@ import {
   RegionPill,
   WeaponIcon,
 } from "@/components/site/primitives"
-import { VerifiedMark } from "@/components/site/pro-badge"
+import { VerifiedMark } from "@/components/site/verified-mark"
 import { SmurfMark } from "@/components/site/smurf-mark"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getSmurfIds } from "@/lib/sync/smurf"
@@ -35,7 +35,7 @@ import {
   type LegendStat,
   type TopMainer,
 } from "@/lib/sync/valhallan"
-import { previewTier } from "@/lib/player-previews"
+import { previewKind } from "@/lib/player-previews"
 
 export const metadata: Metadata = {
   title: "Brawlchemist | Meta Picks",
@@ -342,7 +342,7 @@ function MainerRow({
           <span className="min-w-0 truncate text-xs font-medium">
             {handle ?? mainer.username}
           </span>
-          <VerifiedMark tier={previewTier(preview)} />
+          <VerifiedMark tier={previewKind(preview)} />
           {smurf && <SmurfMark className="size-3" />}
           <RegionPill region={mainer.region} />
           <span className="ml-auto flex shrink-0 items-center gap-1 pl-1 font-mono text-[11px] tabular-nums">

@@ -21,12 +21,12 @@
  */
 
 import {
-  isCurated,
-  isProTier,
-  tierFromVerified,
-  DEFAULT_PRO_TIER,
-  type ProTier,
-} from "@/lib/profile/pro-tier"
+  isVerified,
+  isVerifiedKind,
+  kindFromVerified,
+  DEFAULT_VERIFIED_KIND,
+  type VerifiedKind,
+} from "@/lib/profile/verified"
 
 /** A catalogue id. Free-form since operators mint these — see isFlairIdShape. */
 export type FlairId = string
@@ -68,7 +68,7 @@ export const FLAIR_RULE_LABELS: Record<FlairRule, string> = {
   developer: "Developer role",
   claimed: "Linked account",
   achievement: "Accolade matches",
-  "pro-tier": "Standing is",
+  "pro-tier": "Verified as",
   manual: "Granted by hand",
 }
 
@@ -268,7 +268,7 @@ export interface FlairContext {
    * be able to say no. Derived like everything else here, so an operator
    * demoting someone takes the badge with it on the next render.
    */
-  proTier?: ProTier
+  verifiedKind?: VerifiedKind
 }
 
 /**
@@ -287,9 +287,9 @@ export function flairContextFrom(
         flairGrants?: string[]
         claimed?: boolean
         /** A PlayerPreview carries the standing inside `verified`… */
-        verified?: { tier?: ProTier } | null
+        verified?: { kind?: VerifiedKind; tier?: VerifiedKind } | null
         /** …a hand-built member object carries it flat. */
-        proTier?: ProTier
+        verifiedKind?: VerifiedKind
       }
     | null
     | undefined
@@ -303,9 +303,9 @@ export function flairContextFrom(
     // sites. This function takes a *structural* type, so an object missing the
     // field is still assignable and quietly reads as "no standing" — the trap
     // CLAUDE.md records for the esportsTitles rename.
-    proTier: preview?.verified
-      ? tierFromVerified(preview.verified)
-      : (preview?.proTier ?? DEFAULT_PRO_TIER),
+    verifiedKind: preview?.verified
+      ? kindFromVerified(preview.verified)
+      : (preview?.verifiedKind ?? DEFAULT_VERIFIED_KIND),
   }
 }
 
@@ -329,8 +329,8 @@ function holds(flair: FlairDef, ctx: FlairContext): boolean {
       // nobody. Without the second guard a typo would parse to `none` and hand
       // the badge to every uncurated player on the site — which is almost
       // everyone, and the same failure an empty `achievement` needle has.
-      if (!isProTier(want) || !isCurated(want)) return false
-      return ctx.proTier === want
+      if (!isVerifiedKind(want) || !isVerified(want)) return false
+      return ctx.verifiedKind === want
     }
     case "manual":
       return !!ctx.grants?.includes(flair.id)

@@ -19,15 +19,15 @@ import { cn } from "@/lib/utils"
 import { InfoTip } from "../info-tip"
 import { FlairMark } from "../flair-mark"
 import type { FlairContext } from "@/lib/profile/flair"
-import type { ProTier } from "@/lib/profile/pro-tier"
-import { VerifiedMark } from "@/components/site/pro-badge"
+import type { VerifiedKind } from "@/lib/profile/verified"
+import { VerifiedMark } from "@/components/site/verified-mark"
 
 /** The Brawlhalla identity linked to the account, if claimed. */
 export interface ClaimedProfile {
   id: number
   /** Pro handle when verified, otherwise the in-game username. */
   name: string | null
-  proTier: ProTier
+  verifiedKind: VerifiedKind
 }
 
 // Shared glass + hover/active treatment, echoing the nav buttons (same font,
@@ -111,7 +111,7 @@ export function AccountControl({
           </span>
         )}
         <span className="min-w-0 flex-1 truncate normal-case">{label}</span>
-        <VerifiedMark tier={claimed?.proTier ?? "none"} className="size-4" />
+        <VerifiedMark tier={claimed?.verifiedKind ?? "none"} className="size-4" />
         {/* The one they fly, same as everywhere else. This used to show the
             whole earned set on the theory that your own account is a "what have
             I got" question — but a developer with a linked profile then wore two

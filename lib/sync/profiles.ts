@@ -13,10 +13,10 @@ import {
 } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 import {
-  isCurated,
-  resolveProTier,
-  type ProTier,
-} from "@/lib/profile/pro-tier"
+  isVerified,
+  resolveVerifiedKind,
+  type VerifiedKind,
+} from "@/lib/profile/verified"
 
 /**
  * Per-player presentation profiles (verified-pro status, favorite skin,
@@ -46,7 +46,7 @@ export interface FavoriteSkin {
 export interface ProfileRecord {
   brawlhallaId: number
   /** How established a competitor they are — see lib/profile/pro-tier.ts. */
-  proTier: ProTier
+  verifiedKind: VerifiedKind
   handle: string | null
   favoriteSkin: FavoriteSkin | null
   /** Their competing account, when it is not the one they ladder on. */
@@ -64,7 +64,7 @@ export interface ProfileRecord {
  */
 export interface ProfileInput {
   brawlhallaId: number
-  proTier: ProTier
+  verifiedKind: VerifiedKind
   handle: string | null
   /**
    * The account this pro competes on, when it differs from the one they ladder
@@ -115,7 +115,7 @@ export function parseSkin(value: unknown): FavoriteSkin | null {
 function toRecord(row: ProfileRow): ProfileRecord {
   return {
     brawlhallaId: row.brawlhallaId,
-    proTier: resolveProTier(row.proTier, row.isPro),
+    verifiedKind: resolveVerifiedKind(row.verifiedKind, row.isPro),
     handle: row.handle,
     favoriteSkin: parseSkin(row.favoriteSkin),
     esportsBrawlhallaId: row.esportsBrawlhallaId,
@@ -148,10 +148,10 @@ function toPreview(
   // One read of the tier for the row, through the legacy-aware resolver: the
   // boolean is still written for one deploy, so a row the old build wrote has
   // no `pro_tier` and must still render the badge it was already claiming.
-  const tier = resolveProTier(row.proTier, row.isPro)
+  const kind = resolveVerifiedKind(row.verifiedKind, row.isPro)
   return {
     favoriteSkin: skin ?? undefined,
-    verified: isCurated(tier) ? { handle: row.handle ?? "", tier } : undefined,
+    verified: isVerified(kind) ? { handle: row.handle ?? "", kind } : undefined,
     esportsTitles: esportsTitles.length ? esportsTitles : undefined,
     // undefined rather than false so unclaimed players add no key to the
     // cached object — this map holds every profile row.
@@ -416,8 +416,8 @@ export async function upsertProfile(input: ProfileInput): Promise<void> {
   // drift from the tier, and it goes when the column does.
   const values = {
     brawlhallaId: input.brawlhallaId,
-    proTier: input.proTier,
-    isPro: isCurated(input.proTier),
+    verifiedKind: input.verifiedKind,
+    isPro: isVerified(input.verifiedKind),
     handle: input.handle,
     esportsBrawlhallaId: input.esportsBrawlhallaId,
     updatedAt: new Date(),
@@ -428,7 +428,7 @@ export async function upsertProfile(input: ProfileInput): Promise<void> {
     .onConflictDoUpdate({
       target: profiles.brawlhallaId,
       set: {
-        proTier: values.proTier,
+        verifiedKind: values.verifiedKind,
         isPro: values.isPro,
         handle: values.handle,
         esportsBrawlhallaId: values.esportsBrawlhallaId,

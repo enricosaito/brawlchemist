@@ -1,5 +1,5 @@
 import { FlairMark } from "@/components/site/flair-mark"
-import { VerifiedMark } from "@/components/site/pro-badge"
+import { VerifiedMark } from "@/components/site/verified-mark"
 import { SmurfMark } from "@/components/site/smurf-mark"
 import { formatElo, formatPercent } from "@/lib/format"
 import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
@@ -24,7 +24,7 @@ import type { PlayerPreview } from "@/lib/player-previews"
 import type { WeaponId } from "@/lib/types"
 import { flairContextFrom } from "@/lib/profile/flair"
 import { toTier } from "@/lib/tier"
-import { previewTier } from "@/lib/player-previews"
+import { previewKind } from "@/lib/player-previews"
 
 const TOP_LEGENDS_LIMIT = 3
 const TOP_WEAPONS_LIMIT = 2
@@ -227,7 +227,7 @@ export function buildLeaderboardColumns(
                       {handle ? (
                         <span className="inline-flex min-w-0 items-center gap-1">
                           <span className={nameClass}>{handle}</span>
-                          <VerifiedMark tier={previewTier(previews.get(p.id))} />
+                          <VerifiedMark tier={previewKind(previews.get(p.id))} />
                           {flairFor(p.id)}
                           {smurfs.has(p.id) && <SmurfMark />}
                         </span>

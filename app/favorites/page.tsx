@@ -16,13 +16,13 @@ import type { Tier } from "@/lib/types"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { LegendChip, RankHelm, RegionPill } from "@/components/site/primitives"
-import { VerifiedMark } from "@/components/site/pro-badge"
+import { VerifiedMark } from "@/components/site/verified-mark"
 import { SmurfMark } from "@/components/site/smurf-mark"
 import { FlairMark } from "@/components/site/flair-mark"
 import { FavoriteToggleControl } from "@/components/site/favorite-toggle-control"
 import { SuggestedFavorites } from "@/components/site/suggested-favorites"
 import { flairContextFrom } from "@/lib/profile/flair"
-import { previewTier } from "@/lib/player-previews"
+import { previewKind } from "@/lib/player-previews"
 
 export const metadata = { title: "Brawlchemist | Favorites" }
 
@@ -169,7 +169,7 @@ function FavoriteRow({
               <span className="min-w-0 truncate font-medium">
                 {handle ?? username}
               </span>
-              <VerifiedMark tier={previewTier(preview)} />
+              <VerifiedMark tier={previewKind(preview)} />
               <FlairMark
                 selectedId={flairId}
                 context={flairContextFrom(preview)}

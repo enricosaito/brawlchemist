@@ -36,7 +36,7 @@ import {
   type SocialLink,
 } from "@/lib/sync/customizations"
 import { REFRESHABLE_TAGS } from "@/lib/sync/cache-tags"
-import { parseProTier } from "@/lib/profile/pro-tier"
+import { parseVerifiedKind } from "@/lib/profile/verified"
 import { ADMIN_OVERVIEW_TAG } from "@/lib/sync/admin-stats"
 import { after } from "next/server"
 import type { ActionResult } from "@/lib/admin-action-result"
@@ -102,7 +102,7 @@ export async function saveProfileAction(
 
   const input: ProfileInput = {
     brawlhallaId: id,
-    proTier: parseProTier(formData.get("proTier")),
+    verifiedKind: parseVerifiedKind(formData.get("verifiedKind")),
     handle: String(formData.get("handle") ?? "").trim() || null,
     // Same id means no alias: storing it would be a second copy of a fact the
     // row already carries, and one of them would eventually be stale.

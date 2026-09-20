@@ -9,7 +9,7 @@ import { getSmurfIds } from "@/lib/sync/smurf"
 import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import { tierFromRating } from "@/lib/tier"
 import { slugForLegendId } from "@/lib/legends-roster"
-import { tierFromVerified, type ProTier } from "@/lib/profile/pro-tier"
+import { kindFromVerified, type VerifiedKind } from "@/lib/profile/verified"
 
 // Always dynamic — this reads the query string and the live DB.
 export const dynamic = "force-dynamic"
@@ -55,10 +55,10 @@ export async function GET(req: Request) {
     // the searcher wasn't looking for. Those still appear — just in rating
     // order with everyone else.
     const leadIds = new Set<number>()
-    const proTierById = new Map<number, ProTier>()
+    const verifiedKindById = new Map<number, VerifiedKind>()
     for (const [id, profile] of profiles) {
       if (!profile.verified) continue
-      proTierById.set(id, tierFromVerified(profile.verified))
+      verifiedKindById.set(id, kindFromVerified(profile.verified))
       // Pro status and having a handle are separate: a verified pro with no
       // handle set still gets the badge, just nothing to match or lead with.
       proIds.add(id)
@@ -133,7 +133,7 @@ export async function GET(req: Request) {
        * `VerifiedMark` contract as every other surface. `tier` below is the
        * *ladder* tier and a different question entirely.
        */
-      proTier: proTierById.get(p.id) ?? "none",
+      verifiedKind: verifiedKindById.get(p.id) ?? "none",
       /** Curated handle, when there is one — the dropdown leads with it. */
       handle: handleById.get(p.id) ?? null,
       tier: tierFromRating(p.rating, valhallan.has(p.id)),

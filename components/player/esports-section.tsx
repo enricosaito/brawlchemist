@@ -2,7 +2,7 @@ import { Check, ChevronDown, Medal, Trophy, UserX, X } from "lucide-react"
 import { LegendChip, PlayerLink } from "@/components/site/primitives"
 import { BracketLink } from "@/components/player/bracket-link"
 import { TeammateChip } from "@/components/player/teammate-chip"
-import { VerifiedMark } from "@/components/site/pro-badge"
+import { VerifiedMark } from "@/components/site/verified-mark"
 import { rosterEntryBySlug } from "@/lib/legends-roster"
 import { InfoTip } from "@/components/site/info-tip"
 import type { EsportsMatch } from "@/lib/sync/esports-matches"
@@ -11,8 +11,8 @@ import type { PlayerPreview } from "@/lib/player-previews"
 import type { CmTournament } from "@/lib/challengermode-api"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
-import { previewTier } from "@/lib/player-previews"
-import { type ProTier } from "@/lib/profile/pro-tier"
+import { previewKind } from "@/lib/player-previews"
+import { type VerifiedKind } from "@/lib/profile/verified"
 
 /**
  * A pro's tournament results, grouped by the event that produced them.
@@ -49,7 +49,7 @@ interface Run {
   /** Most-played legend across the whole run, by games rather than by sets. */
   mainLegend: string | null
   /** Their partner. Constant across a run, so it belongs to the run. */
-  teammate: { id: number | null; name: string; tier: ProTier } | null
+  teammate: { id: number | null; name: string; tier: VerifiedKind } | null
 }
 
 function toRuns(
@@ -117,7 +117,7 @@ function toRuns(
         r.teammate = {
           id,
           name,
-          tier: id ? previewTier(previews.get(id)) : "none",
+          tier: id ? previewKind(previews.get(id)) : "none",
         }
       }
     }
@@ -642,7 +642,7 @@ function RailPerson({
           {name}
         </span>
       )}
-      <VerifiedMark tier={previewTier(preview)} />
+      <VerifiedMark tier={previewKind(preview)} />
     </span>
   )
 }

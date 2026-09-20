@@ -375,10 +375,11 @@ function FlairForm({ editing }: { editing: FlairRecord | null }) {
           />
           <span className="mt-1 block text-[11px] text-muted-foreground">
             For <em>Accolade matches</em>, a case-insensitive substring of the
-            titles on the People tab. For <em>Standing is</em>, a tier id —{" "}
+            titles on the People tab. For <em>Verified as</em>, a kind id —{" "}
             <span className="font-mono">top</span>,{" "}
-            <span className="font-mono">pro</span> or{" "}
-            <span className="font-mono">power-ranked</span>, matched exactly.
+            <span className="font-mono">pro</span>,{" "}
+            <span className="font-mono">hall-of-famer</span> and so on, matched
+            exactly.
             Left blank, or not one of those, it fires for nobody.
           </span>
         </label>

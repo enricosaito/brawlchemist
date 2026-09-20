@@ -13,7 +13,7 @@
  */
 
 import type { Tier } from "@/lib/types"
-import { type ProTier } from "@/lib/profile/pro-tier"
+import { type VerifiedKind } from "@/lib/profile/verified"
 
 export interface RecentVisit {
   id: number
@@ -30,7 +30,7 @@ export interface RecentVisit {
    * than being thrown away. They read as `none` until that player is visited
    * again, which is the honest answer — we did not record one.
    */
-  proTier?: ProTier
+  verifiedKind?: VerifiedKind
   /**
    * Verified pro handle. Optional because entries stored before this existed
    * are read back from localStorage without it — those just show the in-game

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { ShimmerText } from "@/components/shimmer-text"
 import { ShineBorder } from "@/components/ui/shine-border"
 import { LiveAutoRefresh } from "@/components/site/live-auto-refresh"
-import { VerifiedMark } from "@/components/site/pro-badge"
+import { VerifiedMark } from "@/components/site/verified-mark"
 import { SmurfMark } from "@/components/site/smurf-mark"
 import { FlairMark } from "@/components/site/flair-mark"
 import { LiveClimbers } from "@/components/site/live-climbers"
@@ -47,7 +47,7 @@ import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { flairContextFrom } from "@/lib/profile/flair"
-import { previewTier } from "@/lib/player-previews"
+import { previewKind } from "@/lib/player-previews"
 
 // Time-sensitive + reads "now − 20 min" — never cache the render.
 export const dynamic = "force-dynamic"
@@ -208,7 +208,7 @@ function LiveCard({
             <span className="min-w-0 truncate text-sm font-semibold leading-tight">
               {previews.get(player!.id)?.verified?.handle ?? player?.name ?? "—"}
             </span>
-            <VerifiedMark tier={previewTier(previews.get(player!.id))} />
+            <VerifiedMark tier={previewKind(previews.get(player!.id))} />
             {player && (
               <FlairMark
                 selectedId={flairs.get(player.id)}
@@ -231,7 +231,7 @@ function LiveCard({
                 >
                   {handle ?? p.name}
                 </PlayerLink>
-                <VerifiedMark tier={previewTier(previews.get(p.id))} />
+                <VerifiedMark tier={previewKind(previews.get(p.id))} />
                 <FlairMark
                   selectedId={flairs.get(p.id)}
                   context={flairContextFrom(previews.get(p.id))}

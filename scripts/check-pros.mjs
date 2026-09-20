@@ -18,7 +18,8 @@ if (!url || !key) {
 const sql = postgres(url, { prepare: false })
 const rows =
   await sql`SELECT brawlhalla_id, handle, pro_tier FROM profiles
-             WHERE coalesce(pro_tier, case when is_pro then 'pro' else 'none' end) <> 'none' ORDER BY handle`
+             WHERE coalesce(pro_tier, case when is_pro then 'pro' else 'none' end)
+           in ('top','pro','hall-of-famer','power-ranked') ORDER BY handle`
 console.log(`${rows.length} curated competitors in DB\n`)
 
 for (const r of rows) {

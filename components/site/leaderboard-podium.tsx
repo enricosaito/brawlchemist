@@ -12,13 +12,13 @@ import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import { placeholderSkinFor, skinArtUrl } from "@/lib/skins"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { LegendChip, REGION_COLOR, TIER_TEXT_COLOR } from "./primitives"
-import { VerifiedMark } from "./pro-badge"
+import { VerifiedMark } from "./verified-mark"
 import { SmurfMark } from "./smurf-mark"
 import { FlairMark } from "./flair-mark"
 import { flairContextFrom } from "@/lib/profile/flair"
 import { toTier } from "@/lib/tier"
-import { previewTier } from "@/lib/player-previews"
-import { bestProTier } from "@/lib/profile/pro-tier"
+import { previewKind } from "@/lib/player-previews"
+import { primaryVerifiedKind } from "@/lib/profile/verified"
 
 const TOP_LEGENDS_LIMIT = 5
 
@@ -102,8 +102,8 @@ function PodiumCard({
   const handle = primaryPreview?.verified?.handle
   // A 2v2 card carries one mark for the pair, so it shows the strongest
   // standing on it — anything else would under-report the team.
-  const proTier = bestProTier(
-    entry.players.map((p) => previewTier(previews.get(p.id)))
+  const verifiedKind = primaryVerifiedKind(
+    entry.players.map((p) => previewKind(previews.get(p.id)))
   )
 
   const href = isSolo && player?.id ? `/player/${player.id}` : null
@@ -165,7 +165,7 @@ function PodiumCard({
                 ? handle
                 : username) || "—"}
             </span>
-            <VerifiedMark tier={proTier} className="size-4" />
+            <VerifiedMark tier={verifiedKind} className="size-4" />
             {entry.players.some((p) => smurfs.has(p.id)) && (
               <SmurfMark className="size-4" />
             )}

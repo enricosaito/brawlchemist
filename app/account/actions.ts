@@ -11,8 +11,8 @@ import {
   type SocialLink,
 } from "@/lib/sync/customizations"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-import { previewTier } from "@/lib/player-previews"
-import { tierCanEditLinks } from "@/lib/profile/pro-tier"
+import { previewKind } from "@/lib/player-previews"
+import { kindCanEditLinks } from "@/lib/profile/verified"
 
 async function authedUserId(): Promise<string | null> {
   try {
@@ -105,9 +105,9 @@ export async function saveProfileFieldsAction(
   // stored value is carried through instead, and the rest of the save lands
   // normally rather than the whole thing being refused.
   const preview = await getProfile(brawlhallaId)
-  // A capability of the tier, not a rank comparison — see ProTierDef.
+  // A capability of the tier, not a rank comparison — see VerifiedKindDef.
   const canEditLinks =
-    tierCanEditLinks(previewTier(preview)) || !!preview?.developer
+    kindCanEditLinks(previewKind(preview)) || !!preview?.developer
 
   try {
     const socialLinks = canEditLinks
