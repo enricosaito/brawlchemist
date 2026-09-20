@@ -38,6 +38,14 @@ export interface PlayerPreview {
    */
   verified?: { handle: string; kind?: VerifiedKind; tier?: VerifiedKind }
   /**
+   * Career tournament prize money in whole USD.
+   *
+   * Undefined for everyone we have never looked up and for everyone on zero,
+   * so the cached object stays small — the same rule every optional here
+   * follows. Present only when there is something to say.
+   */
+  earnings?: number
+  /**
    * Esports titles — world championships and the like, shown in gold with a
    * trophy in the header. Admin-curated, and nothing to do with the
    * achievement shelf, which is derived and belongs to the player.

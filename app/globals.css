@@ -62,6 +62,7 @@
     --color-mystic: var(--mystic);
     --color-pink: var(--pink);
     --color-twitch: var(--twitch);
+    --color-steel: var(--steel);
     --color-royal: var(--royal);
     --color-ice: var(--ice);
 
@@ -131,6 +132,10 @@
        Its own token rather than a borrowed one: no ladder tier or state colour
        means "streamer", and reusing one would make the badge read as a rank. */
     --twitch: oklch(0.55 0.25 292);
+    /* Power Ranked's check. Brighter than muted-foreground so the badge reads
+       as a badge rather than as disabled text, and still clearly below the
+       silver a Hall of Famer wears. */
+    --steel: oklch(0.52 0.012 270);
     --royal: oklch(0.58 0.17 262);
     --ice: oklch(0.66 0.13 240);
 
@@ -188,6 +193,7 @@
     --mystic: oklch(0.85 0.105 175);
     --pink: oklch(0.74 0.23 350);            /* nav accent glow */
     --twitch: oklch(0.66 0.22 292);          /* verified content creator */
+    --steel: oklch(0.74 0.012 270);          /* power ranked check */
     --royal: oklch(0.64 0.17 262);           /* earned legend titles */
     --ice: oklch(0.80 0.10 240);             /* ranked ladder position */
 

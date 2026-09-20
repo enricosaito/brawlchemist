@@ -157,8 +157,11 @@ export const VERIFIED_KIND_DEFS: Record<VerifiedKind, VerifiedKindDef> = {
     id: "developer",
     label: "Developer",
     description:
-      "Builds Brawlhalla, or builds for the community. Distinct from the Developer account role, which is about admin access to this site.",
-    markLabel: "Verified Developer",
+      "Builds Brawlchemist. Distinct from the Developer account role, which is about admin access to this site rather than a badge on a profile.",
+    // "Brawlchemist Developer", never "Verified Developer": the latter reads as
+    // a Brawlhalla developer, which is a claim about Blue Mammoth's staff that
+    // we are in no position to make.
+    markLabel: "Brawlchemist Developer",
     order: 4,
     released: true,
     markClass: "text-pink",
@@ -168,14 +171,14 @@ export const VERIFIED_KIND_DEFS: Record<VerifiedKind, VerifiedKindDef> = {
   },
   "power-ranked": {
     id: "power-ranked",
-    label: "Power Ranked",
+    label: "Power Ranked Player",
     description:
       "A known competitor — on a power ranking or a regular entrant. An observation about who they are, not a claim about their results.",
-    markLabel: "Power Ranked player",
+    markLabel: "Power Ranked Player",
     order: 5,
     released: true,
-    markClass: "text-muted-foreground",
-    tagClass: "border-border/60 bg-muted/40 text-muted-foreground",
+    markClass: "text-steel",
+    tagClass: "border-steel/50 bg-steel/15 text-steel",
     competitive: true,
     canEditLinks: false,
   },
