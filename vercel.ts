@@ -18,6 +18,15 @@ export const config: VercelConfig = {
       schedule: "*/5 * * * *",
     },
     {
+      // Search index sweep — walks each ladder down to the Platinum floor so
+      // mid-ladder players can be found by name. Ten pages a tick, which is
+      // generous beside the one the leaderboard cron spends and nowhere near
+      // the 180/15min ceiling, so it never competes with a profile view. The
+      // whole sweep is ~3,500 pages and parks itself when it finishes.
+      path: "/api/cron/harvest-search",
+      schedule: "*/5 * * * *",
+    },
+    {
       // Legend/weapon tier-list aggregations from the Valhallan population.
       // These move slowly, so once a day (off-peak) is plenty.
       path: "/api/cron/sync-valhallan",

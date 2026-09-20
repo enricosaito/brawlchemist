@@ -42,6 +42,13 @@ export const CRON_JOBS = [
       "Daily legend/weapon aggregation from the Valhallan population.",
   },
   {
+    key: "harvest-search",
+    label: "Search index sweep",
+    schedule: "*/5 * * * *",
+    description:
+      "Walks the ladders down to Platinum so mid-ladder players are findable in search. Writes thin rows only — name and rating, never a payload — so a profile visit still fetches live. Ten pages a tick against a budget the leaderboard cron spends one of; parks itself once every ladder is walked.",
+  },
+  {
     key: "reap-sessions",
     label: "Abandoned sessions",
     schedule: "*/5 * * * *",
