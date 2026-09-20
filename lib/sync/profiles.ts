@@ -191,11 +191,21 @@ const getProfilesObject = unstable_cache(
     // surface that already reads this map gets entitlement for free rather than
     // making a second lookup per rendered row.
     //
-    // Caught on its own rather than inside the try below, deliberately. Sharing
-    // that catch would put every profile on the site behind the newest table in
-    // the schema — one `drizzle-kit push` not yet run, and the whole map returns
-    // empty and every pro loses their handle. A grant that can't be read is a
-    // missing badge; it must not be a missing profile.
+    // **It throws, and that is the fix for a bug this comment used to cause.**
+    // It used to catch and return an empty map, on the reasoning that a table
+    // not yet pushed should cost a badge rather than every profile. The
+    // reasoning was right about the deploy and wrong about everything else:
+    // this function is wrapped in `unstable_cache`, so an empty map is a
+    // *successful* return and gets stored and served as fact for the whole
+    // window — cardinal constraint #5, applied to a sub-read instead of the
+    // whole function, which is exactly how it hides.
+    //
+    // Measured on 2026-09-20: every esports title on the site was missing —
+    // no gold chips anywhere, and no World Champion flair for the three
+    // players who hold one — because this read failed once during a pooler jam
+    // and the empty result was cached. Throwing means the entry is never
+    // written, `failOpen` serves the fallback for ten seconds, and the first
+    // success repairs everything.
     //
     // Started here and awaited after, so it still rides alongside the other two
     // on the wire rather than costing a round trip of its own.
@@ -215,12 +225,14 @@ const getProfilesObject = unstable_cache(
         return map
       })
       .catch((err) => {
+        // Rethrow: a cached lie outlives the outage that caused it.
         console.error("[profiles] flair grants read failed:", err)
-        return new Map<number, string[]>()
+        throw err
       })
-    // Every championship title, hand-typed and derived alike. Caught on its
-    // own for the same reason the grants read is: a table that cannot be read
-    // must cost a title, never every profile on the site.
+    // Every championship title, hand-typed and derived alike. Throws for the
+    // same reason the grants read does — this is the one that actually broke:
+    // a single failure here emptied the accolades for every player on the site
+    // and took the World Champion flair with them, for a full cache window.
     const titlesPromise = db()
       .select({
         brawlhallaId: esportsTitlesTable.brawlhallaId,
@@ -239,8 +251,9 @@ const getProfilesObject = unstable_cache(
         return map
       })
       .catch((err) => {
+        // Rethrow: see the grants read above.
         console.error("[profiles] titles read failed:", err)
-        return new Map<number, string[]>()
+        throw err
       })
     try {
       const [profileRows, userRows] = await Promise.all([
