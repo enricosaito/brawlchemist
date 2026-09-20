@@ -17,14 +17,15 @@ import { BANNER_PRESETS, DEFAULT_BANNER_ID } from "@/lib/profile/banners"
 import { LEGEND_ROSTER } from "@/lib/legends-roster"
 import {
   addTitleAction,
-  clearFlairAction,
-  deleteProfileAction,
+  clearFlairFormAction,
+  deleteProfileFormAction,
   removeTitleAction,
   saveOwnerFieldsAction,
   saveProfileAction,
-  unlinkProfileAction,
+  unlinkProfileFormAction,
 } from "../actions"
 import { AdminPeopleSearch } from "./people-search"
+import { ActionForm } from "./action-form"
 
 /** Alphabetical: a picker is a lookup, and roster order is release order. */
 const LEGEND_OPTIONS = [...LEGEND_ROSTER].sort((a, b) =>
@@ -53,17 +54,19 @@ const actionCls =
  */
 export async function PeopleTab({ editId }: { editId: number | null }) {
   const valid = !!editId && Number.isInteger(editId)
-  // One fan-out rather than three sequential awaits — on this screen the cost
-  // is round trips, not queries.
-  const [editing, custom, titles] = await Promise.all([
+  // One fan-out for everything — on this screen the cost is round trips, not
+  // queries. This used to be a fan-out of three followed by two more awaits in
+  // series, which on a cross-region database was two extra trips of pure wait
+  // before the list could render. The catalogue is resolved against the
+  // curated table, not the built-in pair, or this list would show a raw id for
+  // every badge minted since the last deploy.
+  const [editing, custom, titles, people, catalogue] = await Promise.all([
     valid ? getProfileRecord(editId) : Promise.resolve(null),
     valid ? getCustomizationRecord(editId) : Promise.resolve(null),
     valid ? listTitles(editId) : Promise.resolve([]),
+    listAdminPeople(),
+    getFlairCatalogue(),
   ])
-  const people = await listAdminPeople()
-  // Resolved against the curated catalogue, not the built-in pair, or this list
-  // would show a raw id for every badge minted since the last deploy.
-  const catalogue = await getFlairCatalogue()
   const pros = people.filter((p) => p.isPro).length
   const linked = people.filter((p) => p.userId).length
 
@@ -180,48 +183,49 @@ export async function PeopleTab({ editId }: { editId: number | null }) {
                       View
                     </Link>
                     {flair && (
-                      <form action={clearFlairAction}>
+                      <ActionForm
+                        action={clearFlairFormAction}
+                        submitLabel="Clear flair"
+                        submitClassName={`${actionCls} border-0 bg-transparent px-0 py-0 text-pink hover:bg-transparent hover:opacity-80`}
+                      >
                         <input
                           type="hidden"
                           name="brawlhallaId"
                           value={p.brawlhallaId}
                         />
-                        <button
-                          type="submit"
-                          className={`${actionCls} text-pink hover:opacity-80`}
-                        >
-                          Clear flair
-                        </button>
-                      </form>
+                      </ActionForm>
                     )}
+                    {/* The two destructive controls ask twice. A row is a
+                        thing you scroll past, and these sat a pixel from
+                        Edit with nothing between a stray click and a gone
+                        account. Armed on the first click, sent on the
+                        second, disarmed on their own if you look away. */}
                     {p.userId && (
-                      <form action={unlinkProfileAction}>
+                      <ActionForm
+                        action={unlinkProfileFormAction}
+                        submitLabel="Unlink"
+                        confirm="Confirm unlink"
+                        submitClassName={`${actionCls} border-0 bg-transparent px-0 py-0 text-negative hover:bg-transparent hover:opacity-80`}
+                      >
                         <input
                           type="hidden"
                           name="brawlhallaId"
                           value={p.brawlhallaId}
                         />
-                        <button
-                          type="submit"
-                          className={`${actionCls} text-negative hover:opacity-80`}
-                        >
-                          Unlink
-                        </button>
-                      </form>
+                      </ActionForm>
                     )}
-                    <form action={deleteProfileAction}>
+                    <ActionForm
+                      action={deleteProfileFormAction}
+                      submitLabel="Delete"
+                      confirm="Confirm delete"
+                      submitClassName={`${actionCls} border-0 bg-transparent px-0 py-0 text-negative hover:bg-transparent hover:opacity-80`}
+                    >
                       <input
                         type="hidden"
                         name="brawlhallaId"
                         value={p.brawlhallaId}
                       />
-                      <button
-                        type="submit"
-                        className={`${actionCls} text-negative hover:opacity-80`}
-                      >
-                        Delete
-                      </button>
-                    </form>
+                    </ActionForm>
                   </div>
                 </li>
               )

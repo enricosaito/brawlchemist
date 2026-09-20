@@ -21,11 +21,12 @@ import {
 } from "@/lib/auth/account"
 import { adminActorId } from "@/lib/admin-auth"
 import {
-  linkProfileAction,
-  setAccountPlanAction,
-  setAccountRoleAction,
-  unlinkProfileAction,
+  linkProfileFormAction,
+  setAccountPlanFormAction,
+  setAccountRoleFormAction,
+  unlinkProfileFormAction,
 } from "../actions"
+import { ActionForm } from "./action-form"
 
 /**
  * Accents. Developer is the only thing on this screen that carries power today,
@@ -48,8 +49,6 @@ const TD = "px-3 py-2 align-middle"
 
 const selectCls =
   "rounded-md border border-border/60 bg-background px-2 py-1.5 font-mono text-xs outline-none focus:border-pink"
-const saveCls =
-  "rounded-md border border-border/60 bg-muted/40 px-3 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wider transition-colors hover:bg-muted"
 
 function RoleTag({ role }: { role: AccountRole }) {
   return <span className={cn(TAG, ROLE_CLASS[role])}>{ROLES[role].label}</span>
@@ -111,7 +110,11 @@ export async function UsersTab({ editId }: { editId: string | null }) {
   function flairsFor(u: AdminUser): FlairDef[] {
     if (u.brawlhallaId == null) return []
     const ctx = flairContextFrom(previews.get(u.brawlhallaId))
-    return resolveEarnedFlairs(u.flairId, earnedFlairIds(ctx, catalogue), catalogue)
+    return resolveEarnedFlairs(
+      u.flairId,
+      earnedFlairIds(ctx, catalogue),
+      catalogue
+    )
   }
 
   return (
@@ -191,7 +194,11 @@ export async function UsersTab({ editId }: { editId: string | null }) {
                       <RoleTag role={u.role} />
                     </td>
                     <td className={TD}>
-                      {u.plan === "free" ? <Empty /> : <PlanTag plan={u.plan} />}
+                      {u.plan === "free" ? (
+                        <Empty />
+                      ) : (
+                        <PlanTag plan={u.plan} />
+                      )}
                     </td>
                     <td className={TD}>
                       {u.brawlhallaId == null ? (
@@ -245,7 +252,12 @@ export async function UsersTab({ editId }: { editId: string | null }) {
                         </span>
                       )}
                     </td>
-                    <td className={cn(TD, "font-mono text-xs whitespace-nowrap text-muted-foreground")}>
+                    <td
+                      className={cn(
+                        TD,
+                        "font-mono text-xs whitespace-nowrap text-muted-foreground"
+                      )}
+                    >
                       {u.createdAt.toISOString().slice(0, 10)}
                     </td>
                     <td className={cn(TD, "text-right whitespace-nowrap")}>
@@ -310,7 +322,7 @@ function EditCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             unlinked there first. */}
         <Field label="Linked player">
           {user.brawlhallaId == null ? (
-            <form action={linkProfileAction} className="flex items-center gap-1.5">
+            <ActionForm action={linkProfileFormAction} submitLabel="Link">
               <input type="hidden" name="userId" value={user.id} />
               <label className="sr-only" htmlFor={`link-${user.id}`}>
                 Brawlhalla ID to link to {user.email ?? user.id}
@@ -322,30 +334,26 @@ function EditCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
                 placeholder="Brawlhalla ID"
                 className={cn(selectCls, "w-[132px]")}
               />
-              <button type="submit" className={saveCls}>
-                Link
-              </button>
-            </form>
+            </ActionForm>
           ) : (
-            <form
-              action={unlinkProfileAction}
-              className="flex items-center gap-1.5"
+            // Unlinking is the one destructive control on this card, so it is
+            // the one that asks twice — armed on the first click, sent on the
+            // second, disarmed if you look away.
+            <ActionForm
+              action={unlinkProfileFormAction}
+              submitLabel="Unlink"
+              confirm="Confirm unlink"
+              submitClassName="text-negative"
             >
               <input
                 type="hidden"
                 name="brawlhallaId"
                 value={user.brawlhallaId}
               />
-              {/* Sends the operator back to this tab rather than to People,
-                  which is where the same action is also used. */}
-              <input type="hidden" name="from" value="users" />
               <span className="font-mono text-xs">
                 {user.handle ?? user.username ?? `#${user.brawlhallaId}`}
               </span>
-              <button type="submit" className={cn(saveCls, "text-negative")}>
-                Unlink
-              </button>
-            </form>
+            </ActionForm>
           )}
         </Field>
 
@@ -358,10 +366,7 @@ function EditCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
               Can&apos;t change your own role
             </span>
           ) : (
-            <form
-              action={setAccountRoleAction}
-              className="flex items-center gap-1.5"
-            >
+            <ActionForm action={setAccountRoleFormAction} submitLabel="Save">
               <input type="hidden" name="userId" value={user.id} />
               <label className="sr-only" htmlFor={`role-${user.id}`}>
                 Role for {user.email ?? user.id}
@@ -379,18 +384,12 @@ function EditCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
                   </option>
                 ))}
               </select>
-              <button type="submit" className={saveCls}>
-                Save
-              </button>
-            </form>
+            </ActionForm>
           )}
         </Field>
 
         <Field label="Plan">
-          <form
-            action={setAccountPlanAction}
-            className="flex items-center gap-1.5"
-          >
+          <ActionForm action={setAccountPlanFormAction} submitLabel="Save">
             <input type="hidden" name="userId" value={user.id} />
             <label className="sr-only" htmlFor={`plan-${user.id}`}>
               Plan for {user.email ?? user.id}
@@ -408,10 +407,7 @@ function EditCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
                 </option>
               ))}
             </select>
-            <button type="submit" className={saveCls}>
-              Save
-            </button>
-          </form>
+          </ActionForm>
         </Field>
       </div>
     </section>
