@@ -9,7 +9,7 @@ import { getSmurfIds } from "@/lib/sync/smurf"
 import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import { tierFromRating } from "@/lib/tier"
 import { slugForLegendId } from "@/lib/legends-roster"
-import { type ProTier } from "@/lib/profile/pro-tier"
+import { tierFromVerified, type ProTier } from "@/lib/profile/pro-tier"
 
 // Always dynamic — this reads the query string and the live DB.
 export const dynamic = "force-dynamic"
@@ -58,7 +58,7 @@ export async function GET(req: Request) {
     const proTierById = new Map<number, ProTier>()
     for (const [id, profile] of profiles) {
       if (!profile.verified) continue
-      proTierById.set(id, profile.verified.tier)
+      proTierById.set(id, tierFromVerified(profile.verified))
       // Pro status and having a handle are separate: a verified pro with no
       // handle set still gets the badge, just nothing to match or lead with.
       proIds.add(id)

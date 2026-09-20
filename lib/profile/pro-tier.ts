@@ -193,6 +193,23 @@ export function compareProTier(a: ProTier, b: ProTier): number {
   return PRO_TIER_DEFS[a].order - PRO_TIER_DEFS[b].order
 }
 
+/**
+ * The tier carried by a `verified` object, with the fallback for one written
+ * before tiers existed.
+ *
+ * Shared by `previewTier` and `flairContextFrom` so the cache rule lives in a
+ * single place. A curated player whose entry predates the column was drawing
+ * the blue check a moment ago and must keep drawing it, so an absent tier
+ * resolves to Pro Player rather than to nothing — see the note on
+ * `PlayerPreview.verified`.
+ */
+export function tierFromVerified(
+  verified?: { tier?: ProTier } | null
+): ProTier {
+  if (!verified) return DEFAULT_PRO_TIER
+  return verified.tier ?? "pro"
+}
+
 /** Whether this tier may put outbound links on its public profile. */
 export function tierCanEditLinks(tier: ProTier): boolean {
   return PRO_TIER_DEFS[tier].canEditLinks

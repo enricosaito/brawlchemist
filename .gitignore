@@ -60,3 +60,6 @@ next-env.d.ts
 .botcheck.ts
 .size.mjs
 .age.mjs
+
+# Windows Explorer thumbnail cache, created inside public/assets
+photothumb.db

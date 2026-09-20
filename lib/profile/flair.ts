@@ -20,6 +20,14 @@
  * assembles and passes in.
  */
 
+import {
+  isCurated,
+  isProTier,
+  tierFromVerified,
+  DEFAULT_PRO_TIER,
+  type ProTier,
+} from "@/lib/profile/pro-tier"
+
 /** A catalogue id. Free-form since operators mint these — see isFlairIdShape. */
 export type FlairId = string
 
@@ -37,6 +45,12 @@ export type FlairId = string
  *   was renamed: it lives in `flairs.rule`, `parseFlairRule` degrades anything
  *   unrecognised to `manual`, and renaming it would silently demote the World
  *   Champion flair between the deploy and the data edit.
+ * - `pro-tier` — their curated standing is exactly `ruleValue` (a tier id from
+ *   lib/profile/pro-tier.ts). Exact, never "this tier or better": a threshold
+ *   would silently widen the moment a tier is inserted between two others, and
+ *   the badge would start appearing on people nobody decided to give it to —
+ *   the same trap `ROLES.admin` and `canEditLinks` are named flags to avoid. An
+ *   operator who wants two tiers to share a badge makes two flairs.
  * - `manual` — awarded per player from /admin, recorded in `flair_grants`. The
  *   only rule available to a badge invented after the fact, and therefore the
  *   thing that makes "create a flair" mean anything.
@@ -45,6 +59,7 @@ export const FLAIR_RULES = [
   "developer",
   "claimed",
   "achievement",
+  "pro-tier",
   "manual",
 ] as const
 export type FlairRule = (typeof FLAIR_RULES)[number]
@@ -53,6 +68,7 @@ export const FLAIR_RULE_LABELS: Record<FlairRule, string> = {
   developer: "Developer role",
   claimed: "Linked account",
   achievement: "Accolade matches",
+  "pro-tier": "Standing is",
   manual: "Granted by hand",
 }
 
@@ -77,7 +93,10 @@ export interface FlairDef {
   width: number
   height: number
   rule: FlairRule
-  /** The accolade substring, for rule `achievement`. Ignored otherwise. */
+  /**
+   * What the rule matches against: an accolade substring for `achievement`, a
+   * tier id for `pro-tier`. Ignored by the rules that read a boolean.
+   */
   ruleValue?: string | null
   /** Rarity rank, ascending — the lowest a player holds is the one they fly. */
   sort: number
@@ -161,6 +180,21 @@ export const BUILTIN_FLAIRS: FlairDef[] = [
     sort: 20,
   },
   {
+    // Between the championship and the hand-awarded badge: rarer than Early
+    // Tester, commoner than winning a world championship. Sort is the rarity
+    // ranking and autoFlairId flies the lowest a player holds, so a champion
+    // who is also top-tier keeps flying the championship.
+    id: "grand-champion",
+    label: "Grand Champion",
+    requirement: "Reach Top Player standing",
+    src: "/assets/flairs/grand-champion.png",
+    width: 201,
+    height: 192,
+    rule: "pro-tier",
+    ruleValue: "top",
+    sort: 30,
+  },
+  {
     // Hand-awarded, because there is no fact on a player record that says
     // "was here early" — the site keeps no history of who visited before what.
     // `manual` is the rule for exactly that: a badge whose evidence lives in
@@ -227,6 +261,14 @@ export interface FlairContext {
    * tag this preview is read from — and leaves again if the link is removed.
    */
   claimed?: boolean
+  /**
+   * Their curated standing, for rule `pro-tier`.
+   *
+   * `none` is a real answer rather than a missing one, because the rule has to
+   * be able to say no. Derived like everything else here, so an operator
+   * demoting someone takes the badge with it on the next render.
+   */
+  proTier?: ProTier
 }
 
 /**
@@ -244,6 +286,10 @@ export function flairContextFrom(
         developer?: boolean
         flairGrants?: string[]
         claimed?: boolean
+        /** A PlayerPreview carries the standing inside `verified`… */
+        verified?: { tier?: ProTier } | null
+        /** …a hand-built member object carries it flat. */
+        proTier?: ProTier
       }
     | null
     | undefined
@@ -253,6 +299,13 @@ export function flairContextFrom(
     developer: preview?.developer,
     grants: preview?.flairGrants,
     claimed: preview?.claimed,
+    // Two shapes, one answer, and both read here rather than at fifteen call
+    // sites. This function takes a *structural* type, so an object missing the
+    // field is still assignable and quietly reads as "no standing" — the trap
+    // CLAUDE.md records for the esportsTitles rename.
+    proTier: preview?.verified
+      ? tierFromVerified(preview.verified)
+      : (preview?.proTier ?? DEFAULT_PRO_TIER),
   }
 }
 
@@ -269,6 +322,15 @@ function holds(flair: FlairDef, ctx: FlairContext): boolean {
       // pro on the site. A rule with nothing to match fires for nobody.
       if (!needle) return false
       return !!ctx.esportsTitles?.some((t) => t.toLowerCase().includes(needle))
+    }
+    case "pro-tier": {
+      const want = (flair.ruleValue ?? "").trim()
+      // A value that is not a tier we ship, or is the absence of one, fires for
+      // nobody. Without the second guard a typo would parse to `none` and hand
+      // the badge to every uncurated player on the site — which is almost
+      // everyone, and the same failure an empty `achievement` needle has.
+      if (!isProTier(want) || !isCurated(want)) return false
+      return ctx.proTier === want
     }
     case "manual":
       return !!ctx.grants?.includes(flair.id)
@@ -315,16 +377,23 @@ export function autoFlairId(
 /**
  * Which rules a player can *choose* between.
  *
- * Two of the four rules aren't choices at all. `claimed` fires for every linked
+ * Two of the rules aren't choices at all. `claimed` fires for every linked
  * account, so its badge is the floor of the catalogue rather than a prize, and
  * `developer` follows a role the account either has or doesn't. Offering either
  * one in the picker asks a question with one answer — and worse, implies you
  * could decline it, which you can't: both are derived on every render.
  *
- * So they render but are never listed. A flair you earn by *doing* something —
- * an accolade, or a hand-awarded badge — is the only kind worth a tile.
+ * So they render but are never listed. A flair you earn by *doing* something is
+ * the only kind worth a tile: an accolade, a hand-awarded badge, or a standing
+ * you competed your way into. `pro-tier` is listed for that last reason — it is
+ * rare, it is earned, and unlike the two above it is genuinely a choice, since
+ * a player who holds it may prefer to fly something else.
  */
-export const SELECTABLE_FLAIR_RULES: FlairRule[] = ["achievement", "manual"]
+export const SELECTABLE_FLAIR_RULES: FlairRule[] = [
+  "achievement",
+  "pro-tier",
+  "manual",
+]
 
 export function isSelectableFlair(flair: FlairDef): boolean {
   return flair.enabled !== false && SELECTABLE_FLAIR_RULES.includes(flair.rule)
