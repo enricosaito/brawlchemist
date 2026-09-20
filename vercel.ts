@@ -39,7 +39,11 @@ export const config: VercelConfig = {
       // them (see the route). Every 5 min because the pool is small enough
       // that a handful matters.
       path: "/api/cron/reap-sessions",
-      schedule: "*/5 * * * *",
+      // Every minute. This is the cheapest job here — one indexed read of
+      // pg_stat_activity and usually zero terminations — and the thing it
+      // prevents is the whole site queueing on a pooler with no free
+      // connections. Its cost is bounded; the outage it clears is not.
+      schedule: "* * * * *",
     },
   ],
 }
