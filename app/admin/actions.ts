@@ -3,9 +3,6 @@
 import { redirect } from "next/navigation"
 import { revalidateTag } from "next/cache"
 import { setCmPlayerId } from "@/lib/sync/profiles"
-import { ESPORTS_MATCHES_TAG } from "@/lib/sync/esports-matches"
-import { SMURF_SET_TAG } from "@/lib/sync/smurf"
-import { TRUE_COMBOS_TAG } from "@/lib/sync/true-combos"
 import { put } from "@vercel/blob"
 import { adminActorId, requireAdmin } from "@/lib/admin-auth"
 import {
@@ -14,15 +11,12 @@ import {
   deleteProfile,
   setFavoriteSkin,
   upsertProfile,
-  PROFILES_TAG,
   type ProfileInput,
 } from "@/lib/sync/profiles"
 import { setAccountPlan, setAccountRole } from "@/lib/sync/admin-users"
 import {
   createFlair,
   deleteFlair,
-  FLAIR_CATALOGUE_TAG,
-  FLAIR_GRANTS_TAG,
   grantFlair,
   importBuiltinFlairs,
   revokeFlair,
@@ -35,20 +29,19 @@ import { setCronPaused } from "@/lib/sync/cron-controls"
 import { linkProfile, unlinkProfile } from "@/lib/sync/claims"
 import {
   clearFlair,
-  FLAIR_MAP_TAG,
   setBanner,
   setFlair,
   upsertCustomization,
   SOCIAL_KINDS,
   type SocialLink,
 } from "@/lib/sync/customizations"
+import { REFRESHABLE_TAGS } from "@/lib/sync/cache-tags"
 import { checkCmUser, parseCmUserId } from "@/lib/sync/esports-link"
 import { clearFetchLog, recordFetch } from "@/lib/sync/fetch-log"
 import { syncManyPlayers, syncPlayer } from "@/lib/sync/players"
 import {
   discoverValhallanIds,
   getStaleValhallanIds,
-  VALHALLAN_STATS_TAG,
 } from "@/lib/sync/valhallan"
 
 /**
@@ -269,28 +262,10 @@ export async function setCmPlayerIdAction(formData: FormData) {
 
 export async function refreshCachesAction() {
   await requireAdmin()
-  revalidateTag(PROFILES_TAG, "max")
-  revalidateTag(FLAIR_MAP_TAG, "max")
-  revalidateTag(VALHALLAN_STATS_TAG, "max")
-  // The flair catalogue and its grants. Added after both shipped, which is the
-  // bug this button exists to fix happening to the button itself: a new cached
-  // read is only covered here if somebody remembers to list it, and the one
-  // that got forgotten is invisible until a row is edited outside the app.
-  // Editing the catalogue in /admin busts these already — this is for the SQL
-  // editor, which is how the Brawlchemist User flair went live and then sat
-  // unseen behind an hour-old cache.
-  revalidateTag(FLAIR_CATALOGUE_TAG, "max")
-  revalidateTag(FLAIR_GRANTS_TAG, "max")
-  // The three written by scripts rather than by this app, which is the case
-  // this button is most needed for: nothing in a request can bust a tag when
-  // the write came from a terminal. Esports matches matter most of the three —
-  // a six-hour window meant a profile could show half a career for the rest of
-  // the afternoon after a sync. The smurf set and the combos self-heal sooner,
-  // and belong here for the same reason the flair pair does: the list is only
-  // complete if every cached read is on it.
-  revalidateTag(ESPORTS_MATCHES_TAG, "max")
-  revalidateTag(SMURF_SET_TAG, "max")
-  revalidateTag(TRUE_COMBOS_TAG, "max")
+  // The list lives in lib/sync/cache-tags.ts because the CRON_SECRET endpoint
+  // refreshes the same set, and two copies of it is the bug this button exists
+  // to fix with a second place to forget.
+  for (const tag of REFRESHABLE_TAGS) revalidateTag(tag, "max")
   redirect("/admin?tab=system&refreshed=caches")
 }
 
