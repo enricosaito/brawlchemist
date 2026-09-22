@@ -119,9 +119,9 @@
 
     --positive: oklch(0.74 0.13 175);
     --negative: oklch(0.6 0.2 22);
-    /* Caution, and nothing else. Distinct from --tier-gold (an accolade) and
-       from --negative (a loss or an error), because a "possible smurf" tag is
-       neither congratulating the player nor reporting a failure. */
+    /* Caution: the error page's glyph and a "near" match in the admin
+       esports-links grader. The possible-smurf tag used it once and is red
+       now (components/site/smurf-mark.tsx). */
     --warning: oklch(0.72 0.15 85);
     /* No longer the accent — see --primary. Kept for the "copper" profile
        banner preset, which is a name players have chosen and stored. */
@@ -188,7 +188,7 @@
 
     --positive: oklch(0.85 0.105 175);             /* mystic cyan for ↑ */
     --negative: oklch(0.66 0.18 22);
-    --warning: oklch(0.85 0.16 92);          /* amber — possible-smurf caution */
+    --warning: oklch(0.85 0.16 92);          /* amber — caution (error page, admin grader) */
     --copper: oklch(0.74 0.115 75);          /* banner preset only, not the accent */
     --mystic: oklch(0.85 0.105 175);
     --pink: oklch(0.74 0.23 350);            /* nav accent glow */

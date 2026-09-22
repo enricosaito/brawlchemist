@@ -8,6 +8,7 @@ import { Loader2, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { VerifiedMark } from "./verified-mark"
 import { SmurfMark } from "./smurf-mark"
+import type { SmurfEvidence } from "@/lib/profile/smurf"
 import { FlairMark } from "./flair-mark"
 import { flairContextFrom } from "@/lib/profile/flair"
 import { RankHelm, RegionPill } from "./primitives"
@@ -37,11 +38,11 @@ interface PlayerHit {
   flairGrants?: string[]
   developer?: boolean
   /**
-   * Their record reads as a possible smurf (see lib/profile/smurf.ts). Derived
-   * server-side like `tier`: it needs level and playtime, which nothing on the
-   * client has.
+   * Their record reads as a possible smurf (see lib/profile/smurf.ts), with
+   * the level and hours the tooltip quotes. Derived server-side like `tier`:
+   * it needs facts nothing on the client has.
    */
-  smurf?: boolean
+  smurf?: SmurfEvidence
 }
 
 type Kind = "empty" | "name" | "id" | "steam"
@@ -313,7 +314,7 @@ export function LeaderboardPlayerSearch({ className }: { className?: string }) {
                               context={flairContextFrom(opt.hit)}
                               className="h-3.5"
                             />
-                            {opt.hit.smurf && <SmurfMark className="size-3.5" />}
+                            <SmurfMark evidence={opt.hit.smurf} className="size-3.5" />
                           </span>
                           {opt.hit.region && (
                             <RegionPill

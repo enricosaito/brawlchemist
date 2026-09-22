@@ -5,7 +5,7 @@ import {
 } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
-import { getSmurfIds } from "@/lib/sync/smurf"
+import { getSmurfMap, type SmurfMap } from "@/lib/sync/smurf"
 import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import { tierFromRating } from "@/lib/tier"
 import { slugForLegendId } from "@/lib/legends-roster"
@@ -116,9 +116,9 @@ export async function GET(req: Request) {
         console.error("[api/search/players] flair map failed:", err)
         return new Map<number, string>()
       }),
-      getSmurfIds().catch((err) => {
-        console.error("[api/search/players] smurf ids failed:", err)
-        return new Set<number>()
+      getSmurfMap().catch((err): SmurfMap => {
+        console.error("[api/search/players] smurf map failed:", err)
+        return new Map()
       }),
     ])
 
@@ -151,9 +151,10 @@ export async function GET(req: Request) {
       // while every other surface showed one.
       claimed: profiles.get(p.id)?.claimed,
       flairGrants: profiles.get(p.id)?.flairGrants,
-      // Omitted rather than false for everyone else — this is a handful of
-      // players out of ~90k, and the payload is a keystroke's worth of JSON.
-      smurf: smurfs.has(p.id) || undefined,
+      // The level and hours the tooltip quotes; omitted for everyone else —
+      // this is a handful of players out of ~90k, and the payload is a
+      // keystroke's worth of JSON.
+      smurf: smurfs.get(p.id),
     }))
     return Response.json({ results }, { headers })
   } catch (err) {

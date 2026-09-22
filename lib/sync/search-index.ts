@@ -42,7 +42,7 @@ const FLOOR = TIER_FLOOR.Platinum
  * The Valhallan aggregations are defined as `players.rating >= 2300` and read
  * `ranked_json->>'region'` and `->>'games'` off that pool. A thin row landing
  * inside it would join as a null-region, null-games member and quietly skew
- * every legend and weapon statistic on /meta-picks. `getSmurfIds` draws its
+ * every legend and weapon statistic on /meta-picks. `getSmurfMap` draws its
  * candidates from the same threshold.
  *
  * So the walk passes over the top of the ladder without recording it. Those

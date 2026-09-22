@@ -22,7 +22,7 @@ import { getPlayersByIds } from "@/lib/sync/players"
 import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
-import { getSmurfIds } from "@/lib/sync/smurf"
+import { getSmurfMap, type SmurfMap } from "@/lib/sync/smurf"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { VerifiedMark } from "@/components/site/verified-mark"
@@ -49,7 +49,7 @@ function buildColumns(
   valhallanById: Map<number, boolean>,
   previews: Map<number, PlayerPreview>,
   flairs: Map<number, string>,
-  smurfs: Set<number>,
+  smurfs: SmurfMap,
   // The top 3 render in the podium, so the table starts at this rank.
   rankOffset = 0
 ): ColDef<OtpPlayer>[] {
@@ -119,9 +119,10 @@ function buildColumns(
                       context={flairContextFrom(previews.get(p.brawlhalla_id))}
                       className="h-3.5"
                     />
-                    {smurfs.has(p.brawlhalla_id) && (
-                      <SmurfMark className="size-3.5" />
-                    )}
+                    <SmurfMark
+                      evidence={smurfs.get(p.brawlhalla_id)}
+                      className="size-3.5"
+                    />
                   </span>
                 ) : (
                   <span className="inline-flex min-w-0 items-center gap-1">
@@ -131,9 +132,10 @@ function buildColumns(
                       context={flairContextFrom(previews.get(p.brawlhalla_id))}
                       className="h-3.5"
                     />
-                    {smurfs.has(p.brawlhalla_id) && (
-                      <SmurfMark className="size-3.5" />
-                    )}
+                    <SmurfMark
+                      evidence={smurfs.get(p.brawlhalla_id)}
+                      className="size-3.5"
+                    />
                   </span>
                 )}
               </PlayerLink>
@@ -303,7 +305,7 @@ export async function OtpBoard({
   const [overrides, flairs, smurfs] = await Promise.all([
     getProfilesMap(),
     getFlairMap(),
-    getSmurfIds().catch(() => new Set<number>()),
+    getSmurfMap().catch((): SmurfMap => new Map()),
   ])
 
   // Top 3 reuse the shared leaderboard podium — adapt OtpPlayer → RankedEntry,

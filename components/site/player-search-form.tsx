@@ -358,9 +358,10 @@ export function PlayerSearchForm({
                               context={flairContextFrom(opt.result)}
                               className="h-3.5"
                             />
-                            {opt.result.smurf && (
-                              <SmurfMark className="size-3.5" />
-                            )}
+                            <SmurfMark
+                              evidence={opt.result.smurf}
+                              className="size-3.5"
+                            />
                           </span>
                           {/* Region reads as a tag rather than as text in a
                               sub-line: colour-coded, it's scannable down the

@@ -9,7 +9,8 @@ import { searchPlayerBySteamId, type PlayerRanked } from "@/lib/brawlhalla-api"
 import { getPlayersByIds, searchPlayersByUsername } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
-import { getSmurfIds } from "@/lib/sync/smurf"
+import { getSmurfMap, type SmurfMap } from "@/lib/sync/smurf"
+import type { SmurfEvidence } from "@/lib/profile/smurf"
 import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import { tierFromRating } from "@/lib/tier"
 import type { Tier } from "@/lib/types"
@@ -55,7 +56,7 @@ function PlayerResultRow({
   /** Derived by the page — Valhallan is ladder membership, not a rating band. */
   tier: Tier | null
   flairId?: string
-  smurf?: boolean
+  smurf?: SmurfEvidence
 }) {
   const ranked = (player.rankedJson ?? null) as PlayerRanked | null
   const slug = player.topLegendId ? slugForLegendId(player.topLegendId) : null
@@ -89,7 +90,7 @@ function PlayerResultRow({
               selectedId={flairId}
               context={flairContextFrom(preview)}
             />
-            {smurf && <SmurfMark />}
+            <SmurfMark evidence={smurf} />
           </span>
           {/* Only the in-game name survives on the meta line. The raw id was
               noise nobody searches by, and the region was already sitting in
@@ -153,7 +154,7 @@ export default async function SearchPage({
   // worth losing the search results over.
   let valhallanIds = new Set<number>()
   let flairs = new Map<number, string>()
-  let smurfs = new Set<number>()
+  let smurfs: SmurfMap = new Map()
   if (isUsername) {
     const [v, f, s] = await Promise.all([
       getValhallanIds("1v1").catch((err) => {
@@ -164,9 +165,9 @@ export default async function SearchPage({
         console.error("[search] flair map failed:", err)
         return new Map<number, string>()
       }),
-      getSmurfIds().catch((err) => {
-        console.error("[search] smurf ids failed:", err)
-        return new Set<number>()
+      getSmurfMap().catch((err) => {
+        console.error("[search] smurf map failed:", err)
+        return new Map<number, SmurfEvidence>()
       }),
     ])
     valhallanIds = new Set(v)
@@ -266,7 +267,7 @@ export default async function SearchPage({
                         valhallanIds.has(p.brawlhallaId),
                       )}
                       flairId={flairs.get(p.brawlhallaId)}
-                      smurf={smurfs.has(p.brawlhallaId)}
+                      smurf={smurfs.get(p.brawlhallaId)}
                     />
                   </li>
                 ))}
