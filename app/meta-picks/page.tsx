@@ -13,7 +13,8 @@ import {
 import { VerifiedMark } from "@/components/site/verified-mark"
 import { SmurfMark } from "@/components/site/smurf-mark"
 import { getProfilesMap } from "@/lib/sync/profiles"
-import { getSmurfIds } from "@/lib/sync/smurf"
+import { getSmurfMap } from "@/lib/sync/smurf"
+import type { SmurfEvidence } from "@/lib/profile/smurf"
 import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import { tierFromRating } from "@/lib/tier"
 import type { PlayerPreview } from "@/lib/player-previews"
@@ -139,7 +140,7 @@ export default async function MetaPicksPage({
       getValhallanIds("1v1")
         .then((v) => new Set(v))
         .catch(() => new Set<number>()),
-      getSmurfIds().catch(() => new Set<number>()),
+      getSmurfMap().catch(() => new Map<number, SmurfEvidence>()),
     ])
 
   // Weapon detail is free: its top wielders are legend ids, and this page has
@@ -181,7 +182,7 @@ export default async function MetaPicksPage({
                 legendSlug={slug}
                 preview={profiles.get(m.brawlhallaId)}
                 tier={tierFromRating(m.rating, valhallan.has(m.brawlhallaId))}
-                smurf={smurfs.has(m.brawlhallaId)}
+                smurf={smurfs.get(m.brawlhallaId)}
               />
             ))}
           </ul>
@@ -325,7 +326,7 @@ function MainerRow({
   legendSlug: string | null
   preview?: PlayerPreview
   tier: Tier | null
-  smurf?: boolean
+  smurf?: SmurfEvidence
 }) {
   const handle = preview?.verified?.handle?.trim() || null
   return (
@@ -343,7 +344,7 @@ function MainerRow({
             {handle ?? mainer.username}
           </span>
           <VerifiedMark tier={previewKind(preview)} />
-          {smurf && <SmurfMark className="size-3" />}
+          <SmurfMark evidence={smurf} className="size-3" />
           <RegionPill region={mainer.region} />
           <span className="ml-auto flex shrink-0 items-center gap-1 pl-1 font-mono text-[11px] tabular-nums">
             {tier && <RankHelm tier={tier} className="h-4" />}

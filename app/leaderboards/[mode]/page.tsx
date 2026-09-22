@@ -35,7 +35,7 @@ import { getValhallanCutoffs } from "@/lib/sync/valhallan-cutoff"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
-import { getSmurfIds } from "@/lib/sync/smurf"
+import { getSmurfMap, type SmurfMap } from "@/lib/sync/smurf"
 import type { PlayerRow } from "@/lib/db/schema"
 import { InfoTip } from "@/components/site/info-tip"
 
@@ -239,9 +239,9 @@ export default async function LeaderboardPage({
   // treatment), including in the toggled pro view.
   const [flairs, smurfs] = await Promise.all([
     getFlairMap(),
-    getSmurfIds().catch((err) => {
-      console.error("[leaderboards] smurf ids failed:", err)
-      return new Set<number>()
+    getSmurfMap().catch((err): SmurfMap => {
+      console.error("[leaderboards] smurf map failed:", err)
+      return new Map()
     }),
   ])
   const columns = buildLeaderboardColumns(

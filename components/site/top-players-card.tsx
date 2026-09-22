@@ -8,7 +8,7 @@ import { getPlayersByIds } from "@/lib/sync/players"
 import { getProLeaderboard } from "@/lib/sync/pro-leaderboard"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
-import { getSmurfIds } from "@/lib/sync/smurf"
+import { getSmurfMap, type SmurfMap } from "@/lib/sync/smurf"
 import { FlairMark } from "./flair-mark"
 import { VerifiedMark } from "./verified-mark"
 import { SmurfMark } from "./smurf-mark"
@@ -55,7 +55,7 @@ export async function TopPlayersCard({
   const [overrides, flairs, smurfs] = await Promise.all([
     getProfilesMap(),
     getFlairMap(),
-    getSmurfIds().catch(() => new Set<number>()),
+    getSmurfMap().catch((): SmurfMap => new Map()),
   ])
 
   return (
@@ -174,7 +174,7 @@ export async function TopPlayersCard({
                         context={flairContextFrom(overrides.get(player.id))}
                         className="h-4"
                       />
-                      {smurfs.has(player.id) && <SmurfMark />}
+                      <SmurfMark evidence={smurfs.get(player.id)} />
                     </span>
                   </PlayerLink>
                 </span>

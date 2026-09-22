@@ -9,7 +9,8 @@ import { getFavoriteIds } from "@/lib/sync/favorites"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
-import { getSmurfIds } from "@/lib/sync/smurf"
+import { getSmurfMap } from "@/lib/sync/smurf"
+import type { SmurfEvidence } from "@/lib/profile/smurf"
 import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import { tierFromRating } from "@/lib/tier"
 import type { Tier } from "@/lib/types"
@@ -62,9 +63,9 @@ export default async function FavoritesPage() {
       console.error("[favorites] flair map failed:", err)
       return new Map<number, string>()
     }),
-    getSmurfIds().catch((err) => {
-      console.error("[favorites] smurf ids failed:", err)
-      return new Set<number>()
+    getSmurfMap().catch((err) => {
+      console.error("[favorites] smurf map failed:", err)
+      return new Map<number, SmurfEvidence>()
     }),
   ])
 
@@ -107,7 +108,7 @@ export default async function FavoritesPage() {
                 valhallan.has(id),
               )}
               flairId={flairs.get(id)}
-              smurf={smurfs.has(id)}
+              smurf={smurfs.get(id)}
             />
           ))}
         </ul>
@@ -140,7 +141,7 @@ function FavoriteRow({
   /** Derived by the page — Valhallan is ladder membership, not a rating band. */
   tier: Tier | null
   flairId?: string
-  smurf?: boolean
+  smurf?: SmurfEvidence
 }) {
   const slug = player?.topLegendId ? slugForLegendId(player.topLegendId) : null
   const rating = player?.rating ?? null
@@ -174,7 +175,7 @@ function FavoriteRow({
                 selectedId={flairId}
                 context={flairContextFrom(preview)}
               />
-              {smurf && <SmurfMark />}
+              <SmurfMark evidence={smurf} />
               {self && (
                 <span className="shrink-0 rounded-md border border-tier-gold/40 bg-tier-gold/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-tier-gold">
                   You

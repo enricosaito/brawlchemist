@@ -4,7 +4,7 @@ import { formatElo } from "@/lib/format"
 import { slugForLegendId } from "@/lib/legends-roster"
 import { flairContextFrom } from "@/lib/profile/flair"
 import { getFlairMap } from "@/lib/sync/customizations"
-import { getSmurfIds } from "@/lib/sync/smurf"
+import { getSmurfMap, type SmurfMap } from "@/lib/sync/smurf"
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getSuggestedFavorites } from "@/lib/sync/suggestions"
@@ -62,7 +62,7 @@ export async function SuggestedFavorites({
       .then((v) => new Set(v))
       .catch(() => new Set<number>()),
     getFlairMap().catch(() => new Map<number, string>()),
-    getSmurfIds().catch(() => new Set<number>()),
+    getSmurfMap().catch((): SmurfMap => new Map()),
   ])
 
   return (
@@ -128,7 +128,7 @@ export async function SuggestedFavorites({
                             selectedId={flairs.get(id)}
                             context={flairContextFrom(preview)}
                           />
-                          {smurfs.has(id) && <SmurfMark />}
+                          <SmurfMark evidence={smurfs.get(id)} />
                         </span>
                       </div>
                       <div className="flex shrink-0 items-center gap-3">

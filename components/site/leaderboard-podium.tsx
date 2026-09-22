@@ -14,6 +14,7 @@ import type { PlayerPreview } from "@/lib/player-previews"
 import { LegendChip, REGION_COLOR, TIER_TEXT_COLOR } from "./primitives"
 import { VerifiedMark } from "./verified-mark"
 import { SmurfMark } from "./smurf-mark"
+import type { SmurfMap } from "@/lib/sync/smurf"
 import { FlairMark } from "./flair-mark"
 import { flairContextFrom } from "@/lib/profile/flair"
 import { toTier } from "@/lib/tier"
@@ -57,7 +58,7 @@ function PodiumCard({
   gameMode: ApiGameMode
   previews: Map<number, PlayerPreview>
   flairs: Map<number, string>
-  smurfs: Set<number>
+  smurfs: SmurfMap
   showRegion: boolean
 }) {
   const tier = toTier(entry.tier)
@@ -166,9 +167,14 @@ function PodiumCard({
                 : username) || "—"}
             </span>
             <VerifiedMark tier={verifiedKind} className="size-4" />
-            {entry.players.some((p) => smurfs.has(p.id)) && (
-              <SmurfMark className="size-4" />
-            )}
+            {/* A 2v2 card carries one mark for the pair, quoting whichever
+                side earned it first. */}
+            <SmurfMark
+              evidence={entry.players
+                .map((p) => smurfs.get(p.id))
+                .find((e) => e != null)}
+              className="size-4"
+            />
             {player && (
               <FlairMark
                 selectedId={flairs.get(player.id)}
@@ -249,7 +255,7 @@ export function LeaderboardPodium({
   gameMode,
   previews,
   flairs = new Map(),
-  smurfs = new Set(),
+  smurfs = new Map(),
   showRegion = false,
 }: {
   entries: RankedEntry[]
@@ -258,8 +264,8 @@ export function LeaderboardPodium({
   previews: Map<number, PlayerPreview>
   /** Chosen flair per player (getFlairMap); omit to render none. */
   flairs?: Map<number, string>
-  /** Players whose record reads as a possible smurf (getSmurfIds). */
-  smurfs?: Set<number>
+  /** Possible smurfs, with the evidence the tag quotes (getSmurfMap). */
+  smurfs?: SmurfMap
   showRegion?: boolean
 }) {
   const top3 = entries.slice(0, 3)

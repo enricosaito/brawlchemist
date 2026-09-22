@@ -21,7 +21,8 @@ import { ViewSwitch } from "@/components/site/view-switch"
 import { RegionFilter } from "@/components/site/region-filter"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
-import { getSmurfIds } from "@/lib/sync/smurf"
+import { getSmurfMap } from "@/lib/sync/smurf"
+import type { SmurfEvidence } from "@/lib/profile/smurf"
 import type { PlayerPreview } from "@/lib/player-previews"
 import { flairContextFrom } from "@/lib/profile/flair"
 
@@ -263,16 +264,16 @@ export default async function PowerRankingsPage({
           resolveBrawlhallaIds(rows.map((p) => p.playerId)),
           getProfilesMap(),
           getFlairMap(),
-          getSmurfIds().catch((err) => {
-            console.error("[power-rankings] smurf ids failed:", err)
-            return new Set<number>()
+          getSmurfMap().catch((err) => {
+            console.error("[power-rankings] smurf map failed:", err)
+            return new Map<number, SmurfEvidence>()
           }),
         ])
       : [
           new Map<number, number>(),
           new Map<number, PlayerPreview>(),
           new Map<number, string>(),
-          new Set<number>(),
+          new Map<number, SmurfEvidence>(),
         ]
 
   const columns: ColDef<PrPlayer>[] = [
@@ -302,7 +303,7 @@ export default async function PowerRankingsPage({
                   context={flairContextFrom(previews.get(bhId))}
                 />
               )}
-              {bhId != null && smurfs.has(bhId) && <SmurfMark />}
+              <SmurfMark evidence={bhId != null ? smurfs.get(bhId) : undefined} />
             </span>
           </PlayerLink>
         )

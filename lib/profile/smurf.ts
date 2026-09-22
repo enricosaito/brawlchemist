@@ -19,7 +19,7 @@
  * prodigy who is genuinely that good in 200 hours lands here, and that is a
  * fair reading of what the numbers say.
  *
- * A **verified pro never does**, and that exception lives in `getSmurfIds`
+ * A **verified pro never does**, and that exception lives in `getSmurfMap`
  * (lib/sync/smurf.ts) rather than in this predicate, because it is not a fact
  * about the record — it is a fact about the profile, curated by hand. A known
  * competitor on a new account satisfies every number here, and the badge that
@@ -31,9 +31,9 @@
  * clean" — so an unknown fact returns false rather than defaulting to zero,
  * which would flag every unvisited account on the ladder.
  *
- * Plain module on purpose: the thresholds are quoted in the tooltip, the SQL
- * that builds the cached id set, and the backfill script, and a number that
- * lives in three places drifts.
+ * Plain module on purpose: the thresholds are quoted in the SQL that builds
+ * the cached evidence map and in the backfill script, and a number that lives
+ * in two places drifts.
  */
 
 /** Account level at or under which the record looks too young for the rating. */
@@ -70,11 +70,29 @@ export function isPossibleSmurf({
 }
 
 /**
- * The one sentence this shows anywhere it renders.
+ * The two facts the tag rests on, for the player it is sitting next to.
  *
- * States the evidence rather than the conclusion, because the evidence is the
- * part we can stand behind.
+ * This is what every surface carries instead of a boolean, because the
+ * tooltip quotes the player's own numbers rather than the rule's thresholds.
+ * "Level 75 or below with under 200 hours" describes the tag; "Account Level
+ * 41, 96h Game Time" describes the account, and only the second one lets a
+ * reader check the claim against the record it is about. Rating is not here:
+ * it is already on the row beside the mark.
  */
-export const SMURF_TOOLTIP = `Possible smurf — ${SMURF_MIN_RATING.toLocaleString()}+ elo on an account at level ${SMURF_MAX_LEVEL} or below with under ${SMURF_MAX_PLAYTIME_HOURS} hours played. Not a verdict, just an unusual record.`
+export interface SmurfEvidence {
+  /** Account level from GetPlayerStats. */
+  level: number
+  /** Lifetime hours across every legend, all modes, rounded for display. */
+  playtimeHours: number
+}
 
 export const SMURF_LABEL = "Possible Smurf"
+
+/**
+ * The one sentence this shows anywhere it renders — the evidence, stated
+ * flatly, because the evidence is the part we can stand behind. No verdict and
+ * no hedge: "possible" is already doing that work in the label.
+ */
+export function smurfTooltip({ level, playtimeHours }: SmurfEvidence): string {
+  return `${SMURF_LABEL}: Account Level ${level.toLocaleString()}, ${Math.round(playtimeHours).toLocaleString()}h Game Time`
+}

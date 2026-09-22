@@ -1,6 +1,7 @@
 import { FlairMark } from "@/components/site/flair-mark"
 import { VerifiedMark } from "@/components/site/verified-mark"
 import { SmurfMark } from "@/components/site/smurf-mark"
+import type { SmurfMap } from "@/lib/sync/smurf"
 import { formatElo, formatPercent } from "@/lib/format"
 import { rosterEntryByLegendId, slugForLegendId } from "@/lib/legends-roster"
 import {
@@ -99,8 +100,8 @@ export function buildLeaderboardColumns(
   previews: Map<number, PlayerPreview>,
   /** Chosen flair per player (getFlairMap); omit to render no flair. */
   flairs: Map<number, string> = new Map(),
-  /** Players whose record reads as a possible smurf (getSmurfIds). */
-  smurfs: Set<number> = new Set()
+  /** Possible smurfs, with the evidence the tag quotes (getSmurfMap). */
+  smurfs: SmurfMap = new Map()
 ): ColDef<RankedEntry>[] {
   // Accolades are the only thing flair reads now, and previews already holds
   // them — so no per-row derivation, and nothing here can disagree with the
@@ -229,13 +230,13 @@ export function buildLeaderboardColumns(
                           <span className={nameClass}>{handle}</span>
                           <VerifiedMark tier={previewKind(previews.get(p.id))} />
                           {flairFor(p.id)}
-                          {smurfs.has(p.id) && <SmurfMark />}
+                          <SmurfMark evidence={smurfs.get(p.id)} />
                         </span>
                       ) : (
                         <span className="inline-flex min-w-0 items-center gap-1">
                           <span className={nameClass}>{p.username}</span>
                           {flairFor(p.id)}
-                          {smurfs.has(p.id) && <SmurfMark />}
+                          <SmurfMark evidence={smurfs.get(p.id)} />
                         </span>
                       )}
                     </PlayerLink>

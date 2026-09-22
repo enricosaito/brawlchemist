@@ -26,8 +26,8 @@ import { EsportsTitles } from "@/components/site/esports-titles"
 import { DataTable, type ColDef } from "@/components/site/data-table"
 import { BrawlchemistUserBadge } from "@/components/site/brawlchemist-user-badge"
 import { SmurfMark, SmurfTag } from "@/components/site/smurf-mark"
-import { isPossibleSmurf } from "@/lib/profile/smurf"
-import { getSmurfIds, recordPlayerStats } from "@/lib/sync/smurf"
+import { isPossibleSmurf, type SmurfEvidence } from "@/lib/profile/smurf"
+import { getSmurfMap, recordPlayerStats, type SmurfMap } from "@/lib/sync/smurf"
 import { esportsRecord, getEsportsMatches } from "@/lib/sync/esports-matches"
 import { EsportsSection } from "@/components/player/esports-section"
 import { getCmTournaments } from "@/lib/challengermode-api"
@@ -796,7 +796,7 @@ interface TeamMember {
    */
   claimed?: boolean
   /** Their record reads as a possible smurf — see lib/profile/smurf.ts. */
-  smurf?: boolean
+  smurf?: SmurfEvidence
 }
 
 function TeamMemberName({ member }: { member: TeamMember }) {
@@ -809,7 +809,7 @@ function TeamMemberName({ member }: { member: TeamMember }) {
         context={flairContextFrom(member)}
         className="h-3.5"
       />
-      {member.smurf && <SmurfMark className="size-3" />}
+      <SmurfMark evidence={member.smurf} className="size-3" />
     </span>
   )
 }
@@ -1412,7 +1412,7 @@ function ProfileHeader({
   preview: PlayerPreview | undefined
   esports: EsportsProfile | null
   /** Their record reads as a possible smurf — see lib/profile/smurf.ts. */
-  possibleSmurf: boolean
+  possibleSmurf: SmurfEvidence | null
   /** Raw selection + what they hold, so the live preview can re-derive the
    * same answer the server did rather than trust the editor. */
   savedFlairId: string | null
@@ -1536,9 +1536,10 @@ function ProfileHeader({
                         someone is, and this says their record doesn't add up.
                         Reading it last is what keeps it a footnote on the name
                         instead of a label on the player. */}
-                    {possibleSmurf && (
-                      <SmurfMark className="size-5 sm:size-6" />
-                    )}
+                    <SmurfMark
+                      evidence={possibleSmurf ?? undefined}
+                      className="size-5 sm:size-6"
+                    />
                     {claimSlot}
                   </div>
                   {hasMeta && (
@@ -1546,7 +1547,7 @@ function ProfileHeader({
                       {preview?.claimed && <BrawlchemistUserBadge />}
                       {/* Spelled out here because this is the one page that
                           shows the numbers behind it. */}
-                      {possibleSmurf && <SmurfTag />}
+                      <SmurfTag evidence={possibleSmurf} />
                       {/* Ladder standing, global then regional, in the one ice
                           blue they now share: they answer the same question at
                           two scopes, so reading them as one pair beats the old
@@ -1883,7 +1884,7 @@ export default async function PlayerPage({
     esports,
     ladderPos,
     customization,
-    smurfIds,
+    smurfMap,
     esportsMatches,
     overrides,
     flairMap,
@@ -1898,9 +1899,9 @@ export default async function PlayerPage({
     // Shared app-wide and five minutes stale at worst. Needed here only for the
     // teammates and for views that skip /stats, but it is one cached read for
     // the whole page either way.
-    getSmurfIds().catch((err) => {
-      console.error("[player] smurf ids failed:", err)
-      return new Set<number>()
+    getSmurfMap().catch((err): SmurfMap => {
+      console.error("[player] smurf map failed:", err)
+      return new Map()
     }),
     // One indexed read, cached six hours, and empty for everyone who has never
     // entered a tournament — which is almost everyone. It rides this block
@@ -1962,26 +1963,35 @@ export default async function PlayerPage({
     })
   }
   /**
-   * Live facts when we have them, the shared set when we don't.
+   * Live facts when we have them, the shared map when we don't.
    *
    * A crawler view and a 429 both skip /stats, so accountStats is null on
    * exactly the paths that serve stored data — and falling back to the cached
-   * id set there keeps the profile agreeing with the leaderboard it was linked
+   * map there keeps the profile agreeing with the leaderboard it was linked
    * from, rather than quietly dropping the tag for half the visitors.
    *
-   * A verified pro is never tagged. `getSmurfIds` already subtracts them, so
+   * The answer is the evidence, not a boolean: the tag quotes the level and
+   * hours it rests on, and on the live path those are the same numbers the
+   * Account section below prints, so the two cannot disagree.
+   *
+   * A verified pro is never tagged. `getSmurfMap` already subtracts them, so
    * the fallback branch is covered; this page is the one caller that computes
    * the answer itself, so it has to run the same check rather than inherit it.
    */
-  const possibleSmurf =
-    !preview?.verified &&
-    (accountStats
+  const possibleSmurf: SmurfEvidence | null = preview?.verified
+    ? null
+    : accountStats
       ? isPossibleSmurf({
           rating: data.rating,
           level: accountStats.level,
           playtimeHours: accountStats.playtimeHours,
         })
-      : smurfIds.has(numId))
+        ? {
+            level: accountStats.level,
+            playtimeHours: accountStats.playtimeHours,
+          }
+        : null
+      : (smurfMap.get(numId) ?? null)
   // Prefer a live answer, then the stored one, then the clan embedded in
   // /stats. The stored value is authoritative on a `guildFresh` view — that's
   // the whole point of not making the call.
@@ -2095,7 +2105,7 @@ export default async function PlayerPage({
         esportsTitles: mate?.esportsTitles,
         developer: mate?.developer,
         claimed: mate?.claimed,
-        smurf: smurfIds.has(teammateId),
+        smurf: smurfMap.get(teammateId),
       },
     }
   })
@@ -2347,7 +2357,7 @@ export default async function PlayerPage({
     esportsTitles: preview?.esportsTitles,
     developer: preview?.developer,
     claimed: preview?.claimed,
-    smurf: possibleSmurf,
+    smurf: possibleSmurf ?? undefined,
   }
   // Resolved on the server, because the roster is the biggest thing the header
   // would otherwise have to send to the browser and only the owner's unsaved

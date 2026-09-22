@@ -14,6 +14,7 @@
 
 import type { Tier } from "@/lib/types"
 import { type VerifiedKind } from "@/lib/profile/verified"
+import type { SmurfEvidence } from "@/lib/profile/smurf"
 
 export interface RecentVisit {
   id: number
@@ -63,11 +64,12 @@ export interface RecentVisit {
   /** Owning account has the Developer role — drives the Brawlchemist flair. */
   developer?: boolean
   /**
-   * Their record reads as a possible smurf (see lib/profile/smurf.ts). Derived
-   * server-side like `tier`: it needs level and playtime, which nothing on the
-   * client has.
+   * Their record reads as a possible smurf (see lib/profile/smurf.ts), with
+   * the level and hours the tooltip quotes. Derived server-side like `tier`:
+   * it needs facts nothing on the client has. Search results carry it; the
+   * profile recorder never has, so a stored crumb shows no mark.
    */
-  smurf?: boolean
+  smurf?: SmurfEvidence
 }
 
 const KEY = "bc-recent-visits"
@@ -88,6 +90,22 @@ function read(): RecentVisit[] {
           typeof (v as RecentVisit).id === "number" &&
           typeof (v as RecentVisit).username === "string",
       )
+      // `smurf` was a boolean once. A crumb carrying the old shape would hand
+      // the mark `true` and have it print "Account Level undefined", so the
+      // field is dropped unless it is the evidence object.
+      .map((v) => {
+        const s = v.smurf as unknown
+        if (
+          s == null ||
+          (typeof s === "object" &&
+            typeof (s as SmurfEvidence).level === "number" &&
+            typeof (s as SmurfEvidence).playtimeHours === "number")
+        )
+          return v
+        const rest = { ...v }
+        delete rest.smurf
+        return rest
+      })
       .slice(0, MAX)
   } catch {
     return []

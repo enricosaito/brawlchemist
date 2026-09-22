@@ -42,7 +42,7 @@ import {
 import { getPlayersByIds } from "@/lib/sync/players"
 import { getProfilesMap } from "@/lib/sync/profiles"
 import { getFlairMap } from "@/lib/sync/customizations"
-import { getSmurfIds } from "@/lib/sync/smurf"
+import { getSmurfMap, type SmurfMap } from "@/lib/sync/smurf"
 import { getValhallanIds } from "@/lib/sync/valhallan-cutoff"
 import type { PlayerRow } from "@/lib/db/schema"
 import type { PlayerPreview } from "@/lib/player-previews"
@@ -98,8 +98,8 @@ function LiveCard({
   playersMap: Map<number, PlayerRow>
   previews: Map<number, PlayerPreview>
   flairs: Map<number, string>
-  /** Players whose record reads as a possible smurf (getSmurfIds). */
-  smurfs: Set<number>
+  /** Possible smurfs, with the evidence the tag quotes (getSmurfMap). */
+  smurfs: SmurfMap
   /** Ids this queue's ladder calls Valhallan. */
   valhallanIds: Set<number>
   /** Played within the last 5 minutes — i.e. almost certainly still queueing. */
@@ -215,7 +215,7 @@ function LiveCard({
                 context={flairContextFrom(previews.get(player.id))}
               />
             )}
-            {player && smurfs.has(player.id) && <SmurfMark />}
+            <SmurfMark evidence={player ? smurfs.get(player.id) : undefined} />
           </span>
         ) : (
           row.players.map((p, i) => {
@@ -236,7 +236,7 @@ function LiveCard({
                   selectedId={flairs.get(p.id)}
                   context={flairContextFrom(previews.get(p.id))}
                 />
-                {smurfs.has(p.id) && <SmurfMark />}
+                <SmurfMark evidence={smurfs.get(p.id)} />
               </span>
             )
           })
@@ -383,15 +383,15 @@ export default async function LivePage({
   let playersMap = new Map<number, PlayerRow>()
   let previews = new Map<number, PlayerPreview>()
   let flairs = new Map<number, string>()
-  let smurfs = new Set<number>()
+  let smurfs: SmurfMap = new Map()
   const allRows = [...rows1v1, ...rows2v2, ...gainers]
   if (allRows.length > 0) {
     const ids = allRows.flatMap((r) => r.players.map((p) => p.id))
-    const [players, profiles, flairMap, smurfIds] = await Promise.allSettled([
+    const [players, profiles, flairMap, smurfMap] = await Promise.allSettled([
       getPlayersByIds(ids, { includeRankedJson: false }),
       getProfilesMap(),
       getFlairMap(),
-      getSmurfIds(),
+      getSmurfMap(),
     ])
     if (players.status === "fulfilled") playersMap = players.value
     else console.error("[live] player cache lookup failed:", players.reason)
@@ -399,8 +399,8 @@ export default async function LivePage({
     else console.error("[live] profiles lookup failed:", profiles.reason)
     if (flairMap.status === "fulfilled") flairs = flairMap.value
     else console.error("[live] flair lookup failed:", flairMap.reason)
-    if (smurfIds.status === "fulfilled") smurfs = smurfIds.value
-    else console.error("[live] smurf lookup failed:", smurfIds.reason)
+    if (smurfMap.status === "fulfilled") smurfs = smurfMap.value
+    else console.error("[live] smurf lookup failed:", smurfMap.reason)
   }
 
   return (
