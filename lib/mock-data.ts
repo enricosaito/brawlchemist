@@ -266,4 +266,4 @@ export const CURRENT_PATCH = "10.11"
 /** Ranked season the live numbers belong to. Bump alongside CURRENT_PATCH when
  * Brawlhalla rolls the ladder — every rating, rank and win rate we show is
  * season-scoped, so the profile says which season it is talking about. */
-export const CURRENT_SEASON = 41
+export const CURRENT_SEASON = 42

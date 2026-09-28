@@ -1110,15 +1110,27 @@ export function EsportsSection({
                   }}
                 />
               )}
-              <span className="flex w-14 shrink-0 flex-col items-center rounded-lg border border-border/60 bg-muted/30 py-2">
-                <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-                  {when.month}
+              {/* The finish is the block, because the finish is what the run
+                  was for. On /tournaments this slot holds the date, since an
+                  event listing is a calendar; a career is read as results, so
+                  here the date steps down to a chip and the placement takes
+                  the headline. Podium colours only, same rule as the chip it
+                  replaced — an unrecorded finish reads as a quiet dash rather
+                  than a claim. */}
+              <span
+                className={cn(
+                  "flex w-14 shrink-0 flex-col items-center rounded-lg border py-2",
+                  run.placementRank !== null
+                    ? placementTone(run.placementRank)
+                    : "border-border/60 bg-muted/30 text-muted-foreground"
+                )}
+              >
+                <Trophy className="size-3" aria-hidden />
+                <span className="mt-1 font-display text-xl leading-none font-bold text-foreground">
+                  {run.placementRank !== null ? ordinal(run.placementRank) : "—"}
                 </span>
-                <span className="font-display text-xl leading-none font-bold">
-                  {when.day}
-                </span>
-                <span className="font-mono text-[9px] text-muted-foreground">
-                  {when.year}
+                <span className="mt-1 font-mono text-[9px] tracking-wider uppercase opacity-80">
+                  Place
                 </span>
               </span>
 
@@ -1127,13 +1139,12 @@ export function EsportsSection({
                   {run.name}
                 </span>
                 <span className="flex flex-wrap items-center gap-1.5">
-                  {/* The finish leads the chips, because it is what the run was
-                      for. Podium colours only — painting 9th gold-adjacent
-                      would make every card shout. */}
-                  {run.placementRank !== null && (
-                    <Chip className={placementTone(run.placementRank)}>
-                      <Trophy className="size-2.5" />
-                      {ordinal(run.placementRank)}
+                  {/* The date leads the chips now that the finish holds the
+                      block: it is still the first thing that places a run in
+                      a career, just no longer the loudest. */}
+                  {when.day && (
+                    <Chip className="border-border/60 bg-muted/40 text-muted-foreground">
+                      {when.month} {when.day}, {when.year}
                     </Chip>
                   )}
                   {run.mode && (
