@@ -61,6 +61,14 @@ const nextConfig = {
         destination: "/meta-picks",
         permanent: true,
       },
+      // The Lab (true combos) is discontinued for now. Temporary on purpose:
+      // the clip library and its admin tab are still here, so the route may
+      // come back, and a 308 would be cached by browsers for good.
+      {
+        source: "/lab",
+        destination: "/",
+        permanent: false,
+      },
     ]
   },
 }

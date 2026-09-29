@@ -60,13 +60,6 @@ const NAV: NavEntry[] = [
     avatar: "/assets/avatars/AniAvatar_Cursed_Kunai.webp",
   },
   {
-    // The flipbook cat, because the page is a flipbook: two-second loops you
-    // scrub through until the input order sticks.
-    label: "The Lab",
-    href: "/lab",
-    avatar: "/assets/avatars/AniAvatar_Flipbook_Cat.webp",
-  },
-  {
     label: "Guilds",
     href: "/guilds",
     avatar: "/assets/avatars/AniAvatar_River_Raid.webp",
