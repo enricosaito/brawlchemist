@@ -265,7 +265,7 @@ function noticeFor(sp: {
     }
   }
   if (sp.combosaved) {
-    return { tone: "ok", text: "Clip saved. Live on The Lab now." }
+    return { tone: "ok", text: "Clip saved. The Lab is offline for now, so it will show when the page returns." }
   }
   if (sp.combodeleted) {
     return {

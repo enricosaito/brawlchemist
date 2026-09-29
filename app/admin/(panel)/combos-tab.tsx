@@ -16,7 +16,9 @@ const buttonCls =
 const WEAPONS = Object.keys(WEAPON_NAMES) as WeaponId[]
 
 /**
- * Admin → Combos. The Lab's clip library.
+ * Admin → Combos. The Lab's clip library. The Lab itself is discontinued for
+ * now (its route redirects home), but the library stays so the clips are not
+ * lost and the page can return without a backfill.
  *
  * The only tab that uploads video, and the reason The Lab has a table behind it
  * at all: a static module made adding a clip a deploy, which is a fine trade at
