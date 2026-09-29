@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils"
 import { AccountControl, type ClaimedProfile } from "./account-control"
 import type { FlairContext } from "@/lib/profile/flair"
 import { SoundToggle } from "./sound-toggle"
-import { DiscordIcon, GithubIcon, XIcon } from "@/components/site/brand-icons"
 
 /* ---------------------------------------------------------------------------
    Nav config — mapped to Brawlchemist's REAL destinations (not the game's
@@ -181,44 +180,24 @@ function Wordmark() {
   )
 }
 
-function SocialFooter() {
+/**
+ * The rail's foot: the disclaimer and the music toggle, on one line.
+ *
+ * There was a row of social links here (GitHub, X, Discord) and it is gone
+ * for now — none of those channels is live enough to send a visitor to. With
+ * the icons out, a second row holding only the toggle read as a leftover, so
+ * the toggle sits at the end of the disclaimer instead and the foot is one
+ * line shorter, which the eight-entry nav above it can use.
+ */
+function RailFooter() {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex items-end justify-between gap-3">
       <p className="text-[11px] leading-relaxed text-muted-foreground/80">
         Tracking live data from the Brawlhalla Developer API.
         <br />
         Not affiliated with or endorsed by Blue Mammoth Games.
       </p>
-      <div className="flex items-center gap-1">
-        <a
-          href="/github"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="GitHub"
-          className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <GithubIcon className="size-4" />
-        </a>
-        <a
-          href="/twitter"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="X (Twitter)"
-          className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <XIcon className="size-4" />
-        </a>
-        <a
-          href="/discord"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Discord"
-          className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <DiscordIcon className="size-4" />
-        </a>
-        <SoundToggle className="ml-auto" />
-      </div>
+      <SoundToggle className="-mb-1.5 -mr-2 shrink-0" />
     </div>
   )
 }
@@ -315,7 +294,7 @@ export function SidebarNav({
             flair={flair}
             flairId={flairId}
           />
-          <SocialFooter />
+          <RailFooter />
         </div>
       </div>
 
@@ -324,8 +303,8 @@ export function SidebarNav({
           full-height and never scrolls itself; only the right column scrolls. */}
       <aside className="hidden h-full flex-col gap-7 overflow-hidden px-5 py-7 md:sticky md:top-0 md:flex md:h-svh xl:px-7">
         <Wordmark />
-        {/* min-h-0 lets the nav yield so the account control + social footer
-            (icons + music) stay pinned and visible.
+        {/* min-h-0 lets the nav yield so the account control + footer
+            (disclaimer + music) stay pinned and visible.
             This used to be overflow-hidden, on the reasoning that the rail
             should never scroll and nothing was clipped anyway. The eighth entry
             ended that: at 1000px tall the list ran past the account control and
@@ -338,7 +317,7 @@ export function SidebarNav({
           <NavList />
         </div>
         <AccountControl user={user} claimed={claimed} flair={flair} />
-        <SocialFooter />
+        <RailFooter />
       </aside>
     </>
   )

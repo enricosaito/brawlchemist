@@ -61,21 +61,6 @@ const nextConfig = {
         destination: "/meta-picks",
         permanent: true,
       },
-      {
-        source: "/github",
-        destination: "https://github.com/enricosaito/brawlchemist",
-        permanent: false,
-      },
-      {
-        source: "/twitter",
-        destination: "https://x.com/brawlchemist",
-        permanent: false,
-      },
-      {
-        source: "/discord",
-        destination: "https://discord.gg/jXpe8kjYwQ",
-        permanent: false,
-      },
     ]
   },
 }
